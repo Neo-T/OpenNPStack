@@ -1,5 +1,6 @@
 # Prerequisites
 *.d
+compile_flags.txt
 
 # Object files
 *.o
