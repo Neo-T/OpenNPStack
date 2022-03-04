@@ -51,5 +51,4 @@ Module.symvers
 Mkfile.old
 dkms.conf
 .codelite/
-open-npstack.workspace
-Makefile
+ppp.project
