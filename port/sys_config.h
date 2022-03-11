@@ -1,20 +1,20 @@
-/* sys_config.h
+﻿/* sys_config.h
  *
- * 系统配置头文件，用户可根据实际情况对协议栈进行裁剪、参数配置等工作
+ * 绯荤粺閰嶇疆澶存枃浠讹紝鐢ㄦ埛鍙牴鎹疄闄呮儏鍐靛鍗忚鏍堣繘琛岃鍓€佸弬鏁伴厤缃瓑宸ヤ綔
  *
- * Neo-T, 创建于2022.03.11 14:45
- * 版本: 1.0
+ * Neo-T, 鍒涘缓浜?022.03.11 14:45
+ * 鐗堟湰: 1.0
  *
  */
 #ifndef SYS_CONFIG_H
 #define SYS_CONFIG_H
 
-//* 内存管理单元(mmu)相关配置项
+//* 鍐呭瓨绠＄悊鍗曞厓(mmu)鐩稿叧閰嶇疆椤?
 //* =======================================================
-#define BUDDY_PAGE_SIZE  64     //* 系统能够分配的最小页面大小，如果小内存用量大则页大小调小一些以减少内存浪费，反之则大些，页大小必须是2的整数次幂
-#define BUDDY_ARER_COUNT 8      //* 指定buddy算法管理的内存块数组单元数量
-#define BUDDY_MEM_SIZE   8192   //* buddy算法管理的内存总大小，其值由BUDDY_PAGE_SIZE、BUDDY_ARER_COUNT两个宏计算得到：
-                                //* 64*(2^(8 - 1))，64乘以2的(8 - 1)次方，即BUDDY_MEM_SIZE = BUDDY_PAGE_SIZE * (2 ^ (BUDDY_ARER_COUNT - 1))
+#define BUDDY_PAGE_SIZE  64     //* 绯荤粺鑳藉鍒嗛厤鐨勬渶灏忛〉闈㈠ぇ灏忥紝濡傛灉灏忓唴瀛樼敤閲忓ぇ鍒欓〉澶у皬璋冨皬涓€浜涗互鍑忓皯鍐呭瓨娴垂锛屽弽涔嬪垯澶т簺锛岄〉澶у皬蹇呴』鏄?鐨勬暣鏁版骞?
+#define BUDDY_ARER_COUNT 8      //* 鎸囧畾buddy绠楁硶绠＄悊鐨勫唴瀛樺潡鏁扮粍鍗曞厓鏁伴噺
+#define BUDDY_MEM_SIZE   8192   //* buddy绠楁硶绠＄悊鐨勫唴瀛樻€诲ぇ灏忥紝鍏跺€肩敱BUDDY_PAGE_SIZE銆丅UDDY_ARER_COUNT涓や釜瀹忚绠楀緱鍒帮細
+                                //* 64*(2^(8 - 1))锛?4涔樹互2鐨?8 - 1)娆℃柟锛屽嵆BUDDY_MEM_SIZE = BUDDY_PAGE_SIZE * (2 ^ (BUDDY_ARER_COUNT - 1))
 //* =======================================================
 
 #endif
