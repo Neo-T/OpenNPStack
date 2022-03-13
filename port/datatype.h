@@ -29,10 +29,13 @@ typedef signed int 			INT;        //* 32位的有符号整型
 typedef unsigned int		UINT;       //* 32位的无符号整型
 typedef signed short		SHORT;      //* 16位的有符号短整型
 typedef unsigned short		USHORT;     //* 16位的无符号短整型
-typedef char				CHAR;       //* 8位有符号字节型，为了避免与WIN平台下的类型定义冲突故多加了个S
+typedef char				CHAR;       //* 8位有符号字节型
 typedef	unsigned char		UCHAR;      //* 8位无符号字节型
 typedef unsigned int		BOOL;       //* bool型变量
 
+#ifndef NULL
+typedef NULL (void *)0
+#endif
 typedef INT HANDLE;			//* 设备操作句柄
 #define INVALID_HANDLE 	-1	//* 无效的设备操作句柄
 
