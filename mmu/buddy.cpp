@@ -211,18 +211,18 @@ __lblSplit:
 void buddy_free(void *pvStart)
 {
 	INT i;
-	PST_BUDDY_AREA pstArea; 
+	PST_BUDDY_AREA pstArea;
 	PST_BUDDY_PAGE pstNextPage, pstPrevPage1, pstPrevPage2, pstFreedPage;
-	UCHAR *pubBuddyAddr; 
+	UCHAR *pubBuddyAddr;
 
 	for (i = 0; i < BUDDY_ARER_COUNT; i++)
 	{
 		pstNextPage = l_staArea[i].pstNext;
-		pstPrevPage1 = NULL; 
+		pstPrevPage1 = NULL;
 		while (pstNextPage)
 		{
 			if (pstNextPage->pubStart == (UCHAR *)pvStart)
-			{				
+			{
 				pstFreedPage = pstNextPage;
 				pstNextPage->blIsUsed = FALSE;
 				goto __lblMerge;
@@ -237,7 +237,7 @@ void buddy_free(void *pvStart)
 	return;
 
 	//* 合并操作
-__lblMerge: 
+__lblMerge:
 	if (pstFreedPage->pubBuddyNextAddr)
 		pubBuddyAddr = pstFreedPage->pubBuddyNextAddr;
 	else
@@ -245,7 +245,7 @@ __lblMerge:
 
 	pstArea = &l_staArea[i];
 	pstNextPage = pstArea->pstNext;
-	pstPrevPage2 = NULL; 
+	pstPrevPage2 = NULL;
 	while (pstNextPage)
 	{
 		if (!pstNextPage->blIsUsed)
@@ -258,7 +258,7 @@ __lblMerge:
 					if (pstPrevPage1)
 						pstPrevPage1->pstNext = pstNextPage->pstNext;
 					else
-						pstArea->pstNext = pstNextPage->pstNext; 					
+						pstArea->pstNext = pstNextPage->pstNext;
 				}
 				else
 				{
@@ -266,7 +266,7 @@ __lblMerge:
 						pstPrevPage2->pstNext = pstFreedPage->pstNext;
 					else
 						pstArea->pstNext = pstFreedPage->pstNext;
-					pstFreedPage->pubStart = pstNextPage->pubStart; 
+					pstFreedPage->pubStart = pstNextPage->pubStart;
 				}
 
 				FreePageNode(pstNextPage);
@@ -276,31 +276,68 @@ __lblMerge:
 		}
 
 		pstPrevPage2 = pstNextPage;
-		pstNextPage = pstNextPage->pstNext; 
+		pstNextPage = pstNextPage->pstNext;
 	}
 
 	return; //* 没有合并节点则结束执行
 
 __lblUpperLink: //* 将合并后的节点挂载到上层
-	i++; 
+	i++;
 	if (i < BUDDY_ARER_COUNT)
 	{
 		pstArea = &l_staArea[i];
-		pstNextPage = pstArea->pstNext; 
-		pstPrevPage2 = NULL; 
+		pstNextPage = pstArea->pstNext;
+		if (!pstNextPage)
+		{
+			pstArea->pstNext = pstFreedPage;
+			pstFreedPage->pstNext = NULL;
+
+			if (i + 1 >= BUDDY_ARER_COUNT) //* 最后的页块单元了，不用再合并了，直接返回
+				return;
+
+			UINT unOffset = (UINT)(pstFreedPage->pubStart - l_ubaMemPool);
+			if (unOffset % l_staArea[i].unPageSize == 0)
+			{
+				pstFreedPage->pubBuddyNextAddr = pstFreedPage->pubStart + l_staArea[i].unPageSize;
+				pstFreedPage->pubBuddyPrevAddr = NULL;
+			}
+			else
+			{
+				pstFreedPage->pubBuddyNextAddr = NULL;
+				pstFreedPage->pubBuddyPrevAddr = (unOffset > l_staArea[i].unPageSize) ? &l_ubaMemPool[((unOffset / l_staArea[i].unPageSize) * l_staArea[i].unPageSize)] : l_ubaMemPool;
+			}
+
+			//UINT unUpperPageSize = l_staArea[i].unPageSize * 2;
+			//unOffset = (UINT)(pstFreedPage->pubStart - l_ubaMemPool);
+			//if (unOffset % unUpperPageSize == 0)
+			//{
+			//	pstFreedPage->pubBuddyNextAddr = pstFreedPage->pubStart + unUpperPageSize;
+			//	pstFreedPage->pubBuddyPrevAddr = NULL;
+			//}
+			//else
+			//{
+			//	pstFreedPage->pubBuddyNextAddr = NULL;
+			//	pstFreedPage->pubBuddyPrevAddr = (unOffset > unUpperPageSize) ? &l_ubaMemPool[((unOffset / unUpperPageSize) * unUpperPageSize)] : l_ubaMemPool;
+			//}
+			pstPrevPage1 = NULL;
+
+			return;
+		}
+
+		pstPrevPage2 = NULL;
 		while (pstNextPage)
 		{
 			if (pstNextPage->pubBuddyNextAddr)
 			{
 				if (pstFreedPage->pubStart == pstNextPage->pubBuddyNextAddr) //* 说明是伙伴节点的后半部分
 				{
-					pstFreedPage->pstNext = pstNextPage->pstNext; 
-					pstNextPage->pstNext = pstFreedPage; 
+					pstFreedPage->pstNext = pstNextPage->pstNext;
+					pstNextPage->pstNext = pstFreedPage;
 
 					pstFreedPage->pubBuddyNextAddr = NULL;
-					pstFreedPage->pubBuddyPrevAddr = pstNextPage->pubStart; 					
+					pstFreedPage->pubBuddyPrevAddr = pstNextPage->pubStart;
 					pstPrevPage1 = pstNextPage;
-					
+
 					goto __lblMerge;
 				}
 			}
@@ -321,10 +358,10 @@ __lblUpperLink: //* 将合并后的节点挂载到上层
 				}
 			}
 
-			pstPrevPage2 = pstNextPage; 
+			pstPrevPage2 = pstNextPage;
 			pstNextPage = pstNextPage->pstNext;
 		}
 	}
 
-	return; 
+	return;
 }
