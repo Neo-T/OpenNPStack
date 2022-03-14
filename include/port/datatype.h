@@ -36,8 +36,6 @@ typedef unsigned int		BOOL;       //* bool型变量
 #ifndef NULL
 typedef NULL (void *)0
 #endif
-typedef INT HANDLE;			//* 设备操作句柄
-#define INVALID_HANDLE 	-1	//* 无效的设备操作句柄
 
 #define TRUE 	1
 #define FALSE 	0

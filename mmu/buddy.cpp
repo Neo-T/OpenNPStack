@@ -1,8 +1,10 @@
-﻿#include "datatype.h"
-#include "sys_config.h"
+﻿#include "port/datatype.h"
+#include "port/os_datatype.h"
+#include "port/sys_config.h"
+#include "errors.h"
 
 #define SYMBOL_GLOBALS
-#include "buddy.h"
+#include "mmu/buddy.h"
 #undef SYMBOL_GLOBALS
 
 //* 再次把相关基础数据准备好，确保协议栈不过多占用用户的堆空间
@@ -258,7 +260,7 @@ __lblMerge:
 			{
 				if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 当前被释放的节点在前
 				{
-					//* 先摘除再合并
+					//* 摘除其实就等于合并了
 					if (pstPrevPage1)
 						pstPrevPage1->pstNext = pstNextPage->pstNext;
 					else
