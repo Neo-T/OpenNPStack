@@ -12,3 +12,12 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRREQMEMTOOLARGE, "the requested memory is too large, please refer to the macro definition BUDDY_MEM_SIZE" },
 	{ ERRNOFREEMEM, "the mmu has no memory available" }
 }; 
+
+const CHAR *error(EN_ERROR_CODE enErrCode)
+{
+	UINT unIndex = (UINT)enErrCode;
+	if (unIndex < sizeof(lr_staErrorList) / sizeof(ST_ERROR))
+		return lr_staErrorList[unIndex].szDesc;
+
+	return "unrecognized error code";
+}

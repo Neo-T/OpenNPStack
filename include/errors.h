@@ -10,9 +10,9 @@
 #define ERRORS_H
 
 #ifdef SYMBOL_GLOBALS
-#define BUDDY_EXT
+#define ERRORS_EXT
 #else
-#define BUDDY_EXT extern
+#define ERRORS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
 #define ERROR_NUM	10
@@ -28,7 +28,7 @@ typedef struct _ST_ERROR_ {
 	CHAR szDesc[128];
 } ST_ERROR, *PST_ERROR;
 
-
+ERRORS_EXT const CHAR *error(EN_ERROR_CODE enErrCode);
 
 #endif
 
