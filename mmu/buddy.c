@@ -14,7 +14,7 @@ static const UINT lr_unPageCount = BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1;
 static ST_BUDDY_PAGE l_staPage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 static STCB_BUDDY_PAGE_NODE l_stcbaFreePage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 
-static PST_BUDDY_PAGE GetPageNode(void)
+static PST_BUDDY_PAGE GetPageNode(EN_ERROR_CODE *penErrCode)
 {
 	PST_BUDDY_PAGE pstPage;
 	PSTCB_BUDDY_PAGE_NODE pstNode = &l_stcbaFreePage[0];
@@ -32,7 +32,7 @@ static PST_BUDDY_PAGE GetPageNode(void)
 		pstNode = pstNode->pstNext; 
 	}
 
-	printf("GetPageNode()执行失败\r\n");
+	*penErrCode = ERRNOPAGENODES;
 
 	return NULL;
 }
@@ -50,14 +50,13 @@ static void FreePageNode(PST_BUDDY_PAGE pstPage)
 
 		pstNode = pstNode->pstNext;
 	}
-
-	printf("FreePageNode()执行失败\r\n");
 }
 
 void buddy_init(void)
 {
 	INT i;
-	UINT unPageSize = BUDDY_PAGE_SIZE;
+	UINT unPageSize = BUDDY_PAGE_SIZE; 
+	EN_ERROR_CODE enCode;
 
 	//* 存储页面控制信息的链表必须先初始化，接下来就要用到
 	for (i = 0; i < lr_unPageCount; i++)
@@ -69,7 +68,7 @@ void buddy_init(void)
 
 	//* 清零，并把交给buddy管理的整块内存挂载到页块管理数组的最后一个单元，确保最后一个单元为最大一块连续的内存
 	memset(&l_staArea, 0, sizeof(l_staArea));
-	PST_BUDDY_PAGE pstPage = GetPageNode();
+	PST_BUDDY_PAGE pstPage = GetPageNode(&enCode); 
 	pstPage->pstNext = NULL;
 	pstPage->pubStart = l_ubaMemPool;
 	l_staArea[BUDDY_ARER_COUNT - 1].pstNext  = pstPage;
@@ -83,7 +82,7 @@ void buddy_init(void)
 	}
 }
 
-void *buddy_alloc(UINT unSize)
+void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 {
 	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE;
@@ -93,7 +92,7 @@ void *buddy_alloc(UINT unSize)
 
 	if (unSize > BUDDY_MEM_SIZE)
 	{
-		printf("要申请的内存超过系统支持分配的最大内存\r\n");
+		*penErrCode = ERRREQMEMTOOLARGE;
 		return (void *)0;
 	}
 
@@ -138,7 +137,7 @@ void *buddy_alloc(UINT unSize)
 		}
 	}
 
-	printf("系统无可用内存\r\n");
+	*penErrCode = ERRNOFREEMEM;
 
 	return (void *)0;
 
@@ -153,12 +152,12 @@ __lblSplit:
 
 		//* 分裂
 		pstArea = &l_staArea[i - 1];
-		pstFreePage1 = GetPageNode();
+		pstFreePage1 = GetPageNode(penErrCode);
 		if (!pstFreePage1) //* 这属于程序BUG，理论上不应该申请不到
 		{
 			return (void *)0;
 		}
-		pstFreePage2 = GetPageNode();
+		pstFreePage2 = GetPageNode(penErrCode);
 		if (!pstFreePage2) //* 同上
 		{
 			return (void *)0;
@@ -201,7 +200,7 @@ __lblSplit:
 		}
 	}
 
-	printf("系统无可用内存\r\n");
+	*penErrCode = ERRNOFREEMEM; //* 理论上这里是执行不到的
 
 	return (void *)0;
 }
@@ -217,7 +216,7 @@ static UCHAR *cal_buddy_addr(PST_BUDDY_AREA pstArea, PST_BUDDY_PAGE pstPage)
 		return (unOffset > unUpperPageSize) ? &l_ubaMemPool[((unOffset / unUpperPageSize) * unUpperPageSize)] : l_ubaMemPool;
 }
 
-void buddy_free(void *pvStart)
+BOOL buddy_free(void *pvStart)
 {
 	INT i;
 	PST_BUDDY_AREA pstArea;
@@ -242,8 +241,7 @@ void buddy_free(void *pvStart)
 		}
 	}
 
-	printf("释放失败\r\n");
-	return;
+	return FALSE; //* 如果上层调用者擅自修改了分配的起始地址，那么释放就会失败,所以只要释放失败就是这个问题
 
 	//* 合并操作
 __lblMerge:
@@ -285,7 +283,7 @@ __lblMerge:
 		pstNextPage = pstNextPage->pstNext;
 	}
 
-	return; //* 没有合并节点则结束执行
+	return TRUE; //* 没有合并节点则结束执行
 
 __lblMountToUpperLink: //* 将合并后的节点挂载到上层
 	i++;
@@ -298,7 +296,7 @@ __lblMountToUpperLink: //* 将合并后的节点挂载到上层
 			pstArea->pstNext = pstFreedPage;
 			pstFreedPage->pstNext = NULL;
 
-			return;
+			return TRUE;
 		}
 
 		pubBuddyAddr = cal_buddy_addr(pstArea, pstFreedPage);
@@ -332,6 +330,6 @@ __lblMountToUpperLink: //* 将合并后的节点挂载到上层
 		}
 	}
 
-	return;
+	return TRUE; //* 理论上执行不到这里，这一句主要是为了避免编译器警告
 }
 
