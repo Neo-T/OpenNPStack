@@ -1,5 +1,6 @@
 ﻿#include "port/datatype.h"
 #include "port/os_datatype.h"
+#include "port/os_adapter.h"
 #include "port/sys_config.h"
 #include "errors.h"
 
@@ -13,6 +14,7 @@ static ST_BUDDY_AREA l_staArea[BUDDY_ARER_COUNT];
 static const UINT lr_unPageCount = BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1;
 static ST_BUDDY_PAGE l_staPage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 static STCB_BUDDY_PAGE_NODE l_stcbaFreePage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
+static HMUTEX l_hMtxMMUBuddy;
 
 static PST_BUDDY_PAGE GetPageNode(EN_ERROR_CODE *penErrCode)
 {
@@ -52,7 +54,7 @@ static void FreePageNode(PST_BUDDY_PAGE pstPage)
 	}
 }
 
-void buddy_init(void)
+BOOL buddy_init(EN_ERROR_CODE *penErrCode)
 {
 	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE; 
@@ -80,6 +82,13 @@ void buddy_init(void)
 		unPageSize *= 2;
 		l_staArea[i].unPageSize = unPageSize;
 	}
+
+	l_hMtxMMUBuddy = os_thread_mutex_init();
+	if (INVALID_HMUTEX != l_hMtxMMUBuddy)	
+		return TRUE; 
+	
+	*penErrCode = ERRMUTEXINITFAILED; 
+	return FALSE; 
 }
 
 void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
@@ -107,98 +116,108 @@ void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 
 		unPageSize *= 2;
 	}
-
-	//* 存在有效页面则直接返回
-	pstPage = l_staArea[i].pstNext;
-	while (pstPage)
+	
+	//* 查找可用且大小适合的页面分配给用户
+	os_thread_mutex_lock(l_hMtxMMUBuddy);
 	{
-		if (!pstPage->blIsUsed)
-		{
-			pstPage->blIsUsed = TRUE;
-			return pstPage->pubStart;
-		}
-
-		pstPage = pstPage->pstNext;
-	}
-
-	//* 一旦执行到这里意味着当前页块单元没有可用页块，需要从更大的页块单元分裂出一块来使用
-	//* 先找到最近的有空余页块的单元
-	i++;
-	for (; i < BUDDY_ARER_COUNT; i++)
-	{
+		//* 存在有效页面则直接返回
 		pstPage = l_staArea[i].pstNext;
-		pstPrevPage = NULL;
 		while (pstPage)
 		{
 			if (!pstPage->blIsUsed)
-				goto __lblSplit;
-			pstPrevPage = pstPage;
+			{
+				pstPage->blIsUsed = TRUE;
+				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				return pstPage->pubStart;
+			}
+
 			pstPage = pstPage->pstNext;
 		}
-	}
 
-	*penErrCode = ERRNOFREEMEM;
-
-	return (void *)0;
-
-__lblSplit:
-	for (; i > 0; i--)
-	{
-		//* 摘除
-		if (pstPrevPage)
-			pstPrevPage->pstNext = pstPage->pstNext;
-		else
-			l_staArea[i].pstNext = pstPage->pstNext;
-
-		//* 分裂
-		pstArea = &l_staArea[i - 1];
-		pstFreePage1 = GetPageNode(penErrCode);
-		if (!pstFreePage1) //* 这属于程序BUG，理论上不应该申请不到
+		//* 一旦执行到这里意味着当前页块单元没有可用页块，需要从更大的页块单元分裂出一块来使用
+		//* 先找到最近的有空余页块的单元	
+		i++;
+		for (; i < BUDDY_ARER_COUNT; i++)
 		{
-			return (void *)0;
-		}
-		pstFreePage2 = GetPageNode(penErrCode);
-		if (!pstFreePage2) //* 同上
-		{
-			return (void *)0;
-		}
-		pstFreePage1->pubStart = pstPage->pubStart;
-		pstFreePage2->pubStart = pstPage->pubStart + pstArea->unPageSize; 
-		FreePageNode(pstPage); //* 归还
-
-		//* 挂接到下一个更小的页块单元
-		pstNextPage = pstArea->pstNext;
-		if (!pstNextPage)
-		{
-			pstArea->pstNext = pstFreePage1;
-			pstFreePage1->pstNext = pstFreePage2;
-			pstPage = pstFreePage1;
+			pstPage = l_staArea[i].pstNext;
 			pstPrevPage = NULL;
+			while (pstPage)
+			{
+				if (!pstPage->blIsUsed)
+					goto __lblSplit;
+				pstPrevPage = pstPage;
+				pstPage = pstPage->pstNext;
+			}
 		}
-		else
-		{
-			do {
-				if (!pstNextPage->pstNext)
-				{
-					pstNextPage->pstNext = pstFreePage1;
-					pstFreePage1->pstNext = pstFreePage2;
-					pstPage = pstFreePage1;
-					pstPrevPage = pstNextPage;
-					break;
-				}
+		os_thread_mutex_unlock(l_hMtxMMUBuddy);
 
-				pstNextPage = pstNextPage->pstNext;
-			} while (TRUE);
-		}
+		*penErrCode = ERRNOFREEMEM; //* 没有空余页块，无法分配内存给用户了
 
-		//* 看看当前单元满足分配要求吗，满足则分配，否则继续分裂		
-		if (unSize > pstArea->unPageSize / 2 || BUDDY_PAGE_SIZE == pstArea->unPageSize)
+		return (void *)0;
+
+	__lblSplit:
+		for (; i > 0; i--)
 		{
-			//* 申请容量大于页块容量的一半，不需要继续分裂了，直接返回给用户即可
-			pstPage->blIsUsed = TRUE;
-			return (void *)pstPage->pubStart;
+			//* 摘除
+			if (pstPrevPage)
+				pstPrevPage->pstNext = pstPage->pstNext;
+			else
+				l_staArea[i].pstNext = pstPage->pstNext;
+
+			//* 分裂
+			pstArea = &l_staArea[i - 1];
+			pstFreePage1 = GetPageNode(penErrCode);
+			if (!pstFreePage1) //* 这属于程序BUG，理论上不应该申请不到
+			{
+				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				return (void *)0;
+			}
+			pstFreePage2 = GetPageNode(penErrCode);
+			if (!pstFreePage2) //* 同上
+			{
+				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				return (void *)0;
+			}
+			pstFreePage1->pubStart = pstPage->pubStart;
+			pstFreePage2->pubStart = pstPage->pubStart + pstArea->unPageSize;
+			FreePageNode(pstPage); 
+
+			//* 挂接到下一个更小的页块单元
+			pstNextPage = pstArea->pstNext;
+			if (!pstNextPage)
+			{
+				pstArea->pstNext = pstFreePage1;
+				pstFreePage1->pstNext = pstFreePage2;
+				pstPage = pstFreePage1;
+				pstPrevPage = NULL;
+			}
+			else
+			{
+				do {
+					if (!pstNextPage->pstNext)
+					{
+						pstNextPage->pstNext = pstFreePage1;
+						pstFreePage1->pstNext = pstFreePage2;
+						pstPage = pstFreePage1;
+						pstPrevPage = pstNextPage;
+						break;
+					}
+
+					pstNextPage = pstNextPage->pstNext;
+				} while (TRUE);
+			}
+
+			//* 看看当前单元满足分配要求吗，满足则分配，否则继续分裂		
+			if (unSize > pstArea->unPageSize / 2 || BUDDY_PAGE_SIZE == pstArea->unPageSize)
+			{
+				//* 申请容量大于页块容量的一半，不需要继续分裂了，直接返回给用户即可
+				pstPage->blIsUsed = TRUE;
+				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				return (void *)pstPage->pubStart;
+			}
 		}
 	}
+	os_thread_mutex_unlock(l_hMtxMMUBuddy);
 
 	*penErrCode = ERRNOFREEMEM; //* 理论上这里是执行不到的
 
@@ -223,113 +242,122 @@ BOOL buddy_free(void *pvStart)
 	PST_BUDDY_PAGE pstNextPage, pstPrevPage1, pstPrevPage2, pstFreedPage;
 	UCHAR *pubBuddyAddr;
 
-	for (i = 0; i < BUDDY_ARER_COUNT; i++)
+	os_thread_mutex_lock(l_hMtxMMUBuddy);
 	{
-		pstNextPage = l_staArea[i].pstNext;
-		pstPrevPage1 = NULL;
-		while (pstNextPage)
+		for (i = 0; i < BUDDY_ARER_COUNT; i++)
 		{
-			if (pstNextPage->pubStart == (UCHAR *)pvStart)
+			pstNextPage = l_staArea[i].pstNext;
+			pstPrevPage1 = NULL;
+			while (pstNextPage)
 			{
-				pstFreedPage = pstNextPage;
-				pstNextPage->blIsUsed = FALSE;
-				goto __lblMerge;
-			}
-
-			pstPrevPage1 = pstNextPage;
-			pstNextPage = pstNextPage->pstNext;
-		}
-	}
-
-	return FALSE; //* 如果上层调用者擅自修改了分配的起始地址，那么释放就会失败,所以只要释放失败就是这个问题
-
-	//* 合并操作
-__lblMerge:
-	pstArea = &l_staArea[i];
-	pubBuddyAddr = cal_buddy_addr(pstArea, pstFreedPage);
-
-	pstNextPage = pstArea->pstNext;
-	pstPrevPage2 = NULL;
-	while (pstNextPage)
-	{
-		if (!pstNextPage->blIsUsed)
-		{
-			if (pubBuddyAddr == pstNextPage->pubStart) //* 合并
-			{
-				if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 当前被释放的节点在前
+				if (pstNextPage->pubStart == (UCHAR *)pvStart)
 				{
-					//* 摘除其实就等于合并了
-					if (pstPrevPage1)
-						pstPrevPage1->pstNext = pstNextPage->pstNext;
-					else
-						pstArea->pstNext = pstNextPage->pstNext;
-				}
-				else
-				{
-					if (pstPrevPage2)
-						pstPrevPage2->pstNext = pstFreedPage->pstNext;
-					else
-						pstArea->pstNext = pstFreedPage->pstNext;
-					pstFreedPage->pubStart = pstNextPage->pubStart;
+					pstFreedPage = pstNextPage;
+					pstNextPage->blIsUsed = FALSE;
+					goto __lblMerge;
 				}
 
-				FreePageNode(pstNextPage);
-
-				goto __lblMountToUpperLink;
+				pstPrevPage1 = pstNextPage;
+				pstNextPage = pstNextPage->pstNext;
 			}
 		}
+		os_thread_mutex_unlock(l_hMtxMMUBuddy);
 
-		pstPrevPage2 = pstNextPage;
-		pstNextPage = pstNextPage->pstNext;
-	}
+		//* 如果上层调用者擅自修改了分配的起始地址，那么释放就会失败,所以只要释放失败就是这个问题
+		return FALSE; 
 
-	return TRUE; //* 没有合并节点则结束执行
-
-__lblMountToUpperLink: //* 将合并后的节点挂载到上层
-	i++;
-	if (i < BUDDY_ARER_COUNT)
-	{
+		//* 合并操作
+	__lblMerge:
 		pstArea = &l_staArea[i];
-		pstNextPage = pstArea->pstNext;
-		if (!pstNextPage)
-		{
-			pstArea->pstNext = pstFreedPage;
-			pstFreedPage->pstNext = NULL;
-
-			return TRUE;
-		}
-
 		pubBuddyAddr = cal_buddy_addr(pstArea, pstFreedPage);
+
+		pstNextPage = pstArea->pstNext;
 		pstPrevPage2 = NULL;
 		while (pstNextPage)
 		{
-			if (pubBuddyAddr == pstNextPage->pubStart) //* 伙伴页面，则挂载
+			if (!pstNextPage->blIsUsed)
 			{
-				if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 要挂载的节点为伙伴的前半部分
+				if (pubBuddyAddr == pstNextPage->pubStart) //* 合并
 				{
-					if (pstPrevPage2)
-						pstPrevPage2->pstNext = pstFreedPage;
+					if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 当前被释放的节点在前
+					{
+						//* 摘除其实就等于合并了
+						if (pstPrevPage1)
+							pstPrevPage1->pstNext = pstNextPage->pstNext;
+						else
+							pstArea->pstNext = pstNextPage->pstNext;
+					}
 					else
-						pstArea->pstNext = pstFreedPage;
-					pstFreedPage->pstNext = pstNextPage;
+					{
+						if (pstPrevPage2)
+							pstPrevPage2->pstNext = pstFreedPage->pstNext;
+						else
+							pstArea->pstNext = pstFreedPage->pstNext;
+						pstFreedPage->pubStart = pstNextPage->pubStart;
+					}
 
-					pstPrevPage1 = pstPrevPage2;
-				}
-				else
-				{
-					pstFreedPage->pstNext = pstNextPage->pstNext;
-					pstNextPage->pstNext = pstFreedPage;
-					pstPrevPage1 = pstNextPage;
-				}
+					FreePageNode(pstNextPage);
 
-				goto __lblMerge;
+					goto __lblMountToUpperLink;
+				}
 			}
 
 			pstPrevPage2 = pstNextPage;
 			pstNextPage = pstNextPage->pstNext;
 		}
-	}
+		os_thread_mutex_unlock(l_hMtxMMUBuddy);
 
-	return TRUE; //* 理论上执行不到这里，这一句主要是为了避免编译器警告
+		return TRUE; //* 没有合并节点则结束执行
+
+	__lblMountToUpperLink: //* 将合并后的节点挂载到上层
+		i++;
+		if (i < BUDDY_ARER_COUNT)
+		{
+			pstArea = &l_staArea[i];
+			pstNextPage = pstArea->pstNext;
+			if (!pstNextPage)
+			{
+				pstArea->pstNext = pstFreedPage;
+				pstFreedPage->pstNext = NULL;
+
+				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+
+				return TRUE;
+			}
+
+			pubBuddyAddr = cal_buddy_addr(pstArea, pstFreedPage);
+			pstPrevPage2 = NULL;
+			while (pstNextPage)
+			{
+				if (pubBuddyAddr == pstNextPage->pubStart) //* 伙伴页面，则挂载
+				{
+					if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 要挂载的节点为伙伴的前半部分
+					{
+						if (pstPrevPage2)
+							pstPrevPage2->pstNext = pstFreedPage;
+						else
+							pstArea->pstNext = pstFreedPage;
+						pstFreedPage->pstNext = pstNextPage;
+
+						pstPrevPage1 = pstPrevPage2;
+					}
+					else
+					{
+						pstFreedPage->pstNext = pstNextPage->pstNext;
+						pstNextPage->pstNext = pstFreedPage;
+						pstPrevPage1 = pstNextPage;
+					}
+
+					goto __lblMerge;
+				}
+
+				pstPrevPage2 = pstNextPage;
+				pstNextPage = pstNextPage->pstNext;
+			}
+		}
+	}
+	os_thread_mutex_unlock(l_hMtxMMUBuddy);
+
+	return TRUE; 
 }
 
