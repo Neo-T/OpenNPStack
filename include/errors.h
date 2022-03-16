@@ -22,6 +22,7 @@ typedef enum {
 	ERRREQMEMTOOLARGE,	//* 申请的内存过大，超过了系统支持的最大申请配额
 	ERRNOFREEMEM,		//* 系统已无可用内存
 	ERRMUTEXINITFAILED, //* 线程同步锁初始化失败
+	ERRNOBUFLISTNODE, 	//* 无缓冲区链表节点
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

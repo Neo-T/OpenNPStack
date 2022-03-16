@@ -8,7 +8,7 @@
 #include "mmu/buddy.h"
 #undef SYMBOL_GLOBALS
 
-//* 再次把相关基础数据准备好，确保协议栈不过多占用用户的堆空间
+//* 在此把相关基础数据准备好，确保协议栈不过多占用用户的堆空间
 static UCHAR l_ubaMemPool[BUDDY_MEM_SIZE];
 static ST_BUDDY_AREA l_staArea[BUDDY_ARER_COUNT];
 static const UINT lr_unPageCount = BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1;
