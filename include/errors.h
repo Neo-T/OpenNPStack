@@ -23,6 +23,7 @@ typedef enum {
 	ERRNOFREEMEM,		//* 系统已无可用内存
 	ERRMUTEXINITFAILED, //* 线程同步锁初始化失败
 	ERRNOBUFLISTNODE, 	//* 无缓冲区链表节点
+	ERRSEMINITFAILED,	//* 信号量初始化失败
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

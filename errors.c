@@ -13,6 +13,7 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRNOFREEMEM, "the mmu has no memory available" }, 
 	{ ERRMUTEXINITFAILED, "thread mutex initialization failed" }, 
 	{ ERRNOBUFLISTNODE, "the buffer list node is empty" }, 
+	{ ERRSEMINITFAILED, "thread semphore initialization failed" }, 
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)
