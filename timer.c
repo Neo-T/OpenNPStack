@@ -78,11 +78,13 @@ BOOL pstack_timer_init(EN_ERROR_CODE *penErrCode)
 
 void pstack_thread_timer_count(void *pvParam)
 {
-
-
+	PST_ONESHOTTIMER pstTimer; 
 	while (TRUE)
 	{
+		pstTimer = l_pstOneShotTimerLink; 
+		while()
 
+		os_sleep_secs(1);
 	}
 }
 
@@ -95,10 +97,11 @@ void pstack_thread_timeout_handler(void *pvParam)
 }
 
 //* 分配一个新的one-shot定时器
-PST_ONESHOTTIMER pstack_one_shot_timer_new(UINT unTimeoutCount, void(*pfunTimeoutHandler)(void *pvParam), void *pvParam)
+PST_ONESHOTTIMER pstack_one_shot_timer_new(INT nTimeoutCount, void(*pfunTimeoutHandler)(void *pvParam), void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer = NULL;
 
+	//* 从可用队列中摘取一个空闲节点
 	os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
 	{
 		pstTimer = l_pstFreeOneShotTimerLink;
@@ -107,17 +110,22 @@ PST_ONESHOTTIMER pstack_one_shot_timer_new(UINT unTimeoutCount, void(*pfunTimeou
 	}
 	os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
 
-	pstTimer->unStartSecs = ;
-	pstTimer->pfunTimeoutHandler = pfunTimeoutHandler; 
-	pstTimer->unTimeoutCount = unTimeoutCount; 
-
-	//* 挂接到计时队列中
-	os_thread_mutex_lock(l_hMtxOneShotTimer);
+	//* 存在空闲节点则赋值并挂接到计时队列中
+	if (pstTimer)
 	{
-		pstTimer->pstNext = l_pstOneShotTimerLink; 
-		l_pstOneShotTimerLink = pstTimer;
+		//* 先赋值再挂载，否则可能导致计数线程出现错误
+		pstTimer->pfunTimeoutHandler = pfunTimeoutHandler;
+		pstTimer->pvParam = pvParam;
+		pstTimer->nTimeoutCount = nTimeoutCount;
+
+		//* 挂接到计时队列中，开始计数
+		os_thread_mutex_lock(l_hMtxOneShotTimer);
+		{
+			pstTimer->pstNext = l_pstOneShotTimerLink;
+			l_pstOneShotTimerLink = pstTimer;
+		}
+		os_thread_mutex_unlock(l_hMtxOneShotTimer);
 	}
-	os_thread_mutex_unlock(l_hMtxOneShotTimer);
 
 	return pstTimer; 
 }

@@ -17,6 +17,13 @@ STCB_PSTACKTHREAD o_stcbaPStackThread[] = {
 /* 用户自定义变量声明区 */
 /* …… */
 
+//* 当前线程休眠指定的秒数，参数unSecs指定要休眠的秒数
+void os_sleep_secs(UINT unSecs)
+{
+	/* 用户自定义代码 */
+	/* …… */
+}
+
 void os_thread_pstack_start(void *pvParam)
 {
 	/* 用户自定义代码 */
