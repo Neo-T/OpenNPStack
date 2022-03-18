@@ -9,8 +9,8 @@
 //* 协议栈内部工作线程列表
 extern void THIPReceiver(void *pvParam); 
 STCB_PSTACKTHREAD o_stcbaPStackThread[] = {
-	{ THTimerCount, NULL}, 
-	{ THTimeoutHandler, NULL }, 
+	{ thread_timer_count, NULL},
+	{ thread_timeout_handler, NULL },
 	{ THIPReceiver, NULL }
 }; 
 

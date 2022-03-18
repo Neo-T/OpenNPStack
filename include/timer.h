@@ -18,15 +18,17 @@
 #define TIMER_NUM	64		//* 定时器数量
 typedef struct _ST_ONESHOTTIMER_ { //* 定时器
 	struct _ST_ONESHOTTIMER_ *pstNext;
-	void(*pfunTimeoutHandler)(void *pvParam);
+	void(*pfunTimeoutHandler)(struct _ST_ONESHOTTIMER_ *pstTimer, void *pvParam);
 	void *pvParam; 
 	INT nTimeoutCount;	//* 溢出值，单位：秒	
 } ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 
-TIMER_EXT BOOL pstack_timer_init(EN_ERROR_CODE *penErrCode); 
-TIMER_EXT void pstack_thread_timer_count(void *pvParam);
-TIMER_EXT void pstack_thread_timeout_handler(void *pvParam);
-TIMER_EXT PST_ONESHOTTIMER pstack_one_shot_timer_new(INT nTimeoutCount, void(*pfunTimeoutHandler)(void *pvParam), void *pvParam);
-TIMER_EXT void pstack_one_shot_timer_free(PST_ONESHOTTIMER pstTimer);
+TIMER_EXT BOOL timer_init(EN_ERROR_CODE *penErrCode); 
+TIMER_EXT void thread_timer_count(void *pvParam);
+TIMER_EXT void thread_timeout_handler(void *pvParam);
+TIMER_EXT PST_ONESHOTTIMER one_shot_timer_new(INT nTimeoutCount, void(*pfunTimeoutHandler)(void *pvParam), void *pvParam);
+TIMER_EXT void one_short_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount);
+TIMER_EXT void one_short_timer_stop(PST_ONESHOTTIMER pstTimer); 
+TIMER_EXT void one_shot_timer_free(PST_ONESHOTTIMER pstTimer);
 
 #endif
