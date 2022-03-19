@@ -5,27 +5,27 @@
 #include "errors.h"
 
 #define SYMBOL_GLOBALS
-#include "timer.h"
+#include "one_shot_timer.h"
 #undef SYMBOL_GLOBALS
 
 static HMUTEX l_hMtxFreeOneShotTimer;	//* 可用定时器链表同步锁
 static HMUTEX l_hMtxOneShotTimer;		//* 正在计时的定时器链表同步锁
 static HMUTEX l_hMtxOneShotTimeout;		//* 已经超时溢出的定时器链表同步锁
 static HSEM l_hSemOneShotTimeout = INVALID_HSEM;
-static ST_ONESHOTTIMER l_staOneShotTimerNode[TIMER_NUM];
+static ST_ONESHOTTIMER l_staOneShotTimerNode[ONE_SHOT_TIMER_NUM];
 static PST_ONESHOTTIMER l_pstFreeOneShotTimerLink;
 static PST_ONESHOTTIMER l_pstOneShotTimerLink = NULL;
 static PST_ONESHOTTIMER l_pstOneShotTimeoutLink = NULL;
 
 //* 定时器初始化
-BOOL timer_init(EN_ERROR_CODE *penErrCode)
+BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 {
 	INT i; 
-	for (i = 0; i < TIMER_NUM - 1; i++) //* 将定时器链表链接起来
+	for (i = 0; i < ONE_SHOT_TIMER_NUM - 1; i++) //* 将定时器链表链接起来
 	{
 		l_staOneShotTimerNode[i].pstNext = &l_staOneShotTimerNode[i + 1];
 	}
-	l_staOneShotTimerNode[TIMER_NUM - 1].pstNext = NULL; //* 最后一个节点单独赋值
+	l_staOneShotTimerNode[ONE_SHOT_TIMER_NUM - 1].pstNext = NULL; //* 最后一个节点单独赋值
 	l_pstFreeOneShotTimerLink = &l_staOneShotTimerNode[0];		  //* 接入链表头，形成真正的链表
 
 	do {
@@ -77,7 +77,7 @@ BOOL timer_init(EN_ERROR_CODE *penErrCode)
 }
 
 //* 这并不是一个精确的定时器计时队列，这依赖于休眠精度以及队列长度，但对于我们的应用场景来说已经足够使用
-void thread_timer_count(void *pvParam)
+void thread_one_shot_timer_count(void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer, pstPrevTimer; 
 	while (TRUE)
@@ -125,8 +125,8 @@ void thread_timer_count(void *pvParam)
 	}
 }
 
-//* 计时溢出事件处理线程
-void thread_timeout_handler(void *pvParam)
+//* 计时溢出事件处理线程，当用户的计时器溢出函数执行后，当前定时器将被线程自动释放并归还给系统，用户无需执行释放操作
+void thread_one_shot_timeout_handler(void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer;
 	while (TRUE)
@@ -147,13 +147,15 @@ void thread_timeout_handler(void *pvParam)
 		if (pstTimer)
 		{
 			//* 执行溢出函数
-			pstTimer->pfunTimeoutHandler(pstTimer, pstTimer->pvParam);
+			pstTimer->pfunTimeoutHandler(pstTimer->pvParam);
+			//* 归还给系统
+			one_shot_timer_free(pstTimer); 
 		}
 	}
 }
 
 //* 分配一个新的one-shot定时器
-PST_ONESHOTTIMER one_shot_timer_new(INT nTimeoutCount, void(*pfunTimeoutHandler)(void *pvParam), void *pvParam)
+PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, void *pvParam, INT nTimeoutCount)
 {
 	PST_ONESHOTTIMER pstTimer = NULL;
 
@@ -208,18 +210,29 @@ void one_short_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount)
 	os_thread_mutex_unlock(l_hMtxOneShotTimer); 
 }
 
-void one_short_timer_stop(PST_ONESHOTTIMER pstTimer)
+//* 这个函数的目的是安全停止计时器并将其归还给系统，不再占用
+//* 与one_shot_timer_free()函数不同，该函数需要先判断其是否
+//* 依然还在计数，是，则停止并归还给系统，否则不做任何处理
+void one_short_timer_safe_free(PST_ONESHOTTIMER pstTimer)
 {
-	PST_ONESHOTTIMER pstNextTimer;
+	PST_ONESHOTTIMER pstNextTimer, pstPrevTimer;
+	BOOL blIsExist = FALSE; 
 
-	//*	确保计时队列中还存在这个节点，否则没必要重计数了
+	//*	确保计时队列中还存在这个节点，否则不做任何处理
 	os_thread_mutex_lock(l_hMtxOneShotTimer);
 	{
 		pstNextTimer = l_pstOneShotTimerLink;
+		pstPrevTimer = NULL; 
 		while (pstNextTimer)
 		{
-			if (pstTimer == pstNextTimer)
+			if (pstTimer == pstNextTimer) //* 存在这个定时器，从计时器队列摘除之
 			{
+				if (pstPrevTimer)
+					pstPrevTimer->pstNext = pstTimer->pstNext;
+				else
+					l_pstOneShotTimerLink = pstTimer->pstNext;
+
+				blIsExist = TRUE;
 				
 				break;
 			}
@@ -228,9 +241,20 @@ void one_short_timer_stop(PST_ONESHOTTIMER pstTimer)
 		}
 	}
 	os_thread_mutex_unlock(l_hMtxOneShotTimer);
+
+	//* 存在则归还给系统（这里未使用函数调用的方式以减少入栈出栈带来的内存及性能损耗）
+	if (blIsExist)
+	{
+		os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+		{
+			pstTimer->pstNext = l_pstFreeOneShotTimerLink;
+			l_pstFreeOneShotTimerLink = pstTimer;
+		}
+		os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+	}
 }
 
-//* 释放占用的定时器资源
+//* 释放占用的定时器资源，不做任何判断直接释放并归还给系统
 void one_shot_timer_free(PST_ONESHOTTIMER pstTimer)
 {
 	os_thread_mutex_lock(l_hMtxFreeOneShotTimer);

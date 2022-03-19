@@ -1,6 +1,6 @@
 ﻿#include "port/datatype.h"
 #include "port/os_datatype.h"
-#include "timer.h"
+#include "one_shot_timer.h"
 
 #define SYMBOL_GLOBALS
 #include "port/os_adapter.h"
@@ -9,8 +9,8 @@
 //* 协议栈内部工作线程列表
 extern void THIPReceiver(void *pvParam); 
 STCB_PSTACKTHREAD o_stcbaPStackThread[] = {
-	{ thread_timer_count, NULL},
-	{ thread_timeout_handler, NULL },
+	{ thread_one_shot_timer_count, NULL},
+	{ thread_one_shot_timeout_handler, NULL },
 	{ THIPReceiver, NULL }
 }; 
 
@@ -59,7 +59,7 @@ void os_thread_mutex_unlock(HMUTEX hMutex)
 	/* …… */
 }
 
-HSEM os_thread_sem_init(UCHAR ubSemCount)
+HSEM os_thread_sem_init(UINT unInitVal, UINT unCount)
 {
 	/* 用户自定义代码 */
 	/* …… */
