@@ -73,8 +73,10 @@ void os_thread_sem_post(HSEM hSem)
 	/* …… */
 }
 
-void os_thread_sem_pend(HSEM hSem, UINT unWaitSecs)
+INT os_thread_sem_pend(HSEM hSem, UINT unWaitSecs)
 {
 	/* 用户自定义代码 */
 	/* …… */
+
+	return -1; 
 }
