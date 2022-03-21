@@ -1,6 +1,11 @@
 ﻿#include "port/datatype.h"
 #include "port/os_datatype.h"
+#include "port/sys_config.h"
 #include "one_shot_timer.h"
+
+#if SUPPORT_PPP
+#include "ppp/ppp.h"
+#endif
 
 #define SYMBOL_GLOBALS
 #include "port/os_adapter.h"
@@ -10,8 +15,7 @@
 extern void THIPReceiver(void *pvParam); 
 STCB_PSTACKTHREAD o_stcbaPStackThread[] = {
 	{ thread_one_shot_timer_count, NULL},
-	{ thread_one_shot_timeout_handler, NULL },
-	{ THIPReceiver, NULL }
+	{ thread_one_shot_timeout_handler, NULL }, 
 }; 
 
 /* 用户自定义变量声明区 */

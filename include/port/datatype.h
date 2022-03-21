@@ -40,9 +40,5 @@ typedef NULL (void *)0
 #define TRUE 	1
 #define FALSE 	0
 
-//* 大小端转换宏
-#define ENDIAN_CONVERTER_UINT(n)    ((((n) & 0xFF) << 24) | (((n) & 0xFF00) << 8) | (((n) & 0xFF0000) >> 8) | (((n) & 0xFF000000) >> 24))
-#define ENDIAN_CONVERTER_USHORT(n)	((((n) & 0xFF) << 8)  | (((n) & 0xFF00) >> 8))
-
 #endif
 
