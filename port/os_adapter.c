@@ -84,3 +84,35 @@ INT os_thread_sem_pend(HSEM hSem, UINT unWaitSecs)
 
 	return -1; 
 }
+
+#if SUPPORT_PPP
+HTTY os_open_tty(const CHAR *pszTTYName)
+{
+	/* 用户自定义代码 */
+	/* …… */
+
+	return INVALID_HTTY; 
+}
+
+UINT os_tty_send(HTTY hTTY, UCHAR *pubPacket, UINT unPacketLen)
+{
+	/* 用户自定义代码 */
+	/* …… */
+
+	return 0; 
+}
+
+UINT os_tty_recv(UCHAR *pubRcvBuf, UINT unRcvBufLen)
+{
+	/* 用户自定义代码 */
+	/* …… */
+
+	return 0;
+}
+
+void os_tty_reset(HTTY hTTY)
+{
+	/* 用户自定义代码，不需要复位modem设备则这里可以不进行任何操作 */
+	/* …… */
+}
+#endif

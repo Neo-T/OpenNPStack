@@ -14,6 +14,7 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRMUTEXINITFAILED, "thread mutex initialization failed" }, 
 	{ ERRNOBUFLISTNODE, "the buffer list node is empty" }, 
 	{ ERRSEMINITFAILED, "thread semphore initialization failed" }, 
+	{ ERROPENTTY, "tty open error" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

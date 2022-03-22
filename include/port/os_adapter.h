@@ -37,5 +37,12 @@ OS_ADAPTER_EXT INT os_thread_sem_pend(HSEM hSem, UINT unWaitSecs);		//* 等待�
 OS_ADAPTER_EXT void os_thread_sem_uninit(HSEM hSem);					//* 信号量去初始化，释放该资源
 OS_ADAPTER_EXT void os_thread_pstack_start(void *pvParam);				//* 协议栈内部工作线程启动
 
+#if SUPPORT_PPP
+OS_ADAPTER_EXT HTTY os_open_tty(const CHAR *pszTTYName);
+OS_ADAPTER_EXT UINT os_tty_send(HTTY hTTY, UCHAR *pubPacket, UINT unPacketLen); 
+OS_ADAPTER_EXT UINT os_tty_recv(UCHAR *pubRcvBuf, UINT unRcvBufLen); 
+OS_ADAPTER_EXT void os_tty_reset(HTTY hTTY); 
+#endif
+
 #endif
 
