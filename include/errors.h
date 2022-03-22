@@ -15,7 +15,7 @@
 #define ERRORS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#define ERROR_NUM	10
+#define ERROR_NUM	20
 typedef enum {
 	ERRNO = 0,			//* 没有发生任何错误
 	ERRNOPAGENODES,		//* 无可用的内存页面节点
@@ -25,6 +25,11 @@ typedef enum {
 	ERRNOBUFLISTNODE, 	//* 无缓冲区链表节点
 	ERRSEMINITFAILED,	//* 信号量初始化失败
 	ERROPENTTY,			//* tty终端打开失败
+	ERRATWRITE,			//* AT指令写错误
+	ERRATEXEC,			//* AT指令返回错误
+	ERRATEXECTIMEOUT,	//* AT指令执行超时
+	ERRSIMCARD,			//* 未检测到SIM卡
+	ERRREGMOBILENET,	//* 没有注册到移动网络
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

@@ -1,6 +1,6 @@
 ﻿#include "port/datatype.h"
-#include "port/os_datatype.h"
 #include "port/sys_config.h"
+#include "port/os_datatype.h"
 #include "one_shot_timer.h"
 
 #if SUPPORT_PPP
@@ -12,7 +12,6 @@
 #undef SYMBOL_GLOBALS
 
 //* 协议栈内部工作线程列表
-extern void THIPReceiver(void *pvParam); 
 STCB_PSTACKTHREAD o_stcbaPStackThread[] = {
 	{ thread_one_shot_timer_count, NULL},
 	{ thread_one_shot_timeout_handler, NULL }, 
@@ -94,7 +93,13 @@ HTTY os_open_tty(const CHAR *pszTTYName)
 	return INVALID_HTTY; 
 }
 
-UINT os_tty_send(HTTY hTTY, UCHAR *pubPacket, UINT unPacketLen)
+void os_close_tty(HTTY hTTY)
+{
+	/* 用户自定义代码 */
+	/* …… */
+}
+
+UINT os_tty_send(HTTY hTTY, UCHAR *pubData, UINT unDataLen)
 {
 	/* 用户自定义代码 */
 	/* …… */
@@ -102,7 +107,7 @@ UINT os_tty_send(HTTY hTTY, UCHAR *pubPacket, UINT unPacketLen)
 	return 0; 
 }
 
-UINT os_tty_recv(UCHAR *pubRcvBuf, UINT unRcvBufLen)
+UINT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT unRcvBufLen)
 {
 	/* 用户自定义代码 */
 	/* …… */
@@ -110,7 +115,7 @@ UINT os_tty_recv(UCHAR *pubRcvBuf, UINT unRcvBufLen)
 	return 0;
 }
 
-void os_tty_reset(HTTY hTTY)
+void os_modem_reset(HTTY hTTY)
 {
 	/* 用户自定义代码，不需要复位modem设备则这里可以不进行任何操作 */
 	/* …… */

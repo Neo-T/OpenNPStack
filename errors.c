@@ -1,6 +1,5 @@
 ﻿#include "port/datatype.h"
 #include "port/os_datatype.h"
-#include "port/sys_config.h"
 
 #define SYMBOL_GLOBALS
 #include "errors.h"
@@ -14,7 +13,12 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRMUTEXINITFAILED, "thread mutex initialization failed" }, 
 	{ ERRNOBUFLISTNODE, "the buffer list node is empty" }, 
 	{ ERRSEMINITFAILED, "thread semphore initialization failed" }, 
-	{ ERROPENTTY, "tty open error" }
+	{ ERROPENTTY, "tty open error" }, 
+	{ ERRATWRITE, "write AT command error" }, 
+	{ ERRATEXEC, "the at command returned an error" }, 
+	{ ERRATEXECTIMEOUT, "at command timeout" }, 
+	{ ERRSIMCARD, "no sim card detected" }, 
+	{ ERRREGMOBILENET, "Unable to register to mobile network" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

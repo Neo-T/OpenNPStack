@@ -16,6 +16,6 @@
 #endif //* SYMBOL_GLOBALS
 
 TTY_EXT HTTY tty_init(const CHAR *pszTTYName, EN_ERROR_CODE *penErrCode); 
-TTY_EXT BOOL tty_ready(HTTY hTTY); 
+TTY_EXT BOOL tty_ready(HTTY hTTY, EN_ERROR_CODE *penErrCode);
 
 #endif

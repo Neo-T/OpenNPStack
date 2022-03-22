@@ -1,8 +1,9 @@
 ﻿#include "port/datatype.h"
+#include "errors.h"
+#include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "port/sys_config.h"
-#include "errors.h"
+#include "ppp/tty.h"
 
 #if SUPPORT_PPP
 #include "ppp/ppp_frame.h"

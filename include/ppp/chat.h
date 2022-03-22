@@ -15,6 +15,7 @@
 	#define CHAT_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-CHAT_EXT BOOL modem_ready(HTTY hTTY);
+CHAT_EXT BOOL modem_ready(HTTY hTTY, EN_ERROR_CODE *penErrCode); 
+CHAT_EXT BOOL modem_dial(HTTY hTTY, EN_ERROR_CODE *penErrCode);
 
 #endif
