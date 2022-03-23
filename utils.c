@@ -1,5 +1,6 @@
 ﻿#include "port/datatype.h"
 #include "errors.h"
+#include "port/sys_config.h"
 
 #define SYMBOL_GLOBALS
 #include "utils.h"
@@ -55,3 +56,22 @@ USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes)
 
 	return (USHORT)(~ulChecksum);
 }
+
+#if SUPPORT_PRINTF
+void print_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine)
+{
+	INT i;
+
+	printf("%02X", pubHex[0]);
+	for (i = 1; i < usHexDataLen; i++)
+	{
+		if (i % (INT)ubBytesPerLine)
+			printf(" ");
+		else
+			printf("\r\n");
+		printf("%02X", pubHex[i]);
+	}
+
+	printf("\r\n");
+}
+#endif

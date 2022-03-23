@@ -30,6 +30,7 @@ typedef enum {
 	ERRATEXECTIMEOUT,	//* AT指令执行超时
 	ERRSIMCARD,			//* 未检测到SIM卡
 	ERRREGMOBILENET,	//* 没有注册到移动网络
+	ERRPPPDELIMITER,	//* 未找到ppp帧定界符
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

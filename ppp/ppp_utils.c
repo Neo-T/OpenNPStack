@@ -155,12 +155,13 @@ USHORT ppp_fcs16(UCHAR *pubData, USHORT usDataLen)
 	return (~usFCS);
 }
 
-USHORT ppp_escape_encode(UINT unACCM, UCHAR *pubData, USHORT usDataLen, UCHAR *pubDstBuf, USHORT *pusEncodedBytes)
+UINT ppp_escape_encode(UINT unACCM, UCHAR *pubData, UINT unDataLen, UCHAR *pubDstBuf, UINT *punEncodedBytes)
 {
 #define ACCM_BYTES	32	
 	UCHAR ubaACCM[ACCM_BYTES];
+	UINT i;
 
-	for (UCHAR i = 0; i<ACCM_BYTES; i++)
+	for (i = 0; i < ACCM_BYTES; i++)
 	{
 		if (unACCM & (UINT)(pow(2, i)))
 			ubaACCM[i] = 1;
@@ -170,14 +171,14 @@ USHORT ppp_escape_encode(UINT unACCM, UCHAR *pubData, USHORT usDataLen, UCHAR *p
 
 	//* 开始转义，ASCII表的前0 ~ 31字符有可能作为modem控制字符，所以传输报文需要转义，另外PPP的
 	//* 头部标志字符在报文的数据中出现0x7E，
-	USHORT usDstBufLen = *pusEncodedBytes, i = 0, k = 0;
-	for (; i<usDataLen && k < usDstBufLen; i++)
+	UINT unDstBufLen = *punEncodedBytes, k = 0;
+	for (; i < unDataLen && k < unDstBufLen; i++)
 	{
 		if ((pubData[i] < ACCM_BYTES && ubaACCM[pubData[i]]) || pubData[i] == 0x7D || pubData[i] == 0x7E)
 		{
 			pubDstBuf[k] = 0x7D;
 			k++;
-			if (k < usDstBufLen)
+			if (k < unDstBufLen)
 			{
 				pubDstBuf[k] = pubData[i] ^ 0x20;
 				k++;
@@ -192,15 +193,15 @@ USHORT ppp_escape_encode(UINT unACCM, UCHAR *pubData, USHORT usDataLen, UCHAR *p
 		}
 	}
 
-	*pusEncodedBytes = k;
+	*punEncodedBytes = k;
 	return i;
 }
 
-USHORT ppp_escape_decode(UCHAR *pubData, USHORT usDataLen, UCHAR *pubDstBuf, USHORT *pusDecodedBytes)
+UINT ppp_escape_decode(UCHAR *pubData, UINT unDataLen, UCHAR *pubDstBuf, UINT *punDecodedBytes)
 {
 	//* 解码
-	USHORT usDstBufLen = *pusDecodedBytes, i = 0, k = 0;
-	for (; i < usDataLen && k < usDstBufLen; k++)
+	UINT unDstBufLen = *punDecodedBytes, i = 0, k = 0;
+	for (; i < unDataLen && k < unDstBufLen; k++)
 	{
 		if (pubData[i] != 0x7D)
 		{
@@ -214,7 +215,49 @@ USHORT ppp_escape_decode(UCHAR *pubData, USHORT usDataLen, UCHAR *pubDstBuf, USH
 		}
 	}
 
-	*pusDecodedBytes = k;
+	*punDecodedBytes = k;
+	return i;
+}
+
+UINT ppp_escape_decode_ext(UCHAR *pubData, UINT unStartIdx, UINT unEndIdx, UINT unDataBufSize, UCHAR *pubDstBuf, UINT *punDecodedBytes)
+{
+	//* 解码
+	UINT unDstBufLen = *punDecodedBytes, i = unStartIdx, k = 0;
+	while (k < unDstBufLen && i != unEndIdx)
+	{
+		if (pubData[i] != 0x7D)
+		{
+			pubDstBuf[k] = pubData[i];
+			i++;
+			if (i >= unDataBufSize)
+				i = 0; 			
+		}
+		else
+		{
+			if (i + 1 >= unDataBufSize)
+			{			
+				if (0 == unEndIdx)
+					break;
+
+				pubDstBuf[k] = pubData[0] ^ 0x20;
+				i = 1; 
+			}
+			else
+			{
+				if (i + 1 == unEndIdx)
+					break;
+
+				pubDstBuf[k] = pubData[i + 1] ^ 0x20;
+				if (i + 2 >= unDataBufSize)
+					i = 0;
+				else
+					i += 2; 
+			}
+		}
+		k++; 
+	}
+
+	*punDecodedBytes = k;
 	return i;
 }
 

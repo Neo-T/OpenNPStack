@@ -27,6 +27,15 @@ void os_sleep_secs(UINT unSecs)
 	/* …… */
 }
 
+//* 获取系统启动以来已运行的秒数（从0开始）
+UINT os_get_system_secs(void)
+{
+	/* 用户自定义代码 */
+	/* …… */
+
+	return 0; 
+}
+
 void os_thread_pstack_start(void *pvParam)
 {
 	/* 用户自定义代码 */

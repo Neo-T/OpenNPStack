@@ -18,7 +18,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRATEXEC, "the at command returned an error" }, 
 	{ ERRATEXECTIMEOUT, "at command timeout" }, 
 	{ ERRSIMCARD, "no sim card detected" }, 
-	{ ERRREGMOBILENET, "Unable to register to mobile network" }
+	{ ERRREGMOBILENET, "Unable to register to mobile network" }, 
+	{ ERRPPPDELIMITER, "ppp frame delimiter not found" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

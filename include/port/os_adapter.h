@@ -27,6 +27,7 @@ extern STCB_PSTACKTHREAD o_stcbaPStackThread[];
 //* 一些协议栈要用到的需要OS提供的支撑函数
 //* ==============================================================================================
 OS_ADAPTER_EXT void os_sleep_secs(UINT unSecs);							//* 休眠，单位：秒 
+OS_ADAPTER_EXT UINT os_get_system_secs(void);							//* 获取系统启动以来已运行的秒数（从0开始）
 OS_ADAPTER_EXT HMUTEX os_thread_mutex_init(void);						//* 线程同步锁初始化，成功返回同步锁句柄，失败则返回INVALID_HMUTEX
 OS_ADAPTER_EXT void os_thread_mutex_lock(HMUTEX hMutex);				//* 线程同步区加锁
 OS_ADAPTER_EXT void os_thread_mutex_unlock(HMUTEX hMutex);				//* 线程同步区开锁
@@ -41,7 +42,7 @@ OS_ADAPTER_EXT void os_thread_pstack_start(void *pvParam);				//* 协议栈内�
 OS_ADAPTER_EXT HTTY os_open_tty(const CHAR *pszTTYName);
 OS_ADAPTER_EXT void os_close_tty(HTTY hTTY);
 OS_ADAPTER_EXT UINT os_tty_send(HTTY hTTY, UCHAR *pubData, UINT unDataLen); 
-OS_ADAPTER_EXT UINT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT unRcvBufLen);
+OS_ADAPTER_EXT UINT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT unRcvBufLen); 
 OS_ADAPTER_EXT void os_modem_reset(HTTY hTTY); 
 #endif
 
