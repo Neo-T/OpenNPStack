@@ -108,7 +108,7 @@ void os_close_tty(HTTY hTTY)
 	/* …… */
 }
 
-UINT os_tty_send(HTTY hTTY, UCHAR *pubData, UINT unDataLen)
+INT os_tty_send(HTTY hTTY, UCHAR *pubData, INT nDataLen)
 {
 	/* 用户自定义代码 */
 	/* …… */
@@ -116,7 +116,7 @@ UINT os_tty_send(HTTY hTTY, UCHAR *pubData, UINT unDataLen)
 	return 0; 
 }
 
-UINT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT unRcvBufLen)
+INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT nRcvBufLen)
 {
 	/* 用户自定义代码 */
 	/* …… */

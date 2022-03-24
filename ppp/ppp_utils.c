@@ -5,7 +5,6 @@
 #include "port/os_adapter.h"
 
 #if SUPPORT_PPP
-#include "ppp/ppp_frame.h"
 #define SYMBOL_GLOBALS
 #include "ppp/ppp_utils.h"
 #undef SYMBOL_GLOBALS
@@ -157,7 +156,6 @@ USHORT ppp_fcs16(UCHAR *pubData, USHORT usDataLen)
 
 UINT ppp_escape_encode(UINT unACCM, UCHAR *pubData, UINT unDataLen, UCHAR *pubDstBuf, UINT *punEncodedBytes)
 {
-#define ACCM_BYTES	32	
 	UCHAR ubaACCM[ACCM_BYTES];
 	UINT i;
 
@@ -170,16 +168,58 @@ UINT ppp_escape_encode(UINT unACCM, UCHAR *pubData, UINT unDataLen, UCHAR *pubDs
 	}
 
 	//* 开始转义，ASCII表的前0 ~ 31字符有可能作为modem控制字符，所以传输报文需要转义，另外PPP的
-	//* 头部标志字符在报文的数据中出现0x7E，
+	//* 头部标志字符在报文的数据中出现0x7E时也要转义
 	UINT unDstBufLen = *punEncodedBytes, k = 0;
 	for (; i < unDataLen && k < unDstBufLen; i++)
 	{
 		if ((pubData[i] < ACCM_BYTES && ubaACCM[pubData[i]]) || pubData[i] == 0x7D || pubData[i] == 0x7E)
 		{
-			pubDstBuf[k] = 0x7D;
-			k++;
-			if (k < unDstBufLen)
+			if (k + 1 < unDstBufLen)
 			{
+				pubDstBuf[k] = 0x7D;
+				k++;
+				pubDstBuf[k] = pubData[i] ^ 0x20;
+				k++;
+			}			
+			else
+				break;
+		}
+		else
+		{
+			pubDstBuf[k] = pubData[i];
+			k++;
+		}
+	}
+
+	*punEncodedBytes = k;
+	return i;
+}
+
+void ppp_escape_encode_init(UINT unACCM, UCHAR ubaACCM[])
+{
+	INT i; 
+	for (i = 0; i < ACCM_BYTES; i++)
+	{
+		if (unACCM & (UINT)(pow(2, i)))
+			ubaACCM[i] = 1;
+		else
+			ubaACCM[i] = 0;
+	}
+}
+
+UINT ppp_escape_encode_ext(UCHAR ubaACCM[], UCHAR *pubData, UINT unDataLen, UCHAR *pubDstBuf, UINT *punEncodedBytes)
+{
+	//* 开始转义，ASCII表的前0 ~ 31字符有可能作为modem控制字符，所以传输报文需要转义，另外PPP的
+	//* 头部标志字符在报文的数据中出现0x7E时也要转义
+	UINT unDstBufLen = *punEncodedBytes, i = 0, k = 0;
+	for (; i < unDataLen && k < unDstBufLen; i++)
+	{
+		if ((pubData[i] < ACCM_BYTES && ubaACCM[pubData[i]]) || pubData[i] == 0x7D || pubData[i] == 0x7E)
+		{
+			if (k + 1 < unDstBufLen)
+			{
+				pubDstBuf[k] = 0x7D;
+				k++;
 				pubDstBuf[k] = pubData[i] ^ 0x20;
 				k++;
 			}

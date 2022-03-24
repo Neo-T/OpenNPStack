@@ -41,8 +41,8 @@ OS_ADAPTER_EXT void os_thread_pstack_start(void *pvParam);				//* 协议栈内�
 #if SUPPORT_PPP
 OS_ADAPTER_EXT HTTY os_open_tty(const CHAR *pszTTYName);
 OS_ADAPTER_EXT void os_close_tty(HTTY hTTY);
-OS_ADAPTER_EXT UINT os_tty_send(HTTY hTTY, UCHAR *pubData, UINT unDataLen); 
-OS_ADAPTER_EXT UINT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT unRcvBufLen); 
+OS_ADAPTER_EXT INT os_tty_send(HTTY hTTY, UCHAR *pubData, INT nDataLen); 
+OS_ADAPTER_EXT INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen); 
 OS_ADAPTER_EXT void os_modem_reset(HTTY hTTY); 
 #endif
 

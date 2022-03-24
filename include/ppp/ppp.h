@@ -15,6 +15,9 @@
 	#define PPP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-PPP_EXT BOOL ppp_init(EN_ERROR_CODE *penErrCode); 
+PPP_EXT BOOL ppp_init(EN_ERROR_CODE *penErrCode);
+PPP_EXT void ppp_uninit(void); 
+PPP_EXT void thread_ppp_handler(void *pvParam); 
+PPP_EXT void ppp_send(void); 
 
 #endif

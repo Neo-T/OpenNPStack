@@ -31,6 +31,9 @@ typedef enum {
 	ERRSIMCARD,			//* 未检测到SIM卡
 	ERRREGMOBILENET,	//* 没有注册到移动网络
 	ERRPPPDELIMITER,	//* 未找到ppp帧定界符
+	ERRTOOMANYTTYS,		//* tty数量过多
+	ERRTTYHANDLE,		//* tty句柄无效
+	ERROSADAPTER,		//* os适配层错误
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

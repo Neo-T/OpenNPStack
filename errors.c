@@ -19,7 +19,10 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRATEXECTIMEOUT, "at command timeout" }, 
 	{ ERRSIMCARD, "no sim card detected" }, 
 	{ ERRREGMOBILENET, "Unable to register to mobile network" }, 
-	{ ERRPPPDELIMITER, "ppp frame delimiter not found" }
+	{ ERRPPPDELIMITER, "ppp frame delimiter not found" }, 
+	{ ERRTOOMANYTTYS, "Too many ttys" }, 
+	{ ERRTTYHANDLE, "invalid tty handle" }, 
+	{ ERROSADAPTER, "os adaptation layer error" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)
