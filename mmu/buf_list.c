@@ -10,6 +10,7 @@
 
 //* 不使用结构体设计方式，目的是为了节省内存，同时避免因使用强制对齐方式降低系统执行性能的问题
 static void *l_pvaBufNode[BUF_LIST_NUM];
+static USHORT l_usaBufSize[BUF_LIST_NUM];
 static SHORT l_saFreeBufNode[BUF_LIST_NUM];
 static SHORT l_sFreeBufList = -1; 
 static HMUTEX l_hMtxMMUBufList;
@@ -56,7 +57,7 @@ SHORT buf_list_get(EN_ERROR_CODE *penErrCode)
 	return sRtnNode; 
 }
 
-SHORT buf_list_get_ext(void *pvData, EN_ERROR_CODE *penErrCode)
+SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ERROR_CODE *penErrCode)
 {
 	SHORT sRtnNode;
 	os_thread_mutex_lock(l_hMtxMMUBufList);
@@ -75,16 +76,53 @@ SHORT buf_list_get_ext(void *pvData, EN_ERROR_CODE *penErrCode)
 	os_thread_mutex_unlock(l_hMtxMMUBufList);
 
 	l_pvaBufNode[sRtnNode] = pvData; 
+	l_usaBufSize[sRtnNode] = (USHORT)unDataSize; 
 	return sRtnNode;
 }
 
-void buf_list_free(SHORT sNodeIndex)
+void buf_list_free(SHORT sNode)
 {
 	os_thread_mutex_lock(l_hMtxMMUBufList);
 	{
-		l_pvaBufNode[sNodeIndex] = NULL;
-		l_saFreeBufNode[sNodeIndex] = l_sFreeBufList; 
-		l_sFreeBufList = sNodeIndex;
+		l_pvaBufNode[sNode]    = NULL;
+		l_usaBufSize[sNode]    = 0; 
+		l_saFreeBufNode[sNode] = l_sFreeBufList; 
+		l_sFreeBufList         = sNode;
 	}
 	os_thread_mutex_unlock(l_hMtxMMUBufList);
+}
+
+void buf_list_put_head(SHORT *psHead, SHORT sNode)
+{
+	l_saFreeBufNode[sNode] = *psHead;
+	*psHead = sNode;
+}
+
+void buf_list_put_tail(SHORT sHead, SHORT sNode)
+{
+	SHORT sNextNode = sHead; 
+	while (sNextNode >= 0)
+	{
+		if (l_saFreeBufNode[sNextNode] < 0)
+		{
+			l_saFreeBufNode[sNextNode] = sNode; 
+			l_saFreeBufNode[sNode] = -1;
+			break; 
+		}
+
+		sNextNode = l_saFreeBufNode[sNextNode]; 
+	}
+}
+
+void *buf_list_get_next_node(SHORT *psNextNode, USHORT *pusDataLen)
+{
+	if (*psNextNode < 0)
+		return NULL;
+
+	void *pvData = NULL;
+	*pusDataLen = l_usaBufSize[*psNextNode];
+	pvData = l_pvaBufNode[*psNextNode]; 
+	*psNextNode = l_saFreeBufNode[*psNextNode];  
+
+	return pvData; 
 }

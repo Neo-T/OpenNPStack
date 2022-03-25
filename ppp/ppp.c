@@ -15,6 +15,7 @@ static BOOL l_blIsRunning = TRUE;
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
+static ST_NEGORESULT l_staNegoResult[PPP_NETLINK_NUM]; 
 
 //* 启动ppp处理线程，需要根据目标系统实际情况编写该函数，其实现的功能为启动ppp链路的主处理线程，该线程的入口函数为thread_ppp_handler()
 static void thread_ppp_handler_start(INT nPPPIdx)
@@ -85,6 +86,25 @@ void thread_ppp_handler(void *pvParam)
 	}
 
 	l_staNetifPPP[nPPPIdx].blIsThreadExit = TRUE;
+}
+
+//* ppp发送，该函数要求pubData参数至少预留出两个字节的位置以保存校验和
+INT ppp_send(HTTY hTTY, UINT unACCM, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
+{
+	USHORT usFCS = ppp_fcs16_ext(sBufListHead);
+
+	SHORT sBufNode = buf_list_get_ext(&usFCS, sizeof(USHORT), penErrCode); 
+	if (sBufNode < 0)
+		return -1; 
+	buf_list_put_tail(sBufListHead, sBufNode);
+
+	//* 完成实际的发送
+	INT nRtnVal = tty_send_ext(hTTY, unACCM, sBufListHead, penErrCode); 
+
+	//* 释放缓冲区节点
+	buf_list_free(sBufNode);
+
+	return nRtnVal; 
 }
 
 #endif

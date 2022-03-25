@@ -3,7 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "mmu/buddy.h"
+#include "mmu/buf_list.h"
 #include "ppp/chat.h"
 #include "ppp/ppp_protocols.h"
 #include "ppp/ppp_utils.h"
@@ -176,7 +176,7 @@ INT tty_send(HTTY hTTY, UINT unACCM, UCHAR *pubData, INT nDataLen, EN_ERROR_CODE
 	//* 开始转义
 	UINT unEscapedTotalBytes = 0; 
 	UINT unEscapedBytes, unEncodedBytes;
-	BOOL blIsSndTailFlag = FALSE; 
+	BOOL blIsSendTailFlag = FALSE; 
 	pstcbIO->ubaSendBuf[0] = PPP_FLAG; 
 
 __lblEscape:
@@ -196,7 +196,7 @@ __lblEscape:
 			unEncodedBytes += 1; 
 		}
 		else
-			blIsSndTailFlag = TRUE;
+			blIsSendTailFlag = TRUE;
 	}
 
 __lblSend: 
@@ -206,21 +206,80 @@ __lblSend:
 			*penErrCode = ERROSADAPTER;
 
 #if SUPPORT_PRINTF	
-#if DEBUG_LEVEL
+	#if DEBUG_LEVEL
 		printf("<%d> os_tty_send() failed, %s\r\n", hTTY, error(ERROSADAPTER));
-#endif
+	#endif
 #endif
 		return -1;
 	}
 
-	if (blIsSndTailFlag)
+	if (blIsSendTailFlag)
 	{
 		pstcbIO->ubaSendBuf[0] = PPP_FLAG;
 		unEncodedBytes = 1;
-		blIsSndTailFlag = FALSE;
+		blIsSendTailFlag = FALSE;
 		goto __lblSend;
 	}
 	else
 		goto __lblEscape; 
 }
+
+INT tty_send_ext(HTTY hTTY, UINT unACCM, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
+{
+	UCHAR ubaACCM[ACCM_BYTES];
+
+	//* 获取tty设备的IO控制块
+	PSTCB_TTYIO pstcbIO = get_io_control_block(hTTY, penErrCode);
+	if (NULL == pstcbIO)
+		return -1;
+
+	//* 准备转义
+	ppp_escape_encode_init(unACCM, ubaACCM);	
+
+	//* 开始转义
+	INT nDataLen = 0;
+	UINT unEscapedTotalBytes, unEncodedBytes;
+	SHORT sNextNode = sBufListHead;
+	UCHAR *pubData;
+	USHORT usDataLen;	
+	pstcbIO->ubaSendBuf[0] = PPP_FLAG;	//* 第一段数据的首字符一定是帧定界符
+
+__lblGetNextNode: 
+	if (NULL == (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))
+		return nDataLen; 	
+
+	unEscapedTotalBytes = 0;
+__lblEscape: 
+	if (unEscapedTotalBytes >= (UINT)usDataLen)
+	{
+		nDataLen += (INT)usDataLen;
+		goto __lblGetNextNode; 
+	}
+
+	unEncodedBytes = nDataLen ? TTY_SEND_BUF_SIZE : TTY_SEND_BUF_SIZE - 1;
+	unEscapedTotalBytes += ppp_escape_encode_ext(ubaACCM, pubData + unEscapedTotalBytes, ((UINT)usDataLen) - unEscapedTotalBytes, &pstcbIO->ubaSendBuf[TTY_SEND_BUF_SIZE - unEncodedBytes], &unEncodedBytes);
+	if(!nDataLen) //* 第一个buf节点携带了ppp帧首部定界符
+		unEncodedBytes += 1;	
+	if (sNextNode < 0) //* 这是最后一个携带校验和的buf节点，则需要在尾部再挂载一个ppp帧定界符
+	{
+		pstcbIO->ubaSendBuf[unEncodedBytes] = PPP_FLAG;
+		unEncodedBytes += 1;
+	}
+
+	if (os_tty_send(hTTY, pstcbIO->ubaSendBuf, (INT)unEncodedBytes) < 0)
+	{
+		if (penErrCode)
+			*penErrCode = ERROSADAPTER;
+
+#if SUPPORT_PRINTF	
+	#if DEBUG_LEVEL
+		printf("<%d> os_tty_send() failed, %s\r\n", hTTY, error(ERROSADAPTER));
+	#endif
+#endif
+		return -1;
+	}
+
+	goto __lblEscape;
+}
+
 #endif

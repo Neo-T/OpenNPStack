@@ -9,7 +9,7 @@
 #include "ppp/negotiation.h"
 #undef SYMBOL_GLOBALS
 
-void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode)
+void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, PST_NEGORESULT pstNegoResult, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode)
 {
 	while (*pblIsRunning)
 	{

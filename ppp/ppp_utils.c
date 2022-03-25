@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
 #define SYMBOL_GLOBALS
@@ -149,6 +150,24 @@ USHORT ppp_fcs16(UCHAR *pubData, USHORT usDataLen)
 	while (usDataLen--)
 	{
 		usFCS = (usFCS >> 8) ^ l_usaFCSTbl[(usFCS ^ *pubData++) & 0xFF];
+	}
+
+	return (~usFCS);
+}
+
+USHORT ppp_fcs16_ext(SHORT sBufListHead)
+{
+	USHORT usFCS = PPP_INITFCS; 
+
+	SHORT sNextNode = sBufListHead;
+	UCHAR *pubData;
+	USHORT usDataLen;
+	while (NULL != (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))
+	{
+		while (usDataLen--)
+		{
+			usFCS = (usFCS >> 8) ^ l_usaFCSTbl[(usFCS ^ *pubData++) & 0xFF];
+		}
 	}
 
 	return (~usFCS);

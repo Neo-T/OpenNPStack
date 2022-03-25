@@ -19,7 +19,10 @@
 
 BUF_LIST_EXT BOOL buf_list_init(EN_ERROR_CODE *penErrCode);
 BUF_LIST_EXT SHORT buf_list_get(EN_ERROR_CODE *penErrCode);
-BUF_LIST_EXT SHORT buf_list_get_ext(void *pvData, EN_ERROR_CODE *penErrCode); 
-BUF_LIST_EXT void buf_list_free(SHORT sNodeIndex);
+BUF_LIST_EXT SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ERROR_CODE *penErrCode); 
+BUF_LIST_EXT void buf_list_free(SHORT sNode);
+BUF_LIST_EXT void buf_list_put_head(SHORT *psHead, SHORT sNode); 
+BUF_LIST_EXT void buf_list_put_tail(SHORT sHead, SHORT sNode); 
+BUF_LIST_EXT void *buf_list_get_next_node(SHORT *psNextNode, USHORT *pusDataLen); 
 
 #endif
