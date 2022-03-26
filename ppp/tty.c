@@ -237,36 +237,47 @@ INT tty_send_ext(HTTY hTTY, UINT unACCM, SHORT sBufListHead, EN_ERROR_CODE *penE
 	ppp_escape_encode_init(unACCM, ubaACCM);	
 
 	//* 开始转义
-	INT nDataLen = 0;
+	INT nDataLen = 1;
 	UINT unEscapedTotalBytes, unEncodedBytes;
 	SHORT sNextNode = sBufListHead;
 	UCHAR *pubData;
 	USHORT usDataLen;	
-	pstcbIO->ubaSendBuf[0] = PPP_FLAG;	//* 第一段数据的首字符一定是帧定界符
+	pstcbIO->ubaSendBuf[0] = PPP_FLAG;	//* 链表第一个节点的首字符一定是帧首定界符
 
 __lblGetNextNode: 
 	if (NULL == (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))
 		return nDataLen; 	
+	if (nDataLen != 1) //* 不是第一个节点就需要判断是不是尾部节点
+	{
+		if (sNextNode < 0) //* 这就是尾部节点了
+		{
+			//* 把尾部的定界符去掉，不要对它转义
+			usDataLen--;
+			nDataLen += 1; 
+		}
+	}
+	else //* 第一个节点
+	{
+		//* 跳过ppp帧首定界符的转义
+		pubData++;
+		usDataLen--;
+	}
 
 	unEscapedTotalBytes = 0;
 __lblEscape: 
 	if (unEscapedTotalBytes >= (UINT)usDataLen)
-	{
+	{		
 		nDataLen += (INT)usDataLen;
 		goto __lblGetNextNode; 
 	}
 
-	unEncodedBytes = nDataLen ? TTY_SEND_BUF_SIZE : TTY_SEND_BUF_SIZE - 1;
+	unEncodedBytes = (nDataLen != 1) ? TTY_SEND_BUF_SIZE : TTY_SEND_BUF_SIZE - 1;
 	unEscapedTotalBytes += ppp_escape_encode_ext(ubaACCM, pubData + unEscapedTotalBytes, ((UINT)usDataLen) - unEscapedTotalBytes, &pstcbIO->ubaSendBuf[TTY_SEND_BUF_SIZE - unEncodedBytes], &unEncodedBytes);
-	if(!nDataLen) //* 第一个buf节点携带了ppp帧首部定界符
-		unEncodedBytes += 1;	
-	if (sNextNode < 0) //* 这是最后一个携带校验和的buf节点，则需要在尾部再挂载一个ppp帧定界符
-	{
-		pstcbIO->ubaSendBuf[unEncodedBytes] = PPP_FLAG;
-		unEncodedBytes += 1;
-	}
+	if (sNextNode < 0) //* 这是最后一个携带校验和的buf节点，则需要在尾部再挂载一个ppp帧定界符	
+		pstcbIO->ubaSendBuf[unEncodedBytes] = PPP_FLAG;		
 
-	if (os_tty_send(hTTY, pstcbIO->ubaSendBuf, (INT)unEncodedBytes) < 0)
+	//* 发送转义后的ppp帧
+	if (os_tty_send(hTTY, pstcbIO->ubaSendBuf, (nDataLen == 1 || sNextNode < 0) ? (INT)unEncodedBytes + 1 : (INT)unEncodedBytes) < 0)
 	{
 		if (penErrCode)
 			*penErrCode = ERROSADAPTER;

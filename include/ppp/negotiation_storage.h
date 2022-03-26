@@ -47,7 +47,6 @@ typedef struct _ST_NEGORESULT_ {
 		BOOL blIsAddrCtlComp;
 		BOOL blIsNegoValOfProtoComp;
 		BOOL blIsNegoValOfAddrCtlComp;
-		BOOL blIsLCPNegoEnd;
 	} stLCP;
 	struct {
 		UINT unAddr;

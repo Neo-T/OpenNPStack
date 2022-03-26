@@ -13,16 +13,14 @@
 
 static BOOL l_blIsRunning = TRUE;
 
-static const ST_PPP_PROTOCOL lr_staProtocol[] = {
-	{ LCP, PPP_LCP }
-};
+static const USHORT lr_usaProtocol[] = { PPP_LCP, PPP_PAP, PPP_CHAP, PPP_IPCP, PPP_IP };
 
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
 static ST_NEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 	{
-		{ 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE, FALSE },
+		{ 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE },
 		{ IP_ADDR_INIT, DNS_ADDR_INIT, DNS_ADDR_INIT, IP_ADDR_INIT, MASK_INIT }
 	}, 
 
@@ -119,6 +117,14 @@ void thread_ppp_handler(void *pvParam)
 //* ppp发送
 INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
 {
+	if (enProtocol >= sizeof(lr_usaProtocol) / sizeof(USHORT))
+	{
+		if (penErrCode)
+			*penErrCode = ERRUNKNOWNPROTOCOL;
+
+		return -1;
+	}
+
 	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY); 
 	if (!pstcbNetif)
 	{
@@ -128,48 +134,48 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	}
 
 	//* 填充首部数据
-	UCHAR ubHead[sizeof(ST_PPP_HDR)];
+	UCHAR ubHead[sizeof(ST_PPP_HDR)] = { PPP_FLAG } ;
 	USHORT usHeadDataLen; 
 	if (LCP != enProtocol && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfAddrCtlComp)
 	{
-		ubHead[0] = PPP_FLAG; 
 		if (enProtocol < 0xFF && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfProtoComp)
 		{
-			switch (enProtocol)
-			{
-			case IP:
-				ubHead[1] = ; 
-				break; 
-
-			default:
-				if (penErrCode)
-					*penErrCode = ERRUNKNOWNPROTOCOL;
-
-				return -1; 
-
-			}
+			ubHead[1] = ((UCHAR *)&lr_usaProtocol[enProtocol])[0];
+			usHeadDataLen = 2;
+		}
+		else
+		{
+			ubHead[1] = ((UCHAR *)&lr_usaProtocol[enProtocol])[1];
+			ubHead[2] = ((UCHAR *)&lr_usaProtocol[enProtocol])[0];
+			usHeadDataLen = 3;
 		}
 	}
 	else
 	{
-
+		PST_PPP_HDR pstHdr = (PST_PPP_HDR)ubHead;
+		pstHdr->ubAddr = PPP_ALLSTATIONS; 
+		pstHdr->ubCtl = PPP_UI;
+		pstHdr->usProtocol = USHORT_EDGE_CONVERT(lr_usaProtocol[enProtocol]);
+		usHeadDataLen = sizeof(ST_PPP_HDR); 
 	}
 
+	//* 申请一个buf节点，将ppp帧头部数据挂载到链表头部
 	SHORT sPPPHeadNode, sPPPTailNode;
-	sPPPHeadNode = buf_list_get(penErrCode);
+	sPPPHeadNode = buf_list_get_ext(ubHead, usHeadDataLen, penErrCode);
 	if (sPPPHeadNode < 0)
 		return -1;
-	sPPPTailNode = buf_list_get(penErrCode);
+	buf_list_put_head(&sBufListHead, sPPPTailNode);
+
+	//* 申请一个buf节点，将ppp帧尾部数据（包括校验和及尾部标志）挂载到链表尾部
+	ST_PPP_TAIL stTail;
+	stTail.usFCS = ppp_fcs16_ext(sBufListHead);
+	stTail.ubDelimiter = PPP_FLAG; 
+	sPPPTailNode = buf_list_get_ext(&stTail, sizeof(ST_PPP_TAIL), penErrCode);
 	if (sPPPTailNode < 0)
 	{
 		buf_list_free(sPPPHeadNode);
 		return -1;
 	}
-
-
-	USHORT usFCS = ppp_fcs16_ext(sBufListHead);
-
-	
 	buf_list_put_tail(sBufListHead, sPPPTailNode);
 
 	//* 完成实际的发送

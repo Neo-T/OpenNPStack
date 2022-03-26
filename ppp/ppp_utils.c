@@ -85,7 +85,7 @@ const CHAR *get_cpcode_name(EN_CPCODE enCode)
 	}
 }
 
-const CHAR *get_chap_code_Name(EN_CHAPCODE enCode)
+const CHAR *get_chap_code_name(EN_CHAPCODE enCode)
 {
 	switch (enCode)
 	{
@@ -162,15 +162,23 @@ USHORT ppp_fcs16_ext(SHORT sBufListHead)
 	SHORT sNextNode = sBufListHead;
 	UCHAR *pubData;
 	USHORT usDataLen;
-	while (NULL != (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))
-	{
-		while (usDataLen--)
-		{
-			usFCS = (usFCS >> 8) ^ l_usaFCSTbl[(usFCS ^ *pubData++) & 0xFF];
-		}
-	}
+	BOOL blIsFirstNode = TRUE; 
 
-	return (~usFCS);
+__lblGetNextNode:
+	pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen); 
+	if (NULL == pubData)
+		return (~usFCS);
+
+	if (blIsFirstNode)
+	{
+		pubData++; //* 跳过帧首标志字符
+		usDataLen--;
+		blIsFirstNode = FALSE;
+	}
+	
+	while (usDataLen--)	
+		usFCS = (usFCS >> 8) ^ l_usaFCSTbl[(usFCS ^ *pubData++) & 0xFF];
+	goto __lblGetNextNode; 
 }
 
 UINT ppp_escape_encode(UINT unACCM, UCHAR *pubData, UINT unDataLen, UCHAR *pubDstBuf, UINT *punEncodedBytes)
