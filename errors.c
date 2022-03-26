@@ -22,7 +22,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRPPPDELIMITER, "ppp frame delimiter not found" }, 
 	{ ERRTOOMANYTTYS, "Too many ttys" }, 
 	{ ERRTTYHANDLE, "invalid tty handle" }, 
-	{ ERROSADAPTER, "os adaptation layer error" }
+	{ ERROSADAPTER, "os adaptation layer error" }, 
+	{ ERRUNKNOWNPROTOCOL, "Unknown protocol type" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

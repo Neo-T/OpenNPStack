@@ -15,6 +15,14 @@
 #endif //* SYMBOL_GLOBALS
 #include "ppp_frame.h"
 
+//* LCP相关配置项初始值
+#define ACCM_INIT		0	//* ACCM初始值，缺省0~31全部不进行转义
+
+ //* IPCP相关配置项初始值
+#define IP_ADDR_INIT	0
+#define MASK_INIT		0xFFFFFFFF //* 子网掩码强制为255.255.255.255
+#define DNS_ADDR_INIT	0
+
  //* ppp链路工作状态
 typedef enum {
 	TTYINIT = 0,		//* tty终端初始化
@@ -24,13 +32,6 @@ typedef enum {
 	TERMINATE,			//* 终止链路
 	TERMINATED			//* 链路已终止
 } EN_PPP_LINK_STATE;
-
-//* PPP控制块
-typedef struct _STCB_NETIFPPP_ {
-	HTTY hTTY;
-	EN_PPP_LINK_STATE enState;
-	BOOL blIsThreadExit;
-} STCB_NETIFPPP, *PSTCB_NETIFPPP;
 
 //* 记录协商结果
 typedef struct _ST_NEGORESULT_ {
@@ -56,5 +57,13 @@ typedef struct _ST_NEGORESULT_ {
 		UINT unNetMask;
 	} stIPCP;
 } ST_NEGORESULT, *PST_NEGORESULT;
+
+//* PPP控制块
+typedef struct _STCB_NETIFPPP_ {
+	HTTY hTTY;
+	EN_PPP_LINK_STATE enState;
+	PST_NEGORESULT pstNegoResult;
+	BOOL blIsThreadExit;
+} STCB_NETIFPPP, *PSTCB_NETIFPPP;
 
 #endif

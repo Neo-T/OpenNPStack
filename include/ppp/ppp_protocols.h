@@ -8,6 +8,7 @@
  */
 #ifndef PPP_PROTOCOLS_H
 #define PPP_PROTOCOLS_H
+#include "protocols.h"
 
 #define	PPP_ALLSTATIONS	0xFF	//* All-Stations broadcast address 
 #define	PPP_UI			0x03	//* Unnumbered Information
@@ -42,5 +43,11 @@
 #define PPP_LQR			0xC025	//* Link Quality Report protocol
 #define PPP_CHAP		0xC223	//* Cryptographic Handshake Auth. Protocol
 #define PPP_CBCP		0xC029	//* Callback Control Protocol
+
+//* 存储ppp栈支持的上层协议相关的信息
+typedef struct _ST_PPP_PROTOCOL_ {
+	EN_NPSPROTOCOL enProtocol; 
+	USHORT usPPPProtocol; 
+} ST_PPP_PROTOCOL, *PST_PPP_PROTOCOL;
 
 #endif

@@ -34,6 +34,7 @@ typedef enum {
 	ERRTOOMANYTTYS,		//* tty数量过多
 	ERRTTYHANDLE,		//* tty句柄无效
 	ERROSADAPTER,		//* os适配层错误
+	ERRUNKNOWNPROTOCOL,	//* 未知协议类型
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

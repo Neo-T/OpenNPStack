@@ -32,7 +32,8 @@ BOOL buf_list_init(EN_ERROR_CODE *penErrCode)
 	if (INVALID_HMUTEX != l_hMtxMMUBufList)
 		return TRUE;
 
-	*penErrCode = ERRMUTEXINITFAILED;
+	if(penErrCode)
+		*penErrCode = ERRMUTEXINITFAILED;
 	return FALSE; 
 }
 
@@ -44,7 +45,9 @@ SHORT buf_list_get(EN_ERROR_CODE *penErrCode)
 		if (l_sFreeBufList < 0)
 		{
 			os_thread_mutex_unlock(l_hMtxMMUBufList);
-			*penErrCode = ERRNOBUFLISTNODE;
+
+			if (penErrCode)
+				*penErrCode = ERRNOBUFLISTNODE;
 
 			return -1;
 		}
@@ -65,7 +68,9 @@ SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ERROR_CODE *penErrCode)
 		if (l_sFreeBufList < 0)
 		{
 			os_thread_mutex_unlock(l_hMtxMMUBufList);
-			*penErrCode = ERRNOBUFLISTNODE;
+
+			if (penErrCode)
+				*penErrCode = ERRNOBUFLISTNODE;
 
 			return -1;
 		}
@@ -78,6 +83,12 @@ SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ERROR_CODE *penErrCode)
 	l_pvaBufNode[sRtnNode] = pvData; 
 	l_usaBufSize[sRtnNode] = (USHORT)unDataSize; 
 	return sRtnNode;
+}
+
+void buf_list_attach_data(SHORT sNode, void *pvData, UINT unDataSize)
+{
+	l_pvaBufNode[sNode] = pvData;
+	l_usaBufSize[sNode] = (USHORT)unDataSize;
 }
 
 void buf_list_free(SHORT sNode)
