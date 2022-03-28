@@ -24,7 +24,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRTTYHANDLE, "invalid tty handle" }, 
 	{ ERROSADAPTER, "os adaptation layer error" }, 
 	{ ERRUNKNOWNPROTOCOL, "Unknown protocol type" }, 
-	{ ERRPPPFCS, "ppp frame checksum error" }
+	{ ERRPPPFCS, "ppp frame checksum error" }, 
+	{ ERRNOIDLETIMER, "no idle timer" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

@@ -36,6 +36,7 @@ typedef enum {
 	ERRTTYHANDLE,		//* tty句柄无效
 	ERROSADAPTER,		//* os适配层错误
 	ERRUNKNOWNPROTOCOL,	//* 未知协议类型
+	ERRNOIDLETIMER,		//* 没有空闲的定时器
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

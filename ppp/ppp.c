@@ -15,17 +15,17 @@ static BOOL l_blIsRunning = TRUE;
 
 //* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
 static const ST_PPP_PROTOCOL lr_staProtocol[] = {
-	{ PPP_LCP,  NULL, NULL }, 
-	{ PPP_PAP,  NULL, NULL }, 
-	{ PPP_CHAP, NULL, NULL },
-	{ PPP_IPCP, NULL, NULL }, 
+	{ PPP_LCP,  NULL }, 
+	{ PPP_PAP,  NULL }, 
+	{ PPP_CHAP, NULL },
+	{ PPP_IPCP, NULL }, 
 #if SUPPORT_IPV6
-	{ PPP_IPV6CP, NULL, NULL },
+	{ PPP_IPV6CP, NULL },
 #endif
-	{ PPP_IP,   NULL, NULL }, 
+	{ PPP_IP,   NULL }, 
 
 #if SUPPORT_IPV6
-	{ PPP_IPV6, NULL, NULL }
+	{ PPP_IPV6, NULL }
 #endif
 }; 
 
@@ -117,16 +117,36 @@ static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY)
 void thread_ppp_handler(void *pvParam)
 {
 	INT nPPPIdx = (INT)pvParam; 
+	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];	
+	EN_ERROR_CODE enErrCode; 
 
-	//* 标记ppp协议栈处理线程已经开始运行
+	//* 通知ppp协议栈处理线程已经开始运行
 	l_staNetifPPP[nPPPIdx].blIsThreadExit = FALSE;
 
+	INT nPacketLen; 
 	while (l_blIsRunning)
 	{
+		nPacketLen = ppp_recv(pstcbPPP->hTTY, &enErrCode);
+#if SUPPORT_PRINTF	
+		if (nPacketLen < 0)
+			printf("ppp_recv() failed, %s\r\n", error(enErrCode));
+#endif
 
+		//*  状态机
+		switch (pstcbPPP->enState)
+		{
+		case TTYINIT:
+		case STARTNEGOTIATION:
+		case NEGOTIATION: 
+			ppp_link_establish(pstcbPPP, &l_blIsRunning, &enErrCode); 
+			break; 
+
+		case ESTABLISHED: 
+			break; 
+		}
 	}
 
-	//* 标记ppp协议栈处理线程已经安全退出
+	//* 通知ppp协议栈处理线程已经安全退出
 	l_staNetifPPP[nPPPIdx].blIsThreadExit = TRUE;
 }
 

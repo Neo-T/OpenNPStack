@@ -47,8 +47,7 @@
 //* ppp栈支持的上层协议
 typedef struct _ST_PPP_PROTOCOL_ {	
 	USHORT usType; 
-	void (*pfunUpper)(HTTY hTTY, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode);
-	void (*pfunLower)(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode); 
+	void (*pfunUpper)(HTTY hTTY, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode);	
 } ST_PPP_PROTOCOL, *PST_PPP_PROTOCOL;
 
 #endif

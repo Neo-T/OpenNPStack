@@ -9,7 +9,12 @@
 #include "ppp/negotiation.h"
 #undef SYMBOL_GLOBALS
 
-void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, PST_NEGORESULT pstNegoResult, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode)
+void ppp_wait_ack_timeout(void *pvParam)
+{
+
+}
+
+void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode)
 {
 	while (*pblIsRunning)
 	{
@@ -22,6 +27,7 @@ void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, PST_NEGORESULT pstNegoResult, B
 				return; 
 
 		case STARTNEGOTIATION: 
+			start_negotiation(pstcbPPP->hTTY, pstcbPPP->pstNegoResult);
 			break; 
 		}
 	}

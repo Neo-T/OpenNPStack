@@ -13,7 +13,7 @@
 #else
 	#define NEGOTIATION_STORAGE_EXT extern
 #endif //* SYMBOL_GLOBALS
-#include "ppp_frame.h"
+#include "ppp_utils.h"
 
 //* LCP相关配置项初始值
 #define ACCM_INIT		0	//* ACCM初始值，缺省0~31全部不进行转义
@@ -34,7 +34,7 @@ typedef enum {
 } EN_PPP_LINK_STATE;
 
 //* 记录协商结果
-typedef struct _ST_NEGORESULT_ {
+typedef struct _ST_PPPNEGORESULT_ {
 	struct {
 		UINT unMagicNum;
 		USHORT usMRU;
@@ -55,15 +55,15 @@ typedef struct _ST_NEGORESULT_ {
 		UINT unPointToPointAddr;
 		UINT unNetMask;
 	} stIPCP;
-} ST_NEGORESULT, *PST_NEGORESULT;
+} ST_PPPNEGORESULT, *PST_PPPNEGORESULT;
 
 //* PPP控制块
 typedef struct _STCB_NETIFPPP_ {
 	HTTY hTTY;
 	UCHAR ubaFrameBuf[PPP_MRU]; 
 	EN_PPP_LINK_STATE enState;
-	PST_NEGORESULT pstNegoResult;
+	PST_PPPNEGORESULT pstNegoResult;
 	BOOL blIsThreadExit; 
-} STCB_NETIFPPP, *PSTCB_NETIFPPP;
+} STCB_NETIFPPP, *PSTCB_NETIFPPP; 
 
 #endif
