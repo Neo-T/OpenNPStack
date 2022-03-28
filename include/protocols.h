@@ -15,7 +15,14 @@ typedef enum {
 	PAP, 
 	CHAP, 
 	IPCP, 
-	IP, 
+#if SUPPORT_IPV6
+	IPV6CP, 
+#endif
+	IPV4, 
+#if SUPPORT_IPV6
+	IPV6, 
+#endif
+
 	ICMP, 
 	ARP, 
 	TCP, 

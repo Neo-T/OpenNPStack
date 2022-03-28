@@ -60,9 +60,10 @@ typedef struct _ST_NEGORESULT_ {
 //* PPP控制块
 typedef struct _STCB_NETIFPPP_ {
 	HTTY hTTY;
+	UCHAR ubaFrameBuf[PPP_MRU]; 
 	EN_PPP_LINK_STATE enState;
 	PST_NEGORESULT pstNegoResult;
-	BOOL blIsThreadExit;
+	BOOL blIsThreadExit; 
 } STCB_NETIFPPP, *PSTCB_NETIFPPP;
 
 #endif

@@ -13,7 +13,21 @@
 
 static BOOL l_blIsRunning = TRUE;
 
-static const USHORT lr_usaProtocol[] = { PPP_LCP, PPP_PAP, PPP_CHAP, PPP_IPCP, PPP_IP };
+//* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
+static const ST_PPP_PROTOCOL lr_staProtocol[] = {
+	{ PPP_LCP,  NULL, NULL }, 
+	{ PPP_PAP,  NULL, NULL }, 
+	{ PPP_CHAP, NULL, NULL },
+	{ PPP_IPCP, NULL, NULL }, 
+#if SUPPORT_IPV6
+	{ PPP_IPV6CP, NULL, NULL },
+#endif
+	{ PPP_IP,   NULL, NULL }, 
+
+#if SUPPORT_IPV6
+	{ PPP_IPV6, NULL, NULL }
+#endif
+}; 
 
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
@@ -104,6 +118,7 @@ void thread_ppp_handler(void *pvParam)
 {
 	INT nPPPIdx = (INT)pvParam; 
 
+	//* 标记ppp协议栈处理线程已经开始运行
 	l_staNetifPPP[nPPPIdx].blIsThreadExit = FALSE;
 
 	while (l_blIsRunning)
@@ -111,13 +126,80 @@ void thread_ppp_handler(void *pvParam)
 
 	}
 
+	//* 标记ppp协议栈处理线程已经安全退出
 	l_staNetifPPP[nPPPIdx].blIsThreadExit = TRUE;
+}
+
+//* ppp接收
+INT ppp_recv(HTTY hTTY, EN_ERROR_CODE *penErrCode)
+{
+	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY);
+	if (!pstcbNetif)
+	{
+		if (penErrCode)
+			*penErrCode = ERRTTYHANDLE;
+		return -1;
+	}
+
+	//* 读取数据
+	INT nRcvBytes = tty_recv(hTTY, pstcbNetif->ubaFrameBuf, sizeof(pstcbNetif->ubaFrameBuf), penErrCode);
+	if (nRcvBytes > 0)
+	{
+		//* 验证校验和是否正确
+		USHORT usFCS = ppp_fcs16(pstcbNetif->ubaFrameBuf + 1, (USHORT)(nRcvBytes - 1 - sizeof(ST_PPP_TAIL))); 
+		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)&pstcbNetif->ubaFrameBuf[nRcvBytes - sizeof(ST_PPP_TAIL)];
+		if (usFCS != pstTail->usFCS)
+		{
+			if (penErrCode)
+				*penErrCode = ERRPPPFCS; 
+			return -1; 
+		}
+
+		//* 解析ppp帧携带的上层协议类型值
+		USHORT usProtocol; 
+		INT nUpperStartIdx; 
+		if (pstcbNetif->ubaFrameBuf[1] == PPP_ALLSTATIONS && pstcbNetif->ubaFrameBuf[2] == PPP_UI) //* 地址域与控制域未被压缩，使用正常协议头
+		{
+			PST_PPP_HDR pstHdr = (PST_PPP_HDR)pstcbNetif->ubaFrameBuf;
+			usProtocol = pstHdr->usProtocol; 
+			nUpperStartIdx = sizeof(ST_PPP_HDR); 
+		}
+		else
+		{
+			if (pstcbNetif->ubaFrameBuf[1] == PPP_IP 
+	#if SUPPORT_IPV6
+					|| pstcbNetif->ubaFrameBuf[1] ==  PPP_IPV6 //* 系统仅支持IP协议族，其它如IPX之类的协议族不提供支持
+	#endif
+				)
+			{
+				usProtocol = (USHORT)pstcbNetif->ubaFrameBuf[1]; 
+				nUpperStartIdx = 2; 
+			}
+			else
+			{
+				((UCHAR *)&usProtocol)[0] = pstcbNetif->ubaFrameBuf[2];
+				((UCHAR *)&usProtocol)[1] = pstcbNetif->ubaFrameBuf[1];
+				nUpperStartIdx = 3; 
+			}
+		}
+
+		//* 遍历协议栈支持的上层协议，找出匹配的类型值并调用对应的upper函数将报文传递给该函数处理之
+		INT i;
+		for (i = 0; i < (INT)(sizeof(lr_staProtocol) / sizeof(ST_PPP_PROTOCOL)); i++)
+		{
+			if (lr_staProtocol[i].pfunUpper)
+				lr_staProtocol[i].pfunUpper(hTTY, pstcbNetif->ubaFrameBuf[nUpperStartIdx], nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL), penErrCode); 
+		}
+	}
+
+	return nRcvBytes; 
 }
 
 //* ppp发送
 INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
 {
-	if (enProtocol >= sizeof(lr_usaProtocol) / sizeof(USHORT))
+	//* 确保上层协议在ppp协议栈支持的范围之内，超出的直接抛弃当前要发送的报文并报错
+	if (enProtocol >= (INT)(sizeof(lr_staProtocol) / sizeof(USHORT)))
 	{
 		if (penErrCode)
 			*penErrCode = ERRUNKNOWNPROTOCOL;
@@ -125,6 +207,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 		return -1;
 	}
 
+	//* 获取ppp接口控制块
 	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY); 
 	if (!pstcbNetif)
 	{
@@ -140,13 +223,13 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	{
 		if (enProtocol < 0xFF && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfProtoComp)
 		{
-			ubHead[1] = ((UCHAR *)&lr_usaProtocol[enProtocol])[0];
+			ubHead[1] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[0];
 			usHeadDataLen = 2;
 		}
 		else
 		{
-			ubHead[1] = ((UCHAR *)&lr_usaProtocol[enProtocol])[1];
-			ubHead[2] = ((UCHAR *)&lr_usaProtocol[enProtocol])[0];
+			ubHead[1] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[1];
+			ubHead[2] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[0];
 			usHeadDataLen = 3;
 		}
 	}
@@ -155,7 +238,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 		PST_PPP_HDR pstHdr = (PST_PPP_HDR)ubHead;
 		pstHdr->ubAddr = PPP_ALLSTATIONS; 
 		pstHdr->ubCtl = PPP_UI;
-		pstHdr->usProtocol = USHORT_EDGE_CONVERT(lr_usaProtocol[enProtocol]);
+		pstHdr->usProtocol = USHORT_EDGE_CONVERT(lr_staProtocol[enProtocol].usType);
 		usHeadDataLen = sizeof(ST_PPP_HDR); 
 	}
 

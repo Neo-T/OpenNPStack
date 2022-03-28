@@ -44,10 +44,11 @@
 #define PPP_CHAP		0xC223	//* Cryptographic Handshake Auth. Protocol
 #define PPP_CBCP		0xC029	//* Callback Control Protocol
 
-//* 存储ppp栈支持的上层协议相关的信息
-typedef struct _ST_PPP_PROTOCOL_ {
-	EN_NPSPROTOCOL enProtocol; 
-	USHORT usPPPProtocol; 
+//* ppp栈支持的上层协议
+typedef struct _ST_PPP_PROTOCOL_ {	
+	USHORT usType; 
+	void (*pfunUpper)(HTTY hTTY, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode);
+	void (*pfunLower)(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode); 
 } ST_PPP_PROTOCOL, *PST_PPP_PROTOCOL;
 
 #endif

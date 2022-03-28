@@ -15,7 +15,7 @@
 #define ERRORS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#define ERROR_NUM	20
+#define ERROR_NUM	30
 typedef enum {
 	ERRNO = 0,			//* 没有发生任何错误
 	ERRNOPAGENODES,		//* 无可用的内存页面节点
@@ -31,6 +31,7 @@ typedef enum {
 	ERRSIMCARD,			//* 未检测到SIM卡
 	ERRREGMOBILENET,	//* 没有注册到移动网络
 	ERRPPPDELIMITER,	//* 未找到ppp帧定界符
+	ERRPPPFCS,			//* ppp帧校验和错误
 	ERRTOOMANYTTYS,		//* tty数量过多
 	ERRTTYHANDLE,		//* tty句柄无效
 	ERROSADAPTER,		//* os适配层错误

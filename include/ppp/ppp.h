@@ -18,6 +18,7 @@
 PPP_EXT BOOL ppp_init(EN_ERROR_CODE *penErrCode);
 PPP_EXT void ppp_uninit(void); 
 PPP_EXT void thread_ppp_handler(void *pvParam); 
+PPP_EXT INT ppp_recv(HTTY hTTY, EN_ERROR_CODE *penErrCode);
 PPP_EXT INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode);
 
 #endif

@@ -89,7 +89,7 @@ static PSTCB_TTYIO get_io_control_block(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 	return NULL; 
 }
 
-INT tty_recv(HTTY hTTY, UCHAR *pubReadBuf, INT nReadBufLen, EN_ERROR_CODE *penErrCode)
+INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, EN_ERROR_CODE *penErrCode)
 {
 	INT nRcvBytes; 
 	INT nStartIdx;
@@ -136,7 +136,7 @@ __lblRcv:
 		{
 			if (blHasFoundHdrFlag)
 			{				
-				UINT unPacketByes = ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)(nReadIdx - nStartIdx + 1), pubReadBuf, (UINT *)&nReadBufLen);
+				UINT unPacketByes = ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)(nReadIdx - nStartIdx + 1), pubRecvBuf, (UINT *)&nRecvBufLen);
 				UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx - 1;
 				if (unRemainBytes > 0)
 					memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx + 1, unRemainBytes);
@@ -148,7 +148,7 @@ __lblRcv:
 				PrintHexArray(pubPacketBuf, nPacketBufLen, 48);
 		#endif	
 	#endif			
-				return nReadBufLen;
+				return nRecvBufLen; 
 			}
 			else
 			{

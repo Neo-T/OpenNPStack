@@ -23,7 +23,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRTOOMANYTTYS, "Too many ttys" }, 
 	{ ERRTTYHANDLE, "invalid tty handle" }, 
 	{ ERROSADAPTER, "os adaptation layer error" }, 
-	{ ERRUNKNOWNPROTOCOL, "Unknown protocol type" }
+	{ ERRUNKNOWNPROTOCOL, "Unknown protocol type" }, 
+	{ ERRPPPFCS, "ppp frame checksum error" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)
