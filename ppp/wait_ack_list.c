@@ -25,7 +25,7 @@ BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ERROR_CODE *penErrCode)
 
 void wait_ack_list_uninit(PST_PPPWAITACKLIST pstWAList)
 {
-	if (pstWAList)
+	if (pstWAList && INVALID_HMUTEX != pstWAList->hMutex)
 	{
 		os_thread_mutex_lock(pstWAList->hMutex);
 		{
@@ -47,9 +47,9 @@ void wait_ack_list_uninit(PST_PPPWAITACKLIST pstWAList)
 	}
 }
 
-static void wait_ack_list_free_node(PST_PPPWAITACKNODE pstFreedNode)
+static void wait_ack_list_free_node(PST_PPPWAITACKLIST pstWAList, PST_PPPWAITACKNODE pstFreedNode)
 {
-	if (!l_pstWaitAckList || !pstFreedNode)
+	if (!pstWAList || INVALID_HMUTEX == pstWAList->hMutex || !pstFreedNode)
 		return; 
 
 	//* 从链表中摘除
@@ -57,38 +57,39 @@ static void wait_ack_list_free_node(PST_PPPWAITACKNODE pstFreedNode)
 		pstFreedNode->pstPrev->pstNext = pstFreedNode->pstNext;
 	if (pstFreedNode->pstNext)
 		pstFreedNode->pstNext->pstPrev = pstFreedNode->pstPrev;
-	if (l_pstWaitAckList->pstHead == pstFreedNode)
-		l_pstWaitAckList->pstHead = pstFreedNode->pstNext;
+	if (pstWAList->pstHead == pstFreedNode)
+		pstWAList->pstHead = pstFreedNode->pstNext;
 }
 
 static void wait_ack_timeout_handler(void *pvParam)
 {
 	PST_PPPWAITACKNODE pstTimeoutNode = (PST_PPPWAITACKNODE)pvParam; 
+	PST_PPPWAITACKLIST pstWAList = pstTimeoutNode->pstList; 
 	
-	os_thread_mutex_lock(l_pstWaitAckList->hMutex);
+	os_thread_mutex_lock(pstWAList->hMutex);
 	{
 		if (pstTimeoutNode->ubIsAcked) //* 如果已经收到应答报文，则错误计数归零
-			l_pstWaitAckList->ubTimeoutNum = 0;
+			pstWAList->ubTimeoutNum = 0;
 		else //* 超时了，当前节点记录的报文未收到应答
 		{
 			if (pstTimeoutNode->ubIsAcked) //* 存在这种情况，等待进入临界段时好巧不巧收到应答报文了			
-				l_pstWaitAckList->ubTimeoutNum = 0;
+				pstWAList->ubTimeoutNum = 0;
 			else
-				l_pstWaitAckList->ubTimeoutNum++;
+				pstWAList->ubTimeoutNum++;
 		}
 
 		//* 直接释放当前节点即可，不需要单独释放申请的定时器，定时器超时后会自动归还给系统
-		wait_ack_list_free_node(pstTimeoutNode);		
+		wait_ack_list_free_node(pstWAList, pstTimeoutNode);
 	}
-	os_thread_mutex_unlock(l_pstWaitAckList->hMutex); 
+	os_thread_mutex_unlock(pstWAList->hMutex);
 
 	//* 内存归还给mmu
 	buddy_free(pstTimeoutNode);
 }
 
-BOOL wait_ack_list_add(USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ERROR_CODE *penErrCode)
+BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ERROR_CODE *penErrCode)
 {
-	if (!l_pstWaitAckList)
+	if (!pstWAList || INVALID_HMUTEX == pstWAList->hMutex)
 	{
 		if (penErrCode)
 			*penErrCode = ERRPPPWALISTNOINIT;
@@ -117,29 +118,32 @@ BOOL wait_ack_list_add(USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT 
 	//* 尚未等到应答
 	pstNewNode->ubIsAcked = FALSE; 
 
+	//* 记录链表首地址，超时处理函数需要
+	pstNewNode->pstList = pstWAList;
+
 	//* 加入队列
 	pstNewNode->pstNext = NULL;
 	pstNewNode->pstPrev = NULL; 
-	os_thread_mutex_lock(l_pstWaitAckList->hMutex);
+	os_thread_mutex_lock(pstWAList->hMutex);
 	{
-		pstNewNode->pstNext = l_pstWaitAckList->pstHead;
-		if (l_pstWaitAckList->pstHead)
-			l_pstWaitAckList->pstHead->pstPrev = pstNewNode;
-		l_pstWaitAckList->pstHead = pstNewNode;
+		pstNewNode->pstNext = pstWAList->pstHead;
+		if (pstWAList->pstHead)
+			pstWAList->pstHead->pstPrev = pstNewNode;
+		pstWAList->pstHead = pstNewNode;
 	}
-	os_thread_mutex_unlock(l_pstWaitAckList->hMutex);
+	os_thread_mutex_unlock(pstWAList->hMutex);
 
 	return TRUE;
 }
 
-void wait_ack_list_del(USHORT usProtocol, UCHAR ubIdentifier)
+void wait_ack_list_del(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubIdentifier)
 {
-	if (!l_pstWaitAckList)
+	if (!pstWAList || INVALID_HMUTEX == pstWAList->hMutex)
 		return; 
 
-	os_thread_mutex_lock(l_pstWaitAckList->hMutex);
+	os_thread_mutex_lock(pstWAList->hMutex);
 	{
-		PST_PPPWAITACKNODE pstNextNode = l_pstWaitAckList->pstHead;
+		PST_PPPWAITACKNODE pstNextNode = pstWAList->pstHead;
 		while (pstNextNode)
 		{
 			if (usProtocol == pstNextNode->stPacket.usProtocol && ubIdentifier == pstNextNode->stPacket.ubIdentifier)
@@ -153,7 +157,7 @@ void wait_ack_list_del(USHORT usProtocol, UCHAR ubIdentifier)
 			pstNextNode = pstNextNode->pstNext;
 		}
 	}
-	os_thread_mutex_unlock(l_pstWaitAckList->hMutex);
+	os_thread_mutex_unlock(pstWAList->hMutex);
 }
 
 #endif

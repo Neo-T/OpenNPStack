@@ -36,7 +36,7 @@ static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM];
 static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 	{
 		{ 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE },
-		{ IP_ADDR_INIT, DNS_ADDR_INIT, DNS_ADDR_INIT, IP_ADDR_INIT, MASK_INIT }
+		{ IP_ADDR_INIT, DNS_ADDR_INIT, DNS_ADDR_INIT, IP_ADDR_INIT, MASK_INIT }, 0
 	}, 
 
 	/* 系统存在几路ppp链路，就在这里添加几路的协商初始值，如果不确定，可以直接将上面预定义的初始值直接复制过来即可 */
@@ -63,9 +63,6 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 		if (INVALID_HTTY == l_staNetifPPP[i].hTTY)
 			goto __lblEnd; 
 
-		if (!wait_ack_list_init(&l_staNetifPPP[i].stWaitAckList, penErrCode))
-			goto __lblEnd; 
-
 		l_staNetifPPP[i].enState = TTYINIT; 
 		l_staNetifPPP[i].pstNegoResult = &l_staNegoResult[i];
 	}
@@ -77,8 +74,8 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 __lblEnd: 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
-			tty_uninit(l_staNetifPPP[i].hTTY);
+		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)		
+			tty_uninit(l_staNetifPPP[i].hTTY);		
 		else
 			break; 
 	}
@@ -96,8 +93,8 @@ void ppp_uninit(void)
 		while (l_staNetifPPP[i].blIsThreadExit)
 			os_sleep_secs(1); 
 
-		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
-			tty_uninit(l_staNetifPPP[i].hTTY);
+		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)		
+			tty_uninit(l_staNetifPPP[i].hTTY);		
 		else
 			break;
 	}
@@ -272,7 +269,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	sPPPHeadNode = buf_list_get_ext(ubHead, usHeadDataLen, penErrCode);
 	if (sPPPHeadNode < 0)
 		return -1;
-	buf_list_put_head(&sBufListHead, sPPPTailNode);
+	buf_list_put_head(&sBufListHead, sPPPHeadNode);
 
 	//* 申请一个buf节点，将ppp帧尾部数据（包括校验和及尾部标志）挂载到链表尾部
 	ST_PPP_TAIL stTail;

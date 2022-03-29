@@ -26,6 +26,7 @@ typedef struct _ST_PPPWAITACKNODE_ { //* 等待应答的PPP报文链表节点
 		USHORT usProtocol;
 	} stPacket;	
 	PST_ONESHOTTIMER pstTimer;
+	struct _ST_PPPWAITACKLIST_ *pstList; 
 } ST_PPPWAITACKNODE, *PST_PPPWAITACKNODE;
 
 typedef struct _ST_PPPWAITACKLIST_ { //* 等待应答的PPP报文链表

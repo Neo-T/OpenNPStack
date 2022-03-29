@@ -40,16 +40,6 @@ typedef struct _ST_LNCP_HDR_ { //* LCP/NCP帧头部结构体
 } PACKED ST_LNCP_HDR, *PST_LNCP_HDR;
 PACKED_END
 
-PACKED_BEGIN
-typedef struct _ST_LNCP_ACFC_HDR_ { //* LCP/NCP帧头部结构体，PPP帧地址、控制域压缩时的头部结构
-	UCHAR ubFlag;		//* 标志域，固定字符（参见PPP_FLAG宏），其界定一个完整的PPP帧
-	USHORT usProtocol; 	//* 协议域，PPP帧携带的协议类型，参见ppp_defs.h中前缀为PPP_的相关宏定义，如PPP_IP为IP协议
-	UCHAR ubCode;		//* 代码域，标识LCP帧报文类型
-	UCHAR ubIdentifier;	//* 标识域，唯一的标识一个报文，用于确定应答报文
-	USHORT usLen;		//* 长度域：代码域 + 标识域 + 长度域 + 可边长的数据域
-} PACKED ST_LNCP_ACFC_HDR, *PST_LNCP_ACFC_HDR;
-PACKED_END
-
 //* 相关控制协议（LCP、IPCP等）的代码域类型定义
 #define CPCODE_NUM	11	//* 协商阶段代码域类型数量
 typedef enum {

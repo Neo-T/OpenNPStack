@@ -32,7 +32,8 @@ typedef enum {
 	ESTABLISHED,		//* 链路已建立
 	TERMINATE,			//* 终止链路
 	TERMINATED, 		//* 链路已终止
-	ACKTIMEOUT			//* 应答超时（一般是连续应答超时几次后才会进入这个阶段）
+	ACKTIMEOUT, 		//* 应答超时（一般是连续应答超时几次后才会进入这个阶段）
+	STACKFAULT,			//* 协议栈严重故障阶段（软件BUG导致）
 } EN_PPP_LINK_STATE;
 
 //* 记录协商结果
@@ -57,6 +58,7 @@ typedef struct _ST_PPPNEGORESULT_ {
 		UINT unPointToPointAddr;
 		UINT unNetMask;
 	} stIPCP;
+	UCHAR ubIdentifier; 
 } ST_PPPNEGORESULT, *PST_PPPNEGORESULT;
 
 //* PPP接口控制块
@@ -68,5 +70,22 @@ typedef struct _STCB_NETIFPPP_ {
 	ST_PPPWAITACKLIST stWaitAckList;
 	BOOL blIsThreadExit; 
 } STCB_NETIFPPP, *PSTCB_NETIFPPP; 
+
+//* LNCP协议配置请求项处理器相关宏、处理函数及结构体定义
+typedef INT(*PFUN_PUTREQITEM)(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult);
+typedef INT(*PFUN_GETREQVAL)(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
+typedef struct _ST_LNCP_CONFREQ_ITEM_ {
+	UCHAR ubType;
+	BOOL blIsNegoRequired;		//* 是否需要协商，生成初始配置请求报文时需要
+	PFUN_PUTREQITEM pfunPut;	//* 填充请求内容到缓冲区，包括请求类型、长度及数据（如果需要携带数据的话）
+	PFUN_GETREQVAL pfunGet;		//* 从收到的配置请求报文中读取协商值
+} ST_LNCP_CONFREQ_ITEM, *PST_LNCP_CONFREQ_ITEM;
+
+//* LNCP协商处理器，其针对报文代码域携带的值分别进行特定处理，在这里定义处理器相关的基础数据结构、宏、处理函数等定义
+typedef BOOL(*PFUN_LNCPNEGOHANDLER)(HTTY hTTY, UCHAR *pubPacket, INT nPacketLen);
+typedef struct _ST_LCPNEGOHANDLER_ {
+	EN_CPCODE enCode;
+	PFUN_LNCPNEGOHANDLER pfunHandler;
+} ST_LNCPNEGOHANDLER, *PST_LNCPNEGOHANDLER;
 
 #endif

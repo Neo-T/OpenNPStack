@@ -5,6 +5,7 @@
 #include "port/os_adapter.h"
 
 #if SUPPORT_PPP
+#include "ppp/lcp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/negotiation.h"
 #undef SYMBOL_GLOBALS
@@ -22,8 +23,13 @@ void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CO
 				return; 
 
 		case STARTNEGOTIATION: 
-			start_negotiation(pstcbPPP->hTTY, pstcbPPP->pstNegoResult);
-			break; 
+			if (start_negotiation(pstcbPPP->hTTY, &pstcbPPP->stWaitAckList, pstcbPPP->pstNegoResult, penErrCode))
+				pstcbPPP->enState = NEGOTIATION;
+			else
+			{
+				pstcbPPP->enState = STACKFAULT;
+				return;
+			}
 		}
 	}
 }
