@@ -14,6 +14,7 @@
 	#define NEGOTIATION_STORAGE_EXT extern
 #endif //* SYMBOL_GLOBALS
 #include "ppp_utils.h"
+#include "wait_ack_list.h"
 
 //* LCP相关配置项初始值
 #define ACCM_INIT		0	//* ACCM初始值，缺省0~31全部不进行转义
@@ -30,7 +31,8 @@ typedef enum {
 	NEGOTIATION,		//* 协商
 	ESTABLISHED,		//* 链路已建立
 	TERMINATE,			//* 终止链路
-	TERMINATED			//* 链路已终止
+	TERMINATED, 		//* 链路已终止
+	ACKTIMEOUT			//* 应答超时（一般是连续应答超时几次后才会进入这个阶段）
 } EN_PPP_LINK_STATE;
 
 //* 记录协商结果
@@ -57,12 +59,13 @@ typedef struct _ST_PPPNEGORESULT_ {
 	} stIPCP;
 } ST_PPPNEGORESULT, *PST_PPPNEGORESULT;
 
-//* PPP控制块
+//* PPP接口控制块
 typedef struct _STCB_NETIFPPP_ {
 	HTTY hTTY;
 	UCHAR ubaFrameBuf[PPP_MRU]; 
 	EN_PPP_LINK_STATE enState;
 	PST_PPPNEGORESULT pstNegoResult;
+	ST_PPPWAITACKLIST stWaitAckList;
 	BOOL blIsThreadExit; 
 } STCB_NETIFPPP, *PSTCB_NETIFPPP; 
 

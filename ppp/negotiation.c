@@ -9,11 +9,6 @@
 #include "ppp/negotiation.h"
 #undef SYMBOL_GLOBALS
 
-void ppp_wait_ack_timeout(void *pvParam)
-{
-
-}
-
 void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode)
 {
 	while (*pblIsRunning)

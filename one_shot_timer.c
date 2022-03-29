@@ -254,9 +254,8 @@ void one_shot_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount)
 	os_thread_mutex_unlock(l_hMtxOneShotTimer); 
 }
 
-//* 这个函数的目的是安全停止计时器并将其归还给系统，不再占用
-//* 与one_shot_timer_free()函数不同，该函数需要先判断其是否
-//* 依然还在计数，是，则停止并归还给系统，否则不做任何处理
+//* 这个函数的目的是安全停止计时器并将其归还给系统，不再占用，与one_shot_timer_free()函数不同
+//* ，该函数需要先判断其是否依然还在计数，是，则停止并归还给系统，否则不做任何处理
 void one_shot_timer_safe_free(PST_ONESHOTTIMER pstTimer)
 {
 	PST_ONESHOTTIMER pstNextTimer, pstPrevTimer;

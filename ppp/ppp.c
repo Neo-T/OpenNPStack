@@ -7,6 +7,7 @@
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
+#include "ppp/wait_ack_list.h"
 #define SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 #undef SYMBOL_GLOBALS
@@ -32,7 +33,7 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
-static ST_NEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
+static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 	{
 		{ 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE },
 		{ IP_ADDR_INIT, DNS_ADDR_INIT, DNS_ADDR_INIT, IP_ADDR_INIT, MASK_INIT }
@@ -61,6 +62,10 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 		l_staNetifPPP[i].hTTY = tty_init(l_pszaTTY[i], penErrCode);
 		if (INVALID_HTTY == l_staNetifPPP[i].hTTY)
 			goto __lblEnd; 
+
+		if (!wait_ack_list_init(&l_staNetifPPP[i].stWaitAckList, penErrCode))
+			goto __lblEnd; 
+
 		l_staNetifPPP[i].enState = TTYINIT; 
 		l_staNetifPPP[i].pstNegoResult = &l_staNegoResult[i];
 	}

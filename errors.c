@@ -25,7 +25,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERROSADAPTER, "os adaptation layer error" }, 
 	{ ERRUNKNOWNPROTOCOL, "Unknown protocol type" }, 
 	{ ERRPPPFCS, "ppp frame checksum error" }, 
-	{ ERRNOIDLETIMER, "no idle timer" }
+	{ ERRNOIDLETIMER, "no idle timer" }, 
+	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

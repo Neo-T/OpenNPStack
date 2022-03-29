@@ -331,30 +331,4 @@ UINT ppp_escape_decode_ext(UCHAR *pubData, UINT unStartIdx, UINT unEndIdx, UINT 
 	return i;
 }
 
-BOOL ppp_wait_ack_node_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ERROR_CODE *penErrCode)
-{
-	INT i; 
-	for (i = 0; i < (INT)(sizeof(l_staPPPWaitAck) / sizeof(ST_PPPWAITACKNODE)); i++)
-	{
-		if (!l_staPPPWaitAck[i].ubIsUsed)
-		{
-			l_staPPPWaitAck[i].pstTimer = one_shot_timer_new(pfunTimeoutHandler, &l_staPPPWaitAck[i], nTimerCount);
-			if (!l_staPPPWaitAck[i].pstTimer)
-			{
-				if (penErrCode)
-					penErrCode = ERRNOIDLETIMER;
-				return FALSE; 
-			}
-			l_staPPPWaitAck[i].stPacket.usProtocol = usProtocol;
-			l_staPPPWaitAck[i].stPacket.ubCode = ubCode; 		
-			l_staPPPWaitAck[i].stPacket.ubIdentifier = ubIdentifier;
-			l_staPPPWaitAck[i].ubIsUsed = TRUE; 
-
-			return TRUE; 
-		}
-	}
-
-	return FALSE; 
-}
-
 #endif
