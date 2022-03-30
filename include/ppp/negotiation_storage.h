@@ -63,15 +63,13 @@ typedef struct _ST_PPPNEGORESULT_ {
 
 //* PPP接口控制块
 typedef struct _STCB_NETIFPPP_ {
-	HTTY hTTY;
-	UCHAR ubaFrameBuf[PPP_MRU]; 
+	HTTY hTTY;	
 	EN_PPP_LINK_STATE enState;
 	PST_PPPNEGORESULT pstNegoResult;
-	ST_PPPWAITACKLIST stWaitAckList;
-	BOOL blIsThreadExit; 
+	ST_PPPWAITACKLIST stWaitAckList;	
 } STCB_NETIFPPP, *PSTCB_NETIFPPP; 
 
-//* LNCP协议配置请求项处理器相关宏、处理函数及结构体定义
+//* LCP/NCP协议配置请求项处理器相关宏、处理函数及结构体定义
 typedef INT(*PFUN_PUTREQITEM)(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult);
 typedef INT(*PFUN_GETREQVAL)(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 typedef struct _ST_LNCP_CONFREQ_ITEM_ {
@@ -81,8 +79,8 @@ typedef struct _ST_LNCP_CONFREQ_ITEM_ {
 	PFUN_GETREQVAL pfunGet;		//* 从收到的配置请求报文中读取协商值
 } ST_LNCP_CONFREQ_ITEM, *PST_LNCP_CONFREQ_ITEM;
 
-//* LNCP协商处理器，其针对报文代码域携带的值分别进行特定处理，在这里定义处理器相关的基础数据结构、宏、处理函数等定义
-typedef BOOL(*PFUN_LNCPNEGOHANDLER)(HTTY hTTY, UCHAR *pubPacket, INT nPacketLen);
+//* LCP/NCP协商处理器，其针对报文代码域携带的值分别进行特定处理，在这里定义处理器相关的基础数据结构、宏、处理函数等定义
+typedef void(*PFUN_LNCPNEGOHANDLER)(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 typedef struct _ST_LCPNEGOHANDLER_ {
 	EN_CPCODE enCode;
 	PFUN_LNCPNEGOHANDLER pfunHandler;

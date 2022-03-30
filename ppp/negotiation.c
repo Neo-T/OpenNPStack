@@ -5,7 +5,6 @@
 #include "port/os_adapter.h"
 
 #if SUPPORT_PPP
-#include "ppp/lcp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/negotiation.h"
 #undef SYMBOL_GLOBALS
@@ -30,6 +29,9 @@ void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CO
 				pstcbPPP->enState = STACKFAULT;
 				return;
 			}
+
+		case NEGOTIATION: //* 无需做任何处理
+			return; 
 		}
 	}
 }

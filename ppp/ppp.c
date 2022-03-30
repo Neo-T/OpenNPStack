@@ -16,7 +16,7 @@ static BOOL l_blIsRunning = TRUE;
 
 //* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
 static const ST_PPP_PROTOCOL lr_staProtocol[] = {
-	{ PPP_LCP,  NULL }, 
+	{ PPP_LCP,  lcp_recv },
 	{ PPP_PAP,  NULL }, 
 	{ PPP_CHAP, NULL },
 	{ PPP_IPCP, NULL }, 
@@ -33,6 +33,8 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
+static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
+static UCHAR l_ubaThreadExitFlag[PPP_NETLINK_NUM];
 static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 	{
 		{ 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE },
@@ -48,7 +50,7 @@ static void thread_ppp_handler_start(INT nPPPIdx)
 	//* 在此按照顺序建立工作线程，入口函数thread_ppp_handler()，线程入口参数为该ppp链路在l_staTTY数组的存储单元索引值
 	//* 其直接强行进行数据类型转换即可，即作为线程入口参数时直接以如下形式传递：
 	//* (void *)nPPPIdx
-	//* 不要传递参数地址，即(void *)&nPPPIdx，这种方式时错误的
+	//* 不要传递参数地址，即(void *)&nPPPIdx，这种方式是错误的
 	//* 用户自定义代码
 }
 
@@ -90,7 +92,7 @@ void ppp_uninit(void)
 	INT i; 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		while (l_staNetifPPP[i].blIsThreadExit)
+		while (l_ubaThreadExitFlag[i])
 			os_sleep_secs(1); 
 
 		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)		
@@ -100,7 +102,7 @@ void ppp_uninit(void)
 	}
 }
 
-static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY)
+PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY)
 {	
 	if (INVALID_HTTY == hTTY)
 		return NULL; 
@@ -115,61 +117,49 @@ static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY)
 	return NULL; 
 }
 
-//* ppp协议处理器
-void thread_ppp_handler(void *pvParam)
+static INT get_netif_ppp_index(HTTY hTTY)
 {
-	INT nPPPIdx = (INT)pvParam; 
-	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];	
-	EN_ERROR_CODE enErrCode; 
+	if (INVALID_HTTY == hTTY)
+		return -1;
 
-	//* 通知ppp协议栈处理线程已经开始运行
-	l_staNetifPPP[nPPPIdx].blIsThreadExit = FALSE;
-
-	INT nPacketLen; 
-	while (l_blIsRunning)
+	INT i;
+	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		nPacketLen = ppp_recv(pstcbPPP->hTTY, &enErrCode);
-#if SUPPORT_PRINTF	
-		if (nPacketLen < 0)
-			printf("ppp_recv() failed, %s\r\n", error(enErrCode));
-#endif
-
-		//*  状态机
-		switch (pstcbPPP->enState)
-		{
-		case TTYINIT:
-		case STARTNEGOTIATION:
-		case NEGOTIATION: 
-			ppp_link_establish(pstcbPPP, &l_blIsRunning, &enErrCode); 
-			break; 
-
-		case ESTABLISHED: 
-			break; 
-		}
+		if (hTTY == l_staNetifPPP[i].hTTY)
+			return i;
 	}
 
-	//* 通知ppp协议栈处理线程已经安全退出
-	l_staNetifPPP[nPPPIdx].blIsThreadExit = TRUE;
+	return -1;
+}
+
+const CHAR *get_ppp_port_name(HTTY hTTY)
+{
+	if (INVALID_HTTY == hTTY)
+		return "unset";
+
+	INT i;
+	for (i = 0; i < PPP_NETLINK_NUM; i++)
+	{
+		if (hTTY == l_staNetifPPP[i].hTTY)
+			return l_pszaTTY[i];
+	}
+
+	return "unset"; 
 }
 
 //* ppp接收
-INT ppp_recv(HTTY hTTY, EN_ERROR_CODE *penErrCode)
+INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
 {
-	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY);
-	if (!pstcbNetif)
-	{
-		if (penErrCode)
-			*penErrCode = ERRTTYHANDLE;
-		return -1;
-	}
+	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
 
 	//* 读取数据
-	INT nRcvBytes = tty_recv(hTTY, pstcbNetif->ubaFrameBuf, sizeof(pstcbNetif->ubaFrameBuf), penErrCode);
+	UCHAR *pubFrameBuf = l_ubaaFrameBuf[nPPPIdx];
+	INT nRcvBytes = tty_recv(pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), penErrCode);
 	if (nRcvBytes > 0)
 	{
 		//* 验证校验和是否正确
-		USHORT usFCS = ppp_fcs16(pstcbNetif->ubaFrameBuf + 1, (USHORT)(nRcvBytes - 1 - sizeof(ST_PPP_TAIL))); 
-		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)&pstcbNetif->ubaFrameBuf[nRcvBytes - sizeof(ST_PPP_TAIL)];
+		USHORT usFCS = ppp_fcs16(pubFrameBuf + 1, (USHORT)(nRcvBytes - 1 - sizeof(ST_PPP_TAIL)));
+		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)(pubFrameBuf + nRcvBytes - sizeof(ST_PPP_TAIL));
 		if (usFCS != pstTail->usFCS)
 		{
 			if (penErrCode)
@@ -180,27 +170,27 @@ INT ppp_recv(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 		//* 解析ppp帧携带的上层协议类型值
 		USHORT usProtocol; 
 		INT nUpperStartIdx; 
-		if (pstcbNetif->ubaFrameBuf[1] == PPP_ALLSTATIONS && pstcbNetif->ubaFrameBuf[2] == PPP_UI) //* 地址域与控制域未被压缩，使用正常协议头
+		if (pubFrameBuf[1] == PPP_ALLSTATIONS && pubFrameBuf[2] == PPP_UI) //* 地址域与控制域未被压缩，使用正常协议头
 		{
-			PST_PPP_HDR pstHdr = (PST_PPP_HDR)pstcbNetif->ubaFrameBuf;
+			PST_PPP_HDR pstHdr = (PST_PPP_HDR)pubFrameBuf;
 			usProtocol = pstHdr->usProtocol; 
 			nUpperStartIdx = sizeof(ST_PPP_HDR); 
 		}
 		else
 		{
-			if (pstcbNetif->ubaFrameBuf[1] == PPP_IP 
+			if (pubFrameBuf[1] == PPP_IP
 	#if SUPPORT_IPV6
 					|| pstcbNetif->ubaFrameBuf[1] ==  PPP_IPV6 //* 系统仅支持IP协议族，其它如IPX之类的协议族不提供支持
 	#endif
 				)
 			{
-				usProtocol = (USHORT)pstcbNetif->ubaFrameBuf[1]; 
+				usProtocol = (USHORT)pubFrameBuf[1];
 				nUpperStartIdx = 2; 
 			}
 			else
 			{
-				((UCHAR *)&usProtocol)[0] = pstcbNetif->ubaFrameBuf[2];
-				((UCHAR *)&usProtocol)[1] = pstcbNetif->ubaFrameBuf[1];
+				((UCHAR *)&usProtocol)[0] = pubFrameBuf[2];
+				((UCHAR *)&usProtocol)[1] = pubFrameBuf[1];
 				nUpperStartIdx = 3; 
 			}
 		}
@@ -210,7 +200,7 @@ INT ppp_recv(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 		for (i = 0; i < (INT)(sizeof(lr_staProtocol) / sizeof(ST_PPP_PROTOCOL)); i++)
 		{
 			if (lr_staProtocol[i].pfunUpper)
-				lr_staProtocol[i].pfunUpper(hTTY, pstcbNetif->ubaFrameBuf[nUpperStartIdx], nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL), penErrCode); 
+				lr_staProtocol[i].pfunUpper(pstcbPPP, pubFrameBuf + nUpperStartIdx, nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL), penErrCode);
 		}
 	}
 
@@ -292,5 +282,43 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 
 	return nRtnVal; 
 }
+
+//* ppp协议处理器
+void thread_ppp_handler(void *pvParam)
+{
+	INT nPPPIdx = (INT)pvParam;
+	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	EN_ERROR_CODE enErrCode;
+
+	//* 通知ppp协议栈处理线程已经开始运行
+	l_ubaThreadExitFlag[nPPPIdx] = FALSE;
+
+	INT nPacketLen;
+	while (l_blIsRunning)
+	{
+		nPacketLen = ppp_recv(nPPPIdx, &enErrCode);
+#if SUPPORT_PRINTF	
+		if (nPacketLen < 0)
+			printf("ppp_recv() failed, %s\r\n", error(enErrCode));
+#endif
+
+		//*  状态机
+		switch (pstcbPPP->enState)
+		{
+		case TTYINIT:
+		case STARTNEGOTIATION:
+		case NEGOTIATION:
+			ppp_link_establish(pstcbPPP, &l_blIsRunning, &enErrCode);
+			break;
+
+		case ESTABLISHED:
+			break;
+		}
+	}
+
+	//* 通知ppp协议栈处理线程已经安全退出
+	l_ubaThreadExitFlag[nPPPIdx] = TRUE;
+}
+
 
 #endif

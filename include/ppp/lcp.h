@@ -16,6 +16,7 @@
 #endif //* SYMBOL_GLOBALS
 #include "negotiation_storage.h"
 
-LCP_EXT BOOL start_negotiation(HTTY hTTY, PST_PPPWAITACKLIST pstWAList, PST_PPPNEGORESULT pstNegoResult, EN_ERROR_CODE *penErrCode);
+LCP_EXT BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
+LCP_EXT void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode);
 
 #endif
