@@ -10,9 +10,6 @@
 #include "ppp/ppp_utils.h"
 #undef SYMBOL_GLOBALS
 
-//* 等待应答的链表节点
-static ST_PPPWAITACKNODE l_staPPPWaitAck[2] = { { FALSE }, { FALSE } };
-
 const CHAR *get_protocol_name(USHORT usProtocol)
 {
 	switch (usProtocol)

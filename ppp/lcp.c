@@ -30,13 +30,13 @@ static INT get_pcompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pst
 static INT get_accompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 static ST_LNCP_CONFREQ_ITEM lr_staConfReqItem[LCP_CONFREQ_NUM] =
 {
-	{ (UCHAR)MRU,           TRUE,  put_mru,			  get_mru }, 
-	{ (UCHAR)ASYNCMAP,      TRUE,  put_async_map,	  get_async_map }, 
-	{ (UCHAR)AUTHTYPE,      FALSE, NULL,			  get_auth_type }, 
-	{ (UCHAR)QUALITY,       FALSE, NULL }, 
-	{ (UCHAR)MAGICNUMBER,   TRUE,  put_magic_number,  get_magic_number }, 
-	{ (UCHAR)PCOMPRESSION,  TRUE,  put_pcompression,  get_pcompression }, 
-	{ (UCHAR)ACCOMPRESSION, TRUE,  put_accompression, get_accompression } 
+	{ (UCHAR)MRU,           "mru",				 TRUE,  put_mru,		   get_mru }, 
+	{ (UCHAR)ASYNCMAP,      "accm",				 TRUE,  put_async_map,	   get_async_map }, 
+	{ (UCHAR)AUTHTYPE,      "Auth",				 FALSE, NULL,			   get_auth_type }, 
+	{ (UCHAR)QUALITY,       "Quality",			 FALSE, NULL }, 
+	{ (UCHAR)MAGICNUMBER,   "Magic",			 TRUE,  put_magic_number,  get_magic_number }, 
+	{ (UCHAR)PCOMPRESSION,  "Proto Compress",	 TRUE,  put_pcompression,  get_pcompression }, 
+	{ (UCHAR)ACCOMPRESSION, "Addr/Ctl Compress", TRUE,  put_accompression, get_accompression } 
 };
 
 //* LCP协商处理函数
@@ -283,12 +283,12 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 		{
 			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
 				if (lr_staConfReqItem[i].pfunGet)
-					nReadIdx += lr_staConfReqItem[i].pfunGet(pubPacket + nReadIdx, NULL, pstcbPPP->pstNegoResult);
+					nReadIdx += lr_staConfReqItem[i].pfunGet(pubPacket + nReadIdx, NULL, pstcbPPP->pstNegoResult);			
 		}
 	}
 
 	//* 再次发送协商请求报文，区别与上次发送的内容，此次请求已经把对端要求修改的数据域内容填充到报文中
-	send_conf_req_packet(pstcbPPP, NULL); 
+	send_conf_request(pstcbPPP, NULL); 
 }
 
 static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -305,12 +305,21 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
 		{
 			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
+			{
+		#if SUPPORT_PRINTF
+				printf(", %s", lr_staConfReqItem[i].pszName); 
+		#endif
 				lr_staConfReqItem[i].blIsNegoRequired = FALSE;  //* 从协商配置请求中删除
+			}
 		}
 	}
 
+#if SUPPORT_PRINTF
+	printf("]\r\n");
+#endif
+
 	//* 再次发送协商请求报文，区别与上次发送的内容，此次请求已经把对端要求修改的数据域内容填充到报文中
-	send_conf_req_packet(pstcbPPP, NULL);
+	send_conf_request(pstcbPPP, NULL);
 }
 
 static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -319,11 +328,14 @@ static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPa
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	
 #if SUPPORT_PRINTF
-	memcpy(szBuf, pubPacket + sizeof(ST_LNCP_HDR), (size_t)pstHdr->usLen - sizeof(ST_LNCP_HDR)); 
-	szBuf[pstHdr->usLen - sizeof(ST_LNCP_HDR)] = 0; 
-	printf(" \"%s\"]\r\n", szBuf); 
+	UINT unCpyBytes = (size_t)pstHdr->usLen - sizeof(ST_LNCP_HDR); 
+	unCpyBytes = (unCpyBytes < sizeof(szBuf) - 1) ? unCpyBytes : sizeof(szBuf) - 1;
+	memcpy(szBuf, pubPacket + sizeof(ST_LNCP_HDR), unCpyBytes);
+	szBuf[unCpyBytes] = 0;
+	printf(" Data = \"%s\"]\r\n", szBuf); 
 #endif
 
+	printf("sent [Protocol LCP, Id = %02X, Code = 'Terminate Ack']", pstHdr->ubIdentifier); 
 	send_packet(pstcbPPP, (UCHAR)TERMACK, pstHdr->ubIdentifier, (UCHAR *)szBuf, (USHORT)sizeof(ST_LNCP_HDR), FALSE, NULL);
 
 	pstcbPPP->enState = TERMINATED;
@@ -333,6 +345,7 @@ static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
+	//* 收到应答则清除等待队列节点
 	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
 
 #if SUPPORT_PRINTF
@@ -345,9 +358,13 @@ static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+	UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)]; 
+
+	//* 无论何种情形，收到应答都应该先清除等待队列节点
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
 
 #if SUPPORT_PRINTF
-	printf("]\r\nerror: lcp code value not recognized by the peer.\r\n");
+	printf(", Reject Code = \"%s\", hex val = %02X]\r\nerror: lcp code value not recognized by the peer.\r\n", get_cpcode_name((EN_CPCODE)ubRejCode), ubRejCode); 
 #endif
 
 	pstcbPPP->enState = STACKFAULT;
@@ -356,9 +373,16 @@ static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+	USHORT usRejProtocol; 
+
+	//* 无论何种情形，收到应答都应该先清除等待队列节点
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+
+	((UCHAR *)&usRejProtocol)[0] = pubPacket[sizeof(ST_LNCP_HDR) + 1]; 
+	((UCHAR *)&usRejProtocol)[1] = pubPacket[sizeof(ST_LNCP_HDR)];
 
 #if SUPPORT_PRINTF
-	printf("]\r\nerror: ppp protocol value not recognized by the peer.\r\n");
+	printf(", Reject Protocol %s, hex val = %04X]\r\nerror: ppp protocol value not recognized by the peer.\r\n", get_protocol_name(usRejProtocol), usRejProtocol);
 #endif
 
 	pstcbPPP->enState = STACKFAULT;
@@ -366,14 +390,45 @@ static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPack
 
 static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
-	UCHAR ubaData[64]; 
+	CHAR szData[80];
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+	PST_LCP_ECHO_REQ_HDR pstReqHdr = (PST_LCP_ECHO_REQ_HDR)(pubPacket + sizeof(ST_LNCP_HDR)); 
 
-	
+#if SUPPORT_PRINTF	
+	UINT unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR); 
+	unCpyBytes = unCpyBytes < sizeof(szData) - 1 ? unCpyBytes : sizeof(szData) - 1; 
+	memcpy(szData, pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR), unCpyBytes); 
+	szData[unCpyBytes] = 0; 
+	printf(", Remote Magic = <%08X>, Data = \"%s\"]\r\n", pstReqHdr->unLocalMagicNum, szData); 	
+#endif
+
+	//* 发送应答报文
+	printf("sent [Protocol LCP, Id = %02X, Code = 'Echo Reply', Remote Magic = <%08X>, Local Magic = <%08X>, Data = \"%s\"]", pstHdr->ubIdentifier, pstReqHdr->unLocalMagicNum, pstcbPPP->pstNegoResult->stLCP.unMagicNum, szData);
+	PST_LCP_ECHO_REPLY_HDR pstReplyHdr = (PST_LCP_ECHO_REPLY_HDR)&szData[sizeof(ST_LNCP_HDR)]; 
+	pstReplyHdr->unLocalMagicNum = pstReqHdr->unLocalMagicNum; 
+	pstReplyHdr->unRemoteMagicNum = pstcbPPP->pstNegoResult->stLCP.unMagicNum; 
+	unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR);
+	unCpyBytes = unCpyBytes < sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR) ? unCpyBytes : sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR); 
+	memcpy(&szData[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR)], pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR), unCpyBytes);
+	send_packet(pstcbPPP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
 }
 
 static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
+	CHAR szData[64];
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+	PST_LCP_ECHO_REPLY_HDR pstReplyHdr = (PST_LCP_ECHO_REPLY_HDR)(pubPacket + sizeof(ST_LNCP_HDR)); 
 
+	//* 收到应答则清除等待队列节点
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier); 
+
+#if SUPPORT_PRINTF
+	UINT unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR);
+	unCpyBytes = unCpyBytes < sizeof(szData) - 1 ? unCpyBytes : sizeof(szData) - 1; 
+	memcpy(szData, pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR), unCpyBytes);
+	szData[unCpyBytes] = 0; 
+	printf(", Local Magic = <%08X>, Remote Magic = <%08X>, Data = \"%s\"]\r\n", pstReplyHdr->unLocalMagicNum, pstReplyHdr->unRemoteMagicNum, szData); 
+#endif
 }
 
 static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -416,7 +471,7 @@ static BOOL send_packet(PSTCB_NETIFPPP pstcbPPP, UCHAR ubCode, UCHAR ubIdentifie
 	return FALSE; 
 }
 
-static BOOL send_conf_req_packet(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 #if SUPPORT_PRINTF
@@ -440,18 +495,40 @@ BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	if (!wait_ack_list_init(&pstcbPPP->stWaitAckList, penErrCode))
 		return FALSE;
 
-	return send_conf_req_packet(pstcbPPP, penErrCode); 
+	return send_conf_request(pstcbPPP, penErrCode);
 }
 
 BOOL send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
-#define TERM_REQ_STRING "Neo Request"
-	UCHAR ubaPacket[32]; 
+#define TERM_REQ_STRING "Bye, Trinity"
+	UCHAR ubaPacket[64]; 
 
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 	UCHAR ubDataLen = sizeof(TERM_REQ_STRING) - 1; 
 	memcpy(&ubaPacket[sizeof(ST_LNCP_HDR)], TERM_REQ_STRING, (size_t)ubDataLen);
+
+#if SUPPORT_PRINTF
+	printf("sent [Protocol LCP, Id = %02X, Code = 'Terminate Request', Data = \"%s\"]\r\n", ubIdentifier, TERM_REQ_STRING);
+#endif
 	return send_packet(pstcbPPP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode); 
+}
+
+BOOL send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+{
+#define ECHO_STRING	"Hello, I'm Neo!" 
+	UCHAR ubaPacket[80]; 
+	PST_LCP_ECHO_REQ_HDR pstReqHdr = (PST_LCP_ECHO_REQ_HDR)&ubaPacket[sizeof(ST_LNCP_HDR)];
+
+	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;	
+	printf("sent [Protocol LCP, Id = %02X, Code = 'Echo Request', Magic = <%08X>, Data = \"%s\"]\r\n", ubIdentifier, pstcbPPP->pstNegoResult->stLCP.unMagicNum, ECHO_STRING);
+
+	//* 填充数据
+	USHORT usDataLen = (USHORT)strlen(ECHO_STRING); 
+	pstReqHdr->unLocalMagicNum = pstcbPPP->pstNegoResult->stLCP.unMagicNum; 
+	memcpy(&ubaPacket[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR)], ECHO_STRING, usDataLen);
+	usDataLen += sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR); 
+
+	return send_packet(pstcbPPP, (UCHAR)ECHOREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
 }
 
 void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode)
@@ -459,7 +536,7 @@ void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen, EN_ERRO
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 
 #if SUPPORT_PRINTF
-	printf("recv [Protocol LCP, Id = %02X, ", pstHdr->ubIdentifier); 
+	printf("recv [Protocol LCP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_cpcode_name((EN_CPCODE)pstHdr->ubCode)); 
 #endif
 
 	for (INT i = 0; i < CPCODE_NUM; i++)

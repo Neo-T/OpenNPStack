@@ -75,6 +75,7 @@ typedef INT(*PFUN_PUTREQITEM)(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 typedef INT(*PFUN_GETREQVAL)(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 typedef struct _ST_LNCP_CONFREQ_ITEM_ {
 	UCHAR ubType;
+	const CHAR *pszName; 
 	BOOL blIsNegoRequired;		//* 是否需要协商，生成初始配置请求报文时需要
 	PFUN_PUTREQITEM pfunPut;	//* 填充请求内容到缓冲区，包括请求类型、长度及数据（如果需要携带数据的话）
 	PFUN_GETREQVAL pfunGet;		//* 从收到的配置请求报文中读取协商值
