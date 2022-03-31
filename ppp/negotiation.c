@@ -22,7 +22,7 @@ void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CO
 				return; 
 
 		case STARTNEGOTIATION: 
-			if (start_negotiation(pstcbPPP->hTTY, &pstcbPPP->stWaitAckList, pstcbPPP->pstNegoResult, penErrCode))
+			if (start_negotiation(pstcbPPP, penErrCode))
 				pstcbPPP->enState = NEGOTIATION;
 			else
 			{

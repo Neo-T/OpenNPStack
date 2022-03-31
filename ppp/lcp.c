@@ -28,7 +28,7 @@ static INT get_auth_type(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNeg
 static INT get_magic_number(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 static INT get_pcompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 static INT get_accompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
-static const ST_LNCP_CONFREQ_ITEM lr_staConfReqItem[LCP_CONFREQ_NUM] =
+static ST_LNCP_CONFREQ_ITEM lr_staConfReqItem[LCP_CONFREQ_NUM] =
 {
 	{ (UCHAR)MRU,           TRUE,  put_mru,			  get_mru }, 
 	{ (UCHAR)ASYNCMAP,      TRUE,  put_async_map,	  get_async_map }, 
@@ -40,23 +40,29 @@ static const ST_LNCP_CONFREQ_ITEM lr_staConfReqItem[LCP_CONFREQ_NUM] =
 };
 
 //* LCP协商处理函数
-static void conf_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static ST_LNCPNEGOHANDLER l_staNegoHandler[CPCODE_NUM] =
+static const ST_LNCPNEGOHANDLER l_staNegoHandler[CPCODE_NUM] =
 {
-	{ CONFREQ, conf_req },
+	{ CONFREQ, conf_request },
 	{ CONFACK, conf_ack },
 	{ CONFNAK, conf_nak },
-	{ CONFREJ, NULL },
-	{ TERMREQ, NULL },
+	{ CONFREJ, conf_reject },
+	{ TERMREQ, terminate_request },
 	{ TERMACK, terminate_ack },
-	{ CODEREJ, NULL },
-	{ PROTREJ, NULL },
-	{ ECHOREQ, NULL },
-	{ ECHOREP, NULL },
+	{ CODEREJ, code_reject },
+	{ PROTREJ, protocol_reject },
+	{ ECHOREQ, echo_request },
+	{ ECHOREP, echo_reply },
 	{ DISCREQ, discard_req }
 };
 
@@ -221,7 +227,7 @@ static INT get_accompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT ps
 	return (INT)pstItem->stHdr.ubLen;
 }
 
-static void conf_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -285,6 +291,44 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	send_conf_req_packet(pstcbPPP, NULL); 
 }
 
+static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+
+	//* 收到应答则清除等待队列节点
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+
+	//* 同样这个地方不会出现配置项不被支持的情况，这个是对端反馈的不被支持的请求项，需要我们去除这些项然后再次发送协商请求
+	INT nReadIdx = sizeof(ST_LNCP_HDR);
+	while (nReadIdx < nPacketLen)
+	{
+		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
+		{
+			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
+				lr_staConfReqItem[i].blIsNegoRequired = FALSE;  //* 从协商配置请求中删除
+		}
+	}
+
+	//* 再次发送协商请求报文，区别与上次发送的内容，此次请求已经把对端要求修改的数据域内容填充到报文中
+	send_conf_req_packet(pstcbPPP, NULL);
+}
+
+static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+	CHAR szBuf[24];
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+	
+#if SUPPORT_PRINTF
+	memcpy(szBuf, pubPacket + sizeof(ST_LNCP_HDR), (size_t)pstHdr->usLen - sizeof(ST_LNCP_HDR)); 
+	szBuf[pstHdr->usLen - sizeof(ST_LNCP_HDR)] = 0; 
+	printf(" \"%s\"]\r\n", szBuf); 
+#endif
+
+	send_packet(pstcbPPP, (UCHAR)TERMACK, pstHdr->ubIdentifier, (UCHAR *)szBuf, (USHORT)sizeof(ST_LNCP_HDR), FALSE, NULL);
+
+	pstcbPPP->enState = TERMINATED;
+}
+
 static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
@@ -294,6 +338,42 @@ static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 #if SUPPORT_PRINTF
 	printf("]\r\nLink terminated.\r\nppp0 <-/-> %s\r\n", get_ppp_port_name(pstcbPPP->hTTY));
 #endif
+
+	pstcbPPP->enState = TERMINATED; 
+}
+
+static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+
+#if SUPPORT_PRINTF
+	printf("]\r\nerror: lcp code value not recognized by the peer.\r\n");
+#endif
+
+	pstcbPPP->enState = STACKFAULT;
+}
+
+static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+
+#if SUPPORT_PRINTF
+	printf("]\r\nerror: ppp protocol value not recognized by the peer.\r\n");
+#endif
+
+	pstcbPPP->enState = STACKFAULT;
+}
+
+static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+	UCHAR ubaData[64]; 
+
+	
+}
+
+static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+
 }
 
 static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -361,6 +441,17 @@ BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		return FALSE;
 
 	return send_conf_req_packet(pstcbPPP, penErrCode); 
+}
+
+BOOL send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+{
+#define TERM_REQ_STRING "Neo Request"
+	UCHAR ubaPacket[32]; 
+
+	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
+	UCHAR ubDataLen = sizeof(TERM_REQ_STRING) - 1; 
+	memcpy(&ubaPacket[sizeof(ST_LNCP_HDR)], TERM_REQ_STRING, (size_t)ubDataLen);
+	return send_packet(pstcbPPP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode); 
 }
 
 void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode)
