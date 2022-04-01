@@ -266,6 +266,8 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 #if SUPPORT_PRINTF
 	printf("]\r\nuse %s authentication, magic number <%08X>\r\n", get_protocol_name(pstcbPPP->pstNegoResult->stLCP.stAuth.usType), pstcbPPP->pstNegoResult->stLCP.unMagicNum); 
 #endif
+
+	pstcbPPP->enState = AUTHENTICATE; 
 }
 
 static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -496,6 +498,11 @@ BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		return FALSE;
 
 	return send_conf_request(pstcbPPP, penErrCode);
+}
+
+void end_negotiation(PSTCB_NETIFPPP pstcbPPP)
+{
+	wait_ack_list_uninit(&pstcbPPP->stWaitAckList); 
 }
 
 BOOL send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)

@@ -29,6 +29,9 @@ typedef enum {
 	TTYINIT = 0,		//* tty终端初始化
 	STARTNEGOTIATION,	//* 开启链路协商
 	NEGOTIATION,		//* 协商
+	LCPCONFREQ,			//* LCP配置协商
+	AUTHENTICATE,		//* 认证
+	IPCPCONFREQ,		//* IP层配置协商
 	ESTABLISHED,		//* 链路已建立
 	SENDTERMREQ,		//* 发送终止链路请求
 	WAITTERMACK,		//* 等待终止请求应答

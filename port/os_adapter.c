@@ -71,6 +71,12 @@ void os_thread_mutex_unlock(HMUTEX hMutex)
 	/* …… */
 }
 
+void os_thread_mutex_uninit(HMUTEX hMutex)
+{
+	/* 用户自定义代码 */
+	/* …… */
+}
+
 HSEM os_thread_sem_init(UINT unInitVal, UINT unCount)
 {
 	/* 用户自定义代码 */

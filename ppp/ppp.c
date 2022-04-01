@@ -18,7 +18,7 @@ static BOOL l_blIsRunning = TRUE;
 static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 	{ PPP_LCP,  lcp_recv },
 	{ PPP_PAP,  NULL }, 
-	{ PPP_CHAP, NULL },
+	{ PPP_CHAP, chap_recv },
 	{ PPP_IPCP, NULL }, 
 #if SUPPORT_IPV6
 	{ PPP_IPV6CP, NULL },
@@ -33,6 +33,7 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
+static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
 static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
 static UCHAR l_ubaThreadExitFlag[PPP_NETLINK_NUM];
 static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
@@ -65,6 +66,10 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 		if (INVALID_HTTY == l_staNetifPPP[i].hTTY)
 			goto __lblEnd; 
 
+		l_haMtxTTY[i] = os_thread_mutex_init();
+		if (INVALID_HMUTEX == l_haMtxTTY[i])
+			goto __lblEnd; 
+
 		l_staNetifPPP[i].enState = TTYINIT; 
 		l_staNetifPPP[i].pstNegoResult = &l_staNegoResult[i];
 	}
@@ -76,8 +81,13 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 __lblEnd: 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)		
-			tty_uninit(l_staNetifPPP[i].hTTY);		
+		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
+		{
+			tty_uninit(l_staNetifPPP[i].hTTY);
+
+			if (INVALID_HMUTEX != l_haMtxTTY[i])
+				os_thread_mutex_uninit(l_haMtxTTY[i]);
+		}
 		else
 			break; 
 	}
@@ -95,14 +105,19 @@ void ppp_uninit(void)
 		while (l_ubaThreadExitFlag[i])
 			os_sleep_secs(1); 
 
-		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)		
-			tty_uninit(l_staNetifPPP[i].hTTY);		
+		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
+		{
+			tty_uninit(l_staNetifPPP[i].hTTY);
+
+			if (INVALID_HMUTEX != l_haMtxTTY[i])
+				os_thread_mutex_uninit(l_haMtxTTY[i]);
+		}
 		else
 			break;
 	}
 }
 
-PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY)
+static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY, INT *pnPPPIndex)
 {	
 	if (INVALID_HTTY == hTTY)
 		return NULL; 
@@ -111,7 +126,12 @@ PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY)
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
 		if (hTTY == l_staNetifPPP[i].hTTY)
-			return &l_staNetifPPP[i]; 
+		{
+			if (pnPPPIndex)
+				*pnPPPIndex = i;
+
+			return &l_staNetifPPP[i];
+		}
 	}
 
 	return NULL; 
@@ -220,7 +240,8 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	}
 
 	//* 获取ppp接口控制块
-	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY); 
+	INT nPPPIndex; 
+	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY, &nPPPIndex);
 	if (!pstcbNetif)
 	{
 		if(penErrCode)
@@ -274,7 +295,12 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	buf_list_put_tail(sBufListHead, sPPPTailNode);
 
 	//* 完成实际的发送
-	INT nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErrCode);
+	INT nRtnVal; 
+	os_thread_mutex_lock(l_haMtxTTY[nPPPIndex]);
+	{
+		nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErrCode);
+	}	
+	os_thread_mutex_unlock(l_haMtxTTY[nPPPIndex]);
 
 	//* 释放缓冲区节点
 	buf_list_free(sPPPHeadNode);

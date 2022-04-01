@@ -17,6 +17,7 @@
 #include "negotiation_storage.h"
 
 LCP_EXT BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
+LCP_EXT void end_negotiation(PSTCB_NETIFPPP pstcbPPP); 
 LCP_EXT BOOL send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode); 
 LCP_EXT BOOL send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
 LCP_EXT BOOL send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
