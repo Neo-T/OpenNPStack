@@ -538,7 +538,8 @@ BOOL send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	return send_packet(pstcbPPP, (UCHAR)ECHOREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
 }
 
-void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode)
+//* lcp协议接收函数
+void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 

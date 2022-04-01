@@ -8,6 +8,7 @@
 #define SYMBOL_GLOBALS
 #include "ppp/negotiation.h"
 #undef SYMBOL_GLOBALS
+#include "ppp/lcp.h"
 
 static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {

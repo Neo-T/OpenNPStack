@@ -26,6 +26,7 @@
 UTILS_EXT CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize);
 UTILS_EXT CHAR *mem_str(CHAR *pszMem, CHAR *pszStr, UINT unStrSize, UINT unMemSize); 
 UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
+UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace); 
 
 #if SUPPORT_PRINTF
 void print_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine); 

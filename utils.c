@@ -57,6 +57,40 @@ USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes)
 	return (USHORT)(~ulChecksum);
 }
 
+void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace)
+{
+	UINT i, unFormatBytes = 0;
+
+	if (!usHexDataLen || !unDstBufSize || unDstBufSize < 4)
+		return;
+
+	pszDstBuf[0] = 0;
+
+	sprintf(pszDstBuf, "%02X", pubHexData[0]);
+	unFormatBytes = 2;
+	for (i = 1; i < usHexDataLen; i++)
+	{
+		CHAR szHex[sizeof(UCHAR) * 2 + 2];
+		if (blIsSeparateWithSpace)
+		{
+			sprintf(szHex, " %02X", pubHexData[i]);
+			unFormatBytes += 3;
+		}
+		else
+		{
+			sprintf(szHex, "%02X", pubHexData[i]);
+			unFormatBytes += 2;
+		}
+
+		if (unFormatBytes < unDstBufSize)
+			strcat(pszDstBuf, szHex);
+		else
+			break;
+	}
+
+	pszDstBuf[unFormatBytes] = 0;
+}
+
 #if SUPPORT_PRINTF
 void print_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine)
 {

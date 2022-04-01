@@ -7,7 +7,8 @@
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
-#include "ppp/wait_ack_list.h"
+#include "ppp/lcp.h"
+#include "ppp/chap.h"
 #define SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 #undef SYMBOL_GLOBALS
@@ -31,7 +32,10 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 }; 
 
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
-static const CHAR *l_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
+static const CHAR *lr_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
+static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
+	{ "4gnet", "card", "any_char" }, 
+}; 
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
 static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
@@ -62,7 +66,7 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 	//* 初始化tty
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		l_staNetifPPP[i].hTTY = tty_init(l_pszaTTY[i], penErrCode);
+		l_staNetifPPP[i].hTTY = tty_init(lr_pszaTTY[i], penErrCode);
 		if (INVALID_HTTY == l_staNetifPPP[i].hTTY)
 			goto __lblEnd; 
 
@@ -155,16 +159,31 @@ static INT get_netif_ppp_index(HTTY hTTY)
 const CHAR *get_ppp_port_name(HTTY hTTY)
 {
 	if (INVALID_HTTY == hTTY)
-		return "unset";
+		return "unspecified";
 
 	INT i;
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
 		if (hTTY == l_staNetifPPP[i].hTTY)
-			return l_pszaTTY[i];
+			return lr_pszaTTY[i];
 	}
 
-	return "unset"; 
+	return "unspecified"; 
+}
+
+const PST_DIAL_AUTH_INFO get_ppp_dial_auth_info(HTTY hTTY)
+{
+	if (INVALID_HTTY == hTTY)
+		return NULL;
+
+	INT i;
+	for (i = 0; i < PPP_NETLINK_NUM; i++)
+	{
+		if (hTTY == l_staNetifPPP[i].hTTY)
+			return &lr_staDialAuth[i];
+	}
+
+	return NULL;
 }
 
 //* ppp接收
@@ -220,7 +239,7 @@ INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
 		for (i = 0; i < (INT)(sizeof(lr_staProtocol) / sizeof(ST_PPP_PROTOCOL)); i++)
 		{
 			if (lr_staProtocol[i].pfunUpper)
-				lr_staProtocol[i].pfunUpper(pstcbPPP, pubFrameBuf + nUpperStartIdx, nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL), penErrCode);
+				lr_staProtocol[i].pfunUpper(pstcbPPP, pubFrameBuf + nUpperStartIdx, nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL));
 		}
 	}
 

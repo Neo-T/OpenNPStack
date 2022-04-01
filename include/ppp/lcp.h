@@ -14,7 +14,6 @@
 #else
 	#define LCP_EXT extern
 #endif //* SYMBOL_GLOBALS
-#include "negotiation_storage.h"
 
 LCP_EXT BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
 LCP_EXT void end_negotiation(PSTCB_NETIFPPP pstcbPPP); 

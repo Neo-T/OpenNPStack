@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #if SUPPORT_PPP
+#include "ppp/ppp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/chat.h"
 #undef SYMBOL_GLOBALS
@@ -40,7 +41,7 @@
 #define ATEREG_MATCH	"+CEREG:"
 
 //* 设置APN
-#define ATAPN			"AT+CGDCONT=1,\"IP\",\"4gnet\",,0,0"
+#define ATAPN			"AT+CGDCONT=1,\"IP\",\"%s\",,0,0"
 #define ATAPN_OK		"OK"
 #define ATAPN_ERROR		"ERROR"
 
@@ -54,7 +55,7 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 						UCHAR ubErrBytes, CHAR *pszDataBuf, UINT unDataBufBytes, UCHAR ubWaitSecs, EN_ERROR_CODE *penErrCode)
 {
 	UINT unBytes;
-	CHAR szBuf[64];
+	CHAR szBuf[80];
 	UCHAR ubElapsedSecs = 0;
 	UINT unHaveRcvBytes, unHaveCpyBytes, unCpyBytes;
 
@@ -339,30 +340,41 @@ __lblRegMobileNet:
 
 BOOL modem_dial(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 {
-	CHAR szRcvBuf[64];
+	CHAR szBuf[80];
 	UCHAR ubRetryNum;
 	EN_ERROR_CODE enErrCode;
 	BOOL blRtnVal;
+	const CHAR *pszAPN; 
+	PST_DIAL_AUTH_INFO pstDial;
 
 #ifdef ATAPN
 	//* 设置APN
 	//* ===========================================================================================
 	ubRetryNum = 0;
 
+	pstDial = get_ppp_dial_auth_info(hTTY);
+	if (pstDial)
+		pszAPN = pstDial->pszAPN;
+	else
+		pszAPN = APN_DEFAULT;
+
 __lblExecAT:
 	ubRetryNum++;
 	if (ubRetryNum > 3)
 	{
 #if SUPPORT_PRINTF
-		printf("the command <%s> failed, %s\r\n", ATAPN, error(enErrCode));
+		printf("the command <");
+		printf(ATAPN, pszAPN);
+		printf("> failed, %s\r\n", error(enErrCode)); 
 #endif
 		return FALSE;
 	}
 
-	blRtnVal = exec_at_cmd(hTTY, ATAPN, sizeof(ATAPN) - 1, ATAPN_OK, sizeof(ATAPN_OK) - 1, ATAPN_ERROR, sizeof(ATAPN_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErrCode);
+	snprintf(szBuf, sizeof(szBuf), ATAPN, pszAPN); 
+	blRtnVal = exec_at_cmd(hTTY, szBuf, strlen(szBuf), ATAPN_OK, sizeof(ATAPN_OK) - 1, ATAPN_ERROR, sizeof(ATAPN_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErrCode);
 #if SUPPORT_PRINTF
-	if (strlen(szRcvBuf))
-		printf("%s", szRcvBuf);
+	if (strlen(szBuf))
+		printf("%s", szBuf);
 #endif
 	if (!blRtnVal)
 	{
@@ -373,10 +385,10 @@ __lblExecAT:
 #endif
 
 	//* 拨号
-	blRtnVal = exec_at_cmd(hTTY, ATDIAL, sizeof(ATDIAL) - 1, ATDIAL_OK, sizeof(ATDIAL_OK) - 1, ATDIAL_ERROR, sizeof(ATDIAL_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErrCode);
+	blRtnVal = exec_at_cmd(hTTY, ATDIAL, sizeof(ATDIAL) - 1, ATDIAL_OK, sizeof(ATDIAL_OK) - 1, ATDIAL_ERROR, sizeof(ATDIAL_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErrCode);
 #if SUPPORT_PRINTF
-	if (strlen(szRcvBuf))
-		printf("%s", szRcvBuf);
+	if (strlen(szBuf))
+		printf("%s", szBuf);
 #endif
 	if (!blRtnVal)
 	{

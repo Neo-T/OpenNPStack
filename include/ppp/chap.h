@@ -14,8 +14,7 @@
 #else
 	#define CHAP_EXT extern
 #endif //* SYMBOL_GLOBALS
-#include "negotiation_storage.h"
 
-CHAP_EXT void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen, EN_ERROR_CODE *penErrCode);
+CHAP_EXT void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 
 #endif
