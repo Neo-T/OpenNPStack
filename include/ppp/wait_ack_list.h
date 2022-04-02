@@ -32,6 +32,7 @@ typedef struct _ST_PPPWAITACKNODE_ { //* 等待应答的PPP报文链表节点
 typedef struct _ST_PPPWAITACKLIST_ { //* 等待应答的PPP报文链表
 	PST_PPPWAITACKNODE pstHead;
 	HMUTEX hMutex;
+	UCHAR ubIsTimeout; 
 	UCHAR ubTimeoutNum;	//* 连续触发超时事件的次数
 } ST_PPPWAITACKLIST, *PST_PPPWAITACKLIST;
 

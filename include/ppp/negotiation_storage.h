@@ -38,8 +38,7 @@ typedef enum {
 	ESTABLISHED,		//* 链路已建立
 	SENDTERMREQ,		//* 发送终止链路请求
 	WAITTERMACK,		//* 等待终止请求应答
-	TERMINATED, 		//* 链路已终止
-	ACKTIMEOUT, 		//* 应答超时（一般是连续应答超时几次后才会进入这个阶段）
+	TERMINATED, 		//* 链路已终止	
 	STACKFAULT,			//* 协议栈严重故障阶段（软件BUG导致）
 } EN_PPP_LINK_STATE;
 
@@ -66,6 +65,7 @@ typedef struct _ST_PPPNEGORESULT_ {
 		UINT unNetMask;
 	} stIPCP;
 	UCHAR ubIdentifier; 
+	UINT unLastRcvedSecs; 
 } ST_PPPNEGORESULT, *PST_PPPNEGORESULT;
 
 //* PPP接口控制块

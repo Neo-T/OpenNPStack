@@ -29,7 +29,8 @@ UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
 UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace); 
 
 #if SUPPORT_PRINTF
-void print_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine); 
+UTILS_EXT void printf_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine);
+UTILS_EXT void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine);
 #endif
 
 #endif

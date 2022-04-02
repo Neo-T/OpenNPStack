@@ -1,6 +1,7 @@
 ﻿#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
+#include "mmu/buf_list.h"
 
 #define SYMBOL_GLOBALS
 #include "utils.h"
@@ -92,7 +93,7 @@ void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf,
 }
 
 #if SUPPORT_PRINTF
-void print_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine)
+void printf_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine)
 {
 	INT i;
 
@@ -107,5 +108,31 @@ void print_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine)
 	}
 
 	printf("\r\n");
+}
+
+void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine)
+{
+	SHORT sNextNode = sBufListHead;
+	UCHAR *pubData;
+	USHORT usDataLen;
+	INT i = 0;
+	while (NULL != (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))
+	{
+		INT k;		
+		for (k = 0; k < (INT)usDataLen; i++, k++)
+		{
+			if (i >= ubBytesPerLine)
+			{
+				i = 0;
+				printf("\r\n"); 
+			}
+
+			if (i)
+				printf(" %02X", pubData[k]);							
+			else			
+				printf("%02X", pubData[k]);				
+		}
+	}
+	printf("\r\n"); 
 }
 #endif

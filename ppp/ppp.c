@@ -4,11 +4,13 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
+#include "utils.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
 #include "ppp/lcp.h"
 #include "ppp/chap.h"
+#include "ppp/pap.h"
 #define SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 #undef SYMBOL_GLOBALS
@@ -18,7 +20,7 @@ static BOOL l_blIsRunning = TRUE;
 //* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
 static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 	{ PPP_LCP,  lcp_recv },
-	{ PPP_PAP,  NULL }, 
+	{ PPP_PAP,  pap_recv }, 
 	{ PPP_CHAP, chap_recv },
 	{ PPP_IPCP, NULL }, 
 #if SUPPORT_IPV6
@@ -259,8 +261,8 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	}
 
 	//* 获取ppp接口控制块
-	INT nPPPIndex; 
-	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY, &nPPPIndex);
+	INT nPPPIdx; 
+	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY, &nPPPIdx);
 	if (!pstcbNetif)
 	{
 		if(penErrCode)
@@ -270,19 +272,19 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 
 	//* 填充首部数据
 	UCHAR ubHead[sizeof(ST_PPP_HDR)] = { PPP_FLAG } ;
-	USHORT usHeadDataLen; 
+	USHORT usDataLen; 
 	if (LCP != enProtocol && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfAddrCtlComp)
 	{
 		if (enProtocol < 0xFF && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfProtoComp)
 		{
 			ubHead[1] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[0];
-			usHeadDataLen = 2;
+			usDataLen = 2;
 		}
 		else
 		{
 			ubHead[1] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[1];
 			ubHead[2] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[0];
-			usHeadDataLen = 3;
+			usDataLen = 3;
 		}
 	}
 	else
@@ -291,12 +293,12 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 		pstHdr->ubAddr = PPP_ALLSTATIONS; 
 		pstHdr->ubCtl = PPP_UI;
 		pstHdr->usProtocol = USHORT_EDGE_CONVERT(lr_staProtocol[enProtocol].usType);
-		usHeadDataLen = sizeof(ST_PPP_HDR); 
+		usDataLen = sizeof(ST_PPP_HDR); 
 	}
 
 	//* 申请一个buf节点，将ppp帧头部数据挂载到链表头部
 	SHORT sPPPHeadNode, sPPPTailNode;
-	sPPPHeadNode = buf_list_get_ext(ubHead, usHeadDataLen, penErrCode);
+	sPPPHeadNode = buf_list_get_ext(ubHead, usDataLen, penErrCode);
 	if (sPPPHeadNode < 0)
 		return -1;
 	buf_list_put_head(&sBufListHead, sPPPHeadNode);
@@ -315,17 +317,124 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 
 	//* 完成实际的发送
 	INT nRtnVal; 
-	os_thread_mutex_lock(l_haMtxTTY[nPPPIndex]);
+	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
 	{
 		nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErrCode);
 	}	
-	os_thread_mutex_unlock(l_haMtxTTY[nPPPIndex]);
+	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
+
+#if SUPPORT_PRINTF
+	#if DEBUG_LEVEL
+		printf_hex_ext(sBufListHead, 48); 
+	#endif
+#endif
 
 	//* 释放缓冲区节点
 	buf_list_free(sPPPHeadNode);
 	buf_list_free(sPPPTailNode);
 
 	return nRtnVal; 
+}
+
+static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+{
+	INT nPacketLen;
+
+#if SUPPORT_ECHO
+	UINT unLastSndEchoReq = 0; 
+#endif
+
+	while (l_blIsRunning)
+	{
+		//* 已经连续多次未收到对端应答，则断开PPP链路
+		if (pstcbPPP->stWaitAckList.ubTimeoutNum > WAIT_ACK_TIMEOUT_NUM)
+		{
+	#if SUPPORT_PRINTF			
+			printf("No response packet received from the peer, ppp stack will redial ...\r\n");
+	#endif
+			goto __lblEnd; 
+		}
+
+		//* 接收
+		nPacketLen = ppp_recv(nPPPIdx, penErrCode);
+		if (nPacketLen < 0)
+		{			
+	#if SUPPORT_PRINTF			
+			printf("ppp_recv() failed, %s, ppp stack will redial ...\r\n", error(*penErrCode));
+	#endif
+			goto __lblEnd; 
+		}
+
+		switch (pstcbPPP->enState)
+		{
+		case STARTNEGOTIATION:
+		case NEGOTIATION: 
+		case LCPCONFREQ: 
+		case STARTAUTHEN:
+		case AUTHENTICATE:
+		case IPCPCONFREQ: 
+			ppp_link_establish(pstcbPPP, penErrCode);
+			break;
+
+		case ESTABLISHED:
+		#if SUPPORT_ECHO
+			if (!lcp_send_echo_request(pstcbPPP, penErrCode))
+			{
+			#if SUPPORT_PRINTF			
+				printf("lcp_send_echo_request() failed, %s\r\n", error(*penErrCode)); 
+			#endif
+				os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
+				{
+					pstcbPPP->enState = STACKFAULT; 
+				}
+				os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
+			}
+		#endif 
+			break; 
+
+		case SENDTERMREQ:
+			if (lcp_send_terminate_req(pstcbPPP, penErrCode))
+				pstcbPPP->enState = WAITTERMACK;
+			else
+			{
+		#if SUPPORT_PRINTF			
+				printf("lcp_send_terminate_req() failed, %s\r\n", error(*penErrCode));
+		#endif
+				pstcbPPP->enState = STACKFAULT;
+			}
+			break; 
+
+		case WAITTERMACK:
+			if(pstcbPPP->stWaitAckList.ubTimeoutNum > 0)
+				pstcbPPP->enState = SENDTERMREQ;
+			break; 
+
+		case AUTHENFAILED:	//* 认证超时或失败只需重建ppp链路即可
+		case AUTHENTIMEOUT:
+			goto __lblEnd; 
+
+		case TERMINATED:
+			lcp_end_negotiation(pstcbPPP);
+			return; 
+
+		case STACKFAULT:
+		default:
+	#if SUPPORT_PRINTF			
+			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo\r\n");
+	#endif
+			l_blIsRunning = FALSE; 
+			break; 
+		}
+	}
+
+__lblEnd: 
+	lcp_end_negotiation(pstcbPPP);
+
+	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
+	{
+		pstcbPPP->enState = TTYINIT;
+	}	
+	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
 }
 
 //* ppp协议处理器
@@ -338,30 +447,30 @@ void thread_ppp_handler(void *pvParam)
 	//* 通知ppp协议栈处理线程已经开始运行
 	l_ubaThreadExitFlag[nPPPIdx] = FALSE;
 
-	INT nPacketLen;
+	INT nTimeout = 5; 	
 	while (l_blIsRunning)
 	{
-		nPacketLen = ppp_recv(nPPPIdx, &enErrCode);
-		if (nPacketLen < 0)
+		if (TERMINATED == pstcbPPP->enState)
 		{
-			
-
-#if SUPPORT_PRINTF			
-			printf("ppp_recv() failed, %s\r\n", error(enErrCode));
-#endif
+			os_sleep_secs(1); 
+			continue; 
 		}
 
-		//*  状态机
-		switch (pstcbPPP->enState)
+		if (tty_ready(pstcbPPP->hTTY, &enErrCode))
 		{
-		case TTYINIT:
-		case STARTNEGOTIATION:
-		case NEGOTIATION:
-			ppp_link_establish(pstcbPPP, &l_blIsRunning, &enErrCode);
-			break;
+			pstcbPPP->enState = STARTNEGOTIATION;
+			nTimeout = 5; 
 
-		case ESTABLISHED:
-			break;
+			ppp_fsm(nPPPIdx, pstcbPPP, &enErrCode);
+		}
+		else
+		{
+	#if SUPPORT_PRINTF			
+			printf("tty_ready() failed, %s\r\n", error(enErrCode));
+	#endif
+			os_sleep_secs(nTimeout);
+			if(nTimeout < 60)
+				nTimeout += 5; 			
 		}
 	}
 
@@ -369,5 +478,22 @@ void thread_ppp_handler(void *pvParam)
 	l_ubaThreadExitFlag[nPPPIdx] = TRUE;
 }
 
+void ppp_link_terminate(INT nPPPIdx)
+{
+	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
+	{
+		if (ESTABLISHED == pstcbPPP->enState)
+			pstcbPPP->enState = SENDTERMREQ;
+	}
+	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
+}
+
+void ppp_link_recreate(INT nPPPIdx)
+{
+	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	if (TERMINATED == pstcbPPP->enState)
+		pstcbPPP->enState = TTYINIT;
+}
 
 #endif

@@ -115,8 +115,8 @@ __lblRcv:
 		{			
 	#if SUPPORT_PRINTF	
 		#if DEBUG_LEVEL
-			printf("ppp frame delimiter not found, recv %d bytes:\r\n", pstcbRead->unWriteIdx);
-			print_hex(pstcbRead->pubBuf, pstcbRead->unWriteIdx, 48);
+			printf("ppp frame delimiter not found, recv %d bytes:\r\n", pstcbIO->stRecv.nWriteIdx); 
+			printf_hex(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.nWriteIdx, 48);
 		#endif
 	#endif
 			if (penErrCode)
@@ -146,8 +146,8 @@ __lblRcv:
 
 	#if SUPPORT_PRINTF	
 		#if DEBUG_LEVEL				
-				printf("recv %d bytes: \r\n", nPacketBufLen);
-				PrintHexArray(pubPacketBuf, nPacketBufLen, 48);
+				printf("recv %d bytes: \r\n", nRecvBufLen);
+				printf_hex(pubRecvBuf, nRecvBufLen, 48);
 		#endif	
 	#endif			
 				return nRecvBufLen; 

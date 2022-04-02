@@ -265,7 +265,7 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 #if SUPPORT_PRINTF
 	printf("]\r\nuse %s authentication, magic number <%08X>\r\n", get_protocol_name(pstcbPPP->pstNegoResult->stLCP.stAuth.usType), pstcbPPP->pstNegoResult->stLCP.unMagicNum); 
 #endif
-
+	
 	pstcbPPP->enState = STARTAUTHEN; 
 }
 
@@ -289,7 +289,7 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	}
 
 	//* 再次发送协商请求报文，区别与上次发送的内容，此次请求已经把对端要求修改的数据域内容填充到报文中
-	send_conf_request(pstcbPPP, NULL); 
+	lcp_send_conf_request(pstcbPPP, NULL); 
 }
 
 static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -320,7 +320,7 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 #endif
 
 	//* 再次发送协商请求报文，区别与上次发送的内容，此次请求已经把对端要求修改的数据域内容填充到报文中
-	send_conf_request(pstcbPPP, NULL);
+	lcp_send_conf_request(pstcbPPP, NULL);
 }
 
 static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -439,7 +439,7 @@ static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 #endif
 }
 
-BOOL send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 #if SUPPORT_PRINTF
@@ -458,20 +458,20 @@ BOOL send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	return send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
 }
 
-BOOL start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	if (!wait_ack_list_init(&pstcbPPP->stWaitAckList, penErrCode))
 		return FALSE;
 
-	return send_conf_request(pstcbPPP, penErrCode);
+	return lcp_send_conf_request(pstcbPPP, penErrCode);
 }
 
-void end_negotiation(PSTCB_NETIFPPP pstcbPPP)
+void lcp_end_negotiation(PSTCB_NETIFPPP pstcbPPP)
 {
 	wait_ack_list_uninit(&pstcbPPP->stWaitAckList); 
 }
 
-BOOL send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 #define TERM_REQ_STRING "Bye, Trinity"
 	UCHAR ubaPacket[64]; 
@@ -486,7 +486,7 @@ BOOL send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	return send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode);
 }
 
-BOOL send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 #define ECHO_STRING	"Hello, I'm Neo!" 
 	UCHAR ubaPacket[80]; 

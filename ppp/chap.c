@@ -86,6 +86,7 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	switch ((EN_CHAPCODE)pstHdr->ubCode)
 	{
 	case CHALLENGE: 
+		pstcbPPP->pstNegoResult->unLastRcvedSecs = os_get_system_secs(); //* 收到challenge报文，更新接收时间，避免协商状态机报错
 		return send_response(pstcbPPP, pubPacket, nPacketLen); 
 
 	case SUCCEEDED:

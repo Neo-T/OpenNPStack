@@ -19,7 +19,7 @@
 
 //* 与移动运营商协商建立ppp链路，参数pstcbPPP指向ppp链路控制块，用于保存当前ppp链路的协商状态、所使用的tty终端
 //* 的句柄等信息，参数pblIsRunning则用于确保上层调用者可以随时终止当前协商过程
-NEGOTIATION_EXT void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode);
+NEGOTIATION_EXT void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
 BOOL send_nego_packet(PSTCB_NETIFPPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ERROR_CODE *penErrCode);
 
 #endif

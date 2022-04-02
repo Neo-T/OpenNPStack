@@ -76,7 +76,10 @@ static void wait_ack_timeout_handler(void *pvParam)
 			if (pstTimeoutNode->ubIsAcked) //* 存在这种情况，等待进入临界段时好巧不巧收到应答报文了			
 				pstWAList->ubTimeoutNum = 0;
 			else
+			{
+				pstWAList->ubIsTimeout = TRUE; 
 				pstWAList->ubTimeoutNum++;
+			}
 		}
 
 		//* 直接释放当前节点即可，不需要单独释放申请的定时器，定时器超时后会自动归还给系统
