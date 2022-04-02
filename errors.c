@@ -26,7 +26,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRUNKNOWNPROTOCOL, "Unknown protocol type" }, 
 	{ ERRPPPFCS, "ppp frame checksum error" }, 
 	{ ERRNOIDLETIMER, "no idle timer" }, 
-	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }
+	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
+	{ ERRPPPDELIMITER, "ppp frame delimiter not found" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

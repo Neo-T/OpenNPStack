@@ -10,7 +10,40 @@
 #undef SYMBOL_GLOBALS
 #include "ppp/lcp.h"
 
-static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL send_nego_packet(PSTCB_NETIFPPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ERROR_CODE *penErrCode)
+{
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubData;
+	pstHdr->ubCode = ubCode;
+	pstHdr->ubIdentifier = ubIdentifier;
+	pstHdr->usLen = ENDIAN_CONVERTER_USHORT(usDataLen);
+
+	//* 申请一个buf list节点
+	SHORT sBufListHead = -1;
+	SHORT sNode = buf_list_get_ext(pubData, usDataLen, penErrCode);
+	if (sNode < 0)
+		return FALSE;
+	buf_list_put_head(&sBufListHead, sNode);
+
+	//* 发送
+	INT nRtnVal = ppp_send(pstcbPPP->hTTY, LCP, sBufListHead, penErrCode);
+
+	//* 释放刚才申请的buf list节点
+	buf_list_free(sNode);
+
+	//* 大于0意味着发送成功
+	if (nRtnVal > 0)
+	{
+		//* 需要等待应答则将其加入等待队列
+		if (blIsWaitACK)
+			return wait_ack_list_add(&pstcbPPP->stWaitAckList, usProtocol, ubCode, ubIdentifier, 6, penErrCode);
+
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, UINT *punStartSecs, EN_ERROR_CODE *penErrCode)
 {
 	if (pstcbPPP->stWaitAckList.ubTimeoutNum > WAIT_ACK_TIMEOUT_NUM)
 		goto __lblErr; 
@@ -31,8 +64,13 @@ static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		}
 		break; 
 
-	case AUTHENTICATE: 
+	case STARTAUTHEN:
+		*punStartSecs = os_get_system_secs();
+		pstcbPPP->enState = AUTHENTICATE; 
+		break; 
 
+	case AUTHENTICATE: 
+		if(os_get_system_secs() - (*punStartSecs) > )
 		break; 
 	}
 
@@ -46,6 +84,7 @@ __lblErr:
 
 void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CODE *penErrCode)
 {
+	UINT unStartSecs; 
 	while (*pblIsRunning)
 	{
 		switch (pstcbPPP->enState)
@@ -66,7 +105,7 @@ void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, BOOL *pblIsRunning, EN_ERROR_CO
 			}
 
 		case NEGOTIATION: 
-			ppp_negotiate(pstcbPPP, penErrCode); 
+			ppp_negotiate(pstcbPPP, &unStartSecs, penErrCode);
 			return; 
 		}
 	}

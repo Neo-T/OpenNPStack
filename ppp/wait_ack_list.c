@@ -44,6 +44,7 @@ void wait_ack_list_uninit(PST_PPPWAITACKLIST pstWAList)
 
 		//* 销毁互斥锁
 		os_thread_mutex_uninit(pstWAList->hMutex);
+		pstWAList->hMutex = INVALID_HMUTEX; 
 	}
 }
 

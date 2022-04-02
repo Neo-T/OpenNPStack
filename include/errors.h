@@ -38,6 +38,7 @@ typedef enum {
 	ERRUNKNOWNPROTOCOL,	//* 未知协议类型
 	ERRNOIDLETIMER,		//* 没有空闲的定时器
 	ERRPPPWALISTNOINIT, //* ppp等待应答链表未初始化
+	ERRPPPDELIMITER,	//* ppp帧定界符错误
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

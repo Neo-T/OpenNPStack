@@ -34,7 +34,7 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *lr_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
-	{ "4gnet", "card", "any_char" }, 
+	{ "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量，确保其能够封装一个完整的响应报文 */
 }; 
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
@@ -342,10 +342,14 @@ void thread_ppp_handler(void *pvParam)
 	while (l_blIsRunning)
 	{
 		nPacketLen = ppp_recv(nPPPIdx, &enErrCode);
-#if SUPPORT_PRINTF	
 		if (nPacketLen < 0)
+		{
+			
+
+#if SUPPORT_PRINTF			
 			printf("ppp_recv() failed, %s\r\n", error(enErrCode));
 #endif
+		}
 
 		//*  状态机
 		switch (pstcbPPP->enState)

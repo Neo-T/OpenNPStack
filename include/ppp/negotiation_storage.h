@@ -30,7 +30,10 @@ typedef enum {
 	STARTNEGOTIATION,	//* 开启链路协商
 	NEGOTIATION,		//* 协商
 	LCPCONFREQ,			//* LCP配置协商
-	AUTHENTICATE,		//* 认证
+	STARTAUTHEN,		//* 开始认证
+	AUTHENTICATE,		//* 认证中
+	AUTHENFAILED,		//* 认证失败
+	AUTHENTIMEOUT,		//* 认证超时，一直未收到对端下发的challenge报文
 	IPCPCONFREQ,		//* IP层配置协商
 	ESTABLISHED,		//* 链路已建立
 	SENDTERMREQ,		//* 发送终止链路请求

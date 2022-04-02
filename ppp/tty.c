@@ -119,6 +119,8 @@ __lblRcv:
 			print_hex(pstcbRead->pubBuf, pstcbRead->unWriteIdx, 48);
 		#endif
 	#endif
+			if (penErrCode)
+				*penErrCode = ERRPPPDELIMITER; 
 
 			nRtnVal = -1;
 		}
