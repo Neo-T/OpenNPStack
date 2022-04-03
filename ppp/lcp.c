@@ -50,7 +50,7 @@ static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPack
 static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static const ST_LNCPNEGOHANDLER l_staNegoHandler[CPCODE_NUM] =
+static const ST_LNCPNEGOHANDLER lr_staNegoHandler[CPCODE_NUM] =
 {
 	{ CONFREQ, conf_request },
 	{ CONFACK, conf_ack },
@@ -448,7 +448,8 @@ BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 
 	UCHAR ubaPacket[64];
 	USHORT usWriteIdx = (USHORT)sizeof(ST_LNCP_HDR);
-	for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
+	INT i; 
+	for (i = 0; i < LCP_CONFREQ_NUM; i++)
 	{
 		if (lr_staConfReqItem[i].blIsNegoRequired && lr_staConfReqItem[i].pfunPut)
 			usWriteIdx += lr_staConfReqItem[i].pfunPut(&ubaPacket[usWriteIdx], pstcbPPP->pstNegoResult);
@@ -515,9 +516,9 @@ void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	for (INT i = 0; i < CPCODE_NUM; i++)
 	{
-		if (l_staNegoHandler[i].enCode == (EN_CPCODE)pstHdr->ubCode)
-			if (l_staNegoHandler[i].pfunHandler)			
-				return l_staNegoHandler[i].pfunHandler(pstcbPPP, pubPacket, nPacketLen);
+		if (lr_staNegoHandler[i].enCode == (EN_CPCODE)pstHdr->ubCode)
+			if (lr_staNegoHandler[i].pfunHandler)			
+				return lr_staNegoHandler[i].pfunHandler(pstcbPPP, pubPacket, nPacketLen);
 	}
 #if SUPPORT_PRINTF
 	printf("]\r\n");

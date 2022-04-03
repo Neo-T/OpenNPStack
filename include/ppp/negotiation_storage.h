@@ -34,7 +34,8 @@ typedef enum {
 	AUTHENTICATE,		//* 认证中
 	AUTHENFAILED,		//* 认证失败
 	AUTHENTIMEOUT,		//* 认证超时，一直未收到对端下发的challenge报文
-	IPCPCONFREQ,		//* IP层配置协商
+	SENDIPCPCONFREQ,	//* 发送IP层配置协商请求报文
+	WAITIPCPCONFACK,	//* 等待IP层配置协商请求应答报文
 	ESTABLISHED,		//* 链路已建立
 	SENDTERMREQ,		//* 发送终止链路请求
 	WAITTERMACK,		//* 等待终止请求应答

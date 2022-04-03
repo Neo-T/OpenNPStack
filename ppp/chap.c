@@ -81,7 +81,7 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	case SUCCEEDED:
 		//* 收到应答则清除等待队列节点
-		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_CHAP, pstHdr->ubIdentifier);
 #if SUPPORT_PRINTF
 		printf("]\r\nCHAP authentication succeeded. \r\n"); 
 #endif 
@@ -90,7 +90,7 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	case FAILURE:
 		//* 收到应答则清除等待队列节点
-		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_CHAP, pstHdr->ubIdentifier);
 #if SUPPORT_PRINTF
 		printf("]\r\nCHAP authentication failed.\r\n");
 #endif

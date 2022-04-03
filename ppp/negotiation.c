@@ -92,9 +92,9 @@ static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		}
 		else
 		{
-#if SUPPORT_PRINTF
+		#if SUPPORT_PRINTF
 			printf("error: unrecognized authentication protocol\r\n", error(*penErrCode));
-#endif
+		#endif
 			pstcbPPP->enState = STACKFAULT;
 		}
 			
@@ -114,8 +114,23 @@ static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 
 		break; 
 
-	case IPCPCONFREQ: 
+	case SENDIPCPCONFREQ: 
+		if (ipcp_send_conf_request(pstcbPPP, penErrCode))
+		{
+			pstcbPPP->enState = WAITIPCPCONFACK;
+		}
+		else
+		{
+		#if SUPPORT_PRINTF
+			printf("ipcp_send_conf_request() failed, %s\r\n", error(*penErrCode));
+		#endif
+			pstcbPPP->enState = STACKFAULT;
+		}
 		break; 
+
+	case WAITIPCPCONFACK:
+		if (pstcbPPP->stWaitAckList.ubIsTimeout) //* 意味着没收到应答报文
+			pstcbPPP->enState = SENDIPCPCONFREQ;
 	}
 }
 

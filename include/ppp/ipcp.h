@@ -15,6 +15,7 @@
 	#define IPCP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+IPCP_EXT BOOL ipcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
 IPCP_EXT void ipcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 
 #endif

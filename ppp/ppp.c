@@ -389,7 +389,8 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 		case LCPCONFREQ: 
 		case STARTAUTHEN:
 		case AUTHENTICATE:
-		case IPCPCONFREQ: 
+		case SENDIPCPCONFREQ: 
+		case WAITIPCPCONFACK:
 			ppp_link_establish(pstcbPPP, penErrCode);
 			break;
 
