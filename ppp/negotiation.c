@@ -10,6 +10,7 @@
 #undef SYMBOL_GLOBALS
 #include "ppp/lcp.h"
 #include "ppp/pap.h"
+#include "ppp/ipcp.h"
 #include "ppp/ppp.h"
 
 BOOL send_nego_packet(PSTCB_NETIFPPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ERROR_CODE *penErrCode)
@@ -111,6 +112,9 @@ static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 				pstcbPPP->enState = STARTAUTHEN;
 		}
 
+		break; 
+
+	case IPCPCONFREQ: 
 		break; 
 	}
 }

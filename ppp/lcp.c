@@ -8,10 +8,10 @@
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
-#include "ppp/ppp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/lcp.h"
 #undef SYMBOL_GLOBALS
+#include "ppp/ppp.h"
 
 static BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode); 
 

@@ -11,6 +11,7 @@
 #include "ppp/lcp.h"
 #include "ppp/chap.h"
 #include "ppp/pap.h"
+#include "ppp/ipcp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 #undef SYMBOL_GLOBALS
@@ -22,7 +23,7 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 	{ PPP_LCP,  lcp_recv },
 	{ PPP_PAP,  pap_recv }, 
 	{ PPP_CHAP, chap_recv },
-	{ PPP_IPCP, NULL }, 
+	{ PPP_IPCP, ipcp_recv }, 
 #if SUPPORT_IPV6
 	{ PPP_IPV6CP, NULL },
 #endif

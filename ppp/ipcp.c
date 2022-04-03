@@ -8,47 +8,14 @@
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
-#include "ppp/negotiation.h"
+#include "ppp/negotiation.h""
 #define SYMBOL_GLOBALS
-#include "ppp/pap.h"
+#include "ppp/ipcp.h"
 #undef SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 
-BOOL pap_send_auth_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
-{
-	UCHAR ubaPacket[64];
-	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
-
-	const CHAR *pszUser, *pszPassword;
-	get_ppp_auth_info(pstcbPPP->hTTY, &pszUser, &pszPassword);
-
-#if SUPPORT_PRINTF
-	printf("sent [Protocol PAP, Id = %02X, Code = '%s', User = '%s']\r\n", ubIdentifier, get_pap_code_name(AUTHREQ), pszUser);
-#endif
-	USHORT usUserLen = strlen(pszUser), usPasswordLen = strlen(pszPassword); 
-	USHORT usDataLen = sizeof(ST_LNCP_HDR); 
-	ubaPacket[usDataLen] = (UCHAR)usUserLen; 
-	usDataLen += 1; 
-	memcpy(&ubaPacket[usDataLen], pszUser, usUserLen); 
-	usDataLen += usUserLen; 
-	ubaPacket[usDataLen] = (UCHAR)usPasswordLen;
-	usDataLen += 1;
-	memcpy(&ubaPacket[usDataLen], pszPassword, usPasswordLen);
-	usDataLen += usPasswordLen; 
-
-	return send_nego_packet(pstcbPPP, PPP_PAP, (UCHAR)AUTHREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
-}
-
-static void get_message(UCHAR *pubPacket, INT nPacketLen, CHAR *pszMessageBuf, UCHAR ubMessageBufLen)
-{
-	UCHAR ubMessageLen = pubPacket[sizeof(ST_LNCP_HDR)]; 
-	UINT unCpyBytes = ubMessageLen < ubMessageBufLen - 1 ? (UINT)ubMessageLen : (UINT)ubMessageBufLen - 1; 
-	memcpy(pszMessageBuf, pubPacket + sizeof(ST_LNCP_HDR) + 1, unCpyBytes); 
-	pszMessageBuf[unCpyBytes] = 0;
-}
-
 //* pap协议接收函数
-void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+void ipcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	CHAR szMessage[32]; 

@@ -9,10 +9,10 @@
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
-#include "ppp/ppp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/chap.h"
 #undef SYMBOL_GLOBALS
+#include "ppp/ppp.h"
 
 static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
