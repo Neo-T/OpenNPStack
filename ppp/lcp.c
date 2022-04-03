@@ -13,7 +13,7 @@
 #include "ppp/lcp.h"
 #undef SYMBOL_GLOBALS
 
-static BOOL send_conf_req_packet(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode); 
+static BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode); 
 
 //* LCP配置请求处理函数
 static INT put_mru(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult);

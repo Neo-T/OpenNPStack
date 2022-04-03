@@ -188,6 +188,22 @@ const PST_DIAL_AUTH_INFO get_ppp_dial_auth_info(HTTY hTTY)
 	return NULL;
 }
 
+void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword)
+{
+	*pszUser = AUTH_USER_DEFAULT;
+	*pszPassword = AUTH_PASSWORD_DEFAULT;
+
+	INT i;
+	for (i = 0; i < PPP_NETLINK_NUM; i++)
+	{
+		if (hTTY == l_staNetifPPP[i].hTTY)
+		{
+			*pszUser = lr_staDialAuth[i].pszUser;
+			*pszPassword = lr_staDialAuth[i].pszPassword;
+		}
+	}
+}
+
 //* ppp接收
 INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
 {

@@ -106,6 +106,24 @@ const CHAR *get_chap_code_name(EN_CHAPCODE enCode)
 	}
 }
 
+const CHAR *get_pap_code_name(EN_PAPCODE enCode)
+{
+	switch (enCode)
+	{
+	case AUTHREQ:
+		return "Authentication request"; 
+
+	case AUTHPASSED:
+		return "Authentication passed"; 
+
+	case AUTHREFUSED:
+		return "Authentication refused"; 
+
+	default:
+		return "Unrecognized";
+	}
+}
+
 static const USHORT l_usaFCSTbl[256] =
 {
 	0x0000, 0x1189, 0x2312, 0x329b, 0x4624, 0x57ad, 0x6536, 0x74bf,

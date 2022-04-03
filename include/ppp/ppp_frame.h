@@ -167,6 +167,12 @@ typedef enum {
 	FAILURE = 4
 } EN_CHAPCODE;
 
+typedef enum {
+	AUTHREQ = 1,
+	AUTHPASSED = 2,
+	AUTHREFUSED = 3
+} EN_PAPCODE;
+
 //* IPCP配置请求项相关宏及数据结构定义
 #define IPCP_CONFREQ_NUM	5	//* 本程序支持的IPCP报文配置请求项的数量
 typedef enum {

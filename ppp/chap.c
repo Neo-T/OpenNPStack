@@ -31,17 +31,7 @@ static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 #endif
 
 	const CHAR *pszUser, *pszPassword; 
-	PST_DIAL_AUTH_INFO pstAuth = get_ppp_dial_auth_info(pstcbPPP->hTTY);
-	if (pstAuth)
-	{
-		pszUser = pstAuth->pszUser; 
-		pszPassword = pstAuth->pszPassword; 
-	}
-	else
-	{
-		pszUser = AUTH_USER_DEFAULT;
-		pszPassword = AUTH_PASSWORD_DEFAULT;
-	}
+	get_ppp_auth_info(pstcbPPP->hTTY, &pszUser, &pszPassword);
 
 	//* 使用MD5算法生成Challenge值：ubIdentifier + 拨号脚本设置的密码 + 对端下发的Challenge值
 	UINT unOriginalLen, unPasswordLen = strlen(pszPassword);
@@ -71,7 +61,7 @@ static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 #endif
 
 	//* 发送响应报文
-	send_packet(pstcbPPP, PPP_CHAP, (UCHAR)RESPONSE, pstHdr->ubIdentifier, szData, (USHORT)usDataLen, TRUE, NULL); 
+	send_nego_packet(pstcbPPP, PPP_CHAP, (UCHAR)RESPONSE, pstHdr->ubIdentifier, szData, (USHORT)usDataLen, TRUE, NULL); 
 }
 
 //* chap协议接收函数

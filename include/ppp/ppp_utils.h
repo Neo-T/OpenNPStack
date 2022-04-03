@@ -19,6 +19,7 @@
 PPP_UTILS_EXT const CHAR *get_protocol_name(USHORT usProtocol);
 PPP_UTILS_EXT const CHAR *get_cpcode_name(EN_CPCODE enCode); 
 PPP_UTILS_EXT const CHAR *get_chap_code_name(EN_CHAPCODE enCode);
+PPP_UTILS_EXT const CHAR *get_pap_code_name(EN_PAPCODE enCode);
 PPP_UTILS_EXT USHORT ppp_fcs16(UCHAR *pubData, USHORT usDataLen);
 PPP_UTILS_EXT USHORT ppp_fcs16_ext(SHORT sBufListHead); 
 PPP_UTILS_EXT UINT ppp_escape_encode(UINT unACCM, UCHAR *pubData, UINT unDataLen, UCHAR *pubDstBuf, UINT *punEncodedBytes);
