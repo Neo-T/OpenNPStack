@@ -230,11 +230,11 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
-	BOOL blIsFound;
+	BOOL blIsFound = TRUE;
 	INT nReadIdx = sizeof(ST_LNCP_HDR);
 	while (nReadIdx < nPacketLen && blIsFound)
 	{
-		//* 理论上如果出现ppp实现不支持的请求配置项应该是当前的实现远远落后于ppp标准的发展，此时必须确保循环能够安全退出，当然，实际情况是应该每次for循环都能够找到对应的处理函数
+		//* 理论上如果出现ppp实现不支持的请求配置项应该是当前的ppp栈实现远远落后于ppp标准的发展，此时必须确保循环能够安全退出，当然，实际情况是应该每次for循环都能够找到对应的处理函数
 		blIsFound = FALSE;
 		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
 		{
@@ -253,7 +253,7 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 		printf(", code <%02X> is not supported]\r\nsent [Protocol LCP, Id = %02X, Code = 'Configure Ack']\r\n", pubPacket[nReadIdx], pstHdr->ubIdentifier);
 #endif	
 
-	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket + sizeof(ST_LNCP_HDR), nReadIdx, FALSE, NULL);
+	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
 }
 
 static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)

@@ -1,5 +1,6 @@
 ﻿#include "port/datatype.h"
 #include "errors.h"
+#include "utils.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
