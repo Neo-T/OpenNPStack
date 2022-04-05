@@ -18,7 +18,7 @@ static PST_ONESHOTTIMER l_pstOneShotTimerLink = NULL;
 static PST_ONESHOTTIMER l_pstOneShotTimeoutLink = NULL;
 static BOOL l_blIsRunning = TRUE; 
 
-//* 定时器初始化
+//* 定时器初始化（栈开始工作签必须要先调用这个函数进行定时器初始化）
 BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 {
 	INT i; 
