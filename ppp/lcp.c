@@ -27,7 +27,7 @@ static INT get_auth_type(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNeg
 static INT get_magic_number(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 static INT get_pcompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
 static INT get_accompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResult);
-static ST_LNCP_CONFREQ_ITEM lr_staConfReqItem[LCP_CONFREQ_NUM] =
+static ST_LNCP_CONFREQ_ITEM l_staConfReqItem[LCP_CONFREQ_NUM] =
 {
 	{ (UCHAR)MRU,           "mru",				 TRUE,  put_mru,		   get_mru }, 
 	{ (UCHAR)ASYNCMAP,      "accm",				 TRUE,  put_async_map,	   get_async_map }, 
@@ -238,10 +238,10 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 		blIsFound = FALSE;
 		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
 		{
-			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
+			if (pubPacket[nReadIdx] == l_staConfReqItem[i].ubType)
 			{
-				if (lr_staConfReqItem[i].pfunGet)
-					nReadIdx += lr_staConfReqItem[i].pfunGet(pubPacket + nReadIdx, NULL, pstcbPPP->pstNegoResult);
+				if (l_staConfReqItem[i].pfunGet)
+					nReadIdx += l_staConfReqItem[i].pfunGet(pubPacket + nReadIdx, NULL, pstcbPPP->pstNegoResult);
 				blIsFound = TRUE;
 			}
 		}
@@ -282,9 +282,9 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	{
 		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
 		{
-			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
-				if (lr_staConfReqItem[i].pfunGet)
-					nReadIdx += lr_staConfReqItem[i].pfunGet(pubPacket + nReadIdx, NULL, pstcbPPP->pstNegoResult);			
+			if (pubPacket[nReadIdx] == l_staConfReqItem[i].ubType)
+				if (l_staConfReqItem[i].pfunGet)
+					nReadIdx += l_staConfReqItem[i].pfunGet(pubPacket + nReadIdx, NULL, pstcbPPP->pstNegoResult);			
 		}
 	}
 
@@ -305,12 +305,14 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	{
 		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
 		{
-			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
+			if (pubPacket[nReadIdx] == l_staConfReqItem[i].ubType)
 			{
+				nReadIdx += (INT)pubPacket[nReadIdx + 1]; 
+
 		#if SUPPORT_PRINTF
-				printf(", %s", lr_staConfReqItem[i].pszName); 
+				printf(", %s", l_staConfReqItem[i].pszName); 
 		#endif
-				lr_staConfReqItem[i].blIsNegoRequired = FALSE;  //* 从协商配置请求中删除
+				l_staConfReqItem[i].blIsNegoRequired = FALSE;  //* 从协商配置请求中删除
 			}
 		}
 	}
@@ -451,8 +453,8 @@ BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	INT i; 
 	for (i = 0; i < LCP_CONFREQ_NUM; i++)
 	{
-		if (lr_staConfReqItem[i].blIsNegoRequired && lr_staConfReqItem[i].pfunPut)
-			usWriteIdx += lr_staConfReqItem[i].pfunPut(&ubaPacket[usWriteIdx], pstcbPPP->pstNegoResult);
+		if (l_staConfReqItem[i].blIsNegoRequired && l_staConfReqItem[i].pfunPut)
+			usWriteIdx += l_staConfReqItem[i].pfunPut(&ubaPacket[usWriteIdx], pstcbPPP->pstNegoResult);
 	}
 	printf("]\r\n");
 

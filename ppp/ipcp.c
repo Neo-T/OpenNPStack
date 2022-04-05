@@ -242,12 +242,48 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
+	//* 收到应答则清除等待队列节点
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_IPCP, pstHdr->ubIdentifier);
+
+	//* 理论上这地方不可能出现死循环，因为这是对端反馈的“我方”请求配置的项，所以不应该不被“我方”识别
+	INT nReadIdx = sizeof(ST_LNCP_HDR);
+	while (nReadIdx < nPacketLen)
+	{
+		for (INT i = 0; i < LCP_CONFREQ_NUM; i++)
+		{
+			if (pubPacket[nReadIdx] == lr_staConfReqItem[i].ubType)
+			{
+				nReadIdx += (INT)pubPacket[nReadIdx + 1];
+
+#if SUPPORT_PRINTF
+				printf(", %s", lr_staConfReqItem[i].pszName);
+#endif
+			}
+		}
+	}
+
+#if SUPPORT_PRINTF
+	printf("]\r\n, error: not all basic ip configuration requests succeed\r\n");
+#endif
+
+	pstcbPPP->enState = STACKFAULT;
 }
 
 static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
+	UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)];
 
+	//* 无论何种情形，收到应答都应该先清除等待队列节点
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_IPCP, pstHdr->ubIdentifier);
+
+#if SUPPORT_PRINTF
+	printf(", Reject Code = \"%s\", hex val = %02X]\r\nerror: ipcp code value not recognized by the peer.\r\n", get_cpcode_name((EN_CPCODE)ubRejCode), ubRejCode);
+#endif
+
+	pstcbPPP->enState = STACKFAULT;
 }
 
 BOOL ipcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)

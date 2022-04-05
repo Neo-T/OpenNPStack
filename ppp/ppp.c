@@ -394,9 +394,19 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 			ppp_link_establish(pstcbPPP, penErrCode);
 			break;
 
-		case ESTABLISHED:
-		#if SUPPORT_ECHO
-			if (!lcp_send_echo_request(pstcbPPP, penErrCode))
+		case ESTABLISHED: 
+			//* 添加到网卡链表
+			/* …… */
+			pstcbPPP->enState = SENDECHOREQ;
+			break; 
+
+		case SENDECHOREQ:
+		#if SUPPORT_ECHO			
+			if (lcp_send_echo_request(pstcbPPP, penErrCode))
+			{
+				unLastSndEchoReq = os_get_system_secs(); 
+			}
+			else
 			{
 			#if SUPPORT_PRINTF			
 				printf("lcp_send_echo_request() failed, %s\r\n", error(*penErrCode)); 
@@ -409,6 +419,13 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 			}
 		#endif 
 			break; 
+
+		case WAITECHOREPLY:
+			if (pstcbPPP->stWaitAckList.ubIsTimeout || os_get_system_secs() - unLastSndEchoReq > 60) //* 意味着没收到应答报文
+				pstcbPPP->enState = SENDECHOREQ; //* 发送下一次echo request
+			else
+				os_sleep_secs(1);
+			break;
 
 		case SENDTERMREQ:
 			if (lcp_send_terminate_req(pstcbPPP, penErrCode))

@@ -37,6 +37,8 @@ typedef enum {
 	SENDIPCPCONFREQ,	//* 发送IP层配置协商请求报文
 	WAITIPCPCONFACK,	//* 等待IP层配置协商请求应答报文
 	ESTABLISHED,		//* 链路已建立
+	SENDECHOREQ,		//* 发送echo，链路保持
+	WAITECHOREPLY,		//* 等待echo应答
 	SENDTERMREQ,		//* 发送终止链路请求
 	WAITTERMACK,		//* 等待终止请求应答
 	TERMINATED, 		//* 链路已终止	
