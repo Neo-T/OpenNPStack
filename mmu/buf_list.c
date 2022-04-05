@@ -15,6 +15,7 @@ static SHORT l_saFreeBufNode[BUF_LIST_NUM];
 static SHORT l_sFreeBufList = -1; 
 static HMUTEX l_hMtxMMUBufList;
 
+//* 协议栈初始加载时别忘了要先调用这个初始设置函数
 BOOL buf_list_init(EN_ERROR_CODE *penErrCode)
 {
 	INT i; 
