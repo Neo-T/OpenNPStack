@@ -12,7 +12,7 @@
 #undef SYMBOL_GLOBALS
 
 //* 协议栈内部工作线程列表
-STCB_PSTACKTHREAD o_stcbaPStackThread[] = {
+const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
 	{ thread_one_shot_timer_count, NULL},
 	{ thread_one_shot_timeout_handler, NULL }, 
 }; 
@@ -43,7 +43,7 @@ void os_thread_pstack_start(void *pvParam)
 
 	//* 建立工作线程
 	INT i; 
-	for (i = 0; i < sizeof(o_stcbaPStackThread) / sizeof(STCB_PSTACKTHREAD); i++)
+	for (i = 0; i < sizeof(lr_stcbaPStackThread) / sizeof(STCB_PSTACKTHREAD); i++)
 	{
 		//* 在此按照顺序建立工作线程
 	}
@@ -122,7 +122,7 @@ INT os_tty_send(HTTY hTTY, UCHAR *pubData, INT nDataLen)
 	return 0; 
 }
 
-INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, UINT nRcvBufLen)
+INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen)
 {
 	/* 用户自定义代码 */
 	/* …… */
