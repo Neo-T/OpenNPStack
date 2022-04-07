@@ -107,6 +107,12 @@ INT os_thread_sem_pend(HSEM hSem, UINT unWaitSecs)
 	return -1; 
 }
 
+void os_thread_sem_uninit(HSEM hSem)
+{
+	/* 用户自定义代码 */
+	/* …… */
+}
+
 #if SUPPORT_PPP
 HTTY os_open_tty(const CHAR *pszTTYName)
 {

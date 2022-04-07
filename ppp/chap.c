@@ -1,10 +1,10 @@
 ﻿#include "port/datatype.h"
-#include "errors.h"
-#include "utils.h"
-#include "md5.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "errors.h"
+#include "utils.h"
+#include "md5.h"
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
@@ -41,7 +41,7 @@ static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 	unOriginalLen += unPasswordLen; 
 	memcpy(&szData[unOriginalLen], pstData->ubaChallenge, pstData->ubChallengeLen);
 	unOriginalLen += (UINT)pstData->ubChallengeLen;
-	ST_MD5VAL stChallengeCode = md5(szData, unOriginalLen); 
+	ST_MD5VAL stChallengeCode = md5((UCHAR *)szData, unOriginalLen); 
 
 	//* 封装报文
 	USHORT usDataLen; 
@@ -61,7 +61,7 @@ static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 #endif
 
 	//* 发送响应报文
-	send_nego_packet(pstcbPPP, PPP_CHAP, (UCHAR)RESPONSE, pstHdr->ubIdentifier, szData, (USHORT)usDataLen, TRUE, NULL); 
+	send_nego_packet(pstcbPPP, PPP_CHAP, (UCHAR)RESPONSE, pstHdr->ubIdentifier, (UCHAR *)szData, (USHORT)usDataLen, TRUE, NULL); 
 }
 
 //* chap协议接收函数
@@ -70,14 +70,15 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 #if SUPPORT_PRINTF
-	printf("recv [Protocol CHAP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_chap_code_name(pstHdr->ubCode));
+	printf("recv [Protocol CHAP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_chap_code_name((EN_CHAPCODE)pstHdr->ubCode));
 #endif
 
 	switch ((EN_CHAPCODE)pstHdr->ubCode)
 	{
 	case CHALLENGE: 
 		pstcbPPP->pstNegoResult->unLastRcvedSecs = os_get_system_secs(); //* 收到challenge报文，更新接收时间，避免协商状态机报错
-		return send_response(pstcbPPP, pubPacket, nPacketLen); 
+		send_response(pstcbPPP, pubPacket, nPacketLen); 
+		break; 
 
 	case SUCCEEDED:
 		//* 收到应答则清除等待队列节点

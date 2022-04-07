@@ -131,7 +131,7 @@ static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY, INT *pnPPPIndex)
 	return NULL; 
 }
 
-static INT get_netif_ppp_index(HTTY hTTY)
+INT get_netif_ppp_index(HTTY hTTY)
 {
 	if (INVALID_HTTY == hTTY)
 		return -1;
@@ -161,7 +161,7 @@ const CHAR *get_ppp_port_name(HTTY hTTY)
 	return "unspecified"; 
 }
 
-PST_DIAL_AUTH_INFO get_ppp_dial_auth_info(HTTY hTTY)
+const ST_DIAL_AUTH_INFO *get_ppp_dial_auth_info(HTTY hTTY)
 {
 	if (INVALID_HTTY == hTTY)
 		return NULL;
@@ -296,7 +296,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 		PST_PPP_HDR pstHdr = (PST_PPP_HDR)ubHead;
 		pstHdr->ubAddr = PPP_ALLSTATIONS; 
 		pstHdr->ubCtl = PPP_UI;
-		pstHdr->usProtocol = USHORT_EDGE_CONVERT(lr_staProtocol[enProtocol].usType);
+		pstHdr->usProtocol = ENDIAN_CONVERTER_USHORT(lr_staProtocol[enProtocol].usType);
 		usDataLen = sizeof(ST_PPP_HDR); 
 	}
 

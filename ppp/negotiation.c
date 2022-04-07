@@ -1,9 +1,10 @@
 ﻿#include "port/datatype.h"
-#include "errors.h"
-#include "utils.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "errors.h"
+#include "mmu/buf_list.h"
+#include "utils.h"
 
 #if SUPPORT_PPP
 #define SYMBOL_GLOBALS
@@ -94,7 +95,7 @@ static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		else
 		{
 		#if SUPPORT_PRINTF
-			printf("error: unrecognized authentication protocol\r\n", error(*penErrCode));
+			printf("error: unrecognized authentication protocol\r\n");
 		#endif
 			pstcbPPP->enState = STACKFAULT;
 		}

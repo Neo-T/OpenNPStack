@@ -18,5 +18,14 @@ typedef INT HTTY;			//* tty终端句柄
 typedef INT HSEM;			//* 信号量，适用与不同线程间通讯
 #define INVALID_HSEM -1		//* 无效的线程同步锁句柄
 
+typedef unsigned int BOOL;       //* bool型变量
+#ifndef TRUE
+#define TRUE 	1
+#endif
+
+#ifndef FALSE
+#define FALSE 	0
+#endif
+
 #endif
 

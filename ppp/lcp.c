@@ -1,9 +1,9 @@
 ﻿#include "port/datatype.h"
-#include "errors.h"
-#include "utils.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "errors.h"
+#include "utils.h"
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
@@ -12,8 +12,6 @@
 #include "ppp/lcp.h"
 #undef SYMBOL_GLOBALS
 #include "ppp/ppp.h"
-
-static BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode); 
 
 //* LCP配置请求处理函数
 static INT put_mru(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult);
@@ -413,7 +411,7 @@ static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 	unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR);
 	unCpyBytes = unCpyBytes < sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR) ? unCpyBytes : sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR); 
 	memcpy(&szData[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR)], pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR), unCpyBytes);
-	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
+	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, (UCHAR *)szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
 }
 
 static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -519,8 +517,11 @@ void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	for (INT i = 0; i < CPCODE_NUM; i++)
 	{
 		if (lr_staNegoHandler[i].enCode == (EN_CPCODE)pstHdr->ubCode)
-			if (lr_staNegoHandler[i].pfunHandler)			
-				return lr_staNegoHandler[i].pfunHandler(pstcbPPP, pubPacket, nPacketLen);
+			if (lr_staNegoHandler[i].pfunHandler)
+			{
+				lr_staNegoHandler[i].pfunHandler(pstcbPPP, pubPacket, nPacketLen);
+				return; 
+			}				
 	}
 #if SUPPORT_PRINTF
 	printf("]\r\n");

@@ -112,7 +112,7 @@ BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ub
 		buddy_free(pstNewNode);
 
 		if (penErrCode)
-			penErrCode = ERRNOIDLETIMER;
+			*penErrCode = ERRNOIDLETIMER;
 		return FALSE;
 	}
 	//* 记录等待应答报文的关键特征数据

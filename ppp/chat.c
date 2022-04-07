@@ -6,6 +6,7 @@
 #include "utils.h"
 
 #if SUPPORT_PPP
+#include "protocols.h"
 #include "ppp/ppp.h"
 #define SYMBOL_GLOBALS
 #include "ppp/chat.h"
@@ -93,12 +94,12 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 			else;
 
 			unHaveRcvBytes += unBytes; 
-			if (mem_str(szBuf, pszErr, ubErrBytes, unHaveRcvBytes))
+			if (mem_str(szBuf, (CHAR *)pszErr, ubErrBytes, unHaveRcvBytes))
 			{
 				*penErrCode = ERRATEXEC; 
 				return FALSE; 
 			}
-			else if (mem_str(szBuf, pszOK, ubOKBytes, unHaveRcvBytes) != 0)
+			else if (mem_str(szBuf, (CHAR *)pszOK, ubOKBytes, unHaveRcvBytes) != 0)
 			{
 				*penErrCode = ERRNO; 
 				return TRUE;
@@ -345,7 +346,7 @@ BOOL modem_dial(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 	EN_ERROR_CODE enErrCode;
 	BOOL blRtnVal;
 	const CHAR *pszAPN; 
-	PST_DIAL_AUTH_INFO pstDial;
+	const ST_DIAL_AUTH_INFO *pstDial;
 
 #ifdef ATAPN
 	//* 设置APN

@@ -97,4 +97,10 @@ typedef struct _ST_LCPNEGOHANDLER_ {
 	PFUN_LNCPNEGOHANDLER pfunHandler;
 } ST_LNCPNEGOHANDLER, *PST_LNCPNEGOHANDLER; 
 
+//* ppp栈支持的上层协议
+typedef struct _ST_PPP_PROTOCOL_ {
+	USHORT usType;
+	void(*pfunUpper)(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+} ST_PPP_PROTOCOL, *PST_PPP_PROTOCOL;
+
 #endif

@@ -1,14 +1,14 @@
 ﻿#include "port/datatype.h"
-#include "errors.h"
-#include "utils.h"
-#include "md5.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "errors.h"
+#include "utils.h"
+#include "md5.h"
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
-#include "ppp/negotiation.h""
+#include "ppp/negotiation.h"
 #define SYMBOL_GLOBALS
 #include "ppp/ipcp.h"
 #undef SYMBOL_GLOBALS
@@ -319,7 +319,10 @@ void ipcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	{
 		if (lr_staNegoHandler[i].enCode == (EN_CPCODE)pstHdr->ubCode)
 			if (lr_staNegoHandler[i].pfunHandler)
-				return lr_staNegoHandler[i].pfunHandler(pstcbPPP, pubPacket, nPacketLen);
+			{
+				lr_staNegoHandler[i].pfunHandler(pstcbPPP, pubPacket, nPacketLen);
+				return; 
+			}
 	}
 #if SUPPORT_PRINTF
 	printf("]\r\n");

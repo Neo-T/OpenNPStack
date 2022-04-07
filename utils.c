@@ -1,6 +1,7 @@
 ﻿#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
+#include "port/os_datatype.h"
 #include "mmu/buf_list.h"
 
 #define SYMBOL_GLOBALS
@@ -23,7 +24,7 @@ CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize)
 
 CHAR *mem_str(CHAR *pszMem, CHAR *pszStr, UINT unStrSize, UINT unMemSize)
 {
-	const CHAR *pszNext = pszMem;
+	CHAR *pszNext = pszMem;
 
 	pszNext = mem_char(pszNext, pszStr[0], unMemSize);
 	while (pszNext != NULL)

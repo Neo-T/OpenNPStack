@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 
 #define SYMBOL_GLOBALS
 #include "md5.h"

@@ -31,19 +31,6 @@ typedef signed short		SHORT;      //* 16位的有符号短整型
 typedef unsigned short		USHORT;     //* 16位的无符号短整型
 typedef char				CHAR;       //* 8位有符号字节型
 typedef	unsigned char		UCHAR;      //* 8位无符号字节型
-typedef unsigned int		BOOL;       //* bool型变量
-
-#ifndef NULL
-typedef NULL (void *)0
-#endif
-
-#ifndef TRUE
-#define TRUE 	1
-#endif
-
-#ifndef FALSE
-#define FALSE 	0
-#endif
 
 #endif
 

@@ -1,11 +1,11 @@
 ﻿#include "port/datatype.h"
-#include "errors.h"
-#include "utils.h"
-#include "md5.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "errors.h"
 #include "mmu/buf_list.h"
+#include "utils.h"
+#include "md5.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
@@ -54,7 +54,7 @@ void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	CHAR szMessage[32]; 
 
 #if SUPPORT_PRINTF
-	printf("recv [Protocol PAP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_pap_code_name(pstHdr->ubCode));
+	printf("recv [Protocol PAP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_pap_code_name((EN_PAPCODE)pstHdr->ubCode));
 #endif
 
 	switch ((EN_PAPCODE)pstHdr->ubCode)
