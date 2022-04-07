@@ -1,5 +1,4 @@
 ﻿#include "port/datatype.h"
-#include "port/os_datatype.h"
 
 #define SYMBOL_GLOBALS
 #include "errors.h"
@@ -27,7 +26,6 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRPPPFCS, "ppp frame checksum error" }, 
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
-	{ ERRPPPDELIMITER, "ppp frame delimiter not found" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

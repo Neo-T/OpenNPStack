@@ -1,4 +1,4 @@
-﻿/* one_shot_timer.h
+/* one_shot_timer.h
  *
  * 协议栈使用的one-shot类型的定时器，时间粒度为1秒
  *

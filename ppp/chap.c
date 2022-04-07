@@ -85,7 +85,7 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 #if SUPPORT_PRINTF
 		printf("]\r\nCHAP authentication succeeded. \r\n"); 
 #endif 
-		pstcbPPP->enState = IPCPCONFREQ;
+		pstcbPPP->enState = SENDIPCPCONFREQ;
 		break; 
 
 	case FAILURE:

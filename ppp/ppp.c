@@ -37,7 +37,8 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
 static const CHAR *lr_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
-	{ "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量，确保其能够封装一个完整的响应报文 */
+	{ "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量及*/
+									  /* pap.c中pap_send_auth_request()函数的ubaPacket数组的容量，确保其能够封装一个完整的响应报文             */
 }; 
 static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
@@ -51,16 +52,6 @@ static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 
 	/* 系统存在几路ppp链路，就在这里添加几路的协商初始值，如果不确定，可以直接将上面预定义的初始值直接复制过来即可 */
 }; 
-
-//* 启动ppp处理线程，需要根据目标系统实际情况编写该函数，其实现的功能为启动ppp链路的主处理线程，该线程的入口函数为thread_ppp_handler()
-static void thread_ppp_handler_start(INT nPPPIdx)
-{
-	//* 在此按照顺序建立工作线程，入口函数thread_ppp_handler()，线程入口参数为该ppp链路在l_staTTY数组的存储单元索引值
-	//* 其直接强行进行数据类型转换即可，即作为线程入口参数时直接以如下形式传递：
-	//* (void *)nPPPIdx
-	//* 不要传递参数地址，即(void *)&nPPPIdx，这种方式是错误的
-	//* 用户自定义代码
-}
 
 BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 {
@@ -80,10 +71,6 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 		l_staNetifPPP[i].enState = TTYINIT; 
 		l_staNetifPPP[i].pstNegoResult = &l_staNegoResult[i];
 	}
-
-	//* 启动ppp处理线程
-	for (i = 0; i < PPP_NETLINK_NUM; i++)	
-		thread_ppp_handler_start(i);	
 
 __lblEnd: 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
@@ -174,7 +161,7 @@ const CHAR *get_ppp_port_name(HTTY hTTY)
 	return "unspecified"; 
 }
 
-const PST_DIAL_AUTH_INFO get_ppp_dial_auth_info(HTTY hTTY)
+PST_DIAL_AUTH_INFO get_ppp_dial_auth_info(HTTY hTTY)
 {
 	if (INVALID_HTTY == hTTY)
 		return NULL;
@@ -397,11 +384,14 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 		case ESTABLISHED: 
 			//* 添加到网卡链表
 			/* …… */
-			pstcbPPP->enState = SENDECHOREQ;
+		#if SUPPORT_ECHO
+			unLastSndEchoReq = os_get_system_secs();
+			pstcbPPP->enState = WAITECHOREPLY;
+		#endif
 			break; 
 
 		case SENDECHOREQ:
-		#if SUPPORT_ECHO			
+		#if SUPPORT_ECHO
 			if (lcp_send_echo_request(pstcbPPP, penErrCode))
 			{
 				unLastSndEchoReq = os_get_system_secs(); 

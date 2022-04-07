@@ -66,7 +66,7 @@ void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 		get_message(pubPacket, nPacketLen, szMessage, sizeof(szMessage));
 		printf(", Message = \"%s\"]\r\nPAP authentication succeeded. \r\n", szMessage);
 #endif 
-		pstcbPPP->enState = IPCPCONFREQ;
+		pstcbPPP->enState = SENDIPCPCONFREQ;
 		break; 
 
 	case AUTHREFUSED:

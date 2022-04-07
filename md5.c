@@ -59,7 +59,7 @@ ST_MD5VAL md5(UCHAR *pubData, UINT unDataBytes)
 	UINT *punA, *punB, *punC, *punD, *punX;
 	UINT unA, unB, unC, unD;
 	UINT unHasReadBytes = 0;
-	UINT ubaDataBlock[128];
+	UCHAR ubaDataBlock[128];
 	UCHAR *pubReadData;
 	UINT unCalCount, i;
 
