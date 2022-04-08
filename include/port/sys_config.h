@@ -1,4 +1,4 @@
-﻿/* sys_config.h
+/* sys_config.h
  *
  * 系统配置头文件，用户可根据实际情况对协议栈进行裁剪、参数配置等工作
  *
@@ -18,7 +18,7 @@
 
 #define SUPPORT_PPP		1	//* 是否支持ppp模块：1，支持；0，不支持，如果选择支持，则系统会将ppp模块代码加入到协议栈中
 #if SUPPORT_PPP
-	#define APN_DEFAULT				"4gnet"		//* 
+	#define APN_DEFAULT				"4gnet"		//* 根据实际情况在这里设置缺省APN
 	#define AUTH_USER_DEFAULT		"card"		//* ppp认证缺省用户名
 	#define AUTH_PASSWORD_DEFAULT	"any_char"	//* ppp认证缺省口令
 

@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -36,7 +36,7 @@ BOOL pap_send_auth_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	memcpy(&ubaPacket[usDataLen], pszPassword, usPasswordLen);
 	usDataLen += usPasswordLen; 
 
-	return send_nego_packet(pstcbPPP, PPP_PAP, (UCHAR)AUTHREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, PAP, (UCHAR)AUTHREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
 }
 
 static void get_message(UCHAR *pubPacket, INT nPacketLen, CHAR *pszMessageBuf, UCHAR ubMessageBufLen)
@@ -61,7 +61,7 @@ void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	{
 	case AUTHPASSED:
 		//* 收到应答则清除等待队列节点
-		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_PAP, pstHdr->ubIdentifier);
+		wait_ack_list_del(&pstcbPPP->stWaitAckList, PAP, pstHdr->ubIdentifier);
 #if SUPPORT_PRINTF
 		get_message(pubPacket, nPacketLen, szMessage, sizeof(szMessage));
 		printf(", Message = \"%s\"]\r\nPAP authentication succeeded. \r\n", szMessage);
@@ -71,7 +71,7 @@ void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	case AUTHREFUSED:
 		//* 收到应答则清除等待队列节点
-		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_PAP, pstHdr->ubIdentifier);
+		wait_ack_list_del(&pstcbPPP->stWaitAckList, PAP, pstHdr->ubIdentifier);
 #if SUPPORT_PRINTF
 		get_message(pubPacket, nPacketLen, szMessage, sizeof(szMessage));
 		printf(", Message = \"%s\"]\r\nPAP authentication failed.\r\n", szMessage);

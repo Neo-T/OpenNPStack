@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
@@ -44,7 +44,7 @@ UINT os_get_system_secs(void)
 	return 0; 
 }
 
-void os_thread_pstack_start(void *pvParam)
+void os_thread_onpstack_start(void *pvParam)
 {
 	/* 用户自定义代码 */
 	/* …… */

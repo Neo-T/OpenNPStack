@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
@@ -7,6 +7,7 @@
 #include "ppp/chat.h"
 #include "ppp/ppp_protocols.h"
 #include "ppp/ppp_utils.h"
+#include "utils.h"
 
 #if SUPPORT_PPP
 #define SYMBOL_GLOBALS
@@ -49,16 +50,14 @@ void tty_uninit(HTTY hTTY)
 }
 
 BOOL tty_ready(HTTY hTTY, EN_ERROR_CODE *penErrCode)
-{
-	EN_ERROR_CODE enErrCode; 
-	
-	//* 先复位modem，以消除一切不必要的设备错误，如果不需要则port层只需实现一个无任何操作的空函数即可，或者直接注释掉这个函数的调用
+{	
+    //* 先复位modem，以消除一切不必要的设备错误，如果不需要则port层只需实现一个无任何操作的空函数即可，或者直接注释掉这个函数的调用
 	os_modem_reset(hTTY);
 	do {
-		if (!modem_ready(hTTY, &enErrCode))
+		if (!modem_ready(hTTY, penErrCode))
 			break; 
 
-		if (!modem_dial(hTTY, &enErrCode))
+		if (!modem_dial(hTTY, penErrCode))
 			break; 
 
 		return TRUE; 
@@ -94,7 +93,7 @@ INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, EN_ERROR_CODE *penEr
 	INT nRcvBytes; 
 	INT nStartIdx;
 	BOOL blHasFoundHdrFlag = FALSE;
-	UINT unStartSecs = 0;
+	UINT unStartSecs = os_get_system_secs(); 
 	INT nReadIdx = 0;
 	UINT unTimeout;
 	PSTCB_TTYIO pstcbIO = get_io_control_block(hTTY, penErrCode);	

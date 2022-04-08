@@ -1,4 +1,4 @@
-﻿/* protocols.h
+/* protocols.h
  *
  * 协议栈支持的通讯协议类型值
  *

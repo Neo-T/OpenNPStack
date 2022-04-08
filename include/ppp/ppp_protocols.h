@@ -1,4 +1,4 @@
-﻿/* ppp_protocols.h
+/* ppp_protocols.h
  *
  * ppp协议解析相关的宏定义：包括支持的上层协议、协议头相关的标志字符串、地址、MRU等定义
  *

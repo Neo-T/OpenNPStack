@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "port/sys_config.h"
@@ -13,7 +13,7 @@ static void *l_pvaBufNode[BUF_LIST_NUM];
 static USHORT l_usaBufSize[BUF_LIST_NUM];
 static SHORT l_saFreeBufNode[BUF_LIST_NUM];
 static SHORT l_sFreeBufList = -1; 
-static HMUTEX l_hMtxMMUBufList;
+static HMUTEX l_hMtxMMUBufList = INVALID_HMUTEX;
 
 //* 协议栈初始加载时别忘了要先调用这个初始设置函数
 BOOL buf_list_init(EN_ERROR_CODE *penErrCode)
@@ -36,6 +36,12 @@ BOOL buf_list_init(EN_ERROR_CODE *penErrCode)
 	if(penErrCode)
 		*penErrCode = ERRMUTEXINITFAILED;
 	return FALSE; 
+}
+
+void buf_list_uninit(void)
+{
+    if (INVALID_HMUTEX != l_hMtxMMUBufList)
+        os_thread_mutex_uninit(l_hMtxMMUBufList);
 }
 
 SHORT buf_list_get(EN_ERROR_CODE *penErrCode)

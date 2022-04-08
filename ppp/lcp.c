@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -251,7 +251,7 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 		printf(", code <%02X> is not supported]\r\nsent [Protocol LCP, Id = %02X, Code = 'Configure Ack']\r\n", pubPacket[nReadIdx], pstHdr->ubIdentifier);
 #endif	
 
-	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
+	send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
 }
 
 static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -259,7 +259,7 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier); 
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier); 
 #if SUPPORT_PRINTF
 	printf("]\r\nuse %s authentication, magic number <%08X>\r\n", get_protocol_name(pstcbPPP->pstNegoResult->stLCP.stAuth.usType), pstcbPPP->pstNegoResult->stLCP.unMagicNum); 
 #endif
@@ -272,7 +272,7 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier);
 	
 	//* 这个地方不会出现配置项不被支持的情况，因为这个是对端反馈的“我方”发送的配置请求项的数据域内容不被认可的应答报文
 	INT nReadIdx = sizeof(ST_LNCP_HDR);
@@ -295,7 +295,7 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier);
 
 	//* 同样这个地方不会出现配置项不被支持的情况，这个是对端反馈的不被支持的请求项，需要我们去除这些项然后再次发送协商请求
 	INT nReadIdx = sizeof(ST_LNCP_HDR);
@@ -337,7 +337,7 @@ static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPa
 #endif
 
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Terminate Ack']", pstHdr->ubIdentifier); 
-	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)TERMACK, pstHdr->ubIdentifier, (UCHAR *)szBuf, (USHORT)sizeof(ST_LNCP_HDR), FALSE, NULL);
+	send_nego_packet(pstcbPPP, LCP, (UCHAR)TERMACK, pstHdr->ubIdentifier, (UCHAR *)szBuf, (USHORT)sizeof(ST_LNCP_HDR), FALSE, NULL);
 
 	pstcbPPP->enState = TERMINATED;
 }
@@ -347,7 +347,7 @@ static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier);
 
 #if SUPPORT_PRINTF
 	printf("]\r\nLink terminated.\r\nppp0 <-/-> %s\r\n", get_ppp_port_name(pstcbPPP->hTTY));
@@ -377,7 +377,7 @@ static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPack
 	USHORT usRejProtocol; 
 
 	//* 无论何种情形，收到应答都应该先清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier);
 
 	((UCHAR *)&usRejProtocol)[0] = pubPacket[sizeof(ST_LNCP_HDR) + 1]; 
 	((UCHAR *)&usRejProtocol)[1] = pubPacket[sizeof(ST_LNCP_HDR)];
@@ -411,7 +411,7 @@ static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 	unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR);
 	unCpyBytes = unCpyBytes < sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR) ? unCpyBytes : sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR); 
 	memcpy(&szData[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR)], pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR), unCpyBytes);
-	send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, (UCHAR *)szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
+	send_nego_packet(pstcbPPP, LCP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, (UCHAR *)szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
 }
 
 static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -421,10 +421,10 @@ static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen
 	PST_LCP_ECHO_REPLY_HDR pstReplyHdr = (PST_LCP_ECHO_REPLY_HDR)(pubPacket + sizeof(ST_LNCP_HDR)); 
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier); 
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier); 
 
 #if SUPPORT_PRINTF
-	UINT unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR);
+	UINT unCpyBytes = ENDIAN_CONVERTER_USHORT(pstHdr->usLen) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR);
 	unCpyBytes = unCpyBytes < sizeof(szData) - 1 ? unCpyBytes : sizeof(szData) - 1; 
 	memcpy(szData, pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR), unCpyBytes);
 	szData[unCpyBytes] = 0; 
@@ -456,7 +456,7 @@ BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 	printf("]\r\n");
 
-	return send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
 }
 
 BOOL lcp_start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
@@ -484,7 +484,7 @@ BOOL lcp_send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 #if SUPPORT_PRINTF
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Terminate Request', Data = \"%s\"]\r\n", ubIdentifier, TERM_REQ_STRING);
 #endif
-	return send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode);
 }
 
 BOOL lcp_send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
@@ -502,7 +502,7 @@ BOOL lcp_send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	memcpy(&ubaPacket[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR)], ECHO_STRING, usDataLen);
 	usDataLen += sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR); 
 
-	return send_nego_packet(pstcbPPP, PPP_LCP, (UCHAR)ECHOREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, LCP, (UCHAR)ECHOREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
 }
 
 //* lcp协议接收函数

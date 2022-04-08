@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "port/sys_config.h"
@@ -14,7 +14,7 @@ static ST_BUDDY_AREA l_staArea[BUDDY_ARER_COUNT];
 static const UINT lr_unPageCount = BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1;
 static ST_BUDDY_PAGE l_staPage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 static STCB_BUDDY_PAGE_NODE l_stcbaFreePage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
-static HMUTEX l_hMtxMMUBuddy;
+static HMUTEX l_hMtxMMUBuddy = INVALID_HMUTEX;
 
 static PST_BUDDY_PAGE GetPageNode(EN_ERROR_CODE *penErrCode)
 {
@@ -73,7 +73,7 @@ BOOL buddy_init(EN_ERROR_CODE *penErrCode)
 	PST_BUDDY_PAGE pstPage = GetPageNode(&enCode); 
 	pstPage->pstNext = NULL;
 	pstPage->pubStart = l_ubaMemPool;
-	l_staArea[BUDDY_ARER_COUNT - 1].pstNext  = pstPage;
+	l_staArea[BUDDY_ARER_COUNT - 1].pstNext = pstPage;
 
 	//* 计算并存储各页块管理单元的单个页面大小
 	l_staArea[0].unPageSize = unPageSize;
@@ -91,11 +91,17 @@ BOOL buddy_init(EN_ERROR_CODE *penErrCode)
 	return FALSE; 
 }
 
+void buddy_uninit(void)
+{
+    if (INVALID_HMUTEX != l_hMtxMMUBuddy)
+        os_thread_mutex_uninit(l_hMtxMMUBuddy);
+}
+
 void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 {
 	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE;
-	PST_BUDDY_PAGE pstPage, pstPrevPage, pstNextPage, pstFreePage;
+	PST_BUDDY_PAGE pstPage, pstPrevPage, pstNextPage;
 	PST_BUDDY_AREA pstArea;
 	PST_BUDDY_PAGE pstFreePage1, pstFreePage2;
 

@@ -1,4 +1,4 @@
-﻿/* os_datatype.h
+/* os_datatype.h
  *
  * 与目标操作系统相关的通用数据类型定义
  *

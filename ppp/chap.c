@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -61,7 +61,7 @@ static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 #endif
 
 	//* 发送响应报文
-	send_nego_packet(pstcbPPP, PPP_CHAP, (UCHAR)RESPONSE, pstHdr->ubIdentifier, (UCHAR *)szData, (USHORT)usDataLen, TRUE, NULL); 
+	send_nego_packet(pstcbPPP, CHAP, (UCHAR)RESPONSE, pstHdr->ubIdentifier, (UCHAR *)szData, (USHORT)usDataLen, TRUE, NULL); 
 }
 
 //* chap协议接收函数
@@ -82,7 +82,7 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	case SUCCEEDED:
 		//* 收到应答则清除等待队列节点
-		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_CHAP, pstHdr->ubIdentifier);
+		wait_ack_list_del(&pstcbPPP->stWaitAckList, CHAP, pstHdr->ubIdentifier);
 #if SUPPORT_PRINTF
 		printf("]\r\nCHAP authentication succeeded. \r\n"); 
 #endif 
@@ -91,7 +91,7 @@ void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	case FAILURE:
 		//* 收到应答则清除等待队列节点
-		wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_CHAP, pstHdr->ubIdentifier);
+		wait_ack_list_del(&pstcbPPP->stWaitAckList, CHAP, pstHdr->ubIdentifier);
 #if SUPPORT_PRINTF
 		printf("]\r\nCHAP authentication failed.\r\n");
 #endif

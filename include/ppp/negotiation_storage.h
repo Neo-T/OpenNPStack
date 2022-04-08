@@ -1,4 +1,4 @@
-﻿/* negotiation_storage.h
+/* negotiation_storage.h
  *
  * 用于保存链路协商结果的存储类结构体及其相关辅助宏定义
  * Neo-T, 创建于2022.03.25 10:26

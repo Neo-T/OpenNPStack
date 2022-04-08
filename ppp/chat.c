@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
@@ -62,7 +62,8 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 
 	//* 发送AT指令
 	sprintf(szBuf, "%s\r\n", pszAT); 
-	unBytes = os_tty_send(hTTY, (UCHAR *)szBuf, (UINT)ubATBytes + 2);
+    ubATBytes += 2; 
+	unBytes = os_tty_send(hTTY, (UCHAR *)szBuf, (UINT)ubATBytes);
 	if (unBytes != (UINT)ubATBytes)
 	{
 		*penErrCode = ERRATWRITE;
@@ -85,10 +86,11 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 			{
 				if (unHaveCpyBytes < unDataBufBytes) //* 尚未填满上层调用函数提供的接收缓冲区，可以继续写入结果数据
 				{
-					UINT unRemainingBytes = unDataBufBytes - unHaveCpyBytes;
+					UINT unRemainingBytes = unDataBufBytes - 1 - unHaveCpyBytes;
 					unCpyBytes = (unRemainingBytes > unBytes) ? unBytes : unRemainingBytes;
 					strncpy((char*)pszDataBuf + unHaveCpyBytes, &szBuf[unHaveRcvBytes], unCpyBytes);
 					unHaveCpyBytes += unCpyBytes;
+                    pszDataBuf[unHaveCpyBytes] = 0; 
 				}
 			}
 			else;

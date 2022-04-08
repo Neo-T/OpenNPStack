@@ -1,4 +1,4 @@
-﻿/* ppp_frame.h
+/* ppp_frame.h
  *
  * ppp帧结构定义
  *

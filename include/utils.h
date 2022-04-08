@@ -1,9 +1,9 @@
 /* utils.h
  *
- * 鍗忚鏍堢敤鍒扮殑鐩稿叧鍔熻兘鍑芥暟鍦ㄦ鏂囦欢澹版槑銆佸畾涔?
+ * 协议栈用到的相关功能函数在此文件声明、定义
  *
- * Neo-T, 鍒涘缓浜?022.03.21 16:05
- * 鐗堟湰: 1.0
+ * Neo-T, 创建于2022.03.21 16:05
+ * 版本: 1.0
  *
  */
 #ifndef UTILS_H
@@ -15,7 +15,7 @@
 	#define UTILS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
- //* 澶у皬绔浆鎹㈠畯
+ //* 大小端转换宏
 #define ENDIAN_CONVERTER_UINT(n)    ((((n) & 0xFF) << 24) | (((n) & 0xFF00) << 8) | (((n) & 0xFF0000) >> 8) | (((n) & 0xFF000000) >> 24))
 #define ENDIAN_CONVERTER_USHORT(n)	((((n) & 0xFF) << 8)  | (((n) & 0xFF00) >> 8))
 

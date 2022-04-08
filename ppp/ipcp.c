@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -166,7 +166,7 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 		printf(", code <%02X> is not supported]\r\nsent [Protocol IPCP, Id = %02X, Code = 'Configure Ack']\r\n", pubPacket[nReadIdx], pstHdr->ubIdentifier);
 #endif
 
-	send_nego_packet(pstcbPPP, PPP_IPCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
+	send_nego_packet(pstcbPPP, IPCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
 }
 
 static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
@@ -174,7 +174,7 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_IPCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, IPCP, pstHdr->ubIdentifier);
 
 #if SUPPORT_PRINTF
 	printf("]\r\n");
@@ -207,7 +207,7 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_IPCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, IPCP, pstHdr->ubIdentifier);
 
 	BOOL blIsFound = TRUE;
 	INT nReadIdx = sizeof(ST_LNCP_HDR);
@@ -245,7 +245,7 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
 	//* 收到应答则清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_IPCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, IPCP, pstHdr->ubIdentifier);
 
 	//* 理论上这地方不可能出现死循环，因为这是对端反馈的“我方”请求配置的项，所以不应该不被“我方”识别
 	INT nReadIdx = sizeof(ST_LNCP_HDR);
@@ -277,7 +277,7 @@ static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)];
 
 	//* 无论何种情形，收到应答都应该先清除等待队列节点
-	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_IPCP, pstHdr->ubIdentifier);
+	wait_ack_list_del(&pstcbPPP->stWaitAckList, IPCP, pstHdr->ubIdentifier);
 
 #if SUPPORT_PRINTF
 	printf(", Reject Code = \"%s\", hex val = %02X]\r\nerror: ipcp code value not recognized by the peer.\r\n", get_cpcode_name((EN_CPCODE)ubRejCode), ubRejCode);
@@ -303,7 +303,7 @@ BOOL ipcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 	printf("]\r\n");
 
-	return send_nego_packet(pstcbPPP, PPP_IPCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, IPCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
 }
 
 //* pap协议接收函数

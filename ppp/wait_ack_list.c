@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"

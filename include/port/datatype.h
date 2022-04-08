@@ -1,4 +1,4 @@
-﻿/* datatype.h
+/* datatype.h
  *
  * 通用数据类型定义
  *

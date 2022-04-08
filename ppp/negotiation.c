@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -30,7 +30,7 @@ BOOL send_nego_packet(PSTCB_NETIFPPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, 
 	buf_list_put_head(&sBufListHead, sNode);
 
 	//* 发送
-	INT nRtnVal = ppp_send(pstcbPPP->hTTY, LCP, sBufListHead, penErrCode);
+	INT nRtnVal = ppp_send(pstcbPPP->hTTY, (EN_NPSPROTOCOL)usProtocol, sBufListHead, penErrCode);
 
 	//* 释放刚才申请的buf list节点
 	buf_list_free(sNode);
@@ -145,11 +145,14 @@ void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 			pstcbPPP->enState = NEGOTIATION;
 		else
 		{
+#if SUPPORT_PRINTF
+
+#endif
 			pstcbPPP->enState = STACKFAULT;
 			return;
 		}
 
-	case NEGOTIATION:
+	default:
 		ppp_negotiate(pstcbPPP, penErrCode);
 		return;
 	}

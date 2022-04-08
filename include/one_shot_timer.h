@@ -28,6 +28,9 @@ typedef struct _ST_ONESHOTTIMER_ { //* 定时器
 //* 定时器初始化函数
 ONE_SHOT_TIMER_EXT BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode);
 
+//* 定时器去初始化函数
+ONE_SHOT_TIMER_EXT void one_shot_timer_uninit(void);
+
 //* 结束两个定时器线程，并释放所有工作队列，并归还给系统
 ONE_SHOT_TIMER_EXT void one_shot_timer_stop(void);
 

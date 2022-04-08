@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
@@ -17,8 +17,9 @@ static PST_ONESHOTTIMER l_pstFreeOneShotTimerLink;
 static PST_ONESHOTTIMER l_pstOneShotTimerLink = NULL;
 static PST_ONESHOTTIMER l_pstOneShotTimeoutLink = NULL;
 static BOOL l_blIsRunning = TRUE; 
+static UCHAR l_ubaThreadExitFlag[2] = { TRUE, TRUE }; 
 
-//* 定时器初始化（栈开始工作签必须要先调用这个函数进行定时器初始化）
+//* 定时器初始化（栈开始工作前必须要先调用这个函数进行定时器初始化）
 BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 {
 	INT i; 
@@ -71,10 +72,34 @@ BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 	if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
 		os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);
 
-	if (INVALID_HMUTEX != l_hMtxOneShotTimeout)
-		os_thread_mutex_uninit(l_hMtxOneShotTimeout);
+	if (INVALID_HMUTEX != l_hMtxOneShotTimer)
+		os_thread_mutex_uninit(l_hMtxOneShotTimer);
 	
 	return FALSE; 
+}
+
+//* 定时器去初始化
+void one_shot_timer_uninit(void)
+{
+    l_blIsRunning = FALSE; 
+
+    while (!l_ubaThreadExitFlag[0])
+        os_sleep_secs(1);
+
+    while (!l_ubaThreadExitFlag[1])
+        os_sleep_secs(1);
+
+    if (INVALID_HSEM != l_hSemOneShotTimeout)
+        os_thread_sem_uninit(l_hSemOneShotTimeout);
+
+    if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
+        os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);
+
+    if (INVALID_HMUTEX != l_hMtxOneShotTimer)
+        os_thread_mutex_uninit(l_hMtxOneShotTimer);
+
+    if (INVALID_HMUTEX != l_hMtxOneShotTimeout)
+        os_thread_mutex_uninit(l_hMtxOneShotTimeout);
 }
 
 //* 结束两个定时器线程，并释放所有工作队列，并归还给系统
@@ -87,6 +112,8 @@ void one_shot_timer_stop(void)
 void thread_one_shot_timer_count(void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer, pstPrevTimer, pstNextTimer; 
+
+    l_ubaThreadExitFlag[0] = FALSE;
 	while (l_blIsRunning)
 	{
 		os_thread_mutex_lock(l_hMtxOneShotTimer);
@@ -146,12 +173,16 @@ void thread_one_shot_timer_count(void *pvParam)
 		}
 	}
 	os_thread_mutex_unlock(l_hMtxOneShotTimer);
+
+    l_ubaThreadExitFlag[0] = TRUE;
 }
 
 //* 计时溢出事件处理线程，当用户的计时器溢出函数执行后，当前定时器将被线程自动释放并归还给系统，用户无需执行释放操作
 void thread_one_shot_timeout_handler(void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer, pstNextTimer;
+
+    l_ubaThreadExitFlag[1] = FALSE;
 	while (l_blIsRunning)
 	{
 		//* 等待溢出事件到达
@@ -192,6 +223,8 @@ void thread_one_shot_timeout_handler(void *pvParam)
 		}
 	}
 	os_thread_mutex_unlock(l_hMtxOneShotTimeout);
+
+    l_ubaThreadExitFlag[1] = TRUE;
 }
 
 //* 分配一个新的one-shot定时器

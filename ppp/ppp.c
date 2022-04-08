@@ -1,4 +1,4 @@
-﻿#include "port/datatype.h"
+#include "port/datatype.h"
 #include "errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
@@ -57,6 +57,12 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 {
 	INT i; 
 
+    *penErrCode = ERRNO; 
+
+    //* 先赋初值（避免去初始化函数执行出错）
+    for (i = 0; i < PPP_NETLINK_NUM; i++)
+        l_staNetifPPP[i].hTTY = INVALID_HTTY; 
+
 	//* 初始化tty
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
@@ -70,7 +76,10 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 
 		l_staNetifPPP[i].enState = TTYINIT; 
 		l_staNetifPPP[i].pstNegoResult = &l_staNegoResult[i];
+        l_ubaThreadExitFlag[i] = TRUE;
 	}
+
+    return TRUE; 
 
 __lblEnd: 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
@@ -96,7 +105,7 @@ void ppp_uninit(void)
 	INT i; 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		while (l_ubaThreadExitFlag[i])
+		while (!l_ubaThreadExitFlag[i])
 			os_sleep_secs(1); 
 
 		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
@@ -218,7 +227,7 @@ INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
 		if (pubFrameBuf[1] == PPP_ALLSTATIONS && pubFrameBuf[2] == PPP_UI) //* 地址域与控制域未被压缩，使用正常协议头
 		{
 			PST_PPP_HDR pstHdr = (PST_PPP_HDR)pubFrameBuf;
-			usProtocol = pstHdr->usProtocol; 
+			usProtocol = ENDIAN_CONVERTER_USHORT(pstHdr->usProtocol);
 			nUpperStartIdx = sizeof(ST_PPP_HDR); 
 		}
 		else
@@ -244,8 +253,12 @@ INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
 		INT i;
 		for (i = 0; i < (INT)(sizeof(lr_staProtocol) / sizeof(ST_PPP_PROTOCOL)); i++)
 		{
-			if (lr_staProtocol[i].pfunUpper)
-				lr_staProtocol[i].pfunUpper(pstcbPPP, pubFrameBuf + nUpperStartIdx, nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL));
+            if (usProtocol == lr_staProtocol[i].usType)
+            {
+                if (lr_staProtocol[i].pfunUpper)
+                    lr_staProtocol[i].pfunUpper(pstcbPPP, pubFrameBuf + nUpperStartIdx, nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL));
+                break; 
+            }			
 		}
 	}
 
@@ -279,7 +292,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	USHORT usDataLen; 
 	if (LCP != enProtocol && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfAddrCtlComp)
 	{
-		if (enProtocol < 0xFF && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfProtoComp)
+		if (lr_staProtocol[enProtocol].usType < 0xFF && pstcbNetif->pstNegoResult->stLCP.blIsNegoValOfProtoComp)
 		{
 			ubHead[1] = ((UCHAR *)&lr_staProtocol[enProtocol].usType)[0];
 			usDataLen = 2;
@@ -329,7 +342,8 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 
 #if SUPPORT_PRINTF
 	#if DEBUG_LEVEL
-		printf_hex_ext(sBufListHead, 48); 
+        printf("sent %d bytes: \r\n", nRtnVal);
+	    printf_hex_ext(sBufListHead, 48); 
 	#endif
 #endif
 
@@ -395,6 +409,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 			if (lcp_send_echo_request(pstcbPPP, penErrCode))
 			{
 				unLastSndEchoReq = os_get_system_secs(); 
+                pstcbPPP->enState = WAITECHOREPLY;
 			}
 			else
 			{
@@ -445,7 +460,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 		case STACKFAULT:
 		default:
 	#if SUPPORT_PRINTF			
-			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo\r\n");
+			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo, %s\r\n", error(*penErrCode)); 
 	#endif
 			l_blIsRunning = FALSE; 
 			break; 
@@ -483,14 +498,18 @@ void thread_ppp_handler(void *pvParam)
 
 		if (tty_ready(pstcbPPP->hTTY, &enErrCode))
 		{
+#if SUPPORT_PRINTF
+            printf("modem dial succeeded\r\n");
+#endif
 			pstcbPPP->enState = STARTNEGOTIATION;
 			nTimeout = 5; 
+            os_sleep_secs(1); //*延时1秒，确保modem已经完全就绪
 
 			ppp_fsm(nPPPIdx, pstcbPPP, &enErrCode);
 		}
 		else
 		{
-	#if SUPPORT_PRINTF			
+	#if SUPPORT_PRINTF
 			printf("tty_ready() failed, %s\r\n", error(enErrCode));
 	#endif
 			os_sleep_secs(nTimeout);

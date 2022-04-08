@@ -1,4 +1,4 @@
-﻿/* negotiation.h
+/* negotiation.h
  *
  * 完成ppp链路的协商工作，为ip层通讯准备好ppp链路
  *

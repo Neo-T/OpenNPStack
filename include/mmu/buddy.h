@@ -1,4 +1,4 @@
-﻿/* buddy.h
+/* buddy.h
  *
  * 采用Buddy算法实现的内存管理单元模块用到的相关数据结构及宏定义文件
  *
@@ -32,6 +32,7 @@ typedef struct _ST_BUDDY_AREA_ { //* 具有相同页面大小的页块数组单�
 } ST_BUDDY_AREA, *PST_BUDDY_AREA; 
 
 BUDDY_EXT BOOL buddy_init(EN_ERROR_CODE *penErrCode);				 //* buddy模块初始化函数
+BUDDY_EXT void buddy_uninit(void);	                                 //* buddy模块去初始化函数
 BUDDY_EXT void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode); //* 只有没有可用的内存块了才会返回NULL，其它情况都会返回一个合适大小的内存块
 BUDDY_EXT BOOL buddy_free(void *pvStart);							 //* 释放由buddy_alloc分配的内存
 #endif
