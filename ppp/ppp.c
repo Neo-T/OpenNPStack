@@ -5,6 +5,7 @@
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
 #include "utils.h"
+#include "netif/netif.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
