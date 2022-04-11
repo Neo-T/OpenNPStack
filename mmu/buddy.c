@@ -34,7 +34,7 @@ static PST_BUDDY_PAGE GetPageNode(EN_ERROR_CODE *penErrCode)
 		pstNode = pstNode->pstNext; 
 	}
 
-	*penErrCode = ERRNOPAGENODES;
+	*penErrCode = ERRNOPAGENODE;
 
 	return NULL;
 }

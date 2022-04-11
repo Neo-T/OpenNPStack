@@ -37,17 +37,17 @@ static ST_LNCP_CONFREQ_ITEM l_staConfReqItem[LCP_CONFREQ_NUM] =
 };
 
 //* LCP协商处理函数
-static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_nak(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void terminate_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void terminate_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void code_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void protocol_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void echo_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void echo_reply(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void discard_req(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static const ST_LNCPNEGOHANDLER lr_staNegoHandler[CPCODE_NUM] =
 {
 	{ CONFREQ, conf_request },
@@ -224,7 +224,7 @@ static INT get_accompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT ps
 	return (INT)pstItem->stHdr.ubLen;
 }
 
-static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -254,7 +254,7 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 	send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
 }
 
-static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 
@@ -267,7 +267,7 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	pstcbPPP->enState = STARTAUTHEN; 
 }
 
-static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_nak(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -290,7 +290,7 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	lcp_send_conf_request(pstcbPPP, NULL); 
 }
 
-static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -323,7 +323,7 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	lcp_send_conf_request(pstcbPPP, NULL);
 }
 
-static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void terminate_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	CHAR szBuf[24];
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
@@ -342,7 +342,7 @@ static void terminate_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPa
 	pstcbPPP->enState = TERMINATED;
 }
 
-static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void terminate_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -356,7 +356,7 @@ static void terminate_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 	pstcbPPP->enState = TERMINATED; 
 }
 
-static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void code_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)]; 
@@ -371,7 +371,7 @@ static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	pstcbPPP->enState = STACKFAULT;
 }
 
-static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void protocol_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	USHORT usRejProtocol; 
@@ -389,7 +389,7 @@ static void protocol_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPack
 	pstcbPPP->enState = STACKFAULT;
 }
 
-static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void echo_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	CHAR szData[80];
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
@@ -414,7 +414,7 @@ static void echo_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 	send_nego_packet(pstcbPPP, LCP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, (UCHAR *)szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
 }
 
-static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void echo_reply(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	CHAR szData[64];
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
@@ -432,14 +432,14 @@ static void echo_reply(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen
 #endif
 }
 
-static void discard_req(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void discard_req(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 #if SUPPORT_PRINTF
 	printf("]\r\n");
 #endif
 }
 
-BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 #if SUPPORT_PRINTF
@@ -459,7 +459,7 @@ BOOL lcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	return send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
 }
 
-BOOL lcp_start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_start_negotiation(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	if (!wait_ack_list_init(&pstcbPPP->stWaitAckList, penErrCode))
 		return FALSE;
@@ -467,12 +467,12 @@ BOOL lcp_start_negotiation(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	return lcp_send_conf_request(pstcbPPP, penErrCode);
 }
 
-void lcp_end_negotiation(PSTCB_NETIFPPP pstcbPPP)
+void lcp_end_negotiation(PSTCB_PPP pstcbPPP)
 {
 	wait_ack_list_uninit(&pstcbPPP->stWaitAckList); 
 }
 
-BOOL lcp_send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 #define TERM_REQ_STRING "Bye, Trinity"
 	UCHAR ubaPacket[64]; 
@@ -487,7 +487,7 @@ BOOL lcp_send_terminate_req(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	return send_nego_packet(pstcbPPP, LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode);
 }
 
-BOOL lcp_send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 #define ECHO_STRING	"Hello, I'm Neo!" 
 	UCHAR ubaPacket[80]; 
@@ -506,7 +506,7 @@ BOOL lcp_send_echo_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 }
 
 //* lcp协议接收函数
-void lcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+void lcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 

@@ -41,7 +41,8 @@ static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
 	{ "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量及 */
 									  /* pap.c中pap_send_auth_request()函数的ubaPacket数组的容量，确保其能够封装一个完整的响应报文              */
 }; 
-static STCB_NETIFPPP l_staNetifPPP[PPP_NETLINK_NUM]; 
+static STCB_PPP l_staPPP[PPP_NETLINK_NUM]; 
+static PST_NETIF_NODE l_pstNetif[PPP_NETLINK_NUM];
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
 static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
 static UCHAR l_ubaThreadExitFlag[PPP_NETLINK_NUM];
@@ -62,21 +63,21 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 
     //* 先赋初值（避免去初始化函数执行出错）
     for (i = 0; i < PPP_NETLINK_NUM; i++)
-        l_staNetifPPP[i].hTTY = INVALID_HTTY; 
+        l_staPPP[i].hTTY = INVALID_HTTY; 
 
 	//* 初始化tty
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		l_staNetifPPP[i].hTTY = tty_init(lr_pszaTTY[i], penErrCode);
-		if (INVALID_HTTY == l_staNetifPPP[i].hTTY)
+		l_staPPP[i].hTTY = tty_init(lr_pszaTTY[i], penErrCode);
+		if (INVALID_HTTY == l_staPPP[i].hTTY)
 			goto __lblEnd; 
 
 		l_haMtxTTY[i] = os_thread_mutex_init();
 		if (INVALID_HMUTEX == l_haMtxTTY[i])
 			goto __lblEnd; 
 
-		l_staNetifPPP[i].enState = TTYINIT; 
-		l_staNetifPPP[i].pstNegoResult = &l_staNegoResult[i];
+		l_staPPP[i].enState = TTYINIT; 
+		l_staPPP[i].pstNegoResult = &l_staNegoResult[i];
         l_ubaThreadExitFlag[i] = TRUE;
 	}
 
@@ -85,9 +86,9 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 __lblEnd: 
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
+		if (INVALID_HTTY != l_staPPP[i].hTTY)
 		{
-			tty_uninit(l_staNetifPPP[i].hTTY);
+			tty_uninit(l_staPPP[i].hTTY);
 
 			if (INVALID_HMUTEX != l_haMtxTTY[i])
 				os_thread_mutex_uninit(l_haMtxTTY[i]);
@@ -109,9 +110,9 @@ void ppp_uninit(void)
 		while (!l_ubaThreadExitFlag[i])
 			os_sleep_secs(1); 
 
-		if (INVALID_HTTY != l_staNetifPPP[i].hTTY)
+		if (INVALID_HTTY != l_staPPP[i].hTTY)
 		{
-			tty_uninit(l_staNetifPPP[i].hTTY);
+			tty_uninit(l_staPPP[i].hTTY);
 
 			if (INVALID_HMUTEX != l_haMtxTTY[i])
 				os_thread_mutex_uninit(l_haMtxTTY[i]);
@@ -121,7 +122,7 @@ void ppp_uninit(void)
 	}
 }
 
-static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY, INT *pnPPPIndex)
+static PSTCB_PPP get_ppp(HTTY hTTY, INT *pnPPPIndex)
 {	
 	if (INVALID_HTTY == hTTY)
 		return NULL; 
@@ -129,19 +130,19 @@ static PSTCB_NETIFPPP get_netif_ppp(HTTY hTTY, INT *pnPPPIndex)
 	INT i;
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (hTTY == l_staNetifPPP[i].hTTY)
+		if (hTTY == l_staPPP[i].hTTY)
 		{
 			if (pnPPPIndex)
 				*pnPPPIndex = i;
 
-			return &l_staNetifPPP[i];
+			return &l_staPPP[i];
 		}
 	}
 
 	return NULL; 
 }
 
-INT get_netif_ppp_index(HTTY hTTY)
+INT get_ppp_index(HTTY hTTY)
 {
 	if (INVALID_HTTY == hTTY)
 		return -1;
@@ -149,7 +150,7 @@ INT get_netif_ppp_index(HTTY hTTY)
 	INT i;
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (hTTY == l_staNetifPPP[i].hTTY)
+		if (hTTY == l_staPPP[i].hTTY)
 			return i;
 	}
 
@@ -164,7 +165,7 @@ const CHAR *get_ppp_port_name(HTTY hTTY)
 	INT i;
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (hTTY == l_staNetifPPP[i].hTTY)
+		if (hTTY == l_staPPP[i].hTTY)
 			return lr_pszaTTY[i];
 	}
 
@@ -179,7 +180,7 @@ const ST_DIAL_AUTH_INFO *get_ppp_dial_auth_info(HTTY hTTY)
 	INT i;
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (hTTY == l_staNetifPPP[i].hTTY)
+		if (hTTY == l_staPPP[i].hTTY)
 			return &lr_staDialAuth[i];
 	}
 
@@ -194,7 +195,7 @@ void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword
 	INT i;
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		if (hTTY == l_staNetifPPP[i].hTTY)
+		if (hTTY == l_staPPP[i].hTTY)
 		{
 			*pszUser = lr_staDialAuth[i].pszUser;
 			*pszPassword = lr_staDialAuth[i].pszPassword;
@@ -205,7 +206,7 @@ void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword
 //* ppp接收
 INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
 {
-	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 
 	//* 读取数据
 	UCHAR *pubFrameBuf = l_ubaaFrameBuf[nPPPIdx];
@@ -280,7 +281,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 
 	//* 获取ppp接口控制块
 	INT nPPPIdx; 
-	PSTCB_NETIFPPP pstcbNetif = get_netif_ppp(hTTY, &nPPPIdx);
+	PSTCB_PPP pstcbNetif = get_ppp(hTTY, &nPPPIdx);
 	if (!pstcbNetif)
 	{
 		if(penErrCode)
@@ -355,7 +356,35 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	return nRtnVal; 
 }
 
-static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+static INT netif_send(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
+{
+    HTTY hTTY = *((HTTY *)pstIf->pvExtra);
+    return ppp_send(hTTY, enProtocol, sBufListHead, penErrCode);
+}
+
+//* 将当前ppp链路作为网卡添加到协议栈
+static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+{
+    ST_IPV4 stIPv4; 
+    stIPv4.unAddr = pstcbPPP->pstNegoResult->stIPCP.unAddr; 
+    stIPv4.unSubnetMask = pstcbPPP->pstNegoResult->stIPCP.unSubnetMask; 
+    stIPv4.unGateway = pstcbPPP->pstNegoResult->stIPCP.unPointToPointAddr; 
+    stIPv4.unPrimaryDNS = pstcbPPP->pstNegoResult->stIPCP.unPrimaryDNS;
+    stIPv4.unSecondaryDNS = pstcbPPP->pstNegoResult->stIPCP.unSecondaryDNS; 
+
+    CHAR szNetIfName[NETIF_NAME_LEN]; 
+    snprintf(szNetIfName, sizeof(szNetIfName), "ppp%d", nPPPIdx); 
+#if SUPPORT_PRINTF
+    printf("Connect: %s <--> %s\r\n", szNetIfName, lr_pszaTTY[nPPPIdx]);
+#endif
+    l_pstNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErrCode); 
+    if (l_pstNetif[nPPPIdx])
+        return TRUE;
+    else
+        return FALSE; 
+}
+
+static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	INT nPacketLen;
 
@@ -396,9 +425,14 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrC
 			ppp_link_establish(pstcbPPP, penErrCode);
 			break;
 
-		case ESTABLISHED: 
+		case ESTABLISHED:     
 			//* 添加到网卡链表
-			/* …… */
+            if (!netif_add_ppp(nPPPIdx, pstcbPPP, penErrCode))
+            {
+                pstcbPPP->enState = STACKFAULT;
+                break; 
+            }
+			
 		#if SUPPORT_ECHO
 			unLastSndEchoReq = os_get_system_secs();
 			pstcbPPP->enState = WAITECHOREPLY;
@@ -482,7 +516,7 @@ __lblEnd:
 void thread_ppp_handler(void *pvParam)
 {
 	INT nPPPIdx = (INT)pvParam;
-	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 	EN_ERROR_CODE enErrCode;
 
 	//* 通知ppp协议栈处理线程已经开始运行
@@ -525,7 +559,7 @@ void thread_ppp_handler(void *pvParam)
 
 void ppp_link_terminate(INT nPPPIdx)
 {
-	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
 	{
 		if (ESTABLISHED == pstcbPPP->enState)
@@ -536,7 +570,7 @@ void ppp_link_terminate(INT nPPPIdx)
 
 void ppp_link_recreate(INT nPPPIdx)
 {
-	PSTCB_NETIFPPP pstcbPPP = &l_staNetifPPP[nPPPIdx];
+	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 	if (TERMINATED == pstcbPPP->enState)
 		pstcbPPP->enState = TTYINIT;
 }

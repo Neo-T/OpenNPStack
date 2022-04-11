@@ -14,6 +14,9 @@ BOOL open_npstack_load(EN_ERROR_CODE *penErrCode)
         if (!one_shot_timer_init(penErrCode))
             break; 
 
+        if (!netif_init(penErrCode))
+            break; 
+
 #if SUPPORT_PPP
         if (!ppp_init(penErrCode))
             break; 
@@ -25,6 +28,7 @@ BOOL open_npstack_load(EN_ERROR_CODE *penErrCode)
         return TRUE; 
     } while (FALSE); 
 
+    netif_uninit(); 
     buf_list_uninit(); 
     buddy_uninit(); 
     one_shot_timer_uninit(); 
@@ -37,6 +41,7 @@ void open_npstack_unload(void)
 #if SUPPORT_PPP
     ppp_uninit();
 #endif
+    netif_uninit();
     one_shot_timer_uninit();
     buf_list_uninit();
     buddy_uninit();    

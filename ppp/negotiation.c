@@ -15,7 +15,7 @@
 #include "ppp/ipcp.h"
 #include "ppp/ppp.h"
 
-BOOL send_nego_packet(PSTCB_NETIFPPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ERROR_CODE *penErrCode)
+BOOL send_nego_packet(PSTCB_PPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ERROR_CODE *penErrCode)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubData;
 	pstHdr->ubCode = ubCode;
@@ -51,7 +51,7 @@ BOOL send_nego_packet(PSTCB_NETIFPPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, 
 	return FALSE;
 }
 
-static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	switch (pstcbPPP->enState)
 	{
@@ -136,7 +136,7 @@ static void ppp_negotiate(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 }
 
-void ppp_link_establish(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+void ppp_link_establish(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	switch (pstcbPPP->enState)
 	{

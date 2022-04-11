@@ -6,7 +6,7 @@
 
 static const ST_ERROR lr_staErrorList[] = {
 	{ ERRNO, "no error" },
-	{ ERRNOPAGENODES, "no page nodes available"},
+	{ ERRNOPAGENODE, "no page nodes available"},
 	{ ERRREQMEMTOOLARGE, "the requested memory is too large, please refer to the macro definition BUDDY_MEM_SIZE" },
 	{ ERRNOFREEMEM, "the mmu has no memory available" }, 
 	{ ERRMUTEXINITFAILED, "thread mutex initialization failed" }, 
@@ -26,6 +26,7 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRPPPFCS, "ppp frame checksum error" }, 
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
+    { ERRNONETIFNODE, "no netif nodes available" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

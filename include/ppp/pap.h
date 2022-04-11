@@ -15,7 +15,7 @@
 	#define PAP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-PAP_EXT BOOL pap_send_auth_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode);
-PAP_EXT void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+PAP_EXT BOOL pap_send_auth_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode);
+PAP_EXT void pap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 
 #endif

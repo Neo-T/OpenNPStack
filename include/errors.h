@@ -18,7 +18,7 @@
 #define ERROR_NUM	30
 typedef enum {
     ERRNO = 0,          //* 没有发生任何错误
-    ERRNOPAGENODES,     //* 无可用的内存页面节点
+    ERRNOPAGENODE,      //* 无可用的内存页面节点
     ERRREQMEMTOOLARGE,  //* 申请的内存过大，超过了系统支持的最大申请配额
     ERRNOFREEMEM,       //* 系统已无可用内存
     ERRMUTEXINITFAILED, //* 线程同步锁初始化失败
@@ -38,6 +38,7 @@ typedef enum {
     ERRUNKNOWNPROTOCOL, //* 未知协议类型
     ERRNOIDLETIMER,     //* 没有空闲的定时器
     ERRPPPWALISTNOINIT, //* ppp等待应答链表未初始化
+    ERRNONETIFNODE      //* 无可用的netif节点
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

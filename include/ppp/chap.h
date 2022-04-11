@@ -15,6 +15,6 @@
 	#define CHAP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-CHAP_EXT void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+CHAP_EXT void chap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 
 #endif

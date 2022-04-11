@@ -14,7 +14,7 @@
 #undef SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 
-static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void send_response(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	CHAR szData[64];
 	PST_CHAP_DATA pstData = (PST_CHAP_DATA)(pubPacket + sizeof(ST_LNCP_HDR));
@@ -65,7 +65,7 @@ static void send_response(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacket
 }
 
 //* chap协议接收函数
-void chap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+void chap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 

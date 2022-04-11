@@ -32,11 +32,11 @@ static const ST_LNCP_CONFREQ_ITEM lr_staConfReqItem[IPCP_CONFREQ_NUM] =
 
 //* IPCP协商处理函数
 #define IPCPCODE_NUM	5	//* 协商阶段代码域类型数量
-static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
-static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_nak(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+static void code_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 static const ST_LNCPNEGOHANDLER lr_staNegoHandler[IPCPCODE_NUM] =
 {
 	{ CONFREQ, conf_request },
@@ -67,12 +67,12 @@ static INT put_primary_dns(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	pstReq->stHdr.ubType = (UCHAR)PRIMARYDNS;
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR) + 4;
 
-	//UINT unAddr = htonl(l_stNegoResult.stIPCP.unPrimaryDNSAddr);
-	UCHAR *pubAddr = (UCHAR *)&pstNegoResult->stIPCP.unPrimaryDNSAddr;
+	//UINT unAddr = htonl(l_stNegoResult.stIPCP.unPrimaryDNS);
+	UCHAR *pubAddr = (UCHAR *)&pstNegoResult->stIPCP.unPrimaryDNS;
 #if SUPPORT_PRINTF
 	printf(", Primary DNS <%d.%d.%d.%d>", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 #endif
-	memcpy((UCHAR *)&pstReq->unVal, (UCHAR *)&pstNegoResult->stIPCP.unPrimaryDNSAddr, 4);
+	memcpy((UCHAR *)&pstReq->unVal, (UCHAR *)&pstNegoResult->stIPCP.unPrimaryDNS, 4);
 	return (INT)pstReq->stHdr.ubLen;
 }
 
@@ -83,11 +83,11 @@ static INT put_secondary_dns(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR) + 4;
 
 	//UINT unAddr = htonl(l_stNegoResult.stIPCP.unSecondaryDNSAddr);
-	UCHAR *pubAddr = (UCHAR *)&pstNegoResult->stIPCP.unSecondaryDNSAddr;
+	UCHAR *pubAddr = (UCHAR *)&pstNegoResult->stIPCP.unSecondaryDNS;
 #if SUPPORT_PRINTF
 	printf(", Secondary DNS <%d.%d.%d.%d>", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 #endif
-	memcpy((UCHAR *)&pstReq->unVal, (UCHAR *)&pstNegoResult->stIPCP.unSecondaryDNSAddr, 4);
+	memcpy((UCHAR *)&pstReq->unVal, (UCHAR *)&pstNegoResult->stIPCP.unSecondaryDNS, 4);
 	return (INT)pstReq->stHdr.ubLen;
 }
 
@@ -113,7 +113,7 @@ static INT get_primary_dns(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstN
 	//UINT unVal = ntohl(pstItem->unVal);
 	if (pubVal)
 		memcpy(pubVal, (UCHAR *)&pstItem->unVal, sizeof(pstItem->unVal));
-	pstNegoResult->stIPCP.unPrimaryDNSAddr = pstItem->unVal;
+	pstNegoResult->stIPCP.unPrimaryDNS = pstItem->unVal;
 	
 	UCHAR *pubAddr = (UCHAR *)&pstItem->unVal;
 #if SUPPORT_PRINTF
@@ -129,7 +129,7 @@ static INT get_secondary_dns(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT ps
 	//UINT unVal = ntohl(pstItem->unVal);
 	if (pubVal)
 		memcpy(pubVal, (UCHAR *)&pstItem->unVal, sizeof(pstItem->unVal));
-	pstNegoResult->stIPCP.unSecondaryDNSAddr = pstItem->unVal;
+	pstNegoResult->stIPCP.unSecondaryDNS = pstItem->unVal;
 	
 	UCHAR *pubAddr = (UCHAR *)&pstItem->unVal;
 #if SUPPORT_PRINTF
@@ -139,7 +139,7 @@ static INT get_secondary_dns(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT ps
 	return (INT)pstItem->stHdr.ubLen;
 }
 
-static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 
@@ -169,7 +169,7 @@ static void conf_request(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 	send_nego_packet(pstcbPPP, IPCP, (UCHAR)CONFACK, pstHdr->ubIdentifier, pubPacket, nReadIdx, FALSE, NULL);
 }
 
-static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -184,11 +184,11 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 #if SUPPORT_PRINTF
 	printf("    Local IP Address %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 #endif
-	pubAddr = (UCHAR *)&pstcbPPP->pstNegoResult->stIPCP.unPrimaryDNSAddr;
+	pubAddr = (UCHAR *)&pstcbPPP->pstNegoResult->stIPCP.unPrimaryDNS;
 #if SUPPORT_PRINTF
 	printf("  Primary DNS Server %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 #endif
-	pubAddr = (UCHAR *)&pstcbPPP->pstNegoResult->stIPCP.unSecondaryDNSAddr;
+	pubAddr = (UCHAR *)&pstcbPPP->pstNegoResult->stIPCP.unSecondaryDNS;
 #if SUPPORT_PRINTF
 	printf("Secondary DNS Server %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 #endif
@@ -202,7 +202,7 @@ static void conf_ack(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	pstcbPPP->enState = ESTABLISHED; 
 }
 
-static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_nak(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -240,7 +240,7 @@ static void conf_nak(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	}
 }
 
-static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
@@ -271,7 +271,7 @@ static void conf_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	pstcbPPP->enState = STACKFAULT;
 }
 
-static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+static void code_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)];
@@ -286,7 +286,7 @@ static void code_reject(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLe
 	pstcbPPP->enState = STACKFAULT;
 }
 
-BOOL ipcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 #if SUPPORT_PRINTF
@@ -307,7 +307,7 @@ BOOL ipcp_send_conf_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 }
 
 //* pap协议接收函数
-void ipcp_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+void ipcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 

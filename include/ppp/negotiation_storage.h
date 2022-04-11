@@ -62,22 +62,22 @@ typedef struct _ST_PPPNEGORESULT_ {
 	} stLCP;
 	struct {
 		UINT unAddr;
-		UINT unPrimaryDNSAddr;
-		UINT unSecondaryDNSAddr;
+		UINT unPrimaryDNS;
+		UINT unSecondaryDNS;
 		UINT unPointToPointAddr;
-		UINT unNetMask;
+		UINT unSubnetMask;
 	} stIPCP;
 	UCHAR ubIdentifier; 
 	UINT unLastRcvedSecs; 
 } ST_PPPNEGORESULT, *PST_PPPNEGORESULT;
 
 //* PPP接口控制块
-typedef struct _STCB_NETIFPPP_ {
+typedef struct _STCB_PPP_ {
 	HTTY hTTY;	
 	EN_PPP_LINK_STATE enState;
 	PST_PPPNEGORESULT pstNegoResult;
 	ST_PPPWAITACKLIST stWaitAckList;	
-} STCB_NETIFPPP, *PSTCB_NETIFPPP; 
+} STCB_PPP, *PSTCB_PPP; 
 
 //* LCP/NCP协议配置请求项处理器相关宏、处理函数及结构体定义
 typedef INT(*PFUN_PUTREQITEM)(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult);
@@ -87,11 +87,11 @@ typedef struct _ST_LNCP_CONFREQ_ITEM_ {
 	const CHAR *pszName; 
 	BOOL blIsNegoRequired;		//* 是否需要协商，生成初始配置请求报文时需要
 	PFUN_PUTREQITEM pfunPut;	//* 填充请求内容到缓冲区，包括请求类型、长度及数据（如果需要携带数据的话）
-	PFUN_GETREQVAL pfunGet;		//* 从收到的配置请求报文中读取协商值
+	PFUN_GETREQVAL pfunGet;		//* 从收到的配置请求报文中读取协商值    
 } ST_LNCP_CONFREQ_ITEM, *PST_LNCP_CONFREQ_ITEM;
 
 //* LCP/NCP协商处理器，其针对报文代码域携带的值分别进行特定处理，在这里定义处理器相关的基础数据结构、宏、处理函数等定义
-typedef void(*PFUN_LNCPNEGOHANDLER)(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+typedef void(*PFUN_LNCPNEGOHANDLER)(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 typedef struct _ST_LCPNEGOHANDLER_ {
 	EN_CPCODE enCode;
 	PFUN_LNCPNEGOHANDLER pfunHandler;
@@ -100,7 +100,7 @@ typedef struct _ST_LCPNEGOHANDLER_ {
 //* ppp栈支持的上层协议
 typedef struct _ST_PPP_PROTOCOL_ {
 	USHORT usType;
-	void(*pfunUpper)(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
+	void(*pfunUpper)(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 } ST_PPP_PROTOCOL, *PST_PPP_PROTOCOL;
 
 #endif

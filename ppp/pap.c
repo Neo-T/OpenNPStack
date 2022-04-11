@@ -14,7 +14,7 @@
 #undef SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 
-BOOL pap_send_auth_request(PSTCB_NETIFPPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL pap_send_auth_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 {
 	UCHAR ubaPacket[64];
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
@@ -48,7 +48,7 @@ static void get_message(UCHAR *pubPacket, INT nPacketLen, CHAR *pszMessageBuf, U
 }
 
 //* pap协议接收函数
-void pap_recv(PSTCB_NETIFPPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+void pap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	CHAR szMessage[32]; 
