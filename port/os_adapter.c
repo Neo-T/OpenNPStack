@@ -136,7 +136,7 @@ INT os_tty_send(HTTY hTTY, UCHAR *pubData, INT nDataLen)
 	return 0; 
 }
 
-INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen)
+INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen, INT nWaitSecs)
 {
 	/* 用户自定义代码 */
 	/* …… */

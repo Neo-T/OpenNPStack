@@ -88,7 +88,7 @@ static PSTCB_TTYIO get_io_control_block(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 	return NULL; 
 }
 
-INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, EN_ERROR_CODE *penErrCode)
+INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, INT nWaitSecs, EN_ERROR_CODE *penErrCode)
 {
 	INT nRcvBytes; 
 	INT nStartIdx;
@@ -127,7 +127,7 @@ __lblRcv:
 		return nRtnVal;
 	}
 
-	nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx));
+	nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
 	if (nRcvBytes > 0)
 		pstcbIO->stRecv.nWriteIdx += nRcvBytes;
 

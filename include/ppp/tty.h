@@ -31,7 +31,7 @@ typedef struct _STCB_TTYIO_ {
 TTY_EXT HTTY tty_init(const CHAR *pszTTYName, EN_ERROR_CODE *penErrCode); 
 TTY_EXT void tty_uninit(HTTY hTTY);
 TTY_EXT BOOL tty_ready(HTTY hTTY, EN_ERROR_CODE *penErrCode); 
-TTY_EXT INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, EN_ERROR_CODE *penErrCode);
+TTY_EXT INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, INT nWaitSecs, EN_ERROR_CODE *penErrCode);
 TTY_EXT INT tty_send(HTTY hTTY, UINT unACCM, UCHAR *pubData, INT nDataLen, EN_ERROR_CODE *penErrCode);
 TTY_EXT INT tty_send_ext(HTTY hTTY, UINT unACCM, SHORT sBufListHead, EN_ERROR_CODE *penErrCode);
 

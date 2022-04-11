@@ -79,7 +79,7 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 	memset(szBuf, 0, sizeof(szBuf));
 	while (ubElapsedSecs < ubWaitSecs && unHaveRcvBytes <= sizeof(szBuf) - 1)
 	{	
-		unBytes = os_tty_recv(hTTY, (UCHAR *)&szBuf[unHaveRcvBytes], sizeof(szBuf) - 1 - unHaveRcvBytes); 
+		unBytes = os_tty_recv(hTTY, (UCHAR *)&szBuf[unHaveRcvBytes], sizeof(szBuf) - 1 - unHaveRcvBytes, 1); 
 		if (unBytes > 0) //* 收到了应答数据
 		{
 			if (pszDataBuf != NULL) //* 上层调用函数需要读取应答结果

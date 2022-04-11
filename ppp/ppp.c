@@ -204,13 +204,13 @@ void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword
 }
 
 //* ppp接收
-INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode)
+static INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode, INT nWaitSecs)
 {
 	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 
 	//* 读取数据
 	UCHAR *pubFrameBuf = l_ubaaFrameBuf[nPPPIdx];
-	INT nRcvBytes = tty_recv(pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), penErrCode);
+	INT nRcvBytes = tty_recv(pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), nWaitSecs, penErrCode);
 	if (nRcvBytes > 0)
 	{
 		//* 验证校验和是否正确
@@ -404,7 +404,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		}
 
 		//* 接收
-		nPacketLen = ppp_recv(nPPPIdx, penErrCode);
+		nPacketLen = ppp_recv(nPPPIdx, penErrCode, 1);
 		if (nPacketLen < 0)
 		{			
 	#if SUPPORT_PRINTF			
