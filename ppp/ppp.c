@@ -42,7 +42,7 @@ static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
 									  /* pap.c中pap_send_auth_request()函数的ubaPacket数组的容量，确保其能够封装一个完整的响应报文              */
 }; 
 static STCB_PPP l_staPPP[PPP_NETLINK_NUM]; 
-static PST_NETIF_NODE l_pstNetif[PPP_NETLINK_NUM];
+static PST_NETIF_NODE l_pstaNetif[PPP_NETLINK_NUM];
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
 static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
 static UCHAR l_ubaThreadExitFlag[PPP_NETLINK_NUM];
@@ -78,6 +78,7 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 
 		l_staPPP[i].enState = TTYINIT; 
 		l_staPPP[i].pstNegoResult = &l_staNegoResult[i];
+        l_pstaNetif[i] = NULL;
         l_ubaThreadExitFlag[i] = TRUE;
 	}
 
@@ -113,6 +114,12 @@ void ppp_uninit(void)
 		if (INVALID_HTTY != l_staPPP[i].hTTY)
 		{
 			tty_uninit(l_staPPP[i].hTTY);
+
+            if (l_pstaNetif[i])
+            {
+                netif_del(l_pstaNetif[i]);
+                l_pstaNetif[i] = NULL;
+            }
 
 			if (INVALID_HMUTEX != l_haMtxTTY[i])
 				os_thread_mutex_uninit(l_haMtxTTY[i]);
@@ -377,8 +384,8 @@ static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErr
 #if SUPPORT_PRINTF
     printf("Connect: %s <--> %s\r\n", szNetIfName, lr_pszaTTY[nPPPIdx]);
 #endif
-    l_pstNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErrCode); 
-    if (l_pstNetif[nPPPIdx])
+    l_pstaNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErrCode); 
+    if (l_pstaNetif[nPPPIdx])
         return TRUE;
     else
         return FALSE; 
@@ -452,7 +459,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 				printf("lcp_send_echo_request() failed, %s\r\n", error(*penErrCode)); 
 			#endif
 				os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
-				{
+				{                    
 					pstcbPPP->enState = STACKFAULT; 
 				}
 				os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
@@ -503,6 +510,13 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 
 __lblEnd: 
+    //* 如已加入网卡链表则在此应先删除之，否则链表资源将被耗尽
+    if (l_pstaNetif[nPPPIdx])
+    {
+        netif_del(l_pstaNetif[nPPPIdx]);
+        l_pstaNetif[nPPPIdx] = NULL;
+    }
+
 	lcp_end_negotiation(pstcbPPP);
 
 	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
