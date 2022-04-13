@@ -7,6 +7,6 @@
 #include "utils.h"
 
 #define SYMBOL_GLOBALS
-#include "ip/icmp.h"
+#include "onps_input.h"
 #undef SYMBOL_GLOBALS
 
