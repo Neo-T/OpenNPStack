@@ -145,9 +145,6 @@ void ppp_link_establish(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 			pstcbPPP->enState = NEGOTIATION;
 		else
 		{
-#if SUPPORT_PRINTF
-
-#endif
 			pstcbPPP->enState = STACKFAULT;
 			return;
 		}

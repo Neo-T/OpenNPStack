@@ -402,7 +402,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	while (l_blIsRunning)
 	{
 		//* 已经连续多次未收到对端应答，则断开PPP链路
-		if (pstcbPPP->stWaitAckList.ubTimeoutNum > WAIT_ACK_TIMEOUT_NUM)
+		if (pstcbPPP->stWaitAckList.ubTimeoutCount > WAIT_ACK_TIMEOUT_NUM)
 		{
 	#if SUPPORT_PRINTF			
 			printf("No response packet received from the peer, ppp stack will redial ...\r\n");
@@ -487,7 +487,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 			break; 
 
 		case WAITTERMACK:
-			if(pstcbPPP->stWaitAckList.ubTimeoutNum > 0)
+			if(pstcbPPP->stWaitAckList.ubTimeoutCount > 0)
 				pstcbPPP->enState = SENDTERMREQ;
 			break; 
 

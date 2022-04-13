@@ -33,7 +33,7 @@ typedef struct _ST_PPPWAITACKLIST_ { //* 等待应答的PPP报文链表
 	PST_PPPWAITACKNODE pstHead;
 	HMUTEX hMutex;
 	UCHAR ubIsTimeout; 
-	UCHAR ubTimeoutNum;	//* 连续触发超时事件的次数
+	UCHAR ubTimeoutCount;	//* 连续触发超时事件的累计次数
 } ST_PPPWAITACKLIST, *PST_PPPWAITACKLIST;
 
 WAIT_ACK_LIST_EXT BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ERROR_CODE *penErrCode);

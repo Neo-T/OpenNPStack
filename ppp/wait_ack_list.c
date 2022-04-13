@@ -18,7 +18,7 @@ BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ERROR_CODE *penErrCode)
 		return FALSE;
 	
 	pstWAList->pstHead = NULL;
-	pstWAList->ubTimeoutNum = 0;
+	pstWAList->ubTimeoutCount = 0;
 
 	return TRUE;
 }
@@ -70,15 +70,15 @@ static void wait_ack_timeout_handler(void *pvParam)
 	os_thread_mutex_lock(pstWAList->hMutex);
 	{
 		if (pstTimeoutNode->ubIsAcked) //* 如果已经收到应答报文，则错误计数归零
-			pstWAList->ubTimeoutNum = 0;
+			pstWAList->ubTimeoutCount = 0;
 		else //* 超时了，当前节点记录的报文未收到应答
 		{
 			if (pstTimeoutNode->ubIsAcked) //* 存在这种情况，等待进入临界段时好巧不巧收到应答报文了			
-				pstWAList->ubTimeoutNum = 0;
+				pstWAList->ubTimeoutCount = 0;
 			else
 			{
 				pstWAList->ubIsTimeout = TRUE; 
-				pstWAList->ubTimeoutNum++;
+				pstWAList->ubTimeoutCount++;
 			}
 		}
 
