@@ -15,7 +15,7 @@
 #define ERRORS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#define ERROR_NUM	30
+#define ERROR_NUM	40
 typedef enum {
     ERRNO = 0,          //* 没有发生任何错误
     ERRNOPAGENODE,      //* 无可用的内存页面节点
@@ -38,7 +38,8 @@ typedef enum {
     ERRUNKNOWNPROTOCOL, //* 未知协议类型
     ERRNOIDLETIMER,     //* 没有空闲的定时器
     ERRPPPWALISTNOINIT, //* ppp等待应答链表未初始化
-    ERRNONETIFNODE      //* 无可用的netif节点
+    ERRNONETIFNODE,     //* 无可用的netif节点
+    ERRUNSUPPIPPROTO,   //* 不被支持的IP层协议
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

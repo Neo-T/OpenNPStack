@@ -73,8 +73,11 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 			goto __lblEnd; 
 
 		l_haMtxTTY[i] = os_thread_mutex_init();
-		if (INVALID_HMUTEX == l_haMtxTTY[i])
-			goto __lblEnd; 
+        if (INVALID_HMUTEX == l_haMtxTTY[i])
+        {
+            *penErrCode = ERRMUTEXINITFAILED; 
+            goto __lblEnd;
+        }
 
 		l_staPPP[i].enState = TTYINIT; 
 		l_staPPP[i].pstNegoResult = &l_staNegoResult[i];

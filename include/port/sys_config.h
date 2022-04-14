@@ -9,8 +9,11 @@
 #ifndef SYS_CONFIG_H
 #define SYS_CONFIG_H
 
-#define NETIF_NUM       2   //* 系统支持的网卡数量
-#define SOCKET_NUM_MAX  16  //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响）
+#define NETIF_NUM                   2       //* 系统支持的网卡数量
+#define SOCKET_NUM_MAX              10      //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响）
+#define ICMPRCVBUF_SIZE_DEFAULT     128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
+#define TCPRCVBUF_SIZE_DEFAULT      1500    //* tcp层缺省的接收缓冲区大小
+#define UDPRCVBUF_SIZE_DEFAULT      512     //* udp层缺省的接收缓冲区大小
 
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================

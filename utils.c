@@ -136,4 +136,115 @@ void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine)
 	}
 	printf("\r\n"); 
 }
+
+PST_SLINKEDLIST_NODE sllist_get_node(PST_SLINKEDLIST *ppstSLList)
+{
+    if (NULL == *ppstSLList)
+        return NULL; 
+
+    PST_SLINKEDLIST_NODE pstNode = *ppstSLList;
+    if (*ppstSLList)
+        *ppstSLList = (*ppstSLList)->pstNext; 
+
+    pstNode->pstNext = NULL;
+    return pstNode; 
+}
+
+PST_SLINKEDLIST_NODE sllist_get_tail_node(PST_SLINKEDLIST *ppstSLList)
+{
+    if (NULL == *ppstSLList)
+        return NULL;
+
+    PST_SLINKEDLIST_NODE pstNextNode = *ppstSLList;
+    PST_SLINKEDLIST_NODE pstPrevNode = NULL;
+    while (pstNextNode)
+    {
+        if(NULL == pstNextNode->pstNext) //* 到了尾部节点了
+        { 
+            if (pstPrevNode)
+                pstPrevNode->pstNext = NULL;
+            else
+                *ppstSLList = NULL; 
+            pstNextNode->pstNext = NULL; 
+            return pstNextNode; 
+        }
+
+        pstPrevNode = pstNextNode;
+        pstNextNode = pstNextNode->pstNext; 
+    }
+
+    return NULL; 
+}
+
+void sllist_del_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode)
+{
+    PST_SLINKEDLIST_NODE pstNextNode = *ppstSLList;
+    PST_SLINKEDLIST_NODE pstPrevNode = NULL;
+    while (pstNextNode)
+    {
+        //* 节点地址相等则意味着找到了要删除的节点在链表中的链接位置
+        if (pstNextNode == pstNode)
+        {
+            if (pstPrevNode)
+                pstPrevNode->pstNext = pstNextNode->pstNext; 
+            else
+                *ppstSLList = pstNextNode->pstNext;
+
+            break; 
+        }
+
+        pstPrevNode = pstNextNode;
+        pstNextNode = pstNextNode->pstNext;
+    }
+}
+
+void sllist_del_node_ext(PST_SLINKEDLIST *ppstSLList, void *pvData)
+{
+    PST_SLINKEDLIST_NODE pstNextNode = *ppstSLList;
+    PST_SLINKEDLIST_NODE pstPrevNode = NULL;
+    while (pstNextNode)
+    {
+        //* 节点携带的数据地址相等则意味着找到了要删除的节点在链表中的链接位置
+        if (pstNextNode->pvData == pvData)
+        {
+            if (pstPrevNode)
+                pstPrevNode->pstNext = pstNextNode->pstNext;
+            else
+                *ppstSLList = pstNextNode->pstNext;
+
+            break;
+        }
+
+        pstPrevNode = pstNextNode;
+        pstNextNode = pstNextNode->pstNext;
+    }
+}
+
+void sllist_put_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode)
+{
+    pstNode->pstNext = *ppstSLList; 
+    *ppstSLList = pstNode; 
+}
+
+void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode)
+{
+    if (NULL == *ppstSLList)
+    {
+        *ppstSLList = pstNode;
+        pstNode->pstNext = NULL; 
+        return; 
+    }
+
+    PST_SLINKEDLIST_NODE pstNextNode = *ppstSLList;
+    PST_SLINKEDLIST_NODE pstPrevNode = NULL;
+    while (pstNextNode)
+    {
+        pstPrevNode = pstNextNode;
+        pstNextNode = pstNextNode->pstNext;
+    }
+
+    //* 一旦执行到这里尾部节点一定不为NULL
+    pstPrevNode->pstNext = pstNode; 
+    pstNode->pstNext = NULL; 
+}
 #endif

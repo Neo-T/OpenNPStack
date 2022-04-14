@@ -18,6 +18,8 @@
  //* 大小端转换宏
 #define ENDIAN_CONVERTER_UINT(n)    ((((n) & 0xFF) << 24) | (((n) & 0xFF00) << 8) | (((n) & 0xFF0000) >> 8) | (((n) & 0xFF000000) >> 24))
 #define ENDIAN_CONVERTER_USHORT(n)	((((n) & 0xFF) << 8)  | (((n) & 0xFF00) >> 8))
+#define htonl(n) ENDIAN_CONVERTER_UINT(n)
+#define htons(n) ENDIAN_CONVERTER_USHORT(n)
 
 #if !(defined(__linux__) || defined(__linux)) && !(defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)) && !(defined(WIN64) || defined(_WIN64) || defined(__WIN64__))
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
@@ -32,5 +34,20 @@ UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *
 UTILS_EXT void printf_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine);
 UTILS_EXT void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine);
 #endif
+
+//* 单向链表节点
+typedef struct _ST_SLINKEDLIST_NODE_ ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE, *PST_SLINKEDLIST;
+typedef struct _ST_SLINKEDLIST_NODE_ {
+    PST_SLINKEDLIST_NODE pstNext;
+    void *pvData;
+} ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE;
+
+//* 单向链表相关操作函数
+UTILS_EXT PST_SLINKEDLIST_NODE sllist_get_node(PST_SLINKEDLIST *ppstSLList);                    //* 获取一个节点，其直接摘取链表的头部节点返回给调用者
+UTILS_EXT PST_SLINKEDLIST_NODE sllist_get_tail_node(PST_SLINKEDLIST *ppstSLList);               //* 同上，只不过这个函数将摘取链表的尾部节点给调用者
+UTILS_EXT void sllist_del_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode);      //* 从链表中摘除一个节点
+UTILS_EXT void sllist_del_node_ext(PST_SLINKEDLIST *ppstSLList, void *pvData);                  //* 从链表中摘除一个节点，与上面的函数不同的地方是入口参数pvData指向的是当前节点携带数据的首地址，首地址匹配的节点将从链表中删除
+UTILS_EXT void sllist_put_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode);      //* 归还一个节点，其直接将该节点挂接到链表头部
+UTILS_EXT void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode); //* 同上，只不过该函数是将该节点挂接到链表尾部
 
 #endif

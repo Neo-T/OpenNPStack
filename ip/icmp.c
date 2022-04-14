@@ -10,3 +10,7 @@
 #include "ip/icmp.h"
 #undef SYMBOL_GLOBALS
 
+INT icmp_send(UINT unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, const UCHAR *pubData, UINT unDataSize)
+{
+
+}

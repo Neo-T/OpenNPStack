@@ -26,7 +26,8 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRPPPFCS, "ppp frame checksum error" }, 
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
-    { ERRNONETIFNODE, "no netif nodes available" }
+    { ERRNONETIFNODE, "no netif nodes available" }, 
+    { ERRUNSUPPIPPROTO, "unsupported ip upper layer protocol" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

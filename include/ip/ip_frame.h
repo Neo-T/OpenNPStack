@@ -15,26 +15,12 @@
 	#define IP_FRAME_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-typedef enum {
-    IPPROTO_IP       = 0,   //* Dummy protocol for TCP
-    IPPROTO_HOPOPTS  = 0,   //* IPv6 Hop-by-Hop options
-    IPPROTO_ICMP     = 1,   //* Internet Control Message Protocol
-    IPPROTO_IGMP     = 2,   //* Internet Gateway Management Protocol
-    IPPROTO_IPIP     = 4,   //* IPIP tunnels (older KA9Q tunnels use 94)
-    IPPROTO_TCP      = 6,   //* Transmission Control Protocol
-    IPPROTO_EGP      = 8,   //* Exterior Gateway Protocol
-    IPPROTO_PUP      = 12,  //* PUP protocol
-    IPPROTO_UDP      = 17,  //* User Datagram Protocol
-    IPPROTO_IDP      = 22,  //* XNS IDP protocol
-    IPPROTO_IPV6     = 41,  //* IPv6 header
-    IPPROTO_ROUTING  = 43,  //* IPv6 Routing header
-    IPPROTO_FRAGMENT = 44,  //* IPv6 fragmentation header
-    IPPROTO_ESP      = 50,  //* encapsulating security payload
-    IPPROTO_AH       = 51,  //* authentication header
-    IPPROTO_ICMPV6   = 58,  //* ICMPv6
-    IPPROTO_NONE     = 59,  //* IPv6 no next header
-    IPPROTO_DSTOPTS  = 60,  //* IPv6 Destination options
-    IPPROTO_RAW      = 255, //* Raw IP packets
+typedef enum {    
+    IPPROTO_ICMP = 1,   //* Internet Control Message Protocol
+    IPPROTO_IGMP = 2,   //* Internet Gateway Management Protocol
+    IPPROTO_TCP  = 6,   //* Transmission Control Protocol    
+    IPPROTO_UDP  = 17,  //* User Datagram Protocol        
+    IPPROTO_RAW  = 255, //* Raw IP packets
     IPPROTO_MAX
 } EN_IPPROTO;
 

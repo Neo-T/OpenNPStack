@@ -98,7 +98,7 @@ typedef struct _ST_ICMP_ECHOREQ_HDR_ {
 } PACKED ST_ICMP_ECHOREQ_HDR, *PST_ICMP_ECHOREQ_HDR;
 PACKED_END
 
-ICMP_EXT INT icmp_send(UINT unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, const UCHAR *pubData, UINT unDataSize);
+ICMP_EXT INT icmp_send(UINT unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, const UCHAR *pubData, UINT unDataSize); 
 
 
 #endif
