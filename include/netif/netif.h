@@ -57,5 +57,6 @@ NETIF_EXT BOOL netif_init(EN_ERROR_CODE *penErrCode);
 NETIF_EXT void netif_uninit(void);
 NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ERROR_CODE *penErrCode);
 NETIF_EXT void netif_del(PST_NETIF_NODE pstNode); 
+NETIF_EXT PST_NETIF netif_get(void); 
 
 #endif

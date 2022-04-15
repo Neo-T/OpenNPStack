@@ -59,6 +59,50 @@ USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes)
 	return (USHORT)(~ulChecksum);
 }
 
+USHORT tcpip_checksum_ext(SHORT sBufListHead)
+{
+    ULONG ulChecksum = 0;
+
+    SHORT sNextNode = sBufListHead;
+    UCHAR *pubData;
+    USHORT usDataLen;
+    USHORT usData = 0; 
+    CHAR bState = 0;
+
+__lblGetNextNode:
+    pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen);
+    if (NULL == pubData)
+    {
+        ulChecksum += usData; 
+
+        ulChecksum = (ulChecksum >> 16) + (ulChecksum & 0xffff);
+        ulChecksum += (ulChecksum >> 16);
+
+        return (USHORT)(~ulChecksum);
+    }
+    
+    USHORT i;     
+    for (i = 0; i < usDataLen; i++)
+    {
+        switch (bState)
+        {
+        case 0:             
+            ((UCHAR *)&usData)[0] = pubData[i]; 
+            bState = 1; 
+            break; 
+
+        case 1:
+            ((UCHAR *)&usData)[1] = pubData[i];
+            ulChecksum += usData;
+            usData = 0;
+            bState = 0;
+            break;
+        }
+    }
+
+    goto __lblGetNextNode; 
+}
+
 void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace)
 {
 	UINT i, unFormatBytes = 0;
@@ -205,7 +249,7 @@ void sllist_del_node_ext(PST_SLINKEDLIST *ppstSLList, void *pvData)
     while (pstNextNode)
     {
         //* 节点携带的数据地址相等则意味着找到了要删除的节点在链表中的链接位置
-        if (pstNextNode->pvData == pvData)
+        if (pstNextNode->uniData.pvAddr == pvData)
         {
             if (pstPrevNode)
                 pstPrevNode->pstNext = pstNextNode->pstNext;

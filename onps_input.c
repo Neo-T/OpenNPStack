@@ -10,13 +10,36 @@
 #include "onps_input.h"
 #undef SYMBOL_GLOBALS
 
+//* 协议栈icmp/tcp/udp层接收处理节点
+typedef struct _STCB_ONPS_INPUT_ {
+    HSEM hSem;          //* 信号量，一旦收到数据，协议栈将投递信号量给上层接收者，避免上层调用者采用轮询读取数据的方式，避免CPU资源被过多占用
+    UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
+
+    union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
+        struct {
+            USHORT usIdentifier;
+        } stIcmp; //* icmp层句柄
+
+        struct {
+            USHORT usPort;
+            UINT unIP;
+        } stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
+
+        struct {
+            USHORT usPort;
+            UINT unIP;
+        } stUdp; //* udp层句柄，同tcp
+    } uniHandle;
+    UCHAR *pubRcvBuf;
+    UINT unRcvBufSize;
+} STCB_ONPS_INPUT, *PSTCB_ONPS_INPUT;
+
 //* 依然是静态分配，丰俭由SOCKET_NUM_MAX宏决定，动态分配对于资源受限的单片机系统来说不可控，尤其是对于堆和栈来说
 static STCB_ONPS_INPUT l_stcbaInput[SOCKET_NUM_MAX]; 
 static ST_SLINKEDLIST_NODE l_staNodes[SOCKET_NUM_MAX];
 static HMUTEX l_hMtxInput = INVALID_HMUTEX; 
 static PST_SLINKEDLIST l_pstFreedSLList = NULL; 
 static PST_SLINKEDLIST l_pstInputSLList = NULL;
-static USHORT l_usIcmpIdentifier = 0; 
 
 BOOL onps_input_init(EN_ERROR_CODE *penErrCode)
 {
@@ -35,13 +58,13 @@ BOOL onps_input_init(EN_ERROR_CODE *penErrCode)
 
     //* 生成单向链表
     INT i;     
-    l_staNodes[0].pvData = &l_stcbaInput[0];
+    l_staNodes[0].uniData.nIndex = 0;
     l_stcbaInput[0].hSem = INVALID_HSEM; 
     for (i = 1; i < SOCKET_NUM_MAX; i++)
     {
         l_staNodes[i - 1].pstNext = &l_staNodes[i];        
         l_stcbaInput[i].hSem = INVALID_HSEM;
-        l_staNodes[i].pvData = &l_stcbaInput[i];         
+        l_staNodes[i].uniData.nIndex = i; 
     }
 
     l_pstFreedSLList = &l_staNodes[0];
@@ -72,7 +95,7 @@ void onps_input_uninit(void)
     }
 }
 
-PSTCB_ONPS_INPUT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode)
+INT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode)
 {
     HSEM hSem = os_thread_sem_init(0, 1);
     if (INVALID_HSEM == hSem)
@@ -116,14 +139,14 @@ PSTCB_ONPS_INPUT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode
     os_thread_mutex_lock(l_hMtxInput); 
     {
         pstNode = sllist_get_node(&l_pstFreedSLList);
-        pstcbInput = (PSTCB_ONPS_INPUT)pstNode->pvData; 
+        pstcbInput = &l_stcbaInput[pstNode->uniData.nIndex];
         pstcbInput->hSem = hSem; 
         pstcbInput->ubIPProto = (UCHAR)enProtocol; 
         pstcbInput->pubRcvBuf = pubRcvBuf; 
         pstcbInput->unRcvBufSize = unSize;
 
         if (IPPROTO_ICMP == enProtocol)
-            pstcbInput->uniHandle.stIcmp.usIdentifier = l_usIcmpIdentifier++;
+            pstcbInput->uniHandle.stIcmp.usIdentifier = 0;
         else if (IPPROTO_TCP == enProtocol)
         {
             pstcbInput->uniHandle.stTcp.unIP = 0;
@@ -140,21 +163,23 @@ PSTCB_ONPS_INPUT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode
     }
     os_thread_mutex_unlock(l_hMtxInput);
 
-    return pstcbInput; 
+    return pstNode->uniData.nIndex;
 }
 
-void onps_input_free(PSTCB_ONPS_INPUT pstInput)
+void onps_input_free(INT nInput)
 {
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput]; 
+
     //* 先释放申请的相关资源
-    if (pstInput->pubRcvBuf)
+    if (pstcbInput->pubRcvBuf)
     {
-        buddy_free(pstInput->pubRcvBuf);
-        pstInput->pubRcvBuf = NULL; 
+        buddy_free(pstcbInput->pubRcvBuf);
+        pstcbInput->pubRcvBuf = NULL;
     }    
-    if (INVALID_HSEM != pstInput->hSem)
+    if (INVALID_HSEM != pstcbInput->hSem)
     {
-        os_thread_sem_uninit(pstInput->hSem);
-        pstInput->hSem = INVALID_HSEM;
+        os_thread_sem_uninit(pstcbInput->hSem);
+        pstcbInput->hSem = INVALID_HSEM;
     }
 
     //* 归还节点
@@ -163,7 +188,7 @@ void onps_input_free(PSTCB_ONPS_INPUT pstInput)
         PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList; 
         while (pstNextNode)
         {
-            if ((PSTCB_ONPS_INPUT)pstNextNode->pvData == pstInput)
+            if ((PSTCB_ONPS_INPUT)pstNextNode->uniData.nIndex == nInput)
             {
                 sllist_del_node(&l_pstInputSLList, pstNextNode); //* 从input链表摘除
                 sllist_put_node(&l_pstFreedSLList, pstNextNode); //* 归还给free链表
@@ -174,4 +199,63 @@ void onps_input_free(PSTCB_ONPS_INPUT pstInput)
         }
     }
     os_thread_mutex_unlock(l_hMtxInput);
+}
+
+static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcvBufSize, EN_ERROR_CODE *penErrCode)
+{
+    if (pstcbInput->unRcvBufSize == unRcvBufSize)
+        return TRUE; 
+
+    if (pstcbInput->pubRcvBuf)
+    {
+        buddy_free(pstcbInput->pubRcvBuf);
+        pstcbInput->unRcvBufSize = 0; 
+    }
+
+    pstcbInput->pubRcvBuf = (UCHAR *)buddy_alloc(unRcvBufSize, penErrCode);
+    if (NULL == pstcbInput->pubRcvBuf)    
+        return FALSE;     
+    pstcbInput->unRcvBufSize = unRcvBufSize; 
+    return TRUE; 
+}
+
+BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ERROR_CODE *penErrCode)
+{
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+    switch (enInputOpt)
+    {
+    case IOPT_RCVBUFSIZE:
+        return onps_input_set_recv_buf_size(pstcbInput, *((UINT*)pvVal), penErrCode);  
+
+    case IOPT_SETICMPECHOID:
+        if (pstcbInput->ubIPProto == IPPROTO_ICMP)
+            pstcbInput->uniHandle.stIcmp.usIdentifier = *((USHORT *)pvVal); 
+        else
+        {
+            if (penErrCode)
+                *penErrCode = ERRIPROTOMATCH; 
+            return FALSE; 
+        }
+        break;
+
+    case IOPT_SETIP:
+        if (pstcbInput->ubIPProto == IPPROTO_TCP)        
+            pstcbInput->uniHandle.stTcp.unIP = *((UINT *)pvVal); 
+        else if(pstcbInput->ubIPProto == IPPROTO_UDP)            
+            pstcbInput->uniHandle.stUdp.unIP = *((UINT *)pvVal);
+        else
+        {
+            if (penErrCode)
+                *penErrCode = ERRIPROTOMATCH;
+            return FALSE;
+        }
+        break; 
+
+    default:
+        if (penErrCode)
+            *penErrCode = ERRUNSUPPIOPT; 
+        return FALSE;
+    }
+
+    return TRUE; 
 }

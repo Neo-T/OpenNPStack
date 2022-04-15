@@ -144,3 +144,16 @@ void *buf_list_get_next_node(SHORT *psNextNode, USHORT *pusDataLen)
 
 	return pvData; 
 }
+
+UINT buf_list_get_len(SHORT sBufListHead)
+{
+    SHORT sNextNode = sBufListHead;
+    UCHAR *pubData;
+    USHORT usDataLen; 
+    UINT unTotalLen = 0;
+
+    while (NULL != buf_list_get_next_node(&sNextNode, &usDataLen))
+        unTotalLen += (UINT)usDataLen;
+
+    return unTotalLen; 
+}

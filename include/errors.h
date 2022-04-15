@@ -40,6 +40,8 @@ typedef enum {
     ERRPPPWALISTNOINIT, //* ppp等待应答链表未初始化
     ERRNONETIFNODE,     //* 无可用的netif节点
     ERRUNSUPPIPPROTO,   //* 不被支持的IP层协议
+    ERRUNSUPPIOPT,      //* 不支持的配置项
+    ERRIPROTOMATCH,     //* 协议匹配错误
 } EN_ERROR_CODE;
 
 typedef struct _ST_ERROR_ {

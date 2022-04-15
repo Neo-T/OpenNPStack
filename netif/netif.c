@@ -142,3 +142,12 @@ void netif_del(PST_NETIF_NODE pstNode)
 
     put_free_node(pstNode); 
 }
+
+PST_NETIF netif_get(void)
+{
+    PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+    if (pstNextNode)
+        return &pstNextNode->stIf; 
+
+    return NULL; 
+}

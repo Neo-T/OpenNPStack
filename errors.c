@@ -27,7 +27,9 @@ static const ST_ERROR lr_staErrorList[] = {
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
     { ERRNONETIFNODE, "no netif nodes available" }, 
-    { ERRUNSUPPIPPROTO, "unsupported ip upper layer protocol" }
+    { ERRUNSUPPIPPROTO, "unsupported ip upper layer protocol" }, 
+    { ERRUNSUPPIOPT, "Unsupported control options" }, 
+    { ERRIPROTOMATCH, "Protocol match error" }
 }; 
 
 const CHAR *error(EN_ERROR_CODE enErrCode)

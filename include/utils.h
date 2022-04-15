@@ -28,6 +28,7 @@
 UTILS_EXT CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize);
 UTILS_EXT CHAR *mem_str(CHAR *pszMem, CHAR *pszStr, UINT unStrSize, UINT unMemSize); 
 UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
+UTILS_EXT USHORT tcpip_checksum_ext(SHORT sBufListHead);
 UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace); 
 
 #if SUPPORT_PRINTF
@@ -39,7 +40,10 @@ UTILS_EXT void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine);
 typedef struct _ST_SLINKEDLIST_NODE_ ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE, *PST_SLINKEDLIST;
 typedef struct _ST_SLINKEDLIST_NODE_ {
     PST_SLINKEDLIST_NODE pstNext;
-    void *pvData;
+    union {
+        void *pvAddr; 
+        INT nIndex; 
+    } uniData;    
 } ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE;
 
 //* 单向链表相关操作函数

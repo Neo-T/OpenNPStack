@@ -38,6 +38,10 @@ OS_ADAPTER_EXT INT os_thread_sem_pend(HSEM hSem, UINT unWaitSecs);		//* 等待�
 OS_ADAPTER_EXT void os_thread_sem_uninit(HSEM hSem);					//* 信号量去初始化，释放该资源
 OS_ADAPTER_EXT void os_thread_onpstack_start(void *pvParam);			//* 协议栈内部工作线程启动
 
+#define os_critical_init()    //* 临界区初始化
+#define os_enter_critical()   //* 进入临界区（关中断，或者禁止任务切换）
+#define os_exit_critical()    //* 退出临界区（开中断，或开启任务切换）
+
 #if SUPPORT_PPP
 OS_ADAPTER_EXT HTTY os_open_tty(const CHAR *pszTTYName);
 OS_ADAPTER_EXT void os_close_tty(HTTY hTTY);
