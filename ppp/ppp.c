@@ -1,11 +1,13 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
-#include "utils.h"
+#include "onps_utils.h"
 #include "netif/netif.h"
+#include "netif/route.h"
+#include "ip/ip.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
@@ -20,6 +22,7 @@
 static BOOL l_blIsRunning = TRUE;
 
 //* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
+static void ppp_ip_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen); 
 static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 	{ PPP_LCP,  lcp_recv },
 	{ PPP_PAP,  pap_recv }, 
@@ -28,7 +31,7 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = {
 #if SUPPORT_IPV6
 	{ PPP_IPV6CP, NULL },
 #endif
-	{ PPP_IP,   NULL }, 
+	{ PPP_IP,   ppp_ip_recv },
 
 #if SUPPORT_IPV6
 	{ PPP_IPV6, NULL }
@@ -55,11 +58,11 @@ static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 	/* 系统存在几路ppp链路，就在这里添加几路的协商初始值，如果不确定，可以直接将上面预定义的初始值直接复制过来即可 */
 }; 
 
-BOOL ppp_init(EN_ERROR_CODE *penErrCode)
+BOOL ppp_init(EN_ONPSERR *penErr)
 {
 	INT i; 
 
-    *penErrCode = ERRNO; 
+    *penErr = ERRNO; 
 
     //* 先赋初值（避免去初始化函数执行出错）
     for (i = 0; i < PPP_NETLINK_NUM; i++)
@@ -68,14 +71,14 @@ BOOL ppp_init(EN_ERROR_CODE *penErrCode)
 	//* 初始化tty
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		l_staPPP[i].hTTY = tty_init(lr_pszaTTY[i], penErrCode);
+		l_staPPP[i].hTTY = tty_init(lr_pszaTTY[i], penErr);
 		if (INVALID_HTTY == l_staPPP[i].hTTY)
 			goto __lblEnd; 
 
 		l_haMtxTTY[i] = os_thread_mutex_init();
         if (INVALID_HMUTEX == l_haMtxTTY[i])
         {
-            *penErrCode = ERRMUTEXINITFAILED; 
+            *penErr = ERRMUTEXINITFAILED; 
             goto __lblEnd;
         }
 
@@ -214,13 +217,13 @@ void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword
 }
 
 //* ppp接收
-static INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode, INT nWaitSecs)
+static INT ppp_recv(INT nPPPIdx, EN_ONPSERR *penErr, INT nWaitSecs)
 {
 	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 
 	//* 读取数据
 	UCHAR *pubFrameBuf = l_ubaaFrameBuf[nPPPIdx];
-	INT nRcvBytes = tty_recv(pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), nWaitSecs, penErrCode);
+	INT nRcvBytes = tty_recv(pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), nWaitSecs, penErr);
 	if (nRcvBytes > 0)
 	{
 		//* 验证校验和是否正确
@@ -228,8 +231,8 @@ static INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode, INT nWaitSecs)
 		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)(pubFrameBuf + nRcvBytes - sizeof(ST_PPP_TAIL));
 		if (usFCS != pstTail->usFCS)
 		{
-			if (penErrCode)
-				*penErrCode = ERRPPPFCS; 
+			if (penErr)
+				*penErr = ERRPPPFCS; 
 			return -1; 
 		}
 
@@ -278,13 +281,13 @@ static INT ppp_recv(INT nPPPIdx, EN_ERROR_CODE *penErrCode, INT nWaitSecs)
 }
 
 //* ppp发送
-INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
+INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
 	//* 确保上层协议在ppp协议栈支持的范围之内，超出的直接抛弃当前要发送的报文并报错
 	if (enProtocol >= (INT)(sizeof(lr_staProtocol) / sizeof(USHORT)))
 	{
-		if (penErrCode)
-			*penErrCode = ERRUNKNOWNPROTOCOL;
+		if (penErr)
+			*penErr = ERRUNKNOWNPROTOCOL;
 
 		return -1;
 	}
@@ -294,8 +297,8 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	PSTCB_PPP pstcbNetif = get_ppp(hTTY, &nPPPIdx);
 	if (!pstcbNetif)
 	{
-		if(penErrCode)
-			*penErrCode = ERRTTYHANDLE; 
+		if(penErr)
+			*penErr = ERRTTYHANDLE; 
 		return -1; 
 	}
 
@@ -327,7 +330,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 
 	//* 申请一个buf节点，将ppp帧头部数据挂载到链表头部
 	SHORT sPPPHeadNode, sPPPTailNode;
-	sPPPHeadNode = buf_list_get_ext(ubHead, usDataLen, penErrCode);
+	sPPPHeadNode = buf_list_get_ext(ubHead, usDataLen, penErr);
 	if (sPPPHeadNode < 0)
 		return -1;
 	buf_list_put_head(&sBufListHead, sPPPHeadNode);
@@ -336,7 +339,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	ST_PPP_TAIL stTail;
 	stTail.usFCS = ppp_fcs16_ext(sBufListHead);
 	stTail.ubDelimiter = PPP_FLAG; 
-	sPPPTailNode = buf_list_get_ext(&stTail, sizeof(ST_PPP_TAIL), penErrCode);
+	sPPPTailNode = buf_list_get_ext(&stTail, sizeof(ST_PPP_TAIL), penErr);
 	if (sPPPTailNode < 0)
 	{
 		buf_list_free(sPPPHeadNode);
@@ -348,7 +351,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	INT nRtnVal; 
 	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
 	{
-		nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErrCode);
+		nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErr);
 	}	
 	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
 
@@ -366,14 +369,14 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_
 	return nRtnVal; 
 }
 
-static INT netif_send(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
+static INT netif_send(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     HTTY hTTY = *((HTTY *)pstIf->pvExtra);
-    return ppp_send(hTTY, enProtocol, sBufListHead, penErrCode);
+    return ppp_send(hTTY, enProtocol, sBufListHead, penErr);
 }
 
 //* 将当前ppp链路作为网卡添加到协议栈
-static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
     ST_IPV4 stIPv4; 
     stIPv4.unAddr = pstcbPPP->pstNegoResult->stIPCP.unAddr; 
@@ -387,14 +390,19 @@ static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErr
 #if SUPPORT_PRINTF
     printf("Connect: %s <--> %s\r\n", szNetIfName, lr_pszaTTY[nPPPIdx]);
 #endif
-    l_pstaNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErrCode); 
+    l_pstaNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErr); 
     if (l_pstaNetif[nPPPIdx])
-        return TRUE;
+    {
+        if (route_add(&l_pstaNetif[nPPPIdx]->stIf, 0, 0, 0, penErr))
+            return TRUE; 
+        else
+            return FALSE; 
+    }
     else
         return FALSE; 
 }
 
-static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	INT nPacketLen;
 
@@ -414,11 +422,11 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		}
 
 		//* 接收
-		nPacketLen = ppp_recv(nPPPIdx, penErrCode, 1);
+		nPacketLen = ppp_recv(nPPPIdx, penErr, 1);
 		if (nPacketLen < 0)
 		{			
 	#if SUPPORT_PRINTF			
-			printf("ppp_recv() failed, %s, ppp stack will redial ...\r\n", error(*penErrCode));
+			printf("ppp_recv() failed, %s, ppp stack will redial ...\r\n", onps_error(*penErr));
 	#endif
 			goto __lblEnd; 
 		}
@@ -432,12 +440,12 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		case AUTHENTICATE:
 		case SENDIPCPCONFREQ: 
 		case WAITIPCPCONFACK:
-			ppp_link_establish(pstcbPPP, penErrCode);
+			ppp_link_establish(pstcbPPP, penErr);
 			break;
 
 		case ESTABLISHED:     
 			//* 添加到网卡链表
-            if (!netif_add_ppp(nPPPIdx, pstcbPPP, penErrCode))
+            if (!netif_add_ppp(nPPPIdx, pstcbPPP, penErr))
             {
                 pstcbPPP->enState = STACKFAULT;
                 break; 
@@ -451,7 +459,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 
 		case SENDECHOREQ:
 		#if SUPPORT_ECHO
-			if (lcp_send_echo_request(pstcbPPP, penErrCode))
+			if (lcp_send_echo_request(pstcbPPP, penErr))
 			{
 				unLastSndEchoReq = os_get_system_secs(); 
                 pstcbPPP->enState = WAITECHOREPLY;
@@ -459,7 +467,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 			else
 			{
 			#if SUPPORT_PRINTF			
-				printf("lcp_send_echo_request() failed, %s\r\n", error(*penErrCode)); 
+				printf("lcp_send_echo_request() failed, %s\r\n", onps_error(*penErr)); 
 			#endif
 				os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
 				{                    
@@ -478,12 +486,12 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 			break;
 
 		case SENDTERMREQ:
-			if (lcp_send_terminate_req(pstcbPPP, penErrCode))
+			if (lcp_send_terminate_req(pstcbPPP, penErr))
 				pstcbPPP->enState = WAITTERMACK;
 			else
 			{
 		#if SUPPORT_PRINTF			
-				printf("lcp_send_terminate_req() failed, %s\r\n", error(*penErrCode));
+				printf("lcp_send_terminate_req() failed, %s\r\n", onps_error(*penErr));
 		#endif
 				pstcbPPP->enState = STACKFAULT;
 			}
@@ -505,7 +513,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		case STACKFAULT:
 		default:
 	#if SUPPORT_PRINTF			
-			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo, %s\r\n", error(*penErrCode)); 
+			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo, %s\r\n", onps_error(*penErr)); 
 	#endif
 			l_blIsRunning = FALSE; 
 			break; 
@@ -534,7 +542,7 @@ void thread_ppp_handler(void *pvParam)
 {
 	INT nPPPIdx = (INT)pvParam;
 	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
-	EN_ERROR_CODE enErrCode;
+	EN_ONPSERR enErr;
 
 	//* 通知ppp协议栈处理线程已经开始运行
 	l_ubaThreadExitFlag[nPPPIdx] = FALSE;
@@ -548,7 +556,7 @@ void thread_ppp_handler(void *pvParam)
 			continue; 
 		}
 
-		if (tty_ready(pstcbPPP->hTTY, &enErrCode))
+		if (tty_ready(pstcbPPP->hTTY, &enErr))
 		{
 #if SUPPORT_PRINTF
             printf("modem dial succeeded\r\n");
@@ -557,12 +565,12 @@ void thread_ppp_handler(void *pvParam)
 			nTimeout = 5; 
             os_sleep_secs(1); //*延时1秒，确保modem已经完全就绪
 
-			ppp_fsm(nPPPIdx, pstcbPPP, &enErrCode);
+			ppp_fsm(nPPPIdx, pstcbPPP, &enErr);
 		}
 		else
 		{
 	#if SUPPORT_PRINTF
-			printf("tty_ready() failed, %s\r\n", error(enErrCode));
+			printf("tty_ready() failed, %s\r\n", onps_error(enErr));
 	#endif
 			os_sleep_secs(nTimeout);
 			if(nTimeout < 60)
@@ -590,6 +598,12 @@ void ppp_link_recreate(INT nPPPIdx)
 	PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
 	if (TERMINATED == pstcbPPP->enState)
 		pstcbPPP->enState = TTYINIT;
+}
+
+static void ppp_ip_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
+{
+    pstcbPPP = pstcbPPP;  //* 避免编译器警告
+    ip_recv(pubPacket, nPacketLen); 
 }
 
 #endif

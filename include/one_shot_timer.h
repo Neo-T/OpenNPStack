@@ -26,7 +26,7 @@ typedef struct _ST_ONESHOTTIMER_ { //* 定时器
 } ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 
 //* 定时器初始化函数
-ONE_SHOT_TIMER_EXT BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode);
+ONE_SHOT_TIMER_EXT BOOL one_shot_timer_init(EN_ONPSERR *penErr);
 
 //* 定时器去初始化函数
 ONE_SHOT_TIMER_EXT void one_shot_timer_uninit(void);

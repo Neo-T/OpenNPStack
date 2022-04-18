@@ -15,7 +15,7 @@
 	#define IPCP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-IPCP_EXT BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode);
+IPCP_EXT BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr);
 IPCP_EXT void ipcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 
 #endif

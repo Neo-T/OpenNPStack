@@ -1,7 +1,7 @@
 #include "port/datatype.h"
 
 #define SYMBOL_GLOBALS
-#include "md5.h"
+#include "onps_md5.h"
 #undef SYMBOL_GLOBALS
 
 //* F, G, H and I are basic MD5 functions.
@@ -53,7 +53,7 @@
 #define S43 15
 #define S44 21
 
-ST_MD5VAL md5(UCHAR *pubData, UINT unDataBytes)
+ST_MD5VAL onps_md5(UCHAR *pubData, UINT unDataBytes)
 {
 	ST_MD5VAL stVal = { 0x67452301,0xEFCDAB89,0x98BADCFE,0x10325476 };
 	UINT *punA, *punB, *punC, *punD, *punX;

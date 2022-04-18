@@ -15,7 +15,7 @@
 	#define IP_FRAME_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-typedef enum {    
+typedef enum {
     IPPROTO_ICMP = 1,   //* Internet Control Message Protocol
     IPPROTO_IGMP = 2,   //* Internet Gateway Management Protocol
     IPPROTO_TCP  = 6,   //* Transmission Control Protocol    
@@ -39,7 +39,7 @@ typedef struct _ST_IP_HDR_ {
     UCHAR bitFragOffset1 : 8;   //* Frag offset1
     UCHAR ubTTL;                //* Time to live
     UCHAR ubProto;              //* Protocol(TCP, UDP, etc)
-    USHORT usChksum;            //* IP checksum
+    USHORT usChecksum;          //* IP checksum
 
     UINT unSrcIP;
     UINT unDestIP;

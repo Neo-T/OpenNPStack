@@ -2,7 +2,7 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "port/sys_config.h"
-#include "errors.h"
+#include "onps_errors.h"
 
 #define SYMBOL_GLOBALS
 #include "mmu/buf_list.h"
@@ -16,7 +16,7 @@ static SHORT l_sFreeBufList = -1;
 static HMUTEX l_hMtxMMUBufList = INVALID_HMUTEX;
 
 //* 协议栈初始加载时别忘了要先调用这个初始设置函数
-BOOL buf_list_init(EN_ERROR_CODE *penErrCode)
+BOOL buf_list_init(EN_ONPSERR *penErr)
 {
 	INT i; 
 
@@ -33,8 +33,8 @@ BOOL buf_list_init(EN_ERROR_CODE *penErrCode)
 	if (INVALID_HMUTEX != l_hMtxMMUBufList)
 		return TRUE;
 
-	if(penErrCode)
-		*penErrCode = ERRMUTEXINITFAILED;
+	if(penErr)
+		*penErr = ERRMUTEXINITFAILED;
 	return FALSE; 
 }
 
@@ -44,7 +44,7 @@ void buf_list_uninit(void)
         os_thread_mutex_uninit(l_hMtxMMUBufList);
 }
 
-SHORT buf_list_get(EN_ERROR_CODE *penErrCode)
+SHORT buf_list_get(EN_ONPSERR *penErr)
 {
 	SHORT sRtnNode; 
 	os_thread_mutex_lock(l_hMtxMMUBufList);
@@ -53,8 +53,8 @@ SHORT buf_list_get(EN_ERROR_CODE *penErrCode)
 		{
 			os_thread_mutex_unlock(l_hMtxMMUBufList);
 
-			if (penErrCode)
-				*penErrCode = ERRNOBUFLISTNODE;
+			if (penErr)
+				*penErr = ERRNOBUFLISTNODE;
 
 			return -1;
 		}
@@ -67,7 +67,7 @@ SHORT buf_list_get(EN_ERROR_CODE *penErrCode)
 	return sRtnNode; 
 }
 
-SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ERROR_CODE *penErrCode)
+SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ONPSERR *penErr)
 {
 	SHORT sRtnNode;
 	os_thread_mutex_lock(l_hMtxMMUBufList);
@@ -76,8 +76,8 @@ SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ERROR_CODE *penErrCode)
 		{
 			os_thread_mutex_unlock(l_hMtxMMUBufList);
 
-			if (penErrCode)
-				*penErrCode = ERRNOBUFLISTNODE;
+			if (penErr)
+				*penErr = ERRNOBUFLISTNODE;
 
 			return -1;
 		}
@@ -148,7 +148,6 @@ void *buf_list_get_next_node(SHORT *psNextNode, USHORT *pusDataLen)
 UINT buf_list_get_len(SHORT sBufListHead)
 {
     SHORT sNextNode = sBufListHead;
-    UCHAR *pubData;
     USHORT usDataLen; 
     UINT unTotalLen = 0;
 

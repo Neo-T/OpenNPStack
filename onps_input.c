@@ -1,10 +1,10 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"
-#include "utils.h"
+#include "onps_utils.h"
 
 #define SYMBOL_GLOBALS
 #include "onps_input.h"
@@ -32,6 +32,7 @@ typedef struct _STCB_ONPS_INPUT_ {
     } uniHandle;
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
+    UINT unRcvedBytes;
 } STCB_ONPS_INPUT, *PSTCB_ONPS_INPUT;
 
 //* 依然是静态分配，丰俭由SOCKET_NUM_MAX宏决定，动态分配对于资源受限的单片机系统来说不可控，尤其是对于堆和栈来说
@@ -41,14 +42,14 @@ static HMUTEX l_hMtxInput = INVALID_HMUTEX;
 static PST_SLINKEDLIST l_pstFreedSLList = NULL; 
 static PST_SLINKEDLIST l_pstInputSLList = NULL;
 
-BOOL onps_input_init(EN_ERROR_CODE *penErrCode)
+BOOL onps_input_init(EN_ONPSERR *penErr)
 {
-    *penErrCode = ERRNO;
+    *penErr = ERRNO;
 
     l_hMtxInput = os_thread_mutex_init();
     if (INVALID_HMUTEX == l_hMtxInput)
     {
-        *penErrCode = ERRMUTEXINITFAILED;
+        *penErr = ERRMUTEXINITFAILED;
         return FALSE; 
     }
 
@@ -68,6 +69,8 @@ BOOL onps_input_init(EN_ERROR_CODE *penErrCode)
     }
 
     l_pstFreedSLList = &l_staNodes[0];
+
+    return TRUE;
 }
 
 void onps_input_uninit(void)
@@ -95,13 +98,13 @@ void onps_input_uninit(void)
     }
 }
 
-INT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode)
+INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 {
     HSEM hSem = os_thread_sem_init(0, 1);
     if (INVALID_HSEM == hSem)
     {
-        if (penErrCode)
-            *penErrCode = ERRSEMINITFAILED;
+        if (penErr)
+            *penErr = ERRSEMINITFAILED;
         return NULL; 
     }
 
@@ -121,12 +124,12 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode)
         break; 
 
     default:
-        if (penErrCode)
-            *penErrCode = ERRUNSUPPIPPROTO;
+        if (penErr)
+            *penErr = ERRUNSUPPIPPROTO;
         return NULL; 
     }
 
-    UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErrCode);
+    UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
     if (NULL == pubRcvBuf)
     {
         os_thread_sem_uninit(hSem);  
@@ -188,7 +191,7 @@ void onps_input_free(INT nInput)
         PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList; 
         while (pstNextNode)
         {
-            if ((PSTCB_ONPS_INPUT)pstNextNode->uniData.nIndex == nInput)
+            if (pstNextNode->uniData.nIndex == nInput)
             {
                 sllist_del_node(&l_pstInputSLList, pstNextNode); //* 从input链表摘除
                 sllist_put_node(&l_pstFreedSLList, pstNextNode); //* 归还给free链表
@@ -201,7 +204,7 @@ void onps_input_free(INT nInput)
     os_thread_mutex_unlock(l_hMtxInput);
 }
 
-static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcvBufSize, EN_ERROR_CODE *penErrCode)
+static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcvBufSize, EN_ONPSERR *penErr)
 {
     if (pstcbInput->unRcvBufSize == unRcvBufSize)
         return TRUE; 
@@ -212,28 +215,28 @@ static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcv
         pstcbInput->unRcvBufSize = 0; 
     }
 
-    pstcbInput->pubRcvBuf = (UCHAR *)buddy_alloc(unRcvBufSize, penErrCode);
+    pstcbInput->pubRcvBuf = (UCHAR *)buddy_alloc(unRcvBufSize, penErr);
     if (NULL == pstcbInput->pubRcvBuf)    
         return FALSE;     
     pstcbInput->unRcvBufSize = unRcvBufSize; 
     return TRUE; 
 }
 
-BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ERROR_CODE *penErrCode)
+BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
 {
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
     {
     case IOPT_RCVBUFSIZE:
-        return onps_input_set_recv_buf_size(pstcbInput, *((UINT*)pvVal), penErrCode);  
+        return onps_input_set_recv_buf_size(pstcbInput, *((UINT*)pvVal), penErr);  
 
     case IOPT_SETICMPECHOID:
         if (pstcbInput->ubIPProto == IPPROTO_ICMP)
             pstcbInput->uniHandle.stIcmp.usIdentifier = *((USHORT *)pvVal); 
         else
         {
-            if (penErrCode)
-                *penErrCode = ERRIPROTOMATCH; 
+            if (penErr)
+                *penErr = ERRIPROTOMATCH; 
             return FALSE; 
         }
         break;
@@ -245,17 +248,61 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ERROR_CODE 
             pstcbInput->uniHandle.stUdp.unIP = *((UINT *)pvVal);
         else
         {
-            if (penErrCode)
-                *penErrCode = ERRIPROTOMATCH;
+            if (penErr)
+                *penErr = ERRIPROTOMATCH;
             return FALSE;
         }
         break; 
 
     default:
-        if (penErrCode)
-            *penErrCode = ERRUNSUPPIOPT; 
+        if (penErr)
+            *penErr = ERRUNSUPPIOPT; 
         return FALSE;
     }
 
     return TRUE; 
+}
+
+INT onps_input_get_icmp(USHORT usIdentifier)
+{
+    INT nInput = -1; 
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+        PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList;
+        PSTCB_ONPS_INPUT pstcbInput;
+        while (pstNextNode)
+        {
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            if (pstcbInput->ubIPProto == IPPROTO_ICMP && usIdentifier == pstcbInput->uniHandle.stIcmp.usIdentifier)
+            {
+                nInput = pstNextNode->uniData.nIndex; 
+                break;
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
+
+    return nInput; 
+}
+
+UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes)
+{
+    if (phSem)
+        *phSem = l_stcbaInput[nInput].hSem; 
+
+    l_stcbaInput[nInput].unRcvedBytes = *punRcvedBytes < l_stcbaInput[nInput].unRcvBufSize ? *punRcvedBytes : l_stcbaInput[nInput].unRcvBufSize;
+
+    return l_stcbaInput[nInput].pubRcvBuf; 
+}
+
+INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, INT nWaitSecs)
+{
+    //* 超时，没有收到任何数据
+    if (os_thread_sem_pend(l_stcbaInput[nInput].hSem, nWaitSecs) < 0)
+        return 0; 
+
+    *ppubPacket = l_stcbaInput[nInput].pubRcvBuf; 
+    return (INT)l_stcbaInput[nInput].unRcvedBytes; 
 }

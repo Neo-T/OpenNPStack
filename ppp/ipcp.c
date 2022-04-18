@@ -2,9 +2,9 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "errors.h"
-#include "utils.h"
-#include "md5.h"
+#include "onps_errors.h"
+#include "onps_utils.h"
+#include "onps_md5.h"
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
@@ -228,13 +228,13 @@ static void conf_nak(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	printf("]\r\n");
 #endif
 
-	EN_ERROR_CODE enErrCode; 
-	if(ipcp_send_conf_request(pstcbPPP, &enErrCode))
+	EN_ONPSERR enErr; 
+	if(ipcp_send_conf_request(pstcbPPP, &enErr))
 		pstcbPPP->enState = WAITIPCPCONFACK;
 	else
 	{
 #if SUPPORT_PRINTF
-		printf("ipcp_send_conf_request() failed, %s\r\n", error(enErrCode));
+		printf("ipcp_send_conf_request() failed, %s\r\n", onps_error(enErr));
 #endif
 		pstcbPPP->enState = STACKFAULT;
 	}
@@ -286,7 +286,7 @@ static void code_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	pstcbPPP->enState = STACKFAULT;
 }
 
-BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 #if SUPPORT_PRINTF
@@ -303,7 +303,7 @@ BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 	printf("]\r\n");
 
-	return send_nego_packet(pstcbPPP, IPCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, IPCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErr);
 }
 
 //* pap协议接收函数

@@ -1,22 +1,41 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
-#include "utils.h"
+#include "onps_utils.h"
 #include "netif/netif.h"
+#include "netif/route.h"
 
 #define SYMBOL_GLOBALS
 #include "ip/ip.h"
 #undef SYMBOL_GLOBALS
-#include "ip/ip_frame.h" 
+#include "ip/icmp.h"
 
+//* 必须严格按照EN_NPSPROTOCOL类型定义的顺序指定IP上层协议值
+static const EN_IPPROTO lr_enaIPProto[] = {
+    IPPROTO_MAX,
+    IPPROTO_MAX,
+    IPPROTO_MAX,
+    IPPROTO_MAX,
+#if SUPPORT_IPV6
+    IPPROTO_MAX,
+#endif
+    IPPROTO_MAX,
+#if SUPPORT_IPV6
+    IPPROTO_MAX,
+#endif
+    IPPROTO_ICMP, 
+    IPPROTO_MAX,
+    IPPROTO_TCP, 
+    IPPROTO_UDP
+};
 static USHORT l_usIPIdentifier = 0; 
 
-INT ip_send(UINT unDstAddr, EN_IPPROTO enProto, UCHAR ubTTL, SHORT sBufListHead, EN_ERROR_CODE *penErrCode)
+INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    PST_NETIF pstNetif = netif_get(); 
+    PST_NETIF pstNetif = route_get_netif(unDstAddr);
     if (NULL == pstNetif)
         return -1; 
 
@@ -38,8 +57,56 @@ INT ip_send(UINT unDstAddr, EN_IPPROTO enProto, UCHAR ubTTL, SHORT sBufListHead,
     stHdr.bitFlag = 1 << 1;  //* Don't fragment
     stHdr.bitFragOffset1 = 0;
     stHdr.ubTTL = ubTTL;
-    stHdr.ubProto = (UCHAR)enProto;
-    stHdr.usChksum = 0;
+    stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
+    stHdr.usChecksum = 0;
     stHdr.unSrcIP = pstNetif->stIPv4.unAddr; 
     stHdr.unDestIP = unDstAddr; 
+
+    //* 挂载到buf list头部
+    SHORT sHdrNode;
+    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IP_HDR), penErr);
+    if (sHdrNode < 0)
+        return -1;
+    buf_list_put_head(&sBufListHead, sHdrNode);
+
+    //* 计算校验和
+    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
+
+    //* 完成发送
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, enProtocol, sBufListHead, penErr);
+
+    //* 释放刚才申请的buf list节点
+    buf_list_free(sHdrNode);
+
+    return nRtnVal; 
+}
+
+void ip_recv(UCHAR *pubPacket, INT nPacketLen)
+{
+    PST_IP_HDR pstHdr = (PST_IP_HDR)pubPacket;
+
+    //* 首先看看校验和是否正确
+    USHORT usPktChecksum = pstHdr->usChecksum;
+    pstHdr->usChecksum = 0;
+    USHORT usChecksum = tcpip_checksum((USHORT *)pubPacket, nPacketLen);
+    if (usPktChecksum != usChecksum)
+    {
+#if SUPPORT_PRINTF
+        printf("checksum error (%04X, %04X), and the IP packet will be dropped\r\n", usChecksum, usPktChecksum);
+#endif
+        return; 
+    }
+
+    switch (pstHdr->ubProto)
+    {
+    case IPPROTO_ICMP: 
+        icmp_recv(pubPacket + sizeof(ST_IP_HDR), nPacketLen - sizeof(ST_IP_HDR)); 
+        break; 
+
+    default:
+#if SUPPORT_PRINTF
+        printf("unsupported IP upper layer protocol (%d), the packet will be dropped\r\n", (UINT)pstHdr->ubProto);
+#endif
+        break; 
+    }
 }

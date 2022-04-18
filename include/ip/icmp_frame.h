@@ -86,10 +86,10 @@ typedef struct _ST_ICMP_HDR_ {
 PACKED_END
 
 PACKED_BEGIN
-typedef struct _ST_ICMP_ECHOREQ_HDR_ {
+typedef struct _ST_ICMP_ECHO_HDR_ {
     USHORT usIdentifier;
     USHORT usSeqNum;
-} PACKED ST_ICMP_ECHOREQ_HDR, *PST_ICMP_ECHOREQ_HDR;
+} PACKED ST_ICMP_ECHO_HDR, *PST_ICMP_ECHO_HDR;
 PACKED_END
 
 #endif

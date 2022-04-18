@@ -2,9 +2,9 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "errors.h"
-#include "utils.h"
-#include "md5.h"
+#include "onps_errors.h"
+#include "onps_utils.h"
+#include "onps_md5.h"
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
@@ -41,7 +41,7 @@ static void send_response(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	unOriginalLen += unPasswordLen; 
 	memcpy(&szData[unOriginalLen], pstData->ubaChallenge, pstData->ubChallengeLen);
 	unOriginalLen += (UINT)pstData->ubChallengeLen;
-	ST_MD5VAL stChallengeCode = md5((UCHAR *)szData, unOriginalLen); 
+	ST_MD5VAL stChallengeCode = onps_md5((UCHAR *)szData, unOriginalLen); 
 
 	//* 封装报文
 	USHORT usDataLen; 

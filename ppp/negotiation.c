@@ -2,9 +2,9 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "mmu/buf_list.h"
-#include "utils.h"
+#include "onps_utils.h"
 
 #if SUPPORT_PPP
 #define SYMBOL_GLOBALS
@@ -15,7 +15,7 @@
 #include "ppp/ipcp.h"
 #include "ppp/ppp.h"
 
-BOOL send_nego_packet(PSTCB_PPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ERROR_CODE *penErrCode)
+BOOL send_nego_packet(PSTCB_PPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, UCHAR *pubData, USHORT usDataLen, BOOL blIsWaitACK, EN_ONPSERR *penErr)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubData;
 	pstHdr->ubCode = ubCode;
@@ -24,13 +24,13 @@ BOOL send_nego_packet(PSTCB_PPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR
 
 	//* 申请一个buf list节点
 	SHORT sBufListHead = -1;
-	SHORT sNode = buf_list_get_ext(pubData, usDataLen, penErrCode);
+	SHORT sNode = buf_list_get_ext(pubData, usDataLen, penErr);
 	if (sNode < 0)
 		return FALSE;
 	buf_list_put_head(&sBufListHead, sNode);
 
 	//* 发送
-	INT nRtnVal = ppp_send(pstcbPPP->hTTY, (EN_NPSPROTOCOL)usProtocol, sBufListHead, penErrCode);
+	INT nRtnVal = ppp_send(pstcbPPP->hTTY, (EN_NPSPROTOCOL)usProtocol, sBufListHead, penErr);
 
 	//* 释放刚才申请的buf list节点
 	buf_list_free(sNode);
@@ -42,7 +42,7 @@ BOOL send_nego_packet(PSTCB_PPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR
 		if (blIsWaitACK)
 		{
 			pstcbPPP->stWaitAckList.ubIsTimeout = FALSE; 
-			return wait_ack_list_add(&pstcbPPP->stWaitAckList, usProtocol, ubCode, ubIdentifier, 6, penErrCode);
+			return wait_ack_list_add(&pstcbPPP->stWaitAckList, usProtocol, ubCode, ubIdentifier, 6, penErr);
 		}
 
 		return TRUE;
@@ -51,17 +51,17 @@ BOOL send_nego_packet(PSTCB_PPP pstcbPPP, USHORT usProtocol, UCHAR ubCode, UCHAR
 	return FALSE;
 }
 
-static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	switch (pstcbPPP->enState)
 	{
 	case LCPCONFREQ: 
 		if (pstcbPPP->stWaitAckList.ubIsTimeout) //* 意味着没收到应答报文
 		{
-			if (!lcp_send_conf_request(pstcbPPP, penErrCode)) //* 再发送一次lcp配置请求报文
+			if (!lcp_send_conf_request(pstcbPPP, penErr)) //* 再发送一次lcp配置请求报文
 			{
 		#if SUPPORT_PRINTF
-				printf("lcp_send_conf_request() failed, %s\r\n", error(*penErrCode)); 
+				printf("lcp_send_conf_request() failed, %s\r\n", onps_error(*penErr)); 
 		#endif
 
 				pstcbPPP->enState = STACKFAULT;
@@ -79,14 +79,14 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		else if (pstcbPPP->pstNegoResult->stLCP.stAuth.usType == PPP_PAP)	  
 		{
 			//* 发送认证报文
-			if (pap_send_auth_request(pstcbPPP, penErrCode))
+			if (pap_send_auth_request(pstcbPPP, penErr))
 			{
 				pstcbPPP->enState = AUTHENTICATE;
 			}
 			else
 			{
 		#if SUPPORT_PRINTF
-				printf("pap_send_auth_request() failed, %s\r\n", error(*penErrCode));
+				printf("pap_send_auth_request() failed, %s\r\n", onps_error(*penErr));
 		#endif
 
 				pstcbPPP->enState = STACKFAULT;
@@ -117,14 +117,14 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		break; 
 
 	case SENDIPCPCONFREQ: 
-		if (ipcp_send_conf_request(pstcbPPP, penErrCode))
+		if (ipcp_send_conf_request(pstcbPPP, penErr))
 		{
 			pstcbPPP->enState = WAITIPCPCONFACK;
 		}
 		else
 		{
 		#if SUPPORT_PRINTF
-			printf("ipcp_send_conf_request() failed, %s\r\n", error(*penErrCode));
+			printf("ipcp_send_conf_request() failed, %s\r\n", onps_error(*penErr));
 		#endif
 			pstcbPPP->enState = STACKFAULT;
 		}
@@ -136,12 +136,12 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 }
 
-void ppp_link_establish(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+void ppp_link_establish(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	switch (pstcbPPP->enState)
 	{
 	case STARTNEGOTIATION:
-		if (lcp_start_negotiation(pstcbPPP, penErrCode))
+		if (lcp_start_negotiation(pstcbPPP, penErr))
 			pstcbPPP->enState = NEGOTIATION;
 		else
 		{
@@ -150,7 +150,7 @@ void ppp_link_establish(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 		}
 
 	default:
-		ppp_negotiate(pstcbPPP, penErrCode);
+		ppp_negotiate(pstcbPPP, penErr);
 		return;
 	}
 }

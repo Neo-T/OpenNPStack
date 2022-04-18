@@ -1,10 +1,10 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
-#include "utils.h"
+#include "onps_utils.h"
 
 #define SYMBOL_GLOBALS
 #include "netif/netif.h"
@@ -14,7 +14,7 @@ static ST_NETIF_NODE l_staNetifNode[NETIF_NUM];
 static PST_NETIF_NODE l_pstFreeNode = NULL; 
 static PST_NETIF_NODE l_pstNetifLink = NULL; 
 static HMUTEX l_hMtxNetif = INVALID_HMUTEX;
-BOOL netif_init(EN_ERROR_CODE *penErrCode)
+BOOL netif_init(EN_ONPSERR *penErr)
 {
     //* 网卡节点清零
     memset(&l_staNetifNode[0], 0, sizeof(l_staNetifNode));
@@ -28,6 +28,9 @@ BOOL netif_init(EN_ERROR_CODE *penErrCode)
     l_hMtxNetif = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxNetif)
         return TRUE;
+
+    if (penErr)
+        *penErr = ERRMUTEXINITFAILED;
     
     return FALSE; 
 }
@@ -66,13 +69,13 @@ static void put_free_node(PST_NETIF_NODE pstNode)
     os_thread_mutex_unlock(l_hMtxNetif);    
 }
 
-PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ERROR_CODE *penErrCode)
+PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr)
 {
     PST_NETIF_NODE pstNode = get_free_node(); 
     if (NULL == pstNode)
     {
-        if (penErrCode)
-            *penErrCode = ERRNONETIFNODE;
+        if (penErr)
+            *penErr = ERRNONETIFNODE;
 
         return NULL; 
     }
@@ -143,11 +146,23 @@ void netif_del(PST_NETIF_NODE pstNode)
     put_free_node(pstNode); 
 }
 
-PST_NETIF netif_get(void)
+BOOL netif_is_ready(const CHAR *pszIfName)
 {
-    PST_NETIF_NODE pstNextNode = l_pstNetifLink;
-    if (pstNextNode)
-        return &pstNextNode->stIf; 
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        while (pstNextNode)
+        {
+            if (strcmp(pszIfName, pstNextNode->stIf.szName) == 0)
+            {
+                os_thread_mutex_unlock(l_hMtxNetif);
+                return TRUE; 
+            }
 
-    return NULL; 
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    return FALSE; 
 }

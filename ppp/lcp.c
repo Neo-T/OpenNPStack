@@ -2,8 +2,8 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "errors.h"
-#include "utils.h"
+#include "onps_errors.h"
+#include "onps_utils.h"
 #include "mmu/buf_list.h"
 
 #if SUPPORT_PPP
@@ -439,7 +439,7 @@ static void discard_req(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 #endif
 }
 
-BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
 #if SUPPORT_PRINTF
@@ -456,15 +456,15 @@ BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	}
 	printf("]\r\n");
 
-	return send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErr);
 }
 
-BOOL lcp_start_negotiation(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_start_negotiation(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
-	if (!wait_ack_list_init(&pstcbPPP->stWaitAckList, penErrCode))
+	if (!wait_ack_list_init(&pstcbPPP->stWaitAckList, penErr))
 		return FALSE;
 
-	return lcp_send_conf_request(pstcbPPP, penErrCode);
+	return lcp_send_conf_request(pstcbPPP, penErr);
 }
 
 void lcp_end_negotiation(PSTCB_PPP pstcbPPP)
@@ -472,7 +472,7 @@ void lcp_end_negotiation(PSTCB_PPP pstcbPPP)
 	wait_ack_list_uninit(&pstcbPPP->stWaitAckList); 
 }
 
-BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 #define TERM_REQ_STRING "Bye, Trinity"
 	UCHAR ubaPacket[64]; 
@@ -484,10 +484,10 @@ BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 #if SUPPORT_PRINTF
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Terminate Request', Data = \"%s\"]\r\n", ubIdentifier, TERM_REQ_STRING);
 #endif
-	return send_nego_packet(pstcbPPP, LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErr);
 }
 
-BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 #define ECHO_STRING	"Hello, I'm Neo!" 
 	UCHAR ubaPacket[80]; 
@@ -502,7 +502,7 @@ BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	memcpy(&ubaPacket[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR)], ECHO_STRING, usDataLen);
 	usDataLen += sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR); 
 
-	return send_nego_packet(pstcbPPP, LCP, (UCHAR)ECHOREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, LCP, (UCHAR)ECHOREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErr);
 }
 
 //* lcp协议接收函数

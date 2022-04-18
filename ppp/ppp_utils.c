@@ -1,5 +1,5 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"

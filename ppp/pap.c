@@ -2,10 +2,10 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "mmu/buf_list.h"
-#include "utils.h"
-#include "md5.h"
+#include "onps_utils.h"
+#include "onps_md5.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
@@ -14,7 +14,7 @@
 #undef SYMBOL_GLOBALS
 #include "ppp/ppp.h"
 
-BOOL pap_send_auth_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
+BOOL pap_send_auth_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	UCHAR ubaPacket[64];
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
@@ -36,7 +36,7 @@ BOOL pap_send_auth_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode)
 	memcpy(&ubaPacket[usDataLen], pszPassword, usPasswordLen);
 	usDataLen += usPasswordLen; 
 
-	return send_nego_packet(pstcbPPP, PAP, (UCHAR)AUTHREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErrCode);
+	return send_nego_packet(pstcbPPP, PAP, (UCHAR)AUTHREQ, ubIdentifier, ubaPacket, (USHORT)usDataLen, TRUE, penErr);
 }
 
 static void get_message(UCHAR *pubPacket, INT nPacketLen, CHAR *pszMessageBuf, UCHAR ubMessageBufLen)

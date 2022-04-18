@@ -14,9 +14,10 @@
 #else
 	#define IP_EXT extern
 #endif //* SYMBOL_GLOBALS
+#include "protocols.h"
+#include "ip_frame.h"
 
-typedef enum EN_IPPROTO; //* IP层支持的上层协议定义
-
-IP_EXT INT ip_send(UINT unDstAddr, EN_IPPROTO enProto, UCHAR ubTTL, SHORT sBufListHead, EN_ERROR_CODE *penErrCode);
+IP_EXT INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr);
+IP_EXT void ip_recv(UCHAR *pubPacket, INT nPacketLen);
 
 #endif

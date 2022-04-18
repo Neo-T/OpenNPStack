@@ -31,8 +31,8 @@ typedef struct _ST_BUDDY_AREA_ { //* 具有相同页面大小的页块数组单�
     UINT unPageSize;	//* 该内存块单个页面大小
 } ST_BUDDY_AREA, *PST_BUDDY_AREA; 
 
-BUDDY_EXT BOOL buddy_init(EN_ERROR_CODE *penErrCode);				 //* buddy模块初始化函数
+BUDDY_EXT BOOL buddy_init(EN_ONPSERR *penErr);				 //* buddy模块初始化函数
 BUDDY_EXT void buddy_uninit(void);	                                 //* buddy模块去初始化函数
-BUDDY_EXT void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode); //* 只有没有可用的内存块了才会返回NULL，其它情况都会返回一个合适大小的内存块
+BUDDY_EXT void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr); //* 只有没有可用的内存块了才会返回NULL，其它情况都会返回一个合适大小的内存块
 BUDDY_EXT BOOL buddy_free(void *pvStart);							 //* 释放由buddy_alloc分配的内存
 #endif

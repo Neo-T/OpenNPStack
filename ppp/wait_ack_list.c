@@ -1,5 +1,5 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -11,7 +11,7 @@
 #undef SYMBOL_GLOBALS
 
 //* 等待应答队列
-BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ERROR_CODE *penErrCode)
+BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ONPSERR *penErr)
 {	
 	pstWAList->hMutex = os_thread_mutex_init();
 	if (INVALID_HMUTEX == pstWAList->hMutex)
@@ -91,17 +91,17 @@ static void wait_ack_timeout_handler(void *pvParam)
 	buddy_free(pstTimeoutNode);
 }
 
-BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ERROR_CODE *penErrCode)
+BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ONPSERR *penErr)
 {
 	if (!pstWAList || INVALID_HMUTEX == pstWAList->hMutex)
 	{
-		if (penErrCode)
-			*penErrCode = ERRPPPWALISTNOINIT;
+		if (penErr)
+			*penErr = ERRPPPWALISTNOINIT;
 		return FALSE;
 	}
 
 	//* 申请一块内存以建立一个新的队列节点
-	PST_PPPWAITACKNODE pstNewNode = (PST_PPPWAITACKNODE)buddy_alloc(sizeof(ST_PPPWAITACKNODE), penErrCode); 
+	PST_PPPWAITACKNODE pstNewNode = (PST_PPPWAITACKNODE)buddy_alloc(sizeof(ST_PPPWAITACKNODE), penErr); 
 	if (!pstNewNode)
 		return FALSE; 
 
@@ -111,8 +111,8 @@ BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ub
 	{
 		buddy_free(pstNewNode);
 
-		if (penErrCode)
-			*penErrCode = ERRNOIDLETIMER;
+		if (penErr)
+			*penErr = ERRNOIDLETIMER;
 		return FALSE;
 	}
 	//* 记录等待应答报文的关键特征数据

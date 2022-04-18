@@ -15,11 +15,11 @@
 	#define LCP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-LCP_EXT BOOL lcp_start_negotiation(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode);
+LCP_EXT BOOL lcp_start_negotiation(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr);
 LCP_EXT void lcp_end_negotiation(PSTCB_PPP pstcbPPP); 
-LCP_EXT BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode); 
-LCP_EXT BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode);
-LCP_EXT BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ERROR_CODE *penErrCode);
+LCP_EXT BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr); 
+LCP_EXT BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr);
+LCP_EXT BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr);
 LCP_EXT void lcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen);
 
 #endif

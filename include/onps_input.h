@@ -24,10 +24,13 @@ typedef enum {
     IOPT_SETPORT,           //* 设置端口
 } ONPSIOPT;
 
-ONPSINPUT_EXT BOOL onps_input_init(EN_ERROR_CODE *penErrCode);  //* 输入控制块初始化
+ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初始化
 ONPSINPUT_EXT void onps_input_uninit(void); //* 去初始化输入控制块
-ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ERROR_CODE *penErrCode);  //* 建立一个新的输入控制块
+ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr);  //* 建立一个新的输入控制块
 ONPSINPUT_EXT void onps_input_free(INT nInput);  //* 释放一个输入控制块
-ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ERROR_CODE *penErrCode);
+ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
+ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes);
+ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, INT nWaitSecs); 
 
 #endif

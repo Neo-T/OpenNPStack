@@ -1,10 +1,10 @@
 #include "port/datatype.h"
 
 #define SYMBOL_GLOBALS
-#include "errors.h"
+#include "onps_errors.h"
 #undef SYMBOL_GLOBALS
 
-static const ST_ERROR lr_staErrorList[] = {
+static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNO, "no error" },
 	{ ERRNOPAGENODE, "no page nodes available"},
 	{ ERRREQMEMTOOLARGE, "the requested memory is too large, please refer to the macro definition BUDDY_MEM_SIZE" },
@@ -29,13 +29,14 @@ static const ST_ERROR lr_staErrorList[] = {
     { ERRNONETIFNODE, "no netif nodes available" }, 
     { ERRUNSUPPIPPROTO, "unsupported ip upper layer protocol" }, 
     { ERRUNSUPPIOPT, "Unsupported control options" }, 
-    { ERRIPROTOMATCH, "Protocol match error" }
+    { ERRIPROTOMATCH, "Protocol match error" }, 
+    { ERRNOROUTENODE, "no route nodes available" }
 }; 
 
-const CHAR *error(EN_ERROR_CODE enErrCode)
+const CHAR *onps_error(EN_ONPSERR enErr)
 {
-	UINT unIndex = (UINT)enErrCode;
-	if (unIndex < sizeof(lr_staErrorList) / sizeof(ST_ERROR))
+	UINT unIndex = (UINT)enErr;
+	if (unIndex < sizeof(lr_staErrorList) / sizeof(ST_ONPSERR))
 		return lr_staErrorList[unIndex].szDesc;
 
 	return "unrecognized error code";

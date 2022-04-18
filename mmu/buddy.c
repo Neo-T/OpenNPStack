@@ -2,7 +2,7 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "port/sys_config.h"
-#include "errors.h"
+#include "onps_errors.h"
 
 #define SYMBOL_GLOBALS
 #include "mmu/buddy.h"
@@ -16,7 +16,7 @@ static ST_BUDDY_PAGE l_staPage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 static STCB_BUDDY_PAGE_NODE l_stcbaFreePage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 static HMUTEX l_hMtxMMUBuddy = INVALID_HMUTEX;
 
-static PST_BUDDY_PAGE GetPageNode(EN_ERROR_CODE *penErrCode)
+static PST_BUDDY_PAGE GetPageNode(EN_ONPSERR *penErr)
 {
 	PST_BUDDY_PAGE pstPage;
 	PSTCB_BUDDY_PAGE_NODE pstNode = &l_stcbaFreePage[0];
@@ -34,7 +34,7 @@ static PST_BUDDY_PAGE GetPageNode(EN_ERROR_CODE *penErrCode)
 		pstNode = pstNode->pstNext; 
 	}
 
-	*penErrCode = ERRNOPAGENODE;
+	*penErr = ERRNOPAGENODE;
 
 	return NULL;
 }
@@ -54,11 +54,11 @@ static void FreePageNode(PST_BUDDY_PAGE pstPage)
 	}
 }
 
-BOOL buddy_init(EN_ERROR_CODE *penErrCode)
+BOOL buddy_init(EN_ONPSERR *penErr)
 {
 	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE; 
-	EN_ERROR_CODE enCode;
+	EN_ONPSERR enCode;
 
 	//* 存储页面控制信息的链表必须先初始化，接下来就要用到
 	for (i = 0; i < lr_unPageCount; i++)
@@ -87,7 +87,7 @@ BOOL buddy_init(EN_ERROR_CODE *penErrCode)
 	if (INVALID_HMUTEX != l_hMtxMMUBuddy)	
 		return TRUE; 
 	
-	*penErrCode = ERRMUTEXINITFAILED; 
+	*penErr = ERRMUTEXINITFAILED; 
 	return FALSE; 
 }
 
@@ -97,7 +97,7 @@ void buddy_uninit(void)
         os_thread_mutex_uninit(l_hMtxMMUBuddy);
 }
 
-void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
+void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 {
 	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE;
@@ -107,7 +107,7 @@ void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 
 	if (unSize > BUDDY_MEM_SIZE)
 	{
-		*penErrCode = ERRREQMEMTOOLARGE;
+		*penErr = ERRREQMEMTOOLARGE;
 		return (void *)0;
 	}
 
@@ -157,7 +157,7 @@ void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 		}
 		os_thread_mutex_unlock(l_hMtxMMUBuddy);
 
-		*penErrCode = ERRNOFREEMEM; //* 没有空余页块，无法分配内存给用户了
+		*penErr = ERRNOFREEMEM; //* 没有空余页块，无法分配内存给用户了
 
 		return (void *)0;
 
@@ -172,13 +172,13 @@ void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 
 			//* 分裂
 			pstArea = &l_staArea[i - 1];
-			pstFreePage1 = GetPageNode(penErrCode);
+			pstFreePage1 = GetPageNode(penErr);
 			if (!pstFreePage1) //* 这属于程序BUG，理论上不应该申请不到
 			{
 				os_thread_mutex_unlock(l_hMtxMMUBuddy);
 				return (void *)0;
 			}
-			pstFreePage2 = GetPageNode(penErrCode);
+			pstFreePage2 = GetPageNode(penErr);
 			if (!pstFreePage2) //* 同上
 			{
 				os_thread_mutex_unlock(l_hMtxMMUBuddy);
@@ -225,7 +225,7 @@ void *buddy_alloc(UINT unSize, EN_ERROR_CODE *penErrCode)
 	}
 	os_thread_mutex_unlock(l_hMtxMMUBuddy);
 
-	*penErrCode = ERRNOFREEMEM; //* 理论上这里是执行不到的
+	*penErr = ERRNOFREEMEM; //* 理论上这里是执行不到的
 
 	return (void *)0;
 }

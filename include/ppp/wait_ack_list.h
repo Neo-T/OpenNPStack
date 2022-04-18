@@ -36,9 +36,9 @@ typedef struct _ST_PPPWAITACKLIST_ { //* 等待应答的PPP报文链表
 	UCHAR ubTimeoutCount;	//* 连续触发超时事件的累计次数
 } ST_PPPWAITACKLIST, *PST_PPPWAITACKLIST;
 
-WAIT_ACK_LIST_EXT BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ERROR_CODE *penErrCode);
+WAIT_ACK_LIST_EXT BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ONPSERR *penErr);
 WAIT_ACK_LIST_EXT void wait_ack_list_uninit(PST_PPPWAITACKLIST pstWAList);
-WAIT_ACK_LIST_EXT BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ERROR_CODE *penErrCode);
+WAIT_ACK_LIST_EXT BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ONPSERR *penErr);
 WAIT_ACK_LIST_EXT void wait_ack_list_del(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubIdentifier);
 
 #endif

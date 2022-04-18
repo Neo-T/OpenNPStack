@@ -15,20 +15,22 @@
 	#define ONPS_EXT extern
 #endif //* SYMBOL_GLOBALS
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"
 #include "mmu/buf_list.h"
 #include "netif/netif.h" 
-
+#include "netif/route.h"
 #if SUPPORT_PPP
 #include "ppp/negotiation.h"
 #include "ppp/ppp.h"
 #endif
+#include "ip/icmp.h"
+#include "onps_input.h"
 
-ONPS_EXT BOOL open_npstack_load(EN_ERROR_CODE *penErrCode); 
+ONPS_EXT BOOL open_npstack_load(EN_ONPSERR *penErr); 
 ONPS_EXT void open_npstack_unload(void);
 
 #endif

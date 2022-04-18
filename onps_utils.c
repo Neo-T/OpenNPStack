@@ -1,11 +1,11 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "mmu/buf_list.h"
 
 #define SYMBOL_GLOBALS
-#include "utils.h"
+#include "onps_utils.h"
 #undef SYMBOL_GLOBALS
 
 CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize)
@@ -180,6 +180,7 @@ void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine)
 	}
 	printf("\r\n"); 
 }
+#endif
 
 PST_SLINKEDLIST_NODE sllist_get_node(PST_SLINKEDLIST *ppstSLList)
 {
@@ -291,4 +292,3 @@ void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstN
     pstPrevNode->pstNext = pstNode; 
     pstNode->pstNext = NULL; 
 }
-#endif

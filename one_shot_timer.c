@@ -1,5 +1,5 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
@@ -20,7 +20,7 @@ static BOOL l_blIsRunning = TRUE;
 static UCHAR l_ubaThreadExitFlag[2] = { TRUE, TRUE }; 
 
 //* 定时器初始化（栈开始工作前必须要先调用这个函数进行定时器初始化）
-BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
+BOOL one_shot_timer_init(EN_ONPSERR *penErr)
 {
 	INT i; 
 	for (i = 0; i < ONE_SHOT_TIMER_NUM - 1; i++) //* 将定时器链表链接起来
@@ -35,7 +35,7 @@ BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 		l_hSemOneShotTimeout = os_thread_sem_init(0, ONE_SHOT_TIMER_NUM + 1);
 		if (INVALID_HSEM == l_hSemOneShotTimeout)
 		{
-			*penErrCode = ERRSEMINITFAILED;
+			*penErr = ERRSEMINITFAILED;
 			break; 
 		}
 
@@ -43,7 +43,7 @@ BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 		l_hMtxFreeOneShotTimer = os_thread_mutex_init();
 		if (INVALID_HMUTEX == l_hMtxFreeOneShotTimer)
 		{
-			*penErrCode = ERRMUTEXINITFAILED; 
+			*penErr = ERRMUTEXINITFAILED; 
 			break; 
 		}
 
@@ -51,7 +51,7 @@ BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 		l_hMtxOneShotTimer = os_thread_mutex_init();
 		if (INVALID_HMUTEX == l_hMtxOneShotTimer)
 		{
-			*penErrCode = ERRMUTEXINITFAILED;
+			*penErr = ERRMUTEXINITFAILED;
 			break;
 		}
 
@@ -59,7 +59,7 @@ BOOL one_shot_timer_init(EN_ERROR_CODE *penErrCode)
 		l_hMtxOneShotTimeout = os_thread_mutex_init();
 		if (INVALID_HMUTEX == l_hMtxOneShotTimeout)
 		{
-			*penErrCode = ERRMUTEXINITFAILED;
+			*penErr = ERRMUTEXINITFAILED;
 			break;
 		}
 

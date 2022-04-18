@@ -1,4 +1,4 @@
-/* errors.h
+/* onps_errors.h
  *
  * 错误类型定义
  *
@@ -6,16 +6,15 @@
  * 版本: 1.0
  *
  */
-#ifndef ERRORS_H
-#define ERRORS_H
+#ifndef ONPS_ERRORS_H
+#define ONPS_ERRORS_H
 
 #ifdef SYMBOL_GLOBALS
-#define ERRORS_EXT
+#define ONPS_ERRORS_EXT
 #else
-#define ERRORS_EXT extern
+#define ONPS_ERRORS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#define ERROR_NUM	40
 typedef enum {
     ERRNO = 0,          //* 没有发生任何错误
     ERRNOPAGENODE,      //* 无可用的内存页面节点
@@ -42,13 +41,14 @@ typedef enum {
     ERRUNSUPPIPPROTO,   //* 不被支持的IP层协议
     ERRUNSUPPIOPT,      //* 不支持的配置项
     ERRIPROTOMATCH,     //* 协议匹配错误
-} EN_ERROR_CODE;
+    ERRNOROUTENODE,     //* 无可用的路由表单元
+} EN_ONPSERR;
 
-typedef struct _ST_ERROR_ {
-    EN_ERROR_CODE enCode;
+typedef struct _ST_ONPSERR_ {
+    EN_ONPSERR enCode;
     CHAR szDesc[128];
-} ST_ERROR, *PST_ERROR;
+} ST_ONPSERR, *PST_ONPSERR;
 
-ERRORS_EXT const CHAR *error(EN_ERROR_CODE enErrCode);
+ONPS_ERRORS_EXT const CHAR *onps_error(EN_ONPSERR enErr);
 
 #endif

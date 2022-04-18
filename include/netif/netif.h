@@ -25,7 +25,7 @@ typedef enum {
 
 //* 网卡发送函数
 typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
-typedef INT(*PFUN_NETIF_SEND)(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ERROR_CODE *penErrCode);
+typedef INT(*PFUN_NETIF_SEND)(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr);
 
 //* 记录IPv4地址的结构体
 typedef struct _ST_IPV4_ {
@@ -53,10 +53,10 @@ typedef struct _ST_NETIF_NODE_ {
     ST_NETIF stIf;      
 } ST_NETIF_NODE, *PST_NETIF_NODE;
 
-NETIF_EXT BOOL netif_init(EN_ERROR_CODE *penErrCode);
+NETIF_EXT BOOL netif_init(EN_ONPSERR *penErr);
 NETIF_EXT void netif_uninit(void);
-NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ERROR_CODE *penErrCode);
+NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr);
 NETIF_EXT void netif_del(PST_NETIF_NODE pstNode); 
-NETIF_EXT PST_NETIF netif_get(void); 
+NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName); 
 
 #endif

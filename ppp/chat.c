@@ -1,9 +1,9 @@
 #include "port/datatype.h"
-#include "errors.h"
+#include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
-#include "utils.h"
+#include "onps_utils.h"
 
 #if SUPPORT_PPP
 #include "protocols.h"
@@ -53,7 +53,7 @@
 //* ===============================================================================================
 
 static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHAR *pszOK, UCHAR ubOKBytes, const CHAR *pszErr,
-						UCHAR ubErrBytes, CHAR *pszDataBuf, UINT unDataBufBytes, UCHAR ubWaitSecs, EN_ERROR_CODE *penErrCode)
+						UCHAR ubErrBytes, CHAR *pszDataBuf, UINT unDataBufBytes, UCHAR ubWaitSecs, EN_ONPSERR *penErr)
 {
 	UINT unBytes;
 	CHAR szBuf[80];
@@ -66,7 +66,7 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 	unBytes = os_tty_send(hTTY, (UCHAR *)szBuf, (UINT)ubATBytes);
 	if (unBytes != (UINT)ubATBytes)
 	{
-		*penErrCode = ERRATWRITE;
+		*penErr = ERRATWRITE;
 		return FALSE;
 	}
 
@@ -98,12 +98,12 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 			unHaveRcvBytes += unBytes; 
 			if (mem_str(szBuf, (CHAR *)pszErr, ubErrBytes, unHaveRcvBytes))
 			{
-				*penErrCode = ERRATEXEC; 
+				*penErr = ERRATEXEC; 
 				return FALSE; 
 			}
 			else if (mem_str(szBuf, (CHAR *)pszOK, ubOKBytes, unHaveRcvBytes) != 0)
 			{
-				*penErrCode = ERRNO; 
+				*penErr = ERRNO; 
 				return TRUE;
 			}
 			else;
@@ -113,18 +113,18 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 		ubElapsedSecs++;
 	}
 
-	*penErrCode = ERRATEXECTIMEOUT;
+	*penErr = ERRATEXECTIMEOUT;
 	return FALSE;
 }
 
-static BOOL sim_inserted(HTTY hTTY, EN_ERROR_CODE *penErrCode)
+static BOOL sim_inserted(HTTY hTTY, EN_ONPSERR *penErr)
 {
 	BOOL blRtnVal;
 	CHAR szRcvBuf[50], bCurState;
 	UINT i, n, unReadBytes;
 	const CHAR szMatchedStr[] = "+SIMTEST:";
 
-	blRtnVal = exec_at_cmd(hTTY, ATSIMTEST, sizeof(ATSIMTEST) - 1, ATSIMTEST_OK, sizeof(ATSIMTEST_OK) - 1, ATSIMTEST_ERROR, sizeof(ATSIMTEST_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, penErrCode);	
+	blRtnVal = exec_at_cmd(hTTY, ATSIMTEST, sizeof(ATSIMTEST) - 1, ATSIMTEST_OK, sizeof(ATSIMTEST_OK) - 1, ATSIMTEST_ERROR, sizeof(ATSIMTEST_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, penErr);	
 #if SUPPORT_PRINTF
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
@@ -169,14 +169,14 @@ static BOOL sim_inserted(HTTY hTTY, EN_ERROR_CODE *penErrCode)
 	return FALSE;
 }
 
-static BOOL reg_mobile_net(HTTY hTTY, const CHAR *pszATCmd, const CHAR *pszMatchedStr, EN_ERROR_CODE *penErrCode)
+static BOOL reg_mobile_net(HTTY hTTY, const CHAR *pszATCmd, const CHAR *pszMatchedStr, EN_ONPSERR *penErr)
 {
 	BOOL blRtnVal;
 	CHAR szRcvBuf[50];
 	CHAR bCurState;
 	UINT i, n, unReadBytes;
 		
-	blRtnVal = exec_at_cmd(hTTY, pszATCmd, strlen(pszATCmd), ATREG_OK, sizeof(ATREG_OK) - 1, ATREG_ERROR, sizeof(ATREG_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, penErrCode);
+	blRtnVal = exec_at_cmd(hTTY, pszATCmd, strlen(pszATCmd), ATREG_OK, sizeof(ATREG_OK) - 1, ATREG_ERROR, sizeof(ATREG_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, penErr);
 #if SUPPORT_PRINTF
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
@@ -226,11 +226,11 @@ static BOOL reg_mobile_net(HTTY hTTY, const CHAR *pszATCmd, const CHAR *pszMatch
 	return FALSE;
 }
 
-BOOL modem_ready(HTTY hTTY, EN_ERROR_CODE *penErrCode)
+BOOL modem_ready(HTTY hTTY, EN_ONPSERR *penErr)
 {
 	CHAR szRcvBuf[64];
 	UCHAR ubRetryNum;
-	EN_ERROR_CODE enErrCode; 
+	EN_ONPSERR enErr; 
 	BOOL blRtnVal; 
 
 	//* 循环执行AT指令，以待modem就绪
@@ -242,12 +242,12 @@ __lblExecAT:
 	if (ubRetryNum > 10)
 	{
 #if SUPPORT_PRINTF
-		printf("the command <%s> failed, %s\r\n", AT, error(enErrCode));
+		printf("the command <%s> failed, %s\r\n", AT, onps_error(enErr));
 #endif
 		return FALSE;
 	}
 
-	blRtnVal = exec_at_cmd(hTTY, AT, sizeof(AT) - 1, AT_OK, sizeof(AT_OK) - 1, AT_ERROR, sizeof(AT_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErrCode);
+	blRtnVal = exec_at_cmd(hTTY, AT, sizeof(AT) - 1, AT_OK, sizeof(AT_OK) - 1, AT_ERROR, sizeof(AT_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErr);
 #if SUPPORT_PRINTF
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
@@ -268,12 +268,12 @@ __lblExecATE:
 	if (ubRetryNum > 3)
 	{
 #if SUPPORT_PRINTF
-		printf("the command <%s> failed, %s\r\n", ATE0, error(enErrCode));
+		printf("the command <%s> failed, %s\r\n", ATE0, onps_error(enErr));
 #endif
 		return FALSE;
 	}
 
-	blRtnVal = exec_at_cmd(hTTY, ATE0, sizeof(ATE0) - 1, ATE_OK, sizeof(ATE_OK) - 1, ATE_ERROR, sizeof(ATE_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErrCode);
+	blRtnVal = exec_at_cmd(hTTY, ATE0, sizeof(ATE0) - 1, ATE_OK, sizeof(ATE_OK) - 1, ATE_ERROR, sizeof(ATE_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErr);
 #if SUPPORT_PRINTF
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
@@ -293,15 +293,15 @@ __lblSIMTest:
 	ubRetryNum++;
 	if (ubRetryNum > 3)	//* 重试多次
 	{
-		if (ERRNO == enErrCode)
-			enErrCode = ERRSIMCARD;
+		if (ERRNO == enErr)
+			enErr = ERRSIMCARD;
 #if SUPPORT_PRINTF
-		printf("the command <%s> failed, %s\r\n", ATSIMTEST, error(enErrCode));
+		printf("the command <%s> failed, %s\r\n", ATSIMTEST, onps_error(enErr));
 #endif
 		return FALSE;
 	}
 
-	if (!sim_inserted(hTTY, &enErrCode))
+	if (!sim_inserted(hTTY, &enErr))
 	{
 		os_sleep_secs(1);
 		goto __lblSIMTest;
@@ -316,18 +316,18 @@ __lblRegMobileNet:
 	ubRetryNum++;
 	if (ubRetryNum > 90) //* 不断查询，直至到指定时长后再注册不到移动网络就返回错误	
 	{
-		if (ERRNO == enErrCode)
-			enErrCode = ERRREGMOBILENET;
+		if (ERRNO == enErr)
+			enErr = ERRREGMOBILENET;
 #if SUPPORT_PRINTF
-		printf("the command <%s> failed, %s\r\n", ATREG, error(enErrCode));
+		printf("the command <%s> failed, %s\r\n", ATREG, onps_error(enErr));
 #endif
 		return FALSE; 
 	}
 
-	if (!reg_mobile_net(hTTY, ATREG, ATREG_MATCH, &enErrCode))
+	if (!reg_mobile_net(hTTY, ATREG, ATREG_MATCH, &enErr))
 	{
 #ifdef ATEREG
-		if (!reg_mobile_net(hTTY, ATEREG, ATEREG_MATCH, &enErrCode))
+		if (!reg_mobile_net(hTTY, ATEREG, ATEREG_MATCH, &enErr))
 		{
 #endif
 			os_sleep_secs(1);
@@ -341,11 +341,11 @@ __lblRegMobileNet:
 	return TRUE;
 }
 
-BOOL modem_dial(HTTY hTTY, EN_ERROR_CODE *penErrCode)
+BOOL modem_dial(HTTY hTTY, EN_ONPSERR *penErr)
 {
 	CHAR szBuf[80];
 	UCHAR ubRetryNum;
-	EN_ERROR_CODE enErrCode;
+	EN_ONPSERR enErr;
 	BOOL blRtnVal;
 	const CHAR *pszAPN; 
 	const ST_DIAL_AUTH_INFO *pstDial;
@@ -368,13 +368,13 @@ __lblExecAT:
 #if SUPPORT_PRINTF
 		printf("the command <");
 		printf(ATAPN, pszAPN);
-		printf("> failed, %s\r\n", error(enErrCode)); 
+		printf("> failed, %s\r\n", onps_error(enErr)); 
 #endif
 		return FALSE;
 	}
 
 	snprintf(szBuf, sizeof(szBuf), ATAPN, pszAPN); 
-	blRtnVal = exec_at_cmd(hTTY, szBuf, strlen(szBuf), ATAPN_OK, sizeof(ATAPN_OK) - 1, ATAPN_ERROR, sizeof(ATAPN_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErrCode);
+	blRtnVal = exec_at_cmd(hTTY, szBuf, strlen(szBuf), ATAPN_OK, sizeof(ATAPN_OK) - 1, ATAPN_ERROR, sizeof(ATAPN_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErr);
 #if SUPPORT_PRINTF
 	if (strlen(szBuf))
 		printf("%s", szBuf);
@@ -388,14 +388,14 @@ __lblExecAT:
 #endif
 
 	//* 拨号
-	blRtnVal = exec_at_cmd(hTTY, ATDIAL, sizeof(ATDIAL) - 1, ATDIAL_OK, sizeof(ATDIAL_OK) - 1, ATDIAL_ERROR, sizeof(ATDIAL_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErrCode);
+	blRtnVal = exec_at_cmd(hTTY, ATDIAL, sizeof(ATDIAL) - 1, ATDIAL_OK, sizeof(ATDIAL_OK) - 1, ATDIAL_ERROR, sizeof(ATDIAL_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErr);
 #if SUPPORT_PRINTF
 	if (strlen(szBuf))
 		printf("%s", szBuf);
 #endif
 	if (!blRtnVal)
 	{
-		printf("the command <%s> failed, %s\r\n", ATDIAL, error(enErrCode));
+		printf("the command <%s> failed, %s\r\n", ATDIAL, onps_error(enErr));
 		return FALSE;
 	}
 
