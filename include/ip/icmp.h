@@ -16,8 +16,8 @@
 #endif //* SYMBOL_GLOBALS
 #include "icmp_frame.h"
 
-ICMP_EXT INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, UINT unDstAddr, UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr);
-ICMP_EXT void icmp_recv(UCHAR *pubPacket, INT nPacketLen); //* 接收函数
+ICMP_EXT INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, in_addr_t unDstAddr, UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr);
+ICMP_EXT void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL); //* 接收函数
 
 
 #endif

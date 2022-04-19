@@ -21,9 +21,10 @@
 
 static BOOL l_blIsRunning = TRUE;
 
-//* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
+//* ppp层实现的ip接收函数
 static void ppp_ip_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen); 
-static const ST_PPP_PROTOCOL lr_staProtocol[] = {
+
+static const ST_PPP_PROTOCOL lr_staProtocol[] = { //* 这个结构体必须严格按照EN_NPSPROTOCOL类型定义的顺序指定PPP定义的协议类型
 	{ PPP_LCP,  lcp_recv },
 	{ PPP_PAP,  pap_recv }, 
 	{ PPP_CHAP, chap_recv },
@@ -123,6 +124,7 @@ void ppp_uninit(void)
 
             if (l_pstaNetif[i])
             {
+                route_del_ext(&l_pstaNetif[i]->stIf);
                 netif_del(l_pstaNetif[i]);
                 l_pstaNetif[i] = NULL;
             }
@@ -524,6 +526,7 @@ __lblEnd:
     //* 如已加入网卡链表则在此应先删除之，否则链表资源将被耗尽
     if (l_pstaNetif[nPPPIdx])
     {
+        route_del_ext(&l_pstaNetif[nPPPIdx]->stIf);
         netif_del(l_pstaNetif[nPPPIdx]);
         l_pstaNetif[nPPPIdx] = NULL;
     }

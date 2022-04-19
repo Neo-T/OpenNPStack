@@ -494,7 +494,10 @@ BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 	PST_LCP_ECHO_REQ_HDR pstReqHdr = (PST_LCP_ECHO_REQ_HDR)&ubaPacket[sizeof(ST_LNCP_HDR)];
 
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;	
+
+#if SUPPORT_PRINTF
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Echo Request', Magic = <%08X>, Data = \"%s\"]\r\n", ubIdentifier, pstcbPPP->pstNegoResult->stLCP.unMagicNum, ECHO_STRING);
+#endif
 
 	//* 填充数据
 	USHORT usDataLen = (USHORT)strlen(ECHO_STRING); 

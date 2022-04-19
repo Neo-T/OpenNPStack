@@ -106,7 +106,7 @@ void os_thread_sem_post(HSEM hSem)
 	/* …… */
 }
 
-INT os_thread_sem_pend(HSEM hSem, UINT unWaitSecs)
+INT os_thread_sem_pend(HSEM hSem, INT nWaitSecs)
 {
 	/* 用户自定义代码 */
 	/* …… */

@@ -124,7 +124,7 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
 __lblEnd: 
 #if SUPPORT_PRINTF
     pubAddr = (UCHAR *)&pstNode->stRoute.unDestination;
-    printf("Add network interface <%s> to routing table\r\n", pstNode->stRoute.pstNetif->szName); 
+    printf("Add network interface <%s> to routing table\r\n[", pstNode->stRoute.pstNetif->szName); 
     if (pstNode->stRoute.unDestination)
     {
         printf("destination %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
@@ -134,7 +134,7 @@ __lblEnd:
     pubAddr = (UCHAR *)&pstNode->stRoute.unGateway;
     printf(", gateway %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);    
     pubAddr = (UCHAR *)&pstNode->stRoute.unGenmask;
-    printf(", genmask %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+    printf(", genmask %d.%d.%d.%d]\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
 #endif
 
     return TRUE;
@@ -248,5 +248,10 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending)
     if (pstNetif)
         return pstNetif;
     else
-        return pstDefaultNetif; 
+    {
+        if (pstDefaultNetif)
+            return pstDefaultNetif;
+        else //* 缺省路由也为空，则直接使用网络接口链表的首节点作为缺省路由
+            return netif_get_first(); 
+    }
 }

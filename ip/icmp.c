@@ -10,7 +10,7 @@
 #include "ip/icmp.h"
 #undef SYMBOL_GLOBALS
 
-static INT icmp_send(UINT unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT icmp_send(in_addr_t unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     //* 填充头部字段
     ST_ICMP_HDR stHdr; 
@@ -57,7 +57,13 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     //* 记录echo identifier，以便区分echo应答报文
     INT nRtnVal;    
     if (onps_input_set(nInput, IOPT_SETICMPECHOID, &usIdentifier, penErr))    
-        nRtnVal = icmp_send(unDstAddr, ICMP_ECHOREQ, 0, ubTTL, sBufListHead, penErr); 
+        nRtnVal = icmp_send(unDstAddr, ICMP_ECHOREQ, 0, ubTTL, sBufListHead, penErr);     
+    else
+    {
+#if SUPPORT_PRINTF
+        printf("onps_input_set() failed (the option is IOPT_SETICMPECHOID), %s\r\n", onps_error(*penErr)); 
+#endif
+    }
 
     //* 释放刚才申请的buf list节点
     buf_list_free(sDataNode);
@@ -66,7 +72,7 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     return nRtnVal; 
 }
 
-static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
+static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
 {
     PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));
     INT nInput = onps_input_get_icmp(pstEchoHdr->usIdentifier);
@@ -79,6 +85,14 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     }
 
     //* 将数据搬运到用户的接收缓冲区，然后发送一个信号量通知用户数据已到达
+    EN_ONPSERR enErr; 
+    if (!onps_input_set(nInput, IOPT_SETICMPECHOREPTTL, &ubTTL, &enErr))
+    {
+#if SUPPORT_PRINTF
+        printf("onps_input_set() failed (the option is IOPT_SETICMPECHOREPTTL), %s\r\n", onps_error(enErr)); 
+#endif
+    }
+
     HSEM hSem;
     UINT unRcvedBytes = nPacketLen - sizeof(ST_ICMP_HDR);
     UCHAR *pubRcvBuf = onps_input_get_rcv_buf(nInput, &hSem, &unRcvedBytes);
@@ -86,7 +100,7 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     os_thread_sem_post(hSem);
 }
 
-void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
+void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
 {
     PST_ICMP_HDR pstHdr = (PST_ICMP_HDR)pubPacket; 
 
@@ -105,7 +119,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
     switch ((EN_ICMPTYPE)pstHdr->ubType)
     {
     case ICMP_ECHOREPLY: 
-        icmp_rcv_handler_echoreply(pubPacket, nPacketLen); 
+        icmp_rcv_handler_echoreply(pubPacket, nPacketLen, ubTTL); 
         break; 
 
     default:

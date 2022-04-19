@@ -21,6 +21,7 @@
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"
 #include "mmu/buf_list.h"
+#include "onps_utils.h"
 #include "netif/netif.h" 
 #include "netif/route.h"
 #if SUPPORT_PPP

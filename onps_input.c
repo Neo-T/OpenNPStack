@@ -18,6 +18,7 @@ typedef struct _STCB_ONPS_INPUT_ {
     union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
         struct {
             USHORT usIdentifier;
+            UCHAR ubTTL; 
         } stIcmp; //* icmp层句柄
 
         struct {
@@ -105,7 +106,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     {
         if (penErr)
             *penErr = ERRSEMINITFAILED;
-        return NULL; 
+        return -1; 
     }
 
     UINT unSize; 
@@ -126,14 +127,14 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     default:
         if (penErr)
             *penErr = ERRUNSUPPIPPROTO;
-        return NULL; 
+        return -1; 
     }
 
     UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
     if (NULL == pubRcvBuf)
     {
         os_thread_sem_uninit(hSem);  
-        return NULL;
+        return -1;
     }
 
     //* 申请一个input节点
@@ -222,7 +223,7 @@ static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcv
     return TRUE; 
 }
 
-BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
+BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSERR *penErr)
 {
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
@@ -238,6 +239,17 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             if (penErr)
                 *penErr = ERRIPROTOMATCH; 
             return FALSE; 
+        }
+        break;
+
+    case IOPT_SETICMPECHOREPTTL:
+        if (pstcbInput->ubIPProto == IPPROTO_ICMP)
+            pstcbInput->uniHandle.stIcmp.ubTTL = *((UCHAR *)pvVal);
+        else
+        {
+            if (penErr)
+                *penErr = ERRIPROTOMATCH;
+            return FALSE;
         }
         break;
 
@@ -261,6 +273,31 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     }
 
     return TRUE; 
+}
+
+BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
+{
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+    switch (enInputOpt)
+    {
+    case IOPT_GETICMPECHOREPTTL:
+        if (pstcbInput->ubIPProto == IPPROTO_ICMP)
+            *((UCHAR *)pvVal) = pstcbInput->uniHandle.stIcmp.ubTTL; 
+        else
+        {
+            if (penErr)
+                *penErr = ERRIPROTOMATCH;
+            return FALSE;
+        }
+        break; 
+
+    default:
+        if (penErr)
+            *penErr = ERRUNSUPPIOPT;
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 INT onps_input_get_icmp(USHORT usIdentifier)

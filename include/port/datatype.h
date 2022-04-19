@@ -31,6 +31,7 @@ typedef signed short       SHORT;      //* 16位的有符号短整型
 typedef unsigned short     USHORT;     //* 16位的无符号短整型
 typedef char               CHAR;       //* 8位有符号字节型
 typedef	unsigned char      UCHAR;      //* 8位无符号字节型
+typedef	unsigned int       in_addr_t;  //* internet地址类型
 
 #endif
 

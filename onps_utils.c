@@ -292,3 +292,68 @@ void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstN
     pstPrevNode->pstNext = pstNode; 
     pstNode->pstNext = NULL; 
 }
+
+CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr)
+{
+    if (NULL == *ppszStart)
+        return NULL;
+
+    CHAR *pszItem = NULL;
+
+    CHAR *pszStart = *ppszStart;
+    INT i = 0;
+    CHAR ch;
+    while ((ch = pszStart[i]) != 0x00)
+    {
+        CHAR bSplit;
+        BOOL blIsNotFound = TRUE;
+        INT k = 0;
+        while ((bSplit = pszSplitStr[k++]) != 0x00)
+        {
+            if (bSplit == ch)
+            {
+                pszStart[i] = 0;
+                blIsNotFound = FALSE;
+                break;
+            }
+        }
+
+        if (blIsNotFound)
+        {
+            if (NULL == pszItem)
+                pszItem = pszStart + i;
+        }
+        else
+        {
+            if (pszItem)
+            {
+                *ppszStart = pszStart + i + 1;
+                return pszItem;
+            }
+        }
+
+        i++;
+    }
+
+    *ppszStart = NULL;
+    return pszItem;
+}
+
+in_addr_t inet_addr(const char *pszIP)
+{    
+    in_addr_t unAddr;
+    CHAR *pszStart = (CHAR *)pszIP, *pszDot;
+    UINT unLen = (UINT)strlen(pszIP);
+    pszDot = mem_char(pszStart, '.', unLen);
+    ((UCHAR *)&unAddr)[3] = (UCHAR)atoi(pszStart);
+    pszStart = pszDot + 1;
+    pszDot = mem_char(pszStart, '.', unLen - (pszStart - pszIP));
+    ((UCHAR *)&unAddr)[2] = (UCHAR)atoi(pszStart);
+    pszStart = pszDot + 1;
+    pszDot = mem_char(pszStart, '.', unLen - (pszStart - pszIP));
+    ((UCHAR *)&unAddr)[1] = (UCHAR)atoi(pszStart);
+    pszStart = pszDot + 1;
+    ((UCHAR *)&unAddr)[0] = (UCHAR)atoi(pszStart);
+
+    return unAddr;
+}

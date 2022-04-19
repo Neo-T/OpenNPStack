@@ -33,7 +33,7 @@ static const EN_IPPROTO lr_enaIPProto[] = {
 };
 static USHORT l_usIPIdentifier = 0; 
 
-INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE);
     if (NULL == pstNetif)
@@ -60,7 +60,7 @@ INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufLi
     stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
     stHdr.usChecksum = 0;
     stHdr.unSrcIP = pstNetif->stIPv4.unAddr; 
-    stHdr.unDestIP = unDstAddr; 
+    stHdr.unDestIP = htonl(unDstAddr); 
 
     //* 挂载到buf list头部
     SHORT sHdrNode;
@@ -73,7 +73,7 @@ INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufLi
     stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
 
     //* 完成发送
-    INT nRtnVal = pstNetif->pfunSend(pstNetif, enProtocol, sBufListHead, penErr);
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);
 
     //* 使用计数减一
     os_enter_critical();
@@ -107,7 +107,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     switch (pstHdr->ubProto)
     {
     case IPPROTO_ICMP: 
-        icmp_recv(pubPacket + sizeof(ST_IP_HDR), nPacketLen - sizeof(ST_IP_HDR)); 
+        icmp_recv(pubPacket + sizeof(ST_IP_HDR), nPacketLen - sizeof(ST_IP_HDR), pstHdr->ubTTL);
         break; 
 
     default:

@@ -56,8 +56,9 @@ typedef struct _ST_NETIF_NODE_ {
 
 NETIF_EXT BOOL netif_init(EN_ONPSERR *penErr);
 NETIF_EXT void netif_uninit(void);
-NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr);
+NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr);
 NETIF_EXT void netif_del(PST_NETIF_NODE pstNode); 
+NETIF_EXT PST_NETIF netif_get_first(void); 
 NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName); 
 
 #endif

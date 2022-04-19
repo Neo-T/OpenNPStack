@@ -69,8 +69,32 @@ static void put_free_node(PST_NETIF_NODE pstNode)
     os_thread_mutex_unlock(l_hMtxNetif);    
 }
 
-PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr)
+PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr)
 {
+    //* 首先看看要添加的这个网络接口是否已添加到链表中，判断的依据是网络接口名称，如果存在同名网络接口则直接更新相关信息后直接返回TRUE
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        while (pstNextNode)
+        {
+            if (strcmp(pszIfName, pstNextNode->stIf.szName) == 0)
+            {
+                //* 更新网络接口相关信息
+                pstNextNode->stIf.enType   = enType;
+                pstNextNode->stIf.pfunSend = pfunSend;
+                pstNextNode->stIf.stIPv4   = *pstIPv4;
+                pstNextNode->stIf.pvExtra  = pvExtra;
+
+                os_thread_mutex_unlock(l_hMtxNetif);
+                return pstNextNode;
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    //* 没有找到同名网络接口，需要添加一个新的接口到链表
     PST_NETIF_NODE pstNode = get_free_node(); 
     if (NULL == pstNode)
     {
@@ -80,13 +104,13 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4,
         return NULL; 
     }
 
-    //* 保存网卡相关信息
+    //* 保存网络接口相关信息
     pstNode->stIf.enType     = enType;  
     pstNode->stIf.pfunSend   = pfunSend; 
     pstNode->stIf.stIPv4     = *pstIPv4; 
     pstNode->stIf.pvExtra    = pvExtra; 
     pstNode->stIf.bUsedCount = 0; 
-    snprintf(pstNode->stIf.szName, sizeof(pstNode->stIf.szName), "%s", pszName);
+    snprintf(pstNode->stIf.szName, sizeof(pstNode->stIf.szName), "%s", pszIfName);
 
     //* 加入链表
     os_thread_mutex_lock(l_hMtxNetif);
@@ -98,8 +122,8 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4,
 
 #if SUPPORT_PRINTF
     UCHAR *pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unAddr;
-    printf("%s added to the protocol stack\r\n", pstNode->stIf.szName);
-    printf("inet %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+    printf("<%s> added to the protocol stack\r\n", pstNode->stIf.szName);
+    printf("[inet %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
     pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unSubnetMask;
     printf(", netmask %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
     if (NIF_PPP == pstNode->stIf.enType)
@@ -115,7 +139,7 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4,
     pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unPrimaryDNS;
     printf(", Primary DNS %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
     pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unSecondaryDNS;
-    printf(", Secondary DNS %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+    printf(", Secondary DNS %d.%d.%d.%d]\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 #endif
 
     return pstNode; 
@@ -145,6 +169,18 @@ void netif_del(PST_NETIF_NODE pstNode)
     os_thread_mutex_unlock(l_hMtxNetif);
 
     put_free_node(pstNode); 
+}
+
+PST_NETIF netif_get_first(void)
+{
+    PST_NETIF_NODE pstNode = NULL;
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        pstNode = l_pstNetifLink;
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    return &pstNode->stIf; 
 }
 
 BOOL netif_is_ready(const CHAR *pszIfName)
