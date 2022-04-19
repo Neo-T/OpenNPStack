@@ -81,10 +81,11 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszName, PST_IPV4 pstIPv4,
     }
 
     //* 保存网卡相关信息
-    pstNode->stIf.enType   = enType;  
-    pstNode->stIf.pfunSend = pfunSend; 
-    pstNode->stIf.stIPv4   = *pstIPv4; 
-    pstNode->stIf.pvExtra  = pvExtra; 
+    pstNode->stIf.enType     = enType;  
+    pstNode->stIf.pfunSend   = pfunSend; 
+    pstNode->stIf.stIPv4     = *pstIPv4; 
+    pstNode->stIf.pvExtra    = pvExtra; 
+    pstNode->stIf.bUsedCount = 0; 
     snprintf(pstNode->stIf.szName, sizeof(pstNode->stIf.szName), "%s", pszName);
 
     //* 加入链表

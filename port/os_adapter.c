@@ -35,6 +35,13 @@ void os_sleep_secs(UINT unSecs)
 	/* …… */
 }
 
+//* 当前线程休眠指定的毫秒数，单位：毫秒 
+void os_sleep_ms(UINT unMSecs)
+{
+    /* 用户自定义代码 */
+    /* …… */
+}
+
 //* 获取系统启动以来已运行的秒数（从0开始）
 UINT os_get_system_secs(void)
 {

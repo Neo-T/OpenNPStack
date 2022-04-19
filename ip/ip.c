@@ -35,7 +35,7 @@ static USHORT l_usIPIdentifier = 0;
 
 INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    PST_NETIF pstNetif = route_get_netif(unDstAddr);
+    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE);
     if (NULL == pstNetif)
         return -1; 
 
@@ -74,6 +74,13 @@ INT ip_send(UINT unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufLi
 
     //* 完成发送
     INT nRtnVal = pstNetif->pfunSend(pstNetif, enProtocol, sBufListHead, penErr);
+
+    //* 使用计数减一
+    os_enter_critical();
+    {
+        pstNetif->bUsedCount--; 
+    }
+    os_exit_critical(); 
 
     //* 释放刚才申请的buf list节点
     buf_list_free(sHdrNode);

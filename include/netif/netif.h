@@ -38,10 +38,11 @@ typedef struct _ST_IPV4_ {
 } ST_IPV4, *PST_IPV4;
 
 //* 存储具体网卡信息的结构体
-#define NETIF_NAME_LEN 8    //* 网卡名称长度
+#define NETIF_NAME_LEN  7   //* 网卡名称长度
 typedef struct _ST_NETIF_ {
     EN_NETIF enType; 
     CHAR szName[NETIF_NAME_LEN];
+    CHAR bUsedCount; //* 使用计数
     PFUN_NETIF_SEND pfunSend; 
     ST_IPV4 stIPv4;
     void *pvExtra; //* 附加信息，不同的网卡类型需要携带某些特定的信息供上层业务逻辑使用，在这里使用该字段提供访问路径

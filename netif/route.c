@@ -170,7 +170,47 @@ void route_del(UINT unDestination)
         put_free_node(pstNode);
 }
 
-PST_NETIF route_get_netif(UINT unDestination)
+void route_del_ext(PST_NETIF pstNetif)
+{
+    PST_ROUTE_NODE pstNode = NULL;
+
+    //* 从路由表删除
+    os_thread_mutex_lock(l_hMtxRoute);
+    {
+        //* 等待网络接口使用计数清零，只有清零才可删除当前网络接口在路由表中的所有条目
+        while (pstNetif->bUsedCount)
+            os_sleep_ms(10);
+
+        PST_ROUTE_NODE pstNextNode = l_pstRouteLink;
+        PST_ROUTE_NODE pstPrevNode = NULL;
+        while (pstNextNode)
+        {
+            if (pstNextNode->stRoute.pstNetif == pstNetif)
+            {
+                if (pstPrevNode)                
+                    pstPrevNode->pstNext = pstNextNode->pstNext;                                    
+                else
+                    l_pstRouteLink = pstNextNode->pstNext;
+                pstNode = pstNextNode->pstNext;
+                 
+                //* 归还节点
+                pstNextNode->pstNext = l_pstFreeNode;
+                l_pstFreeNode = pstNextNode;
+
+                //* 继续查找，因为路由表中同一个网络接口可能存在一个以上的路由条目
+                pstNextNode = pstNode; 
+            }
+            else
+            {
+                pstPrevNode = pstNextNode;
+                pstNextNode = pstNextNode->pstNext;
+            }            
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxRoute);
+}
+
+PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending)
 {
     PST_NETIF pstNetif = NULL; 
     PST_NETIF pstDefaultNetif = NULL;
@@ -193,6 +233,15 @@ PST_NETIF route_get_netif(UINT unDestination)
 
             pstNextNode = pstNextNode->pstNext;
         }
+
+        //* 如果调用者调用该函数获取网络接口是用于发送，则需要对此进行计数，以确保使用期间该接口不会被删除
+        if (blIsForSending)
+        {
+            if (pstNetif)
+                pstNetif->bUsedCount++;
+            else
+                pstDefaultNetif->bUsedCount++;
+        }        
     }
     os_thread_mutex_unlock(l_hMtxRoute);
 
