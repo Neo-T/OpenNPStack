@@ -22,6 +22,11 @@ typedef struct _STCB_PSTACKTHREAD_ { //* 协议栈内部工作线程控制块，
 	void *pvParam; 
 } STCB_PSTACKTHREAD, *PSTCB_PSTACKTHREAD;
 extern STCB_PSTACKTHREAD o_stcbaPStackThread[];
+
+//* 解决多线程输出调试信息互相干扰的问题
+#if SUPPORT_PRINTF && PRINTF_THREAD_MUTEX
+extern HMUTEX o_hMtxPrintf;
+#endif
 //* ==============================================================================================
 
 //* 一些协议栈要用到的需要OS提供的支撑函数

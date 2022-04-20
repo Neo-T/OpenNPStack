@@ -60,8 +60,8 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		{
 			if (!lcp_send_conf_request(pstcbPPP, penErr)) //* 再发送一次lcp配置请求报文
 			{
-		#if SUPPORT_PRINTF
-				printf("lcp_send_conf_request() failed, %s\r\n", onps_error(*penErr)); 
+		#if SUPPORT_PRINTF            
+				printf("lcp_send_conf_request() failed, %s\r\n", onps_error(*penErr));             
 		#endif
 
 				pstcbPPP->enState = STACKFAULT;
@@ -85,8 +85,8 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 			}
 			else
 			{
-		#if SUPPORT_PRINTF
-				printf("pap_send_auth_request() failed, %s\r\n", onps_error(*penErr));
+		#if SUPPORT_PRINTF            
+				printf("pap_send_auth_request() failed, %s\r\n", onps_error(*penErr));            
 		#endif
 
 				pstcbPPP->enState = STACKFAULT;
@@ -94,8 +94,8 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		}
 		else
 		{
-		#if SUPPORT_PRINTF
-			printf("error: unrecognized authentication protocol\r\n");
+		#if SUPPORT_PRINTF        
+			printf("error: unrecognized authentication protocol\r\n");       
 		#endif
 			pstcbPPP->enState = STACKFAULT;
 		}
@@ -123,8 +123,8 @@ static void ppp_negotiate(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		}
 		else
 		{
-		#if SUPPORT_PRINTF
-			printf("ipcp_send_conf_request() failed, %s\r\n", onps_error(*penErr));
+		#if SUPPORT_PRINTF        
+			printf("ipcp_send_conf_request() failed, %s\r\n", onps_error(*penErr));        
 		#endif
 			pstcbPPP->enState = STACKFAULT;
 		}

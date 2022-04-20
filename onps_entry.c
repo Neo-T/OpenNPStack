@@ -2,6 +2,7 @@
 #include "onps.h"
 #undef SYMBOL_GLOBALS
 
+HMUTEX o_hMtxPrintf = INVALID_HMUTEX;
 BOOL open_npstack_load(EN_ONPSERR *penErr)
 {
     do {
@@ -10,6 +11,15 @@ BOOL open_npstack_load(EN_ONPSERR *penErr)
 
         if (!buf_list_init(penErr))
             break; 
+
+#if SUPPORT_PRINTF && PRINTF_THREAD_MUTEX
+        o_hMtxPrintf = os_thread_mutex_init();
+        if (INVALID_HMUTEX == o_hMtxPrintf)
+        {
+            *penErr = ERRMUTEXINITFAILED;
+            break;
+        }
+#endif
 
         if (!one_shot_timer_init(penErr))
             break; 
@@ -36,9 +46,13 @@ BOOL open_npstack_load(EN_ONPSERR *penErr)
 
     netif_uninit(); 
     onps_input_uninit(); 
+
+    if (INVALID_HMUTEX != o_hMtxPrintf)
+        os_thread_mutex_uninit(o_hMtxPrintf);
+
     buf_list_uninit(); 
     buddy_uninit(); 
-    one_shot_timer_uninit(); 
+    one_shot_timer_uninit();     
 
     return FALSE; 
 }
@@ -52,6 +66,10 @@ void open_npstack_unload(void)
     netif_uninit();    
     one_shot_timer_uninit();
     onps_input_uninit();
+
+    if (INVALID_HMUTEX != o_hMtxPrintf)
+        os_thread_mutex_uninit(o_hMtxPrintf);
+
     buf_list_uninit();
     buddy_uninit();    
 }

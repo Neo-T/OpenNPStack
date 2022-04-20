@@ -359,8 +359,14 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 
 #if SUPPORT_PRINTF
 	#if DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
         printf("sent %d bytes: \r\n", nRtnVal);
 	    printf_hex_ext(sBufListHead, 48); 
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 #endif
 
@@ -417,8 +423,14 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		//* 已经连续多次未收到对端应答，则断开PPP链路
 		if (pstcbPPP->stWaitAckList.ubTimeoutCount > WAIT_ACK_TIMEOUT_NUM)
 		{
-	#if SUPPORT_PRINTF			
+	#if SUPPORT_PRINTF	
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
 			printf("No response packet received from the peer, ppp stack will redial ...\r\n");
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 			goto __lblEnd; 
 		}
@@ -427,8 +439,14 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		nPacketLen = ppp_recv(nPPPIdx, penErr, 1);
 		if (nPacketLen < 0)
 		{			
-	#if SUPPORT_PRINTF			
+	#if SUPPORT_PRINTF	
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
 			printf("ppp_recv() failed, %s, ppp stack will redial ...\r\n", onps_error(*penErr));
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 			goto __lblEnd; 
 		}
@@ -468,9 +486,15 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 			}
 			else
 			{
-			#if SUPPORT_PRINTF			
+		#if SUPPORT_PRINTF		
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
 				printf("lcp_send_echo_request() failed, %s\r\n", onps_error(*penErr)); 
-			#endif
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+		#endif
 				os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
 				{                    
 					pstcbPPP->enState = STACKFAULT; 
@@ -483,8 +507,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		case WAITECHOREPLY:
 			if (pstcbPPP->stWaitAckList.ubIsTimeout || os_get_system_secs() - unLastSndEchoReq > 60) //* 意味着没收到应答报文
 				pstcbPPP->enState = SENDECHOREQ; //* 发送下一次echo request
-			else
-				os_sleep_secs(1);
+            else; 
 			break;
 
 		case SENDTERMREQ:
@@ -492,8 +515,14 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 				pstcbPPP->enState = WAITTERMACK;
 			else
 			{
-		#if SUPPORT_PRINTF			
+		#if SUPPORT_PRINTF	
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
 				printf("lcp_send_terminate_req() failed, %s\r\n", onps_error(*penErr));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
 		#endif
 				pstcbPPP->enState = STACKFAULT;
 			}
@@ -514,8 +543,14 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 
 		case STACKFAULT:
 		default:
-	#if SUPPORT_PRINTF			
+	#if SUPPORT_PRINTF	
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
 			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo, %s\r\n", onps_error(*penErr)); 
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 			l_blIsRunning = FALSE; 
 			break; 

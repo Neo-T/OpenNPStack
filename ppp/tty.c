@@ -81,7 +81,13 @@ static PSTCB_TTYIO get_io_control_block(HTTY hTTY, EN_ONPSERR *penErr)
 
 #if SUPPORT_PRINTF	
 	#if DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
 		printf("<%d> get_io_control_block() failed, %s\r\n", hTTY, onps_error(ERRTTYHANDLE));
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 #endif
 
@@ -114,8 +120,14 @@ __lblRcv:
 		{			
 	#if SUPPORT_PRINTF	
 		#if DEBUG_LEVEL
+            #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
 			printf("ppp frame delimiter not found, recv %d bytes:\r\n", pstcbIO->stRecv.nWriteIdx); 
 			printf_hex(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.nWriteIdx, 48);
+            #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
 		#endif
 	#endif
 			if (penErr)
@@ -127,9 +139,13 @@ __lblRcv:
 		return nRtnVal;
 	}
 
-	nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
-	if (nRcvBytes > 0)
-		pstcbIO->stRecv.nWriteIdx += nRcvBytes;
+    //* 只有没有数据了才需要再次读取，当前的逻辑是先处理完已经收到的报文
+    if (!pstcbIO->stRecv.nWriteIdx)
+    {
+        nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
+        if (nRcvBytes > 0)
+            pstcbIO->stRecv.nWriteIdx += nRcvBytes;
+    }	
 
 	for (; nReadIdx < pstcbIO->stRecv.nWriteIdx; nReadIdx++)
 	{
@@ -144,11 +160,17 @@ __lblRcv:
 				pstcbIO->stRecv.nWriteIdx = unRemainBytes;
 
 	#if SUPPORT_PRINTF	
-		#if DEBUG_LEVEL				
+		#if DEBUG_LEVEL	
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
 				printf("recv %d bytes: \r\n", nRecvBufLen);
 				printf_hex(pubRecvBuf, nRecvBufLen, 48);
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
 		#endif	
-	#endif			
+	#endif			                
 				return nRecvBufLen; 
 			}
 			else
@@ -208,7 +230,13 @@ __lblSend:
 
 #if SUPPORT_PRINTF	
 	#if DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
 		printf("<%d> os_tty_send() failed, %s\r\n", hTTY, onps_error(ERROSADAPTER));
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 #endif
 		return -1;
@@ -285,7 +313,13 @@ __lblEscape:
 
 #if SUPPORT_PRINTF	
 	#if DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
 		printf("<%d> os_tty_send() failed, %s\r\n", hTTY, onps_error(ERROSADAPTER));
+        #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
 	#endif
 #endif
 		return -1;

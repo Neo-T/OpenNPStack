@@ -19,7 +19,8 @@
  //* ===============================================================================================
 #define SUPPORT_PRINTF	1	//* 是否支持调用printf()输出相关调试或系统信息
 #if SUPPORT_PRINTF
-	#define DEBUG_LEVEL 1	//* 调试级别为0的话，则不输出原始报文，为1则输出
+    #define PRINTF_THREAD_MUTEX 1   //* 是否支持使用printf线程互斥锁，确保不同线程的调试输出信息不被互相干扰，值为1则支持互斥锁
+	#define DEBUG_LEVEL         1	//* 调试级别为0的话，则不输出原始报文，为1则输出
 #endif
 
 #define SUPPORT_PPP		1	//* 是否支持ppp模块：1，支持；0，不支持，如果选择支持，则系统会将ppp模块代码加入到协议栈中

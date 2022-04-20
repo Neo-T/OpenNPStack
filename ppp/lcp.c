@@ -428,7 +428,13 @@ static void echo_reply(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	unCpyBytes = unCpyBytes < sizeof(szData) - 1 ? unCpyBytes : sizeof(szData) - 1; 
 	memcpy(szData, pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR), unCpyBytes);
 	szData[unCpyBytes] = 0; 
-	printf(", Local Magic = <%08X>, Remote Magic = <%08X>, Data = \"%s\"]\r\n", pstReplyHdr->unLocalMagicNum, pstReplyHdr->unRemoteMagicNum, szData); 
+#if PRINTF_THREAD_MUTEX
+    os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+	printf("recv [Protocol LCP, Id = %02X, Code = 'Echo Reply', Local Magic = <%08X>, Remote Magic = <%08X>, Data = \"%s\"]\r\n", pstHdr->ubIdentifier, pstReplyHdr->unLocalMagicNum, pstReplyHdr->unRemoteMagicNum, szData);
+#if PRINTF_THREAD_MUTEX
+    os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
 #endif
 }
 
@@ -496,7 +502,13 @@ BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;	
 
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+    os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Echo Request', Magic = <%08X>, Data = \"%s\"]\r\n", ubIdentifier, pstcbPPP->pstNegoResult->stLCP.unMagicNum, ECHO_STRING);
+    #if PRINTF_THREAD_MUTEX
+    os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
 
 	//* 填充数据
@@ -514,7 +526,8 @@ void lcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 
 #if SUPPORT_PRINTF
-	printf("recv [Protocol LCP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_cpcode_name((EN_CPCODE)pstHdr->ubCode)); 
+    if(ECHOREP != pstHdr->ubCode)
+	    printf("recv [Protocol LCP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_cpcode_name((EN_CPCODE)pstHdr->ubCode)); 
 #endif
 
 	for (INT i = 0; i < CPCODE_NUM; i++)
@@ -527,7 +540,8 @@ void lcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 			}				
 	}
 #if SUPPORT_PRINTF
-	printf("]\r\n");
+    if (ECHOREP != pstHdr->ubCode)
+	    printf("]\r\n");
 #endif
 }
 

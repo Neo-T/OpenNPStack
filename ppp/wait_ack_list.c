@@ -14,8 +14,12 @@
 BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ONPSERR *penErr)
 {	
 	pstWAList->hMutex = os_thread_mutex_init();
-	if (INVALID_HMUTEX == pstWAList->hMutex)
-		return FALSE;
+    if (INVALID_HMUTEX == pstWAList->hMutex)
+    {
+        if(penErr)
+            *penErr = ERRMUTEXINITFAILED; 
+        return FALSE;
+    }
 	
 	pstWAList->pstHead = NULL;
 	pstWAList->ubTimeoutCount = 0;

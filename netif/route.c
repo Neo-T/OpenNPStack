@@ -88,6 +88,7 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
                 pstNextNode->stRoute.unGateway = unGateway;
                 pstNextNode->stRoute.unGenmask = unGenmask;
                 pstNextNode->stRoute.pstNetif = pstNetif; 
+                pstNextNode->stRoute.pstNetif->bUsedCount = 0; 
                 pstNode = pstNextNode;
                 goto __lblEnd;
             }
@@ -117,13 +118,17 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
     os_thread_mutex_lock(l_hMtxRoute);
     {
         pstNode->pstNext = l_pstRouteLink;
-        l_pstRouteLink = pstNode;
+        l_pstRouteLink = pstNode;        
     }
-    os_thread_mutex_unlock(l_hMtxRoute);
+    os_thread_mutex_unlock(l_hMtxRoute);   
+    pstNode->stRoute.pstNetif->bUsedCount = 0;
 
 __lblEnd: 
 #if SUPPORT_PRINTF
     pubAddr = (UCHAR *)&pstNode->stRoute.unDestination;
+#if PRINTF_THREAD_MUTEX
+    os_thread_mutex_lock(o_hMtxPrintf);
+#endif
     printf("Add network interface <%s> to routing table\r\n[", pstNode->stRoute.pstNetif->szName); 
     if (pstNode->stRoute.unDestination)
     {
@@ -135,6 +140,9 @@ __lblEnd:
     printf(", gateway %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);    
     pubAddr = (UCHAR *)&pstNode->stRoute.unGenmask;
     printf(", genmask %d.%d.%d.%d]\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+#if PRINTF_THREAD_MUTEX
+    os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
 #endif
 
     return TRUE;

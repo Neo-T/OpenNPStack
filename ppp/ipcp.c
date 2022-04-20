@@ -233,8 +233,8 @@ static void conf_nak(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 		pstcbPPP->enState = WAITIPCPCONFACK;
 	else
 	{
-#if SUPPORT_PRINTF
-		printf("ipcp_send_conf_request() failed, %s\r\n", onps_error(enErr));
+#if SUPPORT_PRINTF    
+		printf("ipcp_send_conf_request() failed, %s\r\n", onps_error(enErr));    
 #endif
 		pstcbPPP->enState = STACKFAULT;
 	}
@@ -257,9 +257,9 @@ static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 			{
 				nReadIdx += (INT)pubPacket[nReadIdx + 1];
 
-#if SUPPORT_PRINTF
+            #if SUPPORT_PRINTF
 				printf(", %s", lr_staConfReqItem[i].pszName);
-#endif
+            #endif
 			}
 		}
 	}

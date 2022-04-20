@@ -109,7 +109,7 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv
     pstNode->stIf.pfunSend   = pfunSend; 
     pstNode->stIf.stIPv4     = *pstIPv4; 
     pstNode->stIf.pvExtra    = pvExtra; 
-    pstNode->stIf.bUsedCount = 0; 
+    pstNode->stIf.bUsedCount = -1; 
     snprintf(pstNode->stIf.szName, sizeof(pstNode->stIf.szName), "%s", pszIfName);
 
     //* 加入链表
@@ -122,6 +122,9 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv
 
 #if SUPPORT_PRINTF
     UCHAR *pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unAddr;
+#if PRINTF_THREAD_MUTEX
+    os_thread_mutex_lock(o_hMtxPrintf);
+#endif
     printf("<%s> added to the protocol stack\r\n", pstNode->stIf.szName);
     printf("[inet %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
     pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unSubnetMask;
@@ -140,6 +143,9 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv
     printf(", Primary DNS %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
     pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unSecondaryDNS;
     printf(", Secondary DNS %d.%d.%d.%d]\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+#if PRINTF_THREAD_MUTEX
+    os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
 #endif
 
     return pstNode; 
@@ -191,8 +197,12 @@ BOOL netif_is_ready(const CHAR *pszIfName)
         while (pstNextNode)
         {
             if (strcmp(pszIfName, pstNextNode->stIf.szName) == 0)
-            {
+            {                
                 os_thread_mutex_unlock(l_hMtxNetif);
+
+                if (pstNextNode->stIf.bUsedCount < 0)
+                    return FALSE;
+
                 return TRUE; 
             }
 

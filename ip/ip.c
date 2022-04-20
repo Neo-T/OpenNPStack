@@ -99,7 +99,13 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("checksum error (%04X, %04X), and the IP packet will be dropped\r\n", usChecksum, usPktChecksum);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
         return; 
     }
@@ -112,7 +118,13 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
 
     default:
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("unsupported IP upper layer protocol (%d), the packet will be dropped\r\n", (UINT)pstHdr->ubProto);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
         break; 
     }

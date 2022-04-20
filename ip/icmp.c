@@ -61,7 +61,13 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     else
     {
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("onps_input_set() failed (the option is IOPT_SETICMPECHOID), %s\r\n", onps_error(*penErr)); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
     }
 
@@ -79,7 +85,13 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR u
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("The icmp echo request packet with ID %d is not found, the packet will be dropped\r\n", pstEchoHdr->usIdentifier);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
         return;
     }
@@ -89,7 +101,13 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR u
     if (!onps_input_set(nInput, IOPT_SETICMPECHOREPTTL, &ubTTL, &enErr))
     {
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("onps_input_set() failed (the option is IOPT_SETICMPECHOREPTTL), %s\r\n", onps_error(enErr)); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
     }
 
@@ -111,7 +129,13 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("checksum error (%04X, %04X), and the icmp packet will be dropped\r\n", usChecksum, usPktChecksum);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
         return;
     }
@@ -124,7 +148,13 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
 
     default:
 #if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
         printf("Unsupported icmp packet type (%d), and the packet will be dropped\r\n", (UINT)pstHdr->ubType); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
 #endif
         break;
     }
