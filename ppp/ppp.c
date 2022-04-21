@@ -347,13 +347,13 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 		buf_list_free(sPPPHeadNode);
 		return -1;
 	}
-	buf_list_put_tail(sBufListHead, sPPPTailNode);
+	buf_list_put_tail(sBufListHead, sPPPTailNode);  
 
 	//* 完成实际的发送
 	INT nRtnVal; 
 	os_thread_mutex_lock(l_haMtxTTY[nPPPIdx]);
-	{
-		nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErr);
+	{        
+		nRtnVal = tty_send_ext(hTTY, pstcbNetif->pstNegoResult->stLCP.unACCM, sBufListHead, penErr);    
 	}	
 	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
 

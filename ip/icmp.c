@@ -133,6 +133,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
         printf("checksum error (%04X, %04X), and the icmp packet will be dropped\r\n", usChecksum, usPktChecksum);
+        printf_hex(pubPacket, nPacketLen, 48);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif

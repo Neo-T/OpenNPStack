@@ -70,10 +70,10 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
     buf_list_put_head(&sBufListHead, sHdrNode);
 
     //* 计算校验和
-    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
-
+    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);       
+    
     //* 完成发送
-    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);           
 
     //* 使用计数减一
     os_enter_critical();
@@ -103,6 +103,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
         printf("checksum error (%04X, %04X), and the IP packet will be dropped\r\n", usChecksum, usPktChecksum);
+        printf_hex(pubPacket, nPacketLen, 48);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
