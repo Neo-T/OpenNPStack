@@ -27,5 +27,13 @@ typedef unsigned int BOOL;  //* bool型变量
 #define FALSE 	0
 #endif
 
+#ifndef s_addr  //* Internet address
+struct in_addr
+{
+    in_addr_t s_addr;
+};
+#define s_addr s_addr
+#endif
+
 #endif
 

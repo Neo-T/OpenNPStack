@@ -274,8 +274,9 @@ INT tty_send_ext(HTTY hTTY, UINT unACCM, SHORT sBufListHead, EN_ONPSERR *penErr)
 	pstcbIO->ubaSendBuf[0] = PPP_FLAG;	//* 链表第一个节点的首字符一定是帧首定界符
 
 __lblGetNextNode: 
-	if (NULL == (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))
+	if (NULL == (pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen)))            
 		return nDataLen; 	
+
 	if (nDataLen != 1) //* 不是第一个节点就需要判断是不是尾部节点
 	{
 		if (sNextNode < 0) //* 这就是尾部节点了

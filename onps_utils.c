@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "mmu/buf_list.h"
+#include "ip/ip_frame.h"
 
 #define SYMBOL_GLOBALS
 #include "onps_utils.h"
@@ -356,4 +357,43 @@ in_addr_t inet_addr(const char *pszIP)
     ((UCHAR *)&unAddr)[0] = (UCHAR)atoi(pszStart);
 
     return unAddr;
+}
+
+char *inet_ntoa(struct in_addr stInAddr)
+{
+    static char szAddr[20]; 
+    UCHAR *pubAddr = (UCHAR *)&stInAddr.s_addr;
+    sprintf(szAddr, "%d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+    return szAddr; 
+}
+
+char *inet_ntoa_safe(struct in_addr stInAddr, char *pszAddr)
+{
+    UCHAR *pubAddr = (UCHAR *)&stInAddr.s_addr;
+    sprintf(pszAddr, "%d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+    return pszAddr;
+}
+
+const CHAR *get_ip_proto_name(UCHAR ubProto)
+{
+    switch ((EN_IPPROTO)ubProto)
+    {
+    case IPPROTO_ICMP:
+        return "icmp"; 
+
+    case IPPROTO_IGMP:
+        return "igmp"; 
+
+    case IPPROTO_TCP:
+        return "tcp"; 
+
+    case IPPROTO_UDP: 
+        return "udp"; 
+
+    case IPPROTO_RAW:
+        return "raw ip"; 
+
+    default:
+        return "unsupported";
+    }
 }

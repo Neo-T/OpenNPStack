@@ -99,6 +99,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF
+        pstHdr->usChecksum = usPktChecksum;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif

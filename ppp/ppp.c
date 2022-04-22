@@ -437,19 +437,26 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 
 		//* 接收
 		nPacketLen = ppp_recv(nPPPIdx, penErr, 1);
-		if (nPacketLen < 0)
-		{			
-	#if SUPPORT_PRINTF	
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
+        if (nPacketLen > 0)
+        {            
+            unLastSndEchoReq = os_get_system_secs(); //* 记录接收到的最后一组报文时间，无论任何类型报文到达都清零echo发送计时，确保不重复发送echo报文
+        }
+        else
+        {
+            if (nPacketLen < 0)
+            {
+        #if SUPPORT_PRINTF	
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("ppp_recv() failed, %s, ppp stack will redial ...\r\n", onps_error(*penErr));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
         #endif
-			printf("ppp_recv() failed, %s, ppp stack will redial ...\r\n", onps_error(*penErr));
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-	#endif
-			goto __lblEnd; 
-		}
+                goto __lblEnd;
+            }
+        }		
 
 		switch (pstcbPPP->enState)
 		{
@@ -547,7 +554,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-			printf("error: the ppp stack has a serious failure and needs to be resolved by Neo, %s\r\n", onps_error(*penErr)); 
+			printf("error: the ppp stack has a serious fault and needs to be resolved by Neo, %s\r\n", onps_error(*penErr)); 
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif

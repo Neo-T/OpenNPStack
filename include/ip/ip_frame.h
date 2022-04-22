@@ -46,6 +46,4 @@ typedef struct _ST_IP_HDR_ {
 } PACKED ST_IP_HDR, *PST_IP_HDR;
 PACKED_END
 
-
-
 #endif

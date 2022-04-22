@@ -248,7 +248,10 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending)
             if (pstNetif)
                 pstNetif->bUsedCount++;
             else
-                pstDefaultNetif->bUsedCount++;
+            {
+                if(pstDefaultNetif)
+                    pstDefaultNetif->bUsedCount++; 
+            }
         }        
     }
     os_thread_mutex_unlock(l_hMtxRoute);

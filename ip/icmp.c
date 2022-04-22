@@ -10,6 +10,63 @@
 #include "ip/icmp.h"
 #undef SYMBOL_GLOBALS
 
+static const CHAR *get_destination_explanation(EN_ERRDST enDstCode)
+{
+    switch (enDstCode)
+    {
+    case NET_UNREACHABLE: 
+        return "Network unreachable"; 
+
+    case HOST_UNREACHABLE: 
+        return "Host unreachable"; 
+
+    case PROTO_UNREACHABLE: 
+        return "Protocol unreachable"; 
+
+    case PORT_UNREACHABLE: 
+        return "Port unreachable"; 
+
+    case NO_FRAGMENT: 
+        return "Fragmentation needed but no frag. bit set"; 
+
+    case SRCROUTE_FAILED:
+        return "Source routing failed"; 
+
+    case DSTNET_UNKNOWN: 
+        return "Destination network unknown"; 
+
+    case DSTHOST_UNKNOWN: 
+        return "Destination host unknown"; 
+
+    case SRCHOST_ISOLATED: 
+        return "Source host isolated (obsolete)"; 
+
+    case DSTNET_PROHIBITED: 
+        return "Destination network administratively prohibited"; 
+
+    case DSTHOST_PROHIBITED: 
+        return "Destination host administratively prohibited"; 
+
+    case TOS_NETUNREACHABLE: 
+        return "Network unreachable for TOS"; 
+
+    case TOS_HOST_UNREACHABLE: 
+        return "Host unreachable for TOS"; 
+
+    case COMMU_PROHIBITED: 
+        return "Communication administratively prohibited by filtering"; 
+
+    case HOST_PRECE_VIOLATION: 
+        return "Host precedence violation"; 
+
+    case PRECE_CUTOFF_EFFECT: 
+        return "Precedence cutoff in effect"; 
+
+    default:
+        return "Unrecognized"; 
+    }
+}
+
 static INT icmp_send(in_addr_t unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     //* 填充头部字段
@@ -118,6 +175,27 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR u
     os_thread_sem_post(hSem);
 }
 
+static void icmp_rcv_handler_errdst(UCHAR *pubPacket, INT nPacketLen)
+{
+    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)pubPacket; 
+    PST_IP_HDR pstIPHdr = (PST_IP_HDR)(pubPacket + sizeof(ST_ICMP_HDR) + 4); 
+    struct in_addr stSrcAddr, stDstAddr; 
+
+#if SUPPORT_PRINTF    
+    stSrcAddr.s_addr = pstIPHdr->unSrcIP;
+    stDstAddr.s_addr = pstIPHdr->unDestIP;
+    #if PRINTF_THREAD_MUTEX
+    os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+    
+    printf("%s, protocol %s, source %s, destination %s\r\n", get_destination_explanation((EN_ERRDST)pstIcmpHdr->ubCode), get_ip_proto_name(pstIPHdr->ubProto), inet_ntoa(stSrcAddr), inet_ntoa(stDstAddr));
+    
+    #if PRINTF_THREAD_MUTEX
+    os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+}
+
 void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
 {
     PST_ICMP_HDR pstHdr = (PST_ICMP_HDR)pubPacket; 
@@ -129,6 +207,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF
+        pstHdr->usChecksum = usPktChecksum;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -145,6 +224,10 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
     {
     case ICMP_ECHOREPLY: 
         icmp_rcv_handler_echoreply(pubPacket, nPacketLen, ubTTL); 
+        break; 
+
+    case ICMP_ERRDST:
+        icmp_rcv_handler_errdst(pubPacket, nPacketLen);
         break; 
 
     default:

@@ -186,7 +186,10 @@ PST_NETIF netif_get_first(void)
     }
     os_thread_mutex_unlock(l_hMtxNetif);
 
-    return &pstNode->stIf; 
+    if (pstNode)
+        return &pstNode->stIf;
+    else
+        return NULL; 
 }
 
 BOOL netif_is_ready(const CHAR *pszIfName)
