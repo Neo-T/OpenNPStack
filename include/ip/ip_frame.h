@@ -42,7 +42,7 @@ typedef struct _ST_IP_HDR_ {
     USHORT usChecksum;          //* IP checksum
 
     UINT unSrcIP;
-    UINT unDestIP;
+    UINT unDstIP;
 } PACKED ST_IP_HDR, *PST_IP_HDR;
 PACKED_END
 

@@ -60,7 +60,7 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
     stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
     stHdr.usChecksum = 0;
     stHdr.unSrcIP = pstNetif->stIPv4.unAddr; 
-    stHdr.unDestIP = htonl(unDstAddr); 
+    stHdr.unDstIP = htonl(unDstAddr); 
 
     //* 挂载到buf list头部
     SHORT sHdrNode;
@@ -115,7 +115,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     switch (pstHdr->ubProto)
     {
     case IPPROTO_ICMP: 
-        icmp_recv(pubPacket + sizeof(ST_IP_HDR), nPacketLen - sizeof(ST_IP_HDR), pstHdr->ubTTL);
+        icmp_recv(pubPacket, nPacketLen);
         break; 
 
     default:

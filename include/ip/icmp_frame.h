@@ -15,10 +15,11 @@ typedef enum {
     ICMP_ERRSRC         = 4,    //* 源主机/网络错误
     ICMP_ERRREDIRECT    = 5,    //* 重定向错误
     ICMP_ECHOREQ        = 8,    //* 回显请求 
-    ICMP_ERRROUTEADVERT = 9,    //* 路由器通告
-    ICMP_ERRROUTESOLIC  = 10,   //* 路由器请求
+    ICMP_ROUTEADVERT    = 9,    //* 路由器通告
+    ICMP_ROUTESOLIC     = 10,   //* 路由器请求
     ICMP_ERRTTL         = 11,   //* TTL错误
-    ICMP_ERRIP          = 12    //* IP帧错误
+    ICMP_ERRIP          = 12,   //* IP帧错误
+    ICMP_MAX            = 255
 } EN_ICMPTYPE;
 
 //* ICMP_ERRDST,目标网络/主机访问错误报文携带的具体错误值定义
@@ -54,16 +55,6 @@ typedef enum {
     TOSHOST_REDIRECT = 3,   //* Redirect for TOS and host，对服务类型和主机重定向
 } EN_ERRREDIRECT;
 
-//* ICMP_ERRROUTEADVERT,路由器通告错误报文携带的具体错误值定义
-typedef enum {
-    ROUTE_ADVERT = 0, //* Router advertisement, 路由器通告
-} EN_ERRROUTEADVERT;
-
-//* ICMP_ERRROUTESOLIC,路由器请求错误报文携带的具体错误值定义
-typedef enum {
-    ROUTE_SOLIC = 0, //* Route solicitation, 路由器请求
-} EN_ERRROUTESOLIC;
-
 //* ICMP_ERRTTL,TTL错误报文携带的具体错误值定义
 typedef enum {
     TRAN_TTL_ZERO     = 0,  //* TTL equals 0 during transit，传输期间生存时间为0
@@ -72,7 +63,7 @@ typedef enum {
 
 //* ICMP_ERRIP,IP帧错误报文携带的错误值定义
 typedef enum {
-    HDR_BAD      = 0,   //* IP header bad (catchall error)，坏的IP首部（包括各种差错）
+    HDR_BAD      = 0,   //* IP header bad (catch all error)，坏的IP首部（包括各种差错）
     OPTIONS_MISS = 1,   //* Required options missing，缺少必需的选项
 } EN_ERRIP;
 

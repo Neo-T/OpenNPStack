@@ -10,9 +10,10 @@
 #include "ip/icmp.h"
 #undef SYMBOL_GLOBALS
 
-static const CHAR *get_destination_explanation(EN_ERRDST enDstCode)
+ST_ICMP_REPORT_RESULT o_stLastReportResult = { ICMP_MAX };
+static const CHAR *get_icmp_errdest_description(EN_ERRDST enCode)
 {
-    switch (enDstCode)
+    switch (enCode)
     {
     case NET_UNREACHABLE: 
         return "Network unreachable"; 
@@ -64,6 +65,66 @@ static const CHAR *get_destination_explanation(EN_ERRDST enDstCode)
 
     default:
         return "Unrecognized"; 
+    }
+}
+
+static const CHAR *get_icmp_errredirect_description(EN_ERRREDIRECT enCode)
+{
+    switch (enCode)
+    {
+    case NET_REDIRECT: 
+        return "Redirect for network"; 
+
+    case HOST_REDIRECT:
+        return "Redirect for host"; 
+
+    case TOSNET_REDIRECT: 
+        return "Redirect for TOS and network"; 
+
+    case TOSHOST_REDIRECT: 
+        return "Redirect for TOS and host"; 
+
+    default:
+        return "Unrecognized";
+    }
+}
+
+const CHAR *icmp_get_description(UCHAR ubType, UCHAR ubCode)
+{
+    switch ((EN_ICMPTYPE)ubType)
+    {
+    case ICMP_ERRDST:
+        return get_icmp_errdest_description((EN_ERRDST)ubCode);
+
+    case ICMP_ERRSRC:
+        return "Source quench"; 
+
+    case ICMP_ERRREDIRECT:
+        return get_icmp_errredirect_description((EN_ERRREDIRECT)ubCode); 
+
+    case ICMP_ROUTEADVERT:
+        return "Router advertisement"; 
+
+    case ICMP_ROUTESOLIC:
+        return "Router solicitation"; 
+
+    case ICMP_ERRTTL:
+        if (ubCode)
+            return "TTL equals 0 during reassembly";
+        else
+            return "TTL equals 0 during transit"; 
+
+    case ICMP_ERRIP:
+        if (ubCode)
+            return "Required options missing";
+        else
+            return "IP header bad (catch all error)"; 
+
+    case ICMP_MAX:
+        return "no icmp report"; 
+
+    default:
+        return ""; 
     }
 }
 
@@ -135,6 +196,20 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     return nRtnVal; 
 }
 
+static void icmp_send_echo_reply(UCHAR *pubPacket, INT nPacketLen)
+{
+    PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket;
+    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + sizeof(ST_IP_HDR));
+    PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_IP_HDR) + sizeof(ST_ICMP_HDR));
+
+    //* 申请一个buf list节点
+    SHORT sBufListHead = -1;
+    SHORT sDataNode = buf_list_get_ext(pubData, (USHORT)unDataSize, penErr);
+    if (sDataNode < 0)
+        return -1;
+    buf_list_put_head(&sBufListHead, sDataNode); 
+}
+
 static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
 {
     PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));
@@ -175,20 +250,31 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR u
     os_thread_sem_post(hSem);
 }
 
-static void icmp_rcv_handler_errdst(UCHAR *pubPacket, INT nPacketLen)
+static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
 {
-    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)pubPacket; 
-    PST_IP_HDR pstIPHdr = (PST_IP_HDR)(pubPacket + sizeof(ST_ICMP_HDR) + 4); 
+    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + sizeof(ST_IP_HDR));
+    PST_IP_HDR pstIPHdr = (PST_IP_HDR)(pubPacket + sizeof(ST_IP_HDR) + sizeof(ST_ICMP_HDR) + 4);  //* icmp通知报文携带的ip首部
     struct in_addr stSrcAddr, stDstAddr; 
+
+    os_critical_init();
+    os_enter_critical();
+    {
+        o_stLastReportResult.ubType = pstIcmpHdr->ubType; 
+        o_stLastReportResult.ubCode = pstIcmpHdr->ubCode; 
+        o_stLastReportResult.ubProtocol = pstIPHdr->ubProto;
+        o_stLastReportResult.unSrcAddr = pstIPHdr->unSrcIP; 
+        o_stLastReportResult.unDstAddr = pstIPHdr->unDstIP; 
+    }
+    os_exit_critical();
 
 #if SUPPORT_PRINTF    
     stSrcAddr.s_addr = pstIPHdr->unSrcIP;
-    stDstAddr.s_addr = pstIPHdr->unDestIP;
+    stDstAddr.s_addr = pstIPHdr->unDstIP;
     #if PRINTF_THREAD_MUTEX
     os_thread_mutex_lock(o_hMtxPrintf);
     #endif
     
-    printf("%s, protocol %s, source %s, destination %s\r\n", get_destination_explanation((EN_ERRDST)pstIcmpHdr->ubCode), get_ip_proto_name(pstIPHdr->ubProto), inet_ntoa(stSrcAddr), inet_ntoa(stDstAddr));
+    printf("%s, protocol %s, source %s, destination %s\r\n", icmp_get_description(pstIcmpHdr->ubType, pstIcmpHdr->ubCode), get_ip_proto_name(pstIPHdr->ubProto), inet_ntoa(stSrcAddr), inet_ntoa(stDstAddr));
     
     #if PRINTF_THREAD_MUTEX
     os_thread_mutex_unlock(o_hMtxPrintf);
@@ -196,18 +282,19 @@ static void icmp_rcv_handler_errdst(UCHAR *pubPacket, INT nPacketLen)
 #endif
 }
 
-void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
+void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
 {
-    PST_ICMP_HDR pstHdr = (PST_ICMP_HDR)pubPacket; 
+    PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket; 
+    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + sizeof(ST_IP_HDR)); 
 
     //* 先看看校验和是否正确
-    USHORT usPktChecksum = pstHdr->usChecksum;
-    pstHdr->usChecksum = 0;
-    USHORT usChecksum = tcpip_checksum((USHORT *)pubPacket, nPacketLen);
+    USHORT usPktChecksum = pstIcmpHdr->usChecksum;
+    pstIcmpHdr->usChecksum = 0;
+    USHORT usChecksum = tcpip_checksum((USHORT *)pstIcmpHdr, nPacketLen - sizeof(ST_IP_HDR));
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF
-        pstHdr->usChecksum = usPktChecksum;
+        pstIcmpHdr->usChecksum = usPktChecksum;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -220,14 +307,22 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
         return;
     }
 
-    switch ((EN_ICMPTYPE)pstHdr->ubType)
+    switch ((EN_ICMPTYPE)pstIcmpHdr->ubType)
     {
     case ICMP_ECHOREPLY: 
-        icmp_rcv_handler_echoreply(pubPacket, nPacketLen, ubTTL); 
+        icmp_rcv_handler_echoreply(pubPacket, nPacketLen, pstIpHdr->ubTTL);
+        break; 
+
+    case ICMP_ECHOREQ:
+        icmp_send_echo_reply(pubPacket, nPacketLen);
         break; 
 
     case ICMP_ERRDST:
-        icmp_rcv_handler_errdst(pubPacket, nPacketLen);
+    case ICMP_ERRSRC:
+    case ICMP_ERRREDIRECT:
+    case ICMP_ERRTTL:
+    case ICMP_ERRIP:
+        icmp_rcv_handler_err(pubPacket, nPacketLen);
         break; 
 
     default:
@@ -235,11 +330,22 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("Unsupported icmp packet type (%d), and the packet will be dropped\r\n", (UINT)pstHdr->ubType); 
+        printf("Unsupported icmp packet type (%d), and the packet will be dropped\r\n", (UINT)pstIcmpHdr->ubType); 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
 #endif
         break;
     }
+}
+
+void icmp_get_last_report(PST_ICMP_REPORT_RESULT pstResult)
+{
+    os_critical_init(); 
+
+    os_enter_critical();
+    {
+        *pstResult = o_stLastReportResult; 
+    }
+    os_exit_critical(); 
 }
