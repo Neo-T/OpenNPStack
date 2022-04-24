@@ -20,8 +20,6 @@
 typedef enum {
     IOPT_RCVBUFSIZE = 0,        //* 设置接收缓冲区大小
     IOPT_SETICMPECHOID,         //* 设置icmp echo请求ID
-    IOPT_SETICMPECHOREPTTL,     //* 设置icmp echo应答报文携带的TTL值
-    IOPT_GETICMPECHOREPTTL,     //* 读取icmp echo应答报文携带的TTL值
     IOPT_SETIP,                 //* 地址IP地址
     IOPT_SETPORT,               //* 设置端口    
 } ONPSIOPT;
@@ -34,6 +32,6 @@ ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *p
 ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes);
-ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, INT nWaitSecs); 
+ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
 
 #endif

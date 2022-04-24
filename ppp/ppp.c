@@ -302,7 +302,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 		if(penErr)
 			*penErr = ERRTTYHANDLE; 
 		return -1; 
-	}
+	}    
 
 	//* 填充首部数据
 	UCHAR ubHead[sizeof(ST_PPP_HDR)] = { PPP_FLAG } ;
@@ -378,7 +378,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 }
 
 static INT netif_send(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
-{
+{    
     HTTY hTTY = *((HTTY *)pstIf->pvExtra);
     return ppp_send(hTTY, enProtocol, sBufListHead, penErr);
 }

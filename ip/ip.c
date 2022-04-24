@@ -67,13 +67,13 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IP_HDR), penErr);
     if (sHdrNode < 0)
         return -1;
-    buf_list_put_head(&sBufListHead, sHdrNode);
+    buf_list_put_head(&sBufListHead, sHdrNode);    
 
     //* 计算校验和
-    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);       
+    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);           
     
     //* 完成发送
-    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);           
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);       
 
     //* 使用计数减一
     os_enter_critical();
@@ -91,6 +91,7 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
 void ip_recv(UCHAR *pubPacket, INT nPacketLen)
 {
     PST_IP_HDR pstHdr = (PST_IP_HDR)pubPacket;
+    UCHAR usHdrLen = pstHdr->bitHdrLen * 4;
 
     //* 首先看看校验和是否正确
     USHORT usPktChecksum = pstHdr->usChecksum;

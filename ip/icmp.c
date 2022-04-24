@@ -170,7 +170,7 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     sHdrNode = buf_list_get_ext((UCHAR *)&stEchoHdr, (USHORT)sizeof(ST_ICMP_ECHO_HDR), penErr);
     if (sHdrNode < 0)
         return -1;
-    buf_list_put_head(&sBufListHead, sHdrNode);
+    buf_list_put_head(&sBufListHead, sHdrNode);    
 
     //* 记录echo identifier，以便区分echo应答报文
     INT nRtnVal;    
@@ -198,21 +198,62 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
 
 static void icmp_send_echo_reply(UCHAR *pubPacket, INT nPacketLen)
 {
-    PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket;
-    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + sizeof(ST_IP_HDR));
-    PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_IP_HDR) + sizeof(ST_ICMP_HDR));
+    EN_ONPSERR enErr; 
+    PST_IP_HDR pstReqIpHdr = (PST_IP_HDR)pubPacket;
+    UCHAR usIpHdrLen = pstReqIpHdr->bitHdrLen * 4; 
+    PST_ICMP_ECHO_HDR pstReqEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + usIpHdrLen + sizeof(ST_ICMP_HDR));
+
+    //* 封装echo reply报文
+    UCHAR ubData[100];
+    PST_ICMP_ECHO_HDR pstRepRchoHdr = (PST_ICMP_ECHO_HDR)ubData; 
+    pstRepRchoHdr->usIdentifier = pstReqEchoHdr->usIdentifier; 
+    pstRepRchoHdr->usSeqNum = pstReqEchoHdr->usSeqNum; 
+    USHORT usEchoDataLen = pstReqIpHdr->usPacketLen - usIpHdrLen - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR);
+    USHORT usCpyBytes = usEchoDataLen < sizeof(ubData) - sizeof(ST_ICMP_ECHO_HDR) ? usEchoDataLen : sizeof(ubData) - sizeof(ST_ICMP_ECHO_HDR); 
+    memcpy(&ubData[sizeof(ST_ICMP_ECHO_HDR)], pubPacket + usIpHdrLen + sizeof(ST_ICMP_HDR) + sizeof(ST_ICMP_ECHO_HDR), usCpyBytes); 
 
     //* 申请一个buf list节点
     SHORT sBufListHead = -1;
-    SHORT sDataNode = buf_list_get_ext(pubData, (USHORT)unDataSize, penErr);
+    SHORT sDataNode = buf_list_get_ext(ubData, (USHORT)(usCpyBytes + sizeof(ST_ICMP_ECHO_HDR)), &enErr);
     if (sDataNode < 0)
-        return -1;
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("icmp_send_echo_reply() failed, %s\r\n", onps_error(enErr)); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+
+        return; 
+    }
     buf_list_put_head(&sBufListHead, sDataNode); 
+
+    //* 发送数据
+    if (!icmp_send(htonl(pstReqIpHdr->unSrcIP), ICMP_ECHOREPLY, 0, IP_TTL_DEFAULT, sBufListHead, &enErr))
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("icmp_send_echo_reply() failed, %s\r\n", onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }      
+
+    //* 释放刚才申请的buf list节点
+    buf_list_free(sDataNode);
 }
 
-static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR ubTTL)
+static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
 {
-    PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));
+    PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket;
+    UCHAR usIpHdrLen = pstIpHdr->bitHdrLen * 4;
+    PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + usIpHdrLen + sizeof(ST_ICMP_HDR));
     INT nInput = onps_input_get_icmp(pstEchoHdr->usIdentifier);
     if (nInput < 0)
     {
@@ -229,31 +270,19 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen, UCHAR u
     }
 
     //* 将数据搬运到用户的接收缓冲区，然后发送一个信号量通知用户数据已到达
-    EN_ONPSERR enErr; 
-    if (!onps_input_set(nInput, IOPT_SETICMPECHOREPTTL, &ubTTL, &enErr))
-    {
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("onps_input_set() failed (the option is IOPT_SETICMPECHOREPTTL), %s\r\n", onps_error(enErr)); 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-    }
-
     HSEM hSem;
-    UINT unRcvedBytes = nPacketLen - sizeof(ST_ICMP_HDR);
+    UINT unRcvedBytes = (UINT)nPacketLen;
     UCHAR *pubRcvBuf = onps_input_get_rcv_buf(nInput, &hSem, &unRcvedBytes);
-    memcpy(pubRcvBuf, pubPacket + sizeof(ST_ICMP_HDR), unRcvedBytes);
+    memcpy(pubRcvBuf, pubPacket, unRcvedBytes);
     os_thread_sem_post(hSem);
 }
 
 static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
 {
-    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + sizeof(ST_IP_HDR));
-    PST_IP_HDR pstIPHdr = (PST_IP_HDR)(pubPacket + sizeof(ST_IP_HDR) + sizeof(ST_ICMP_HDR) + 4);  //* icmp通知报文携带的ip首部
+    PST_IP_HDR pstReqIpHdr = (PST_IP_HDR)pubPacket; 
+    UCHAR usReqIpHdrLen = pstReqIpHdr->bitHdrLen * 4;
+    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + usReqIpHdrLen);
+    PST_IP_HDR pstErrIpHdr = (PST_IP_HDR)(pubPacket + usReqIpHdrLen + sizeof(ST_ICMP_HDR) + 4);  //* icmp通知报文携带的ip首部
     struct in_addr stSrcAddr, stDstAddr; 
 
     os_critical_init();
@@ -261,20 +290,20 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
     {
         o_stLastReportResult.ubType = pstIcmpHdr->ubType; 
         o_stLastReportResult.ubCode = pstIcmpHdr->ubCode; 
-        o_stLastReportResult.ubProtocol = pstIPHdr->ubProto;
-        o_stLastReportResult.unSrcAddr = pstIPHdr->unSrcIP; 
-        o_stLastReportResult.unDstAddr = pstIPHdr->unDstIP; 
+        o_stLastReportResult.ubProtocol = pstErrIpHdr->ubProto;
+        o_stLastReportResult.unSrcAddr = pstErrIpHdr->unSrcIP; 
+        o_stLastReportResult.unDstAddr = pstErrIpHdr->unDstIP; 
     }
     os_exit_critical();
 
 #if SUPPORT_PRINTF    
-    stSrcAddr.s_addr = pstIPHdr->unSrcIP;
-    stDstAddr.s_addr = pstIPHdr->unDstIP;
+    stSrcAddr.s_addr = pstErrIpHdr->unSrcIP;
+    stDstAddr.s_addr = pstErrIpHdr->unDstIP;
     #if PRINTF_THREAD_MUTEX
     os_thread_mutex_lock(o_hMtxPrintf);
     #endif
     
-    printf("%s, protocol %s, source %s, destination %s\r\n", icmp_get_description(pstIcmpHdr->ubType, pstIcmpHdr->ubCode), get_ip_proto_name(pstIPHdr->ubProto), inet_ntoa(stSrcAddr), inet_ntoa(stDstAddr));
+    printf("%s, protocol %s, source %s, destination %s\r\n", icmp_get_description(pstIcmpHdr->ubType, pstIcmpHdr->ubCode), get_ip_proto_name(pstErrIpHdr->ubProto), inet_ntoa(stSrcAddr), inet_ntoa(stDstAddr));
     
     #if PRINTF_THREAD_MUTEX
     os_thread_mutex_unlock(o_hMtxPrintf);
@@ -285,7 +314,8 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
 void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
 {
     PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket; 
-    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + sizeof(ST_IP_HDR)); 
+    UCHAR usIpHdrLen = pstIpHdr->bitHdrLen * 4;
+    PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + usIpHdrLen);
 
     //* 先看看校验和是否正确
     USHORT usPktChecksum = pstIcmpHdr->usChecksum;
@@ -310,7 +340,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
     switch ((EN_ICMPTYPE)pstIcmpHdr->ubType)
     {
     case ICMP_ECHOREPLY: 
-        icmp_rcv_handler_echoreply(pubPacket, nPacketLen, pstIpHdr->ubTTL);
+        icmp_rcv_handler_echoreply(pubPacket, nPacketLen);
         break; 
 
     case ICMP_ECHOREQ:

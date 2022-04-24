@@ -18,7 +18,6 @@ typedef struct _STCB_ONPS_INPUT_ {
     union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
         struct {
             USHORT usIdentifier;
-            UCHAR ubTTL; 
         } stIcmp; //* icmp层句柄
 
         struct {
@@ -242,17 +241,6 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSE
         }
         break;
 
-    case IOPT_SETICMPECHOREPTTL:
-        if (pstcbInput->ubIPProto == IPPROTO_ICMP)
-            pstcbInput->uniHandle.stIcmp.ubTTL = *((UCHAR *)pvVal);
-        else
-        {
-            if (penErr)
-                *penErr = ERRIPROTOMATCH;
-            return FALSE;
-        }
-        break;
-
     case IOPT_SETIP:
         if (pstcbInput->ubIPProto == IPPROTO_TCP)        
             pstcbInput->uniHandle.stTcp.unIP = *((UINT *)pvVal); 
@@ -280,17 +268,6 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
     {
-    case IOPT_GETICMPECHOREPTTL:
-        if (pstcbInput->ubIPProto == IPPROTO_ICMP)
-            *((UCHAR *)pvVal) = pstcbInput->uniHandle.stIcmp.ubTTL; 
-        else
-        {
-            if (penErr)
-                *penErr = ERRIPROTOMATCH;
-            return FALSE;
-        }
-        break; 
-
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT;
@@ -334,12 +311,17 @@ UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes)
     return l_stcbaInput[nInput].pubRcvBuf; 
 }
 
-INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, INT nWaitSecs)
+INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
 {
     //* 超时，没有收到任何数据
     if (os_thread_sem_pend(l_stcbaInput[nInput].hSem, nWaitSecs) < 0)
         return 0; 
 
-    *ppubPacket = l_stcbaInput[nInput].pubRcvBuf; 
-    return (INT)l_stcbaInput[nInput].unRcvedBytes; 
+    //* 报文继续上报给上层调用者
+    PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
+    UCHAR usIpHdrLen = pstHdr->bitHdrLen * 4;
+    *punSrcAddr = pstHdr->unSrcIP;
+    *pubTTL = pstHdr->ubTTL; 
+    *ppubPacket = l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen;
+    return (INT)l_stcbaInput[nInput].unRcvedBytes - usIpHdrLen;
 }
