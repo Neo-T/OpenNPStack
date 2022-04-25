@@ -347,6 +347,20 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
         icmp_send_echo_reply(pubPacket, nPacketLen);
         break; 
 
+    case ICMP_ROUTEADVERT:
+    case ICMP_ROUTESOLIC:
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("The protocol stack doesn't support router solicitation and advertisement packets, and the packet will be dropped\r\n");
+        printf_hex(pubPacket, nPacketLen, 48);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        break; 
+
     case ICMP_ERRDST:
     case ICMP_ERRSRC:
     case ICMP_ERRREDIRECT:
