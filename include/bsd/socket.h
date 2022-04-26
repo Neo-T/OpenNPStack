@@ -27,6 +27,7 @@ typedef INT SOCKET;         //* socket句柄
 #define SOCK_DGRAM  2   //* UDP, datagram (conn.less) socket
 
 //* 参数family仅支持AF_INET，其它不支持，type仅支持SOCK_STREAM、SOCK_DGRAM两种协议，protocol固定为0
-SOCKET_EXT int socket(int family, int type, int protocol); 
+SOCKET_EXT SOCKET socket(int family, int type, int protocol); 
+SOCKET_EXT void close_socket(SOCKET hSocket);
 
 #endif

@@ -10,7 +10,7 @@
 #include "bsd/socket.h"
 #undef SYMBOL_GLOBALS
 
-int socket(int family, int type, int protocol)
+SOCKET socket(int family, int type, int protocol)
 {
     if (AF_INET != family)
     {
@@ -57,5 +57,10 @@ int socket(int family, int type, int protocol)
 
     onps_set_last_error(enErr); 
 
-    return (int)nInput; 
+    return (SOCKET)nInput; 
+}
+
+void close_socket(SOCKET hSocket)
+{
+    onps_input_free(hSocket); 
 }
