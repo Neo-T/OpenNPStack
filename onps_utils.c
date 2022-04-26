@@ -2,6 +2,7 @@
 #include "onps_errors.h"
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
+#include "port/os_adapter.h"
 #include "mmu/buf_list.h"
 #include "ip/ip_frame.h"
 
@@ -397,3 +398,4 @@ const CHAR *get_ip_proto_name(UCHAR ubProto)
         return "unsupported";
     }
 }
+

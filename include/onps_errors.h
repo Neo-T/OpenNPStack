@@ -42,6 +42,7 @@ typedef enum {
     ERRUNSUPPIOPT,      //* 不支持的配置项
     ERRIPROTOMATCH,     //* 协议匹配错误
     ERRNOROUTENODE,     //* 无可用的路由表单元
+    ERRSOCKETTYPE,      //* 不被支持的socket类型
 } EN_ONPSERR;
 
 typedef struct _ST_ONPSERR_ {
@@ -50,5 +51,7 @@ typedef struct _ST_ONPSERR_ {
 } ST_ONPSERR, *PST_ONPSERR;
 
 ONPS_ERRORS_EXT const CHAR *onps_error(EN_ONPSERR enErr);
+ONPS_ERRORS_EXT const CHAR *onps_get_last_error(EN_ONPSERR *penErr);
+ONPS_ERRORS_EXT void onps_set_last_error(EN_ONPSERR enErr);
 
 #endif
