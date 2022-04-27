@@ -60,7 +60,12 @@ SOCKET socket(int family, int type, int protocol)
     return (SOCKET)nInput; 
 }
 
-void close_socket(SOCKET hSocket)
+void close(SOCKET socket)
 {
-    onps_input_free(hSocket); 
+    onps_input_free(socket); 
+}
+
+int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port)
+{
+    return 0; 
 }

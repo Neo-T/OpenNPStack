@@ -18,10 +18,10 @@
 
 //* 协议栈支持的输入控制块相关配置项定义
 typedef enum {
-    IOPT_RCVBUFSIZE = 0,        //* 设置接收缓冲区大小
-    IOPT_SETICMPECHOID,         //* 设置icmp echo请求ID
-    IOPT_SETIP,                 //* 地址IP地址
-    IOPT_SETPORT,               //* 设置端口    
+    IOPT_RCVBUFSIZE = 0,    //* 设置接收缓冲区大小
+    IOPT_SETICMPECHOID,     //* 设置icmp echo请求ID
+    IOPT_SETIP,             //* 地址IP地址
+    IOPT_SETPORT,           //* 设置端口    
 } ONPSIOPT;
 
 ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初始化

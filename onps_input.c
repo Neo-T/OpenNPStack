@@ -5,10 +5,10 @@
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"
 #include "onps_utils.h"
-
 #define SYMBOL_GLOBALS
 #include "onps_input.h"
 #undef SYMBOL_GLOBALS
+#include "ip/tcp.h"
 
 //* 协议栈icmp/tcp/udp层接收处理节点
 typedef struct _STCB_ONPS_INPUT_ {
@@ -23,6 +23,7 @@ typedef struct _STCB_ONPS_INPUT_ {
         struct {
             USHORT usPort;
             UINT unIP;
+            CHAR bLinkState;  //* 当前链路状态
         } stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
 
         struct {
@@ -154,6 +155,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         {
             pstcbInput->uniHandle.stTcp.unIP = 0;
             pstcbInput->uniHandle.stTcp.usPort = 0; 
+            pstcbInput->uniHandle.stTcp.bLinkState = (CHAR)TCSINVALID;
         }
         else if (IPPROTO_UDP == enProtocol)
         {
