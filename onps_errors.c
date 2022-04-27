@@ -29,15 +29,16 @@ static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
     { ERRNONETIFNODE, "no netif nodes available" }, 
-    { ERRINPUTOVERFLOW, "Handle/Input overflow" }
+    { ERRINPUTOVERFLOW, "Handle/Input overflow" }, 
     { ERRUNSUPPIPPROTO, "Unsupported ip upper layer protocol" }, 
     { ERRUNSUPPIOPT, "Unsupported control options" }, 
     { ERRIPROTOMATCH, "Protocol match error" }, 
     { ERRNOROUTENODE, "no route nodes available" }, 
     { ERRSOCKETTYPE, "Unsupported socket type" }, 
-    { ERRNOTTCP, "Non-TCP can't get/set tcp link state" }, 
+    { ERRTCSNONTCP, "Non-TCP can't get/set tcp link state" },
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
     { ERRTCPCONNRESET, "tcp connection reset" }, 
+    { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

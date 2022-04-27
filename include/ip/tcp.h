@@ -17,29 +17,25 @@
 #include "tcp_frame.h"
 
 typedef enum {
-    TCSINVALID, //* 状态尚未设置
+    TLSINIT, //* TCP链路初始状态
 
     //* 以下为Socket被用于TCP Client时的状态定义
-    TCSCLIENTINIT = 0,      //* 链路初始状态,
-    TCSSYNSENT,             //* 发送SYN请求
-    TCSSYNSENTFAILED,       //* 发送SYN报文失败
-    TCSRCVEDSYNACK,         //* 收到SYN ACK
-    TCSRCVSYNACKTIMEOUT,    //* 等待接收SYN ACK报文超时
-    TCSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
-    TCSCONNECTED,           //* 已连接
-    TCSRESET,               //* 连接被重置
-    TCSFINSENT,             //* FIN已发送
-    TCSRCVEDFINACK,         //* 收到FIN ACK
-    TCSCLOSED,              //* 已关闭    
+    TLSSYNSENT,             //* 发送SYN请求
+    TLSRCVEDSYNACK,         //* 收到SYN ACK
+    TLSRCVSYNACKTIMEOUT,    //* 等待接收SYN ACK报文超时
+    TLSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
+    TLSCONNECTED,           //* 已连接
+    TLSRESET,               //* 连接被重置
+    TLSFINSENT,             //* FIN已发送
+    TLSRCVEDFINACK,         //* 收到FIN ACK
+    TLSCLOSED,              //* 已关闭    
 
     //* 以下为Socket被用于TCP Server时的状态定义
-    TCSSRVINIT,     //* TCP Srv初始状态
-    TCSSRVSTARTED,  //* TCP Server已启动
-    TCSSRVDOWN,     //* TCP Server已关闭
-} EN_TCPCONNSTATE;
+    TLSSRVSTARTED,  //* TCP Server已启动
+    TLSSRVDOWN,     //* TCP Server已关闭
+} EN_TCPLINKSTATE;
 
 TCP_EXT INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort);
-TCP_EXT INT tcp_connect(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort);
 
 
 #endif

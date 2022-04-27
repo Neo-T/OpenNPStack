@@ -44,9 +44,10 @@ typedef enum {
     ERRIPROTOMATCH,     //* 协议匹配错误
     ERRNOROUTENODE,     //* 无可用的路由表单元
     ERRSOCKETTYPE,      //* 不被支持的socket类型
-    ERRNOTTCP,          //* 并不是TCP协议
+    ERRTCSNONTCP,       //* 非TCP协议不能获取、设置TCP链路状态
     ERRTCPCONNTIMEOUT,  //* TCP连接超时
     ERRTCPCONNRESET,    //* TCP连接已被重置
+    ERRINVALIDSEM,      //* 无效的信号量
     ERRUNKNOWN,         //* 未知错误
 } EN_ONPSERR;
 

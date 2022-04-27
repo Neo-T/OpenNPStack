@@ -10,8 +10,8 @@
 #include "ip/tcp.h"
 #undef SYMBOL_GLOBALS
 
-INT tcp_connect(INT nInput, UINT unSrvAddr, USHORT usSrvPort)
+INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
 {
-
+    return -1; 
 }
 

@@ -68,9 +68,18 @@ void close(SOCKET socket)
 
 static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {
-    HSEM hSem = onps_input_get_semaphore((INT)socket);
+    EN_ONPSERR enErr;
+    HSEM hSem = INVALID_HSEM;
+    if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
+    }
     if (INVALID_HSEM == hSem)
-        return -1; 
+    {
+        onps_set_last_error((INT)socket, ERRINVALIDSEM);
+        return -1;
+    }
 
     INT nRtnVal;
     if ((nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port)) > 0)
@@ -83,22 +92,27 @@ static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short 
         }
         else
         {
-            EN_TCPCONNSTATE enState = onps_input_get_tcp_link_state((INT)socket);
-            switch (enState)
+            EN_TCPLINKSTATE enLinkState; 
+            if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
             {
-            case TCSCONNECTED:
+                onps_set_last_error((INT)socket, enErr);
+                return -1;
+            }
+
+            switch (enLinkState)
+            {
+            case TLSCONNECTED:
                 return 0; 
 
-            case TCSRCVSYNACKTIMEOUT: 
+            case TLSRCVSYNACKTIMEOUT: 
                 onps_set_last_error((INT)socket, ERRTCPCONNTIMEOUT);
                 return -1; 
 
-            case TCSRESET:
+            case TLSRESET:
                 onps_set_last_error((INT)socket, ERRTCPCONNRESET);
                 return -1;
-
-            case TCSSYNSENTFAILED:  
-            case TCSSYNACKACKSENTFAILED:
+ 
+            case TLSSYNACKACKSENTFAILED:
                 return -1; 
 
             default:
@@ -108,16 +122,22 @@ static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short 
         }
     }
     else
-    {
-        return -1; 
-    }   
+        return -1;   
 }
 
 int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {
+    EN_ONPSERR enErr; 
+    EN_IPPROTO enProto; 
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1; 
+    }
+
     onps_set_last_error((INT)socket, ERRNO);
 
-    switch ((EN_IPPROTO)onps_input_get_ipproto((INT)socket))
+    switch (enProto)
     {
     case IPPROTO_TCP: 
         return socket_tcp_connect(socket, srv_ip, srv_port, nConnTimeout);         
@@ -128,46 +148,65 @@ int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nCon
     }
 }
 
-static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port)
+static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
 {
-
-
-    EN_TCPCONNSTATE enState = onps_input_get_tcp_link_state((INT)socket); 
-    switch (enState)
+    switch (enLinkState)
     {
-        case 
+    case TLSINIT: 
+        INT nRtnVal;
+        if ((nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port)) > 0)
+            return 1; 
+        else        
+            return -1;         
+        break; 
 
-    case TCSCONNECTED:
+    case TLSSYNSENT:
+    case TLSRCVEDSYNACK: 
+        return 1; 
+
+    case TLSCONNECTED:
         return 0;
 
-    case TCSRCVSYNACKTIMEOUT:
+    case TLSRCVSYNACKTIMEOUT:
         onps_set_last_error((INT)socket, ERRTCPCONNTIMEOUT);
         return -1;
 
-    case TCSRESET:
+    case TLSRESET:
         onps_set_last_error((INT)socket, ERRTCPCONNRESET);
         return -1;
-
-    case TCSSYNSENTFAILED:
-    case TCSSYNACKACKSENTFAILED:
+    
+    case TLSSYNACKACKSENTFAILED:
         return -1;
 
     default:
         onps_set_last_error((INT)socket, ERRUNKNOWN);
         return -1;
     }
-
-    INT nRtnVal;
-    if ((nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port)) > 0)
 }
 
 int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port)
 {
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
+    }
+
+    EN_TCPLINKSTATE enLinkState;
+    if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
+    }
+
     onps_set_last_error((INT)socket, ERRNO);
-    switch ((EN_IPPROTO)onps_input_get_ipproto((INT)socket))
+
+    switch (enProto)
     {
     case IPPROTO_TCP:
-        return socket_tcp_connect_nb(socket, srv_ip, srv_port);
+        return socket_tcp_connect_nb(socket, srv_ip, srv_port, enLinkState);
 
     default:
         onps_set_last_error((INT)socket, ERRUNSUPPIPPROTO);
