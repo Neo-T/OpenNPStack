@@ -20,11 +20,8 @@
 typedef INT SOCKET;         //* socket句柄
 #define INVALID_SOCKET  -1  //* 无效的SOCKET
 
-typedef	unsigned int in_addr_t;  //* internet地址类型
-
 //* Supported address families.
 #define AF_INET 2   //* internetwork: UDP, TCP, etc.
-
 
 //* Socket types.
 #define SOCK_STREAM 1   //* TCP, stream (connection) socket
@@ -33,6 +30,11 @@ typedef	unsigned int in_addr_t;  //* internet地址类型
 //* 参数family仅支持AF_INET，其它不支持，type仅支持SOCK_STREAM、SOCK_DGRAM两种协议，protocol固定为0
 SOCKET_EXT SOCKET socket(int family, int type, int protocol); 
 SOCKET_EXT void close(SOCKET socket);
-SOCKET_EXT int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port);
+
+//* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()获得
+SOCKET_EXT int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout);
+
+//* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()获得
+SOCKET_EXT int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port); 
 
 #endif

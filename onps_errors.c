@@ -6,8 +6,6 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 
-
-static EN_ONPSERR l_enLastErr = ERRNO; 
 static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNO, "no errors" },
 	{ ERRNOPAGENODE, "no page nodes available"},
@@ -31,11 +29,16 @@ static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
     { ERRNONETIFNODE, "no netif nodes available" }, 
+    { ERRINPUTOVERFLOW, "Handle/Input overflow" }
     { ERRUNSUPPIPPROTO, "Unsupported ip upper layer protocol" }, 
     { ERRUNSUPPIOPT, "Unsupported control options" }, 
     { ERRIPROTOMATCH, "Protocol match error" }, 
     { ERRNOROUTENODE, "no route nodes available" }, 
-    { ERRSOCKETTYPE, "Unsupported socket type" }
+    { ERRSOCKETTYPE, "Unsupported socket type" }, 
+    { ERRNOTTCP, "Non-TCP can't get/set tcp link state" }, 
+    { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
+    { ERRTCPCONNRESET, "tcp connection reset" }, 
+    { ERRUNKNOWN, "unknown error" }
 }; 
 
 const CHAR *onps_error(EN_ONPSERR enErr)
@@ -45,26 +48,4 @@ const CHAR *onps_error(EN_ONPSERR enErr)
 		return lr_staErrorList[unIndex].szDesc;
 
 	return "unrecognized error code";
-}
-
-const CHAR *onps_get_last_error(EN_ONPSERR *penErr)
-{
-    EN_ONPSERR enLastErr;
-    os_critical_init();
-    os_enter_critical();
-    enLastErr = l_enLastErr;
-    os_exit_critical();
-
-    if (penErr)
-        *penErr = enLastErr;
-
-    return onps_error(enLastErr);
-}
-
-void onps_set_last_error(EN_ONPSERR enErr)
-{
-    os_critical_init();
-    os_enter_critical();
-    l_enLastErr = enErr;
-    os_exit_critical();
 }

@@ -9,3 +9,9 @@
 #define SYMBOL_GLOBALS
 #include "ip/tcp.h"
 #undef SYMBOL_GLOBALS
+
+INT tcp_connect(INT nInput, UINT unSrvAddr, USHORT usSrvPort)
+{
+
+}
+

@@ -15,6 +15,8 @@ typedef struct _STCB_ONPS_INPUT_ {
     HSEM hSem;          //* 信号量，一旦收到数据，协议栈将投递信号量给上层接收者，避免上层调用者采用轮询读取数据的方式，避免CPU资源被过多占用
     UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
 
+    UCHAR ubLastErr;    //* 最近的错误信息，实际类型为EN_ONPSERR
+
     union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
         struct {
             USHORT usIdentifier;
@@ -22,13 +24,13 @@ typedef struct _STCB_ONPS_INPUT_ {
 
         struct {
             USHORT usPort;
-            UINT unIP;
+            UINT unIP; 
             CHAR bLinkState;  //* 当前链路状态
         } stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
 
         struct {
             USHORT usPort;
-            UINT unIP;
+            UINT unIP;            
         } stUdp; //* udp层句柄，同tcp
     } uniHandle;
     UCHAR *pubRcvBuf;
@@ -173,6 +175,20 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 
 void onps_input_free(INT nInput)
 {
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_free() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return; 
+    }
+
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput]; 
 
     //* 先释放申请的相关资源
@@ -226,6 +242,23 @@ static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcv
 
 BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSERR *penErr)
 {
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_set() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return FALSE;
+    }
+
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
     {
@@ -267,6 +300,23 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSE
 
 BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
 {
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_get() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return FALSE;
+    }
+
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
     {
@@ -305,6 +355,20 @@ INT onps_input_get_icmp(USHORT usIdentifier)
 
 UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes)
 {
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_get_rcv_buf() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return NULL;
+    }
+
     if (phSem)
         *phSem = l_stcbaInput[nInput].hSem; 
 
@@ -313,8 +377,113 @@ UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes)
     return l_stcbaInput[nInput].pubRcvBuf; 
 }
 
+HSEM onps_input_get_semaphore(INT nInput)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_get_semaphore() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return INVALID_HSEM;
+    }
+
+    return l_stcbaInput[nInput].hSem; 
+}
+
+UCHAR onps_input_get_ipproto(INT nInput)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_get_ipproto() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return IPPROTO_MAX;
+    }
+
+    return l_stcbaInput[nInput].ubIPProto; 
+}
+
+CHAR onps_input_get_tcp_link_state(INT nInput)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_get_tcp_link_state() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return TCSINVALID;
+    }
+
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+    if (pstcbInput->ubIPProto != IPPROTO_TCP) //* 不是TCP则不存在链路状态字段
+    {
+        onps_set_last_error(nInput, ERRNOTTCP);
+        return TCSINVALID;
+    }
+
+    return l_stcbaInput[nInput].uniHandle.stTcp.bLinkState; 
+}
+
+BOOL onps_input_set_tcp_link_state(INT nInput, CHAR bState)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_set_tcp_link_state() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return FALSE;
+    }
+
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+    if (pstcbInput->ubIPProto != IPPROTO_TCP) //* 不是TCP则不存在链路状态字段
+    {
+        onps_set_last_error(nInput, ERRNOTTCP);
+        return FALSE;
+    }
+
+    l_stcbaInput[nInput].uniHandle.stTcp.bLinkState = bState; 
+    return TRUE; 
+}
+
 INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
 {
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_recv_icmp() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return -1;
+    }
+
     //* 超时，没有收到任何数据
     if (os_thread_sem_pend(l_stcbaInput[nInput].hSem, nWaitSecs) < 0)
         return 0; 
@@ -326,4 +495,30 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR
     *pubTTL = pstHdr->ubTTL; 
     *ppubPacket = l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen;
     return (INT)l_stcbaInput[nInput].unRcvedBytes - usIpHdrLen;
+}
+
+const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr)
+{
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+
+    EN_ONPSERR enLastErr;
+    os_critical_init();
+    os_enter_critical();
+    enLastErr = (EN_ONPSERR)pstcbInput->ubLastErr;
+    os_exit_critical();
+
+    if (penErr)
+        *penErr = enLastErr;
+
+    return onps_error(enLastErr);
+}
+
+void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
+{
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+
+    os_critical_init();
+    os_enter_critical();
+    pstcbInput->ubLastErr = (UCHAR)enErr;
+    os_exit_critical();
 }
