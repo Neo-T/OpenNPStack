@@ -8,7 +8,7 @@
 #define SYMBOL_GLOBALS
 #include "onps_input.h"
 #undef SYMBOL_GLOBALS
-#include "ip/tcp.h"
+#include "ip/tcp_link.h"
 
 //* 协议栈icmp/tcp/udp层接收处理节点
 typedef struct _STCB_ONPS_INPUT_ {
@@ -24,8 +24,7 @@ typedef struct _STCB_ONPS_INPUT_ {
 
         struct {
             USHORT usPort;
-            UINT unIP; 
-            CHAR bLinkState;  //* 当前链路状态
+            UINT unIP;             
         } stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
 
         struct {
@@ -35,7 +34,8 @@ typedef struct _STCB_ONPS_INPUT_ {
     } uniHandle;
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
-    UINT unRcvedBytes;
+    UINT unRcvedBytes; 
+    void *pvAttach; 
 } STCB_ONPS_INPUT, *PSTCB_ONPS_INPUT;
 
 //* 依然是静态分配，丰俭由SOCKET_NUM_MAX宏决定，动态分配对于资源受限的单片机系统来说不可控，尤其是对于堆和栈来说
@@ -48,6 +48,9 @@ static PST_SLINKEDLIST l_pstInputSLList = NULL;
 BOOL onps_input_init(EN_ONPSERR *penErr)
 {
     *penErr = ERRNO;
+
+    if (!tcp_link_init(penErr))
+        return FALSE; 
 
     l_hMtxInput = os_thread_mutex_init();
     if (INVALID_HMUTEX == l_hMtxInput)
@@ -99,6 +102,8 @@ void onps_input_uninit(void)
         os_thread_mutex_uninit(l_hMtxInput);
         l_hMtxInput = INVALID_HMUTEX; 
     }
+
+    tcp_link_uninit(); 
 }
 
 INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
