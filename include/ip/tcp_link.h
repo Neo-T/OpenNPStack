@@ -35,16 +35,20 @@ typedef enum {
 } EN_TCPLINKSTATE;
 
 typedef struct _ST_TCPLINK_ {
-    CHAR bState;    //* 当前链路状态
-    struct {
-        in_addr_t unIP; 
-        USHORT usPort; 
-    } stPeerAddr;    
+    CHAR bState;    //* 当前链路状态       
     CHAR bSackEn;   //* SACK选项使能
     USHORT usMSS;   //* MSS值
+    struct {
+        in_addr_t unIP;
+        USHORT usPort;
+    } stPeerAddr;
+    CHAR bIdx; 
+    CHAR bNext; 
 } ST_TCPLINK, *PST_TCPLINK;
 
 TCP_LINK_EXT BOOL tcp_link_init(EN_ONPSERR *penErr); 
 TCP_LINK_EXT void tcp_link_uninit(void); 
+TCP_LINK_EXT PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr);
+TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink);
 
 #endif

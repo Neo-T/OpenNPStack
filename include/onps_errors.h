@@ -21,7 +21,7 @@ typedef enum {
     ERRREQMEMTOOLARGE,  //* 申请的内存过大，超过了系统支持的最大申请配额
     ERRNOFREEMEM,       //* 系统已无可用内存
     ERRMUTEXINITFAILED, //* 线程同步锁初始化失败
-    ERRNOBUFLISTNODE,   //* 无缓冲区链表节点
+    ERRNOBUFLISTNODE,   //* 无可用缓冲区链表节点
     ERRSEMINITFAILED,   //* 信号量初始化失败
     ERROPENTTY,         //* tty终端打开失败
     ERRATWRITE,         //* AT指令写错误
@@ -47,6 +47,7 @@ typedef enum {
     ERRTCSNONTCP,       //* 非TCP协议不能获取、设置TCP链路状态
     ERRTCPCONNTIMEOUT,  //* TCP连接超时
     ERRTCPCONNRESET,    //* TCP连接已被重置
+    ERRNOTCPLINKNODE,   //* 无可用tcp link节点
     ERRINVALIDSEM,      //* 无效的信号量
     ERRUNKNOWN,         //* 未知错误
 } EN_ONPSERR;

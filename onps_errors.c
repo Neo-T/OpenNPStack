@@ -12,7 +12,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRREQMEMTOOLARGE, "The requested memory is too large, please refer to the macro definition BUDDY_MEM_SIZE" },
 	{ ERRNOFREEMEM, "The mmu has no memory available" }, 
 	{ ERRMUTEXINITFAILED, "thread mutex initialization failed" }, 
-	{ ERRNOBUFLISTNODE, "the buffer list node is empty" }, 
+	{ ERRNOBUFLISTNODE, "the buffer list is empty" }, 
 	{ ERRSEMINITFAILED, "thread semphore initialization failed" }, 
 	{ ERROPENTTY, "tty open error" }, 
 	{ ERRATWRITE, "write AT command error" }, 
@@ -38,6 +38,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCSNONTCP, "Non-TCP can't get/set tcp link state" },
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
     { ERRTCPCONNRESET, "tcp connection reset" }, 
+    { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
     { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
