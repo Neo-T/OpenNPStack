@@ -24,6 +24,7 @@ typedef enum {
     TCPOPT_TIMESTAMP = 8,   //* 时间戳
 } EN_TCPOPTTYPE;
 
-TCP_OPTIONS_EXT INT tcp_options_put(); 
+TCP_OPTIONS_EXT INT tcp_options_attach(UCHAR *pubAttachAddr, INT nAttachBufSize); 
+TCP_OPTIONS_EXT void tcp_options_get(UCHAR *pubOption, INT nOptionLen); 
 
 #endif
