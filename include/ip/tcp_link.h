@@ -39,6 +39,8 @@ typedef struct _ST_TCPLINK_ {
     CHAR bState;    //* 当前链路状态       
     CHAR bSackEn;   //* SACK选项使能
     USHORT usMSS;   //* MSS值
+    UINT unSeqNum; 
+    USHORT usWndSize; 
     struct {
         in_addr_t unIP;
         USHORT usPort;

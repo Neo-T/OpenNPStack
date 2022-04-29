@@ -359,7 +359,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         break; 
 
     case IOPT_GETATTACH:
-        pvVal = pstcbInput->pvAttach;
+        *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
         break; 
 
     default:

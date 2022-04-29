@@ -22,6 +22,24 @@ typedef struct _ST_TCP_PSEUDOHDR_ {
 } PACKED ST_TCP_PSEUDOHDR, *PST_TCP_PSEUDOHDR;
 PACKED_END
 
+PACKED_BEGIN
+typedef union _UNI_TCP_FLAG_ {
+    struct {
+        USHORT resrved1 : 3;
+        USHORT nonce : 1;
+        USHORT hdr_len : 4;
+        USHORT fin : 1;
+        USHORT syn : 1;
+        USHORT reset : 1;
+        USHORT push : 1;
+        USHORT ack : 1;
+        USHORT urgent : 1;
+        USHORT resrved2 : 2;
+    } stb16;
+    USHORT usVal;
+} PACKED UNI_TCP_FLAG, *PUNI_TCP_FLAG;
+PACKED_END
+
 //* TCP帧头部结构体
 PACKED_BEGIN
 typedef struct _ST_TCP_HDR_ {
@@ -31,6 +49,7 @@ typedef struct _ST_TCP_HDR_ {
     UINT unAckNum;
 
     //* 以下位字段适用于小端
+    /*
     USHORT 
         bitResrved1 : 3, 
         bitNonce    : 1,
@@ -42,6 +61,8 @@ typedef struct _ST_TCP_HDR_ {
         bitAck      : 1,
         bitUrgent   : 1,
         bitResrved2 : 2;
+    */
+    UNI_TCP_FLAG uniFlag;
 
     USHORT usWinSize;
     USHORT usChecksum;
