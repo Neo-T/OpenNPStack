@@ -161,8 +161,8 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         else if (IPPROTO_TCP == enProtocol)
         {
             pstcbInput->uniHandle.stTcp.unIP = 0;
-            pstcbInput->uniHandle.stTcp.usPort = 0; 
-            pstcbInput->uniHandle.stTcp.bLinkState = (CHAR)TLSINIT;
+            pstcbInput->uniHandle.stTcp.usPort = 0;             
+            pstcbInput->pvAttach = NULL; 
         }
         else if (IPPROTO_UDP == enProtocol)
         {
@@ -300,13 +300,17 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSE
 
     case IOPT_SETTCPLINKSTATE: 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
-            pstcbInput->uniHandle.stTcp.bLinkState = *((CHAR *)pvVal);
+            ((PST_TCPLINK)(pstcbInput->pvAttach))->bState = *((CHAR *)pvVal);
         else
         {
             if (penErr)
                 *penErr = ERRTCSNONTCP;
             return FALSE;
         }
+        break; 
+
+    case IOPT_SETATTACH:
+        pstcbInput->pvAttach = pvVal; 
         break; 
 
     default:
@@ -340,13 +344,22 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
     case IOPT_GETTCPLINKSTATE: 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
-            *((EN_TCPLINKSTATE *)pvVal) = (EN_TCPLINKSTATE)pstcbInput->uniHandle.stTcp.bLinkState; 
+        {
+            if (pstcbInput->pvAttach)
+                *((EN_TCPLINKSTATE *)pvVal) = (EN_TCPLINKSTATE)((PST_TCPLINK)(pstcbInput->pvAttach))->bState;
+            else
+                *((EN_TCPLINKSTATE *)pvVal) = TLSINVALID;
+        }
         else
         {
             if (penErr)
                 *penErr = ERRTCSNONTCP;
             return FALSE; 
         }
+        break; 
+
+    case IOPT_GETATTACH:
+        pvVal = pstcbInput->pvAttach;
         break; 
 
     default:

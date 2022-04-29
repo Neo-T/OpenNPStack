@@ -15,6 +15,7 @@
 #define TCPRCVBUF_SIZE_DEFAULT  1500    //* tcp层缺省的接收缓冲区大小
 #define UDPRCVBUF_SIZE_DEFAULT  512     //* udp层缺省的接收缓冲区大小
 #define IP_TTL_DEFAULT          64      //* 缺省TTL值
+#define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
 #define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（TCP客户端 + TCP服务器最大并发连接数）
 
  //* 系统支持哪些功能模块由此配置

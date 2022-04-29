@@ -16,7 +16,8 @@
 #endif //* SYMBOL_GLOBALS
 
 typedef enum {
-    TLSINIT, //* TCP链路初始状态
+    TLSINVALID, //* TCP链路无效（尚未申请一个有效的tcp link节点）
+    TLSINIT,    //* TCP链路初始状态
 
     //* 以下为Socket被用于TCP Client时的状态定义
     TLSSYNSENT,             //* 发送SYN请求

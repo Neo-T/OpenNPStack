@@ -14,6 +14,7 @@
 #else
 	#define TCP_EXT extern
 #endif //* SYMBOL_GLOBALS
+#include "ip/tcp_link.h"
 
 TCP_EXT INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort);
 

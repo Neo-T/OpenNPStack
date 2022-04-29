@@ -26,6 +26,8 @@ typedef enum {
     IOPT_GETIPPROTO,        //* 获取当前input绑定的ip上层协议
     IOPT_GETTCPLINKSTATE,   //* 获取tcp链路状态
     IOPT_SETTCPLINKSTATE,   //* 设置tcp链路状态
+    IOPT_SETATTACH,         //* 设置附加信息
+    IOPT_GETATTACH,         //* 获取附加信息地址
 } ONPSIOPT;
 
 ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初始化

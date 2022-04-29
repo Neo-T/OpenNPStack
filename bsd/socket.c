@@ -5,7 +5,6 @@
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"
 #include "onps_utils.h"
-
 #define SYMBOL_GLOBALS
 #include "bsd/socket.h"
 #undef SYMBOL_GLOBALS
@@ -125,44 +124,21 @@ static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short 
         return -1;   
 }
 
-int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
-{
-    EN_ONPSERR enErr; 
-    EN_IPPROTO enProto; 
-    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-    {
-        onps_set_last_error((INT)socket, enErr);
-        return -1; 
-    }
-
-    onps_set_last_error((INT)socket, ERRNO);
-
-    switch (enProto)
-    {
-    case IPPROTO_TCP: 
-        return socket_tcp_connect(socket, srv_ip, srv_port, nConnTimeout);         
-
-    default:
-        onps_set_last_error((INT)socket, ERRUNSUPPIPPROTO); 
-        return -1; 
-    }
-}
-
 static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
 {
     switch (enLinkState)
     {
-    case TLSINIT: 
+    case TLSINIT:
         INT nRtnVal;
         if ((nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port)) > 0)
-            return 1; 
-        else        
-            return -1;         
-        break; 
+            return 1;
+        else
+            return -1;
+        break;
 
     case TLSSYNSENT:
-    case TLSRCVEDSYNACK: 
-        return 1; 
+    case TLSRCVEDSYNACK:
+        return 1;
 
     case TLSCONNECTED:
         return 0;
@@ -174,7 +150,7 @@ static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned sho
     case TLSRESET:
         onps_set_last_error((INT)socket, ERRTCPCONNRESET);
         return -1;
-    
+
     case TLSSYNACKACKSENTFAILED:
         return -1;
 
@@ -184,32 +160,61 @@ static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned sho
     }
 }
 
-int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port)
+static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-    {
-        onps_set_last_error((INT)socket, enErr);
-        return -1;
-    }
-
-    EN_TCPLINKSTATE enLinkState;
-    if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-    {
-        onps_set_last_error((INT)socket, enErr);
-        return -1;
-    }
+        goto __lblErr; 
 
     onps_set_last_error((INT)socket, ERRNO);
 
-    switch (enProto)
+    if (enProto == IPPROTO_TCP)
     {
-    case IPPROTO_TCP:
-        return socket_tcp_connect_nb(socket, srv_ip, srv_port, enLinkState);
+        //* 获取当前链路状态
+        EN_TCPLINKSTATE enLinkState;
+        if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+            goto __lblErr;
 
-    default:
-        onps_set_last_error((INT)socket, ERRUNSUPPIPPROTO);
-        return -1;
+        //* 无效，意味着当前TCP连接链路尚未申请一个tcp link节点，需要在这里申请
+        if (TLSINVALID == enLinkState)
+        {
+            PST_TCPLINK pstLink = tcp_link_get(&enErr); 
+            if(pstLink)
+            { 
+                if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstLink, &enErr))
+                    goto __lblErr;
+                enLinkState = TLSINIT; 
+            }
+            else
+                goto __lblErr;
+        }
+
+        if (nConnTimeout > 0)
+            return socket_tcp_connect(socket, srv_ip, srv_port, nConnTimeout);
+        else
+            return socket_tcp_connect_nb(socket, srv_ip, srv_port, enLinkState);
     }
+    else if (enProto == IPPROTO_UDP)
+    {
+        return 0; 
+    }
+    else    
+        enErr = ERRUNSUPPIPPROTO; 
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;
+}
+
+int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
+{
+    if (nConnTimeout <= 0)
+        nConnTimeout = TCP_CONN_TIMEOUT; 
+    return socket_connect(socket, srv_ip, srv_port, nConnTimeout);
+}
+
+int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port)
+{
+    return socket_connect(socket, srv_ip, srv_port, 0);
 }
