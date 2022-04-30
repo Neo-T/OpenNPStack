@@ -501,3 +501,30 @@ void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
     pstcbInput->ubLastErr = (UCHAR)enErr;
     os_exit_critical();
 }
+
+BOOL onps_input_tcp_port_used(USHORT usPort)
+{
+    BOOL blIsUsed = FALSE;
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+        PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList;
+        PSTCB_ONPS_INPUT pstcbInput;
+        while (pstNextNode)
+        {
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            if (pstcbInput->ubIPProto == IPPROTO_TCP)
+            {
+                if (usPort == pstcbInput->uniHandle.stTcp.usPort)
+                {
+                    blIsUsed = TRUE; 
+                    break; 
+                }
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
+
+    return blIsUsed; 
+}

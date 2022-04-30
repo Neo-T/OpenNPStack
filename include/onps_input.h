@@ -39,6 +39,7 @@ ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes);
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
+ONPSINPUT_EXT BOOL onps_input_tcp_port_used(USHORT usPort); 
 
 ONPSINPUT_EXT const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr);
 ONPSINPUT_EXT void onps_set_last_error(INT nInput, EN_ONPSERR enErr);

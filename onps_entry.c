@@ -5,6 +5,9 @@
 HMUTEX o_hMtxPrintf = INVALID_HMUTEX;
 BOOL open_npstack_load(EN_ONPSERR *penErr)
 {
+    //* lcp魔术字生成及tcp/udp端口号动态分配都需要随机数生成函数，所以协议栈启动时先设置个种子，确保栈每次启动时生成不同的随机数
+    srand(os_get_system_secs());
+
     do {
         if (!buddy_init(penErr))
             break; 

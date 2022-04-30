@@ -100,8 +100,7 @@ static INT put_magic_number(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	PST_LCP_CONFREQ_MAGICNUMBER pstReq = (PST_LCP_CONFREQ_MAGICNUMBER)pubFilled;
 	pstReq->stHdr.ubType = (UCHAR)MAGICNUMBER;
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR) + 4;
-
-	srand(os_get_system_secs());
+	
 	pstNegoResult->stLCP.unMagicNum = (UINT)rand();
 	memcpy((UCHAR *)&pstReq->unNum, &pstNegoResult->stLCP.unMagicNum, 4);
 	return (INT)pstReq->stHdr.ubLen;

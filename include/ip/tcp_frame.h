@@ -78,7 +78,7 @@ typedef struct _ST_TCPOPT_HDR_ {
 } PACKED ST_TCPOPT_HDR, *PST_TCPOPT_HDR;
 PACKED_END
 
-//* TCP头部选项之MSS
+//* TCP头部选项之MSS，其实际指的是tcp报文携带的数据段的大小
 PACKED_BEGIN
 typedef struct _ST_TCPOPT_MSS_ {
     ST_TCPOPT_HDR stHdr;

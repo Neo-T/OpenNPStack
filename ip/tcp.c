@@ -13,10 +13,25 @@
 #include "ip/tcp.h"
 #undef SYMBOL_GLOBALS
 
-static INT tcp_send_packet(in_addr_t unSrvAddr, USHORT usSrvPort, UINT unSeqNum, UINT unAckSeqNum, 
-                            UNI_TCP_FLAG uniFlag, USHORT usWndSize, UCHAR *pubOptions, INT nOptionsBytes)
+static USHORT tcp_port_new(void)
 {
+    USHORT usPort; 
 
+__lblPortNew:    
+    INT nRand = rand() % 20001;
+    usPort = 65535 - (USHORT)(rand() % (TCP_PORT_START + 1)); 
+
+    //* 确定是否正在使用，如果未使用则没问题
+    if (onps_input_tcp_port_used(usPort))
+        goto __lblPortNew;
+    else
+        return usPort; 
+}
+
+static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, 
+                            UINT unSeqNum, UINT unAckSeqNum, UNI_TCP_FLAG uniFlag, USHORT usWndSize, UCHAR *pubOptions, INT nOptionsBytes)
+{
+    
 }
 
 INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
@@ -31,10 +46,12 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
 
     UNI_TCP_FLAG uniFlag; 
     uniFlag.usVal = 0; 
-    uniFlag.stb16.syn = 1; 
-    pstLink->unSeqNum = 0; 
-    pstLink->usWndSize = TCPRCVBUF_SIZE_DEFAULT - TCP_HDR_SIZE_MAX; 
+    uniFlag.stb16.syn = 1;      
+    pstLink->usWndSize = TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
 
-    return -1; 
+    UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX]; 
+    INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
+
+    return tcp_send_packet(unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, uniFlag, pstLink->usWndSize, ubaOptions, nOptionsSize);
 }
 

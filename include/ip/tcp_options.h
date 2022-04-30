@@ -15,6 +15,8 @@
 	#define TCP_OPTIONS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#define TCP_OPTIONS_SIZE_MAX 40 //* 最长40字节的tcp选项
+
 typedef enum {
     TCPOPT_END = 0,         //* 选项表结束
     TCPOPT_NOP = 1,         //* 无操作

@@ -63,6 +63,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 
     pstFreeNode->bState = TLSINIT;
+    pstFreeNode->unAckNum = pstFreeNode->unAckNum = 0;    
     return pstFreeNode;
 }
 

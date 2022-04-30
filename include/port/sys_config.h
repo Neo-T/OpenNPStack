@@ -13,7 +13,6 @@
 #define SOCKET_NUM_MAX          10      //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响）
 #define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 #define TCPRCVBUF_SIZE_DEFAULT  1500    //* tcp层缺省的接收缓冲区大小
-#define TCP_HDR_SIZE_MAX        40      //* tcp头部字段最大长度（包括tcp选项字段）
 #define TCP_WINDOW_SCALE        0       //* 窗口扩大因子缺省值
 #define UDPRCVBUF_SIZE_DEFAULT  512     //* udp层缺省的接收缓冲区大小
 #define IP_TTL_DEFAULT          64      //* 缺省TTL值
