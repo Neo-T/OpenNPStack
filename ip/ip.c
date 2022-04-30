@@ -37,7 +37,12 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
 {
     PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE);
     if (NULL == pstNetif)
-        return -1; 
+    {
+        if (penErr)
+            *penErr = ERRADDRESSING; 
+
+        return -1;
+    }
 
     os_critical_init();
     ST_IP_HDR stHdr; 

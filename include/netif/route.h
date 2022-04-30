@@ -37,5 +37,6 @@ ROUTE_EXT BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway,
 ROUTE_EXT void route_del(UINT unDestination);
 ROUTE_EXT void route_del_ext(PST_NETIF pstNetif);
 ROUTE_EXT PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending); 
+ROUTE_EXT UINT route_get_netif_ip(UINT unDestination);
 
 #endif

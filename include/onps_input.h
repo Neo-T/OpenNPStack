@@ -20,8 +20,8 @@
 typedef enum {
     IOPT_RCVBUFSIZE = 0,    //* 设置接收缓冲区大小
     IOPT_SETICMPECHOID,     //* 设置icmp echo请求ID
-    IOPT_SETIP,             //* 地址IP地址
-    IOPT_SETPORT,           //* 设置端口
+    IOPT_SETTCPUDPADDR,     //* 设置TCP/UDP本地分配的地址
+    IOPT_GETTCPUDPADDR,     //* 获取TCP/UDP本地分配的地址
     IOPT_GETSEM,            //* 获取input用到的semaphore
     IOPT_GETIPPROTO,        //* 获取当前input绑定的ip上层协议
     IOPT_GETTCPLINKSTATE,   //* 获取tcp链路状态
@@ -29,6 +29,11 @@ typedef enum {
     IOPT_SETATTACH,         //* 设置附加信息
     IOPT_GETATTACH,         //* 获取附加信息地址
 } ONPSIOPT;
+
+typedef struct _ST_TCPUDP_HANDLE_ {
+    USHORT usPort;
+    UINT unIP;
+} ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 
 ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初始化
 ONPSINPUT_EXT void onps_input_uninit(void); //* 去初始化输入控制块

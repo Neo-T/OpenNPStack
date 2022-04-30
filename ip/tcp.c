@@ -5,6 +5,8 @@
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
 #include "onps_utils.h"
+#include "netif/netif.h"
+#include "netif/route.h"
 #include "onps_input.h"
 #include "ip/tcp_link.h"
 #include "ip/tcp_frame.h"
@@ -36,13 +38,35 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 
 INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
 {
-    EN_ONPSERR enErr;
+    EN_ONPSERR enErr;    
+
+    //* 获取链路信息存储节点
     PST_TCPLINK pstLink; 
     if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
     {
         onps_set_last_error(nInput, enErr); 
         return -1; 
     }
+
+    //* 获取tcp链路句柄访问地址，该地址保存当前tcp链路由协议栈自动分配的端口及本地网络接口地址
+    PST_TCPUDP_HANDLE pstHandle; 
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+    {
+        onps_set_last_error(nInput, enErr);
+        return -1;
+    }
+
+    //* 先寻址，因为tcp校验和计算需要用到本地地址
+    UINT unNetifIp = route_get_netif_ip(unSrvAddr);
+    if (!unNetifIp)
+    {
+        onps_set_last_error(nInput, ERRADDRESSING);
+        return -1;
+    }
+
+    //* 更新当前input句柄，以便收到应答报文时能够准确找到该链路
+    pstHandle->unIP = unNetifIp;
+    pstHandle->usPort = tcp_port_new(); 
 
     UNI_TCP_FLAG uniFlag; 
     uniFlag.usVal = 0; 
@@ -52,6 +76,6 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
     UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX]; 
     INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
 
-    return tcp_send_packet(unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, uniFlag, pstLink->usWndSize, ubaOptions, nOptionsSize);
+    return tcp_send_packet(pstHandle->unIP, pstHandle->usPort, unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, uniFlag, pstLink->usWndSize, ubaOptions, nOptionsSize);
 }
 

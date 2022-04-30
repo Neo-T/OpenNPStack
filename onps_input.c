@@ -22,15 +22,8 @@ typedef struct _STCB_ONPS_INPUT_ {
             USHORT usIdentifier;
         } stIcmp; //* icmp层句柄
 
-        struct {
-            USHORT usPort;
-            UINT unIP;             
-        } stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
-
-        struct {
-            USHORT usPort;
-            UINT unIP;            
-        } stUdp; //* udp层句柄，同tcp
+        ST_TCPUDP_HANDLE stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
+        ST_TCPUDP_HANDLE stUdp; //* udp层句柄，同tcp
     } uniHandle;
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
@@ -272,24 +265,11 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSE
         }
         break;
 
-    case IOPT_SETIP:
+    case IOPT_SETTCPUDPADDR:
         if (pstcbInput->ubIPProto == IPPROTO_TCP)        
-            pstcbInput->uniHandle.stTcp.unIP = *((UINT *)pvVal); 
+            pstcbInput->uniHandle.stTcp = *((PST_TCPUDP_HANDLE)pvVal); 
         else if(pstcbInput->ubIPProto == IPPROTO_UDP)            
-            pstcbInput->uniHandle.stUdp.unIP = *((UINT *)pvVal);
-        else
-        {
-            if (penErr)
-                *penErr = ERRIPROTOMATCH;
-            return FALSE;
-        }
-        break; 
-
-    case IOPT_SETPORT: 
-        if (pstcbInput->ubIPProto == IPPROTO_TCP)
-            pstcbInput->uniHandle.stTcp.usPort = *((USHORT *)pvVal);
-        else if (pstcbInput->ubIPProto == IPPROTO_UDP)
-            pstcbInput->uniHandle.stUdp.usPort = *((USHORT *)pvVal);
+            pstcbInput->uniHandle.stUdp = *((PST_TCPUDP_HANDLE)pvVal);
         else
         {
             if (penErr)
@@ -334,6 +314,19 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
     {
+    case IOPT_GETTCPUDPADDR: 
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+            *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stTcp;
+        else if(IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
+            *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stUdp;
+        else
+        {
+            if (penErr)
+                *penErr = ERRTCSNONTCP;
+            return FALSE;
+        }
+        break; 
+
     case IOPT_GETSEM:
         *((HSEM *)pvVal) = pstcbInput->hSem; 
         break; 

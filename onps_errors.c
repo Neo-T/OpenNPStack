@@ -34,6 +34,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRUNSUPPIOPT, "Unsupported control options" }, 
     { ERRIPROTOMATCH, "Protocol match error" }, 
     { ERRNOROUTENODE, "no route nodes available" }, 
+    { ERRADDRESSING,"Addressing failure, default route does not exist" }, 
     { ERRSOCKETTYPE, "Unsupported socket type" }, 
     { ERRTCSNONTCP, "Non-TCP can't get/set tcp link state" },
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 

@@ -263,6 +263,39 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending)
         if (pstDefaultNetif)
             return pstDefaultNetif;
         else //* 缺省路由也为空，则直接使用网络接口链表的首节点作为缺省路由
-            return netif_get_first(); 
+            return netif_get_first(blIsForSending);
     }
+}
+
+UINT route_get_netif_ip(UINT unDestination)
+{
+    UINT unNetifIp = 0; 
+
+    os_thread_mutex_lock(l_hMtxRoute);
+    {
+        PST_ROUTE_NODE pstNextNode = l_pstRouteLink;
+        while (pstNextNode)
+        {
+            if (pstNextNode->stRoute.unDestination)
+            {
+                if (ip_addressing(unDestination, pstNextNode->stRoute.unDestination, pstNextNode->stRoute.unGenmask))
+                {                    
+                    unNetifIp = pstNextNode->stRoute.pstNetif->stIPv4.unAddr; 
+                    break;
+                }
+            }
+            else
+            {
+                unNetifIp = pstNextNode->stRoute.pstNetif->stIPv4.unAddr; 
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }          
+    }
+    os_thread_mutex_unlock(l_hMtxRoute);
+
+    if (!unNetifIp)
+        unNetifIp = netif_get_first_ip();
+
+    return unNetifIp; 
 }
