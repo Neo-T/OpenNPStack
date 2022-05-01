@@ -9,8 +9,6 @@
 #ifndef TCP_FRAME_H
 #define TCP_FRAME_H
 
-#define TCP_PORT_START 20000 //* 动态分配的起始端口号
-
 //* 用于校验和计算的TCP伪包头
 PACKED_BEGIN
 typedef struct _ST_TCP_PSEUDOHDR_ {
@@ -18,7 +16,7 @@ typedef struct _ST_TCP_PSEUDOHDR_ {
     UINT unDestAddr;
     UCHAR ubMustBeZero;
     UCHAR ubProto;
-    USHORT usHdrLen;
+    USHORT usPacketLen;
 } PACKED ST_TCP_PSEUDOHDR, *PST_TCP_PSEUDOHDR;
 PACKED_END
 

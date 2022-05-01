@@ -18,6 +18,7 @@
 #define IP_TTL_DEFAULT          64      //* 缺省TTL值
 #define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
 #define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（TCP客户端 + TCP服务器最大并发连接数）
+#define TCPUDP_PORT_START       20000   //* TCP/UDP协议动态分配的起始端口号
 
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================

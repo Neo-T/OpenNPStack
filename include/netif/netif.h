@@ -59,7 +59,9 @@ NETIF_EXT void netif_uninit(void);
 NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr);
 NETIF_EXT void netif_del(PST_NETIF_NODE pstNode); 
 NETIF_EXT PST_NETIF netif_get_first(BOOL blIsForSending);
+NETIF_EXT PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending);
 NETIF_EXT UINT netif_get_first_ip(void);
+NETIF_EXT void netif_used_count_decrement(PST_NETIF pstNetif);
 NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName); 
 
 #endif

@@ -22,8 +22,7 @@ typedef struct _STCB_ONPS_INPUT_ {
             USHORT usIdentifier;
         } stIcmp; //* icmp层句柄
 
-        ST_TCPUDP_HANDLE stTcp; //* tcp层句柄，使用IP地址和端口就可以唯一的标识一个tcp连接
-        ST_TCPUDP_HANDLE stUdp; //* udp层句柄，同tcp
+        ST_TCPUDP_HANDLE stAddr; //* 句柄，使用IP地址和端口就可以唯一的标识一个tcp连接       
     } uniHandle;
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
@@ -150,19 +149,13 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         pstcbInput->unRcvBufSize = unSize;
 
         if (IPPROTO_ICMP == enProtocol)
-            pstcbInput->uniHandle.stIcmp.usIdentifier = 0;
-        else if (IPPROTO_TCP == enProtocol)
+            pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
+        else
         {
-            pstcbInput->uniHandle.stTcp.unIP = 0;
-            pstcbInput->uniHandle.stTcp.usPort = 0;             
-            pstcbInput->pvAttach = NULL; 
+            pstcbInput->uniHandle.stAddr.unIP = 0;
+            pstcbInput->uniHandle.stAddr.usPort = 0;            
+            pstcbInput->pvAttach = NULL;
         }
-        else if (IPPROTO_UDP == enProtocol)
-        {
-            pstcbInput->uniHandle.stUdp.unIP = 0;
-            pstcbInput->uniHandle.stUdp.usPort = 0;
-        }
-        else;         
 
         sllist_put_node(&l_pstInputSLList, pstNode); 
     }
@@ -266,10 +259,8 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSE
         break;
 
     case IOPT_SETTCPUDPADDR:
-        if (pstcbInput->ubIPProto == IPPROTO_TCP)        
-            pstcbInput->uniHandle.stTcp = *((PST_TCPUDP_HANDLE)pvVal); 
-        else if(pstcbInput->ubIPProto == IPPROTO_UDP)            
-            pstcbInput->uniHandle.stUdp = *((PST_TCPUDP_HANDLE)pvVal);
+        if (IPPROTO_TCP == pstcbInput->ubIPProto || IPPROTO_UDP == pstcbInput->ubIPProto)
+            pstcbInput->uniHandle.stAddr = *((PST_TCPUDP_HANDLE)pvVal);
         else
         {
             if (penErr)
@@ -315,10 +306,8 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     switch (enInputOpt)
     {
     case IOPT_GETTCPUDPADDR: 
-        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
-            *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stTcp;
-        else if(IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
-            *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stUdp;
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
+            *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stAddr;
         else
         {
             if (penErr)
@@ -495,7 +484,7 @@ void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
     os_exit_critical();
 }
 
-BOOL onps_input_tcp_port_used(USHORT usPort)
+static BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
 {
     BOOL blIsUsed = FALSE;
     os_thread_mutex_lock(l_hMtxInput);
@@ -505,13 +494,10 @@ BOOL onps_input_tcp_port_used(USHORT usPort)
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
-            if (pstcbInput->ubIPProto == IPPROTO_TCP)
+            if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stAddr.usPort)
             {
-                if (usPort == pstcbInput->uniHandle.stTcp.usPort)
-                {
-                    blIsUsed = TRUE; 
-                    break; 
-                }
+                blIsUsed = TRUE;
+                break;
             }
 
             pstNextNode = pstNextNode->pstNext;
@@ -521,3 +507,19 @@ BOOL onps_input_tcp_port_used(USHORT usPort)
 
     return blIsUsed; 
 }
+
+USHORT onps_input_port_new(EN_IPPROTO enProtocol)
+{
+    USHORT usPort;
+
+__lblPortNew:
+    INT nRand = rand() % 20001;
+    usPort = 65535 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
+
+    //* 确定是否正在使用，如果未使用则没问题
+    if (onps_input_port_used(enProtocol, usPort))
+        goto __lblPortNew;
+    else
+        return usPort;
+}
+

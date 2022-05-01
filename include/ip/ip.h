@@ -18,6 +18,7 @@
 #include "ip_frame.h"
 
 IP_EXT INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr);
+IP_EXT INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr);
 IP_EXT void ip_recv(UCHAR *pubPacket, INT nPacketLen);
 
 #endif

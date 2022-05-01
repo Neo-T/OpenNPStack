@@ -194,6 +194,30 @@ PST_NETIF netif_get_first(BOOL blIsForSending)
         return NULL; 
 }
 
+PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
+{
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        while (pstNextNode)
+        {
+            if (unNetifIp == pstNextNode->stIf.stIPv4.unAddr)
+            {
+                if(blIsForSending)
+                    pstNextNode->stIf.bUsedCount++;
+                os_thread_mutex_unlock(l_hMtxNetif);
+
+                return &pstNextNode->stIf; 
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    return NULL; 
+}
+
 UINT netif_get_first_ip(void)
 {
     UINT unNetifIp = 0; 
@@ -206,6 +230,15 @@ UINT netif_get_first_ip(void)
     os_thread_mutex_unlock(l_hMtxNetif);
 
     return unNetifIp; 
+}
+
+void netif_used_count_decrement(PST_NETIF pstNetif)
+{
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        pstNetif->bUsedCount--;
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
 }
 
 BOOL netif_is_ready(const CHAR *pszIfName)

@@ -15,25 +15,98 @@
 #include "ip/tcp.h"
 #undef SYMBOL_GLOBALS
 
-static USHORT tcp_port_new(void)
+static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, 
+                            UNI_TCP_FLAG uniFlag, USHORT usWndSize, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, EN_ONPSERR *penErr)
 {
-    USHORT usPort; 
+    //* 挂载用户数据
+    SHORT sBufListHead = -1; 
+    SHORT sDataNode = -1; 
+    if (pubData)
+    {        
+        sDataNode = buf_list_get_ext(pubData, usDataBytes, penErr); 
+        if (sDataNode < 0)
+            return -1;
+        buf_list_put_head(&sBufListHead, sDataNode);
+    }
 
-__lblPortNew:    
-    INT nRand = rand() % 20001;
-    usPort = 65535 - (USHORT)(rand() % (TCP_PORT_START + 1)); 
+    //* 挂载tcp options选项
+    SHORT sOptionsNode = -1; 
+    if (usOptionsBytes)
+    {
+        sOptionsNode = buf_list_get_ext(pubOptions, usOptionsBytes, penErr);
+        if (sOptionsNode < 0)
+        {
+            if (sDataNode >= 0)
+                buf_list_free(sDataNode);
 
-    //* 确定是否正在使用，如果未使用则没问题
-    if (onps_input_tcp_port_used(usPort))
-        goto __lblPortNew;
-    else
-        return usPort; 
-}
+            return -1;
+        }
+        buf_list_put_head(&sBufListHead, sOptionsNode);
+    }
 
-static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, 
-                            UINT unSeqNum, UINT unAckSeqNum, UNI_TCP_FLAG uniFlag, USHORT usWndSize, UCHAR *pubOptions, INT nOptionsBytes)
-{
-    
+    //* 填充tcp头
+    ST_TCP_HDR stHdr; 
+    stHdr.usSrcPort = htons(usSrcPort);
+    stHdr.usDestPort = htons(usDstPort);
+    stHdr.unSeqNum = htonl(unSeqNum);
+    stHdr.unAckNum = htonl(unAckNum);
+    uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
+    stHdr.uniFlag = uniFlag;
+    stHdr.usWinSize = htons(usWndSize);
+    stHdr.usChecksum = 0;
+    stHdr.usUrgentPointer = 0; 
+    //* 挂载到链表头部
+    SHORT sHdrNode;
+    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_TCP_HDR), penErr);
+    if (sHdrNode < 0)
+    {
+        if (sDataNode >= 0)
+            buf_list_free(sDataNode);
+        if (sOptionsNode >= 0)
+            buf_list_free(sOptionsNode);
+
+        return -1;
+    }
+    buf_list_put_head(&sBufListHead, sHdrNode); 
+
+    //* 填充用于校验和计算的tcp伪报头
+    ST_TCP_PSEUDOHDR stPseudoHdr; 
+    stPseudoHdr.unSrcAddr = unSrcAddr;
+    stPseudoHdr.unDestAddr = unDstAddr; 
+    stPseudoHdr.ubMustBeZero = 0; 
+    stPseudoHdr.ubProto = IPPROTO_TCP; 
+    stPseudoHdr.usPacketLen = htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes); 
+    //* 挂载到链表头部
+    SHORT sPseudoHdrNode;
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_TCP_PSEUDOHDR), penErr);
+    if (sPseudoHdrNode < 0)
+    {
+        if (sDataNode >= 0)
+            buf_list_free(sDataNode);
+        if (sOptionsNode >= 0)
+            buf_list_free(sOptionsNode);
+        buf_list_free(sHdrNode);
+
+        return -1;
+    }
+    buf_list_put_head(&sBufListHead, sPseudoHdrNode);
+
+    //* 计算校验和
+    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead); 
+    //* 用不到了，释放伪报头
+    buf_list_free(sPseudoHdrNode);
+
+    //* 发送之
+    INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, TCP, IP_TTL_DEFAULT, sBufListHead, penErr);
+
+    //* 释放刚才申请的buf list节点
+    if(sDataNode >= 0)
+        buf_list_free(sDataNode); 
+    if(sOptionsNode >= 0)
+        buf_list_free(sOptionsNode); 
+    buf_list_free(sHdrNode);
+
+    return nRtnVal; 
 }
 
 INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
@@ -47,6 +120,7 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
         onps_set_last_error(nInput, enErr); 
         return -1; 
     }
+    pstLink->usWndSize = TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
 
     //* 获取tcp链路句柄访问地址，该地址保存当前tcp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle; 
@@ -56,26 +130,31 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
         return -1;
     }
 
-    //* 先寻址，因为tcp校验和计算需要用到本地地址
+    //* 先寻址，因为tcp校验和计算需要用到本地地址，同时当前tcp链路句柄也需要用此标识
     UINT unNetifIp = route_get_netif_ip(unSrvAddr);
     if (!unNetifIp)
     {
         onps_set_last_error(nInput, ERRADDRESSING);
         return -1;
     }
-
     //* 更新当前input句柄，以便收到应答报文时能够准确找到该链路
     pstHandle->unIP = unNetifIp;
-    pstHandle->usPort = tcp_port_new(); 
+    pstHandle->usPort = onps_input_port_new(IPPROTO_TCP); 
 
+    //* 标志字段syn域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag; 
     uniFlag.usVal = 0; 
-    uniFlag.stb16.syn = 1;      
-    pstLink->usWndSize = TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
+    uniFlag.stb16.syn = 1;        
 
+    //* 填充tcp头部选项数据
     UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX]; 
-    INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
+    INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));    
 
-    return tcp_send_packet(pstHandle->unIP, pstHandle->usPort, unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, uniFlag, pstLink->usWndSize, ubaOptions, nOptionsSize);
+    //* 完成实际的发送
+    INT nRtnVal = tcp_send_packet(pstHandle->unIP, pstHandle->usPort, unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, 
+                                    uniFlag, pstLink->usWndSize, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr); 
+    if (nRtnVal < 0)
+        onps_set_last_error(nInput, enErr);
+    return nRtnVal; 
 }
 

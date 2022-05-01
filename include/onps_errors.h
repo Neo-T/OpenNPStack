@@ -38,6 +38,7 @@ typedef enum {
     ERRNOIDLETIMER,     //* 没有空闲的定时器
     ERRPPPWALISTNOINIT, //* ppp等待应答链表未初始化
     ERRNONETIFNODE,     //* 无可用的netif节点
+    ERRNONETIFFOUND,    //* 未找到网络接口
     ERRINPUTOVERFLOW,   //* onps输入句柄溢出
     ERRUNSUPPIPPROTO,   //* 不被支持的IP层协议
     ERRUNSUPPIOPT,      //* 不支持的配置项

@@ -33,6 +33,54 @@ static const EN_IPPROTO lr_enaIPProto[] = {
 };
 static USHORT l_usIPIdentifier = 0; 
 
+static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+    os_critical_init();
+
+    ST_IP_HDR stHdr;
+    stHdr.bitHdrLen = sizeof(ST_IP_HDR) / sizeof(UINT); //* IP头长度，单位：UINT
+    stHdr.bitVer = 4; //* IPv4
+    stHdr.bitMustBeZero = 0;
+    stHdr.bitTOS = 0; //* 一般服务
+    stHdr.bitPrior = 0;
+    stHdr.usPacketLen = htons(sizeof(ST_IP_HDR) + (USHORT)buf_list_get_len(sBufListHead));
+    os_enter_critical();
+    {
+        stHdr.usID = htons(l_usIPIdentifier);
+        l_usIPIdentifier++;
+    }
+    os_exit_critical();
+    stHdr.bitFragOffset0 = 0;
+    stHdr.bitFlag = 1 << 1;  //* Don't fragment
+    stHdr.bitFragOffset1 = 0;
+    stHdr.ubTTL = ubTTL;
+    stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
+    stHdr.usChecksum = 0;
+    stHdr.unSrcIP = pstNetif->stIPv4.unAddr;
+    stHdr.unDstIP = htonl(unDstAddr);
+
+    //* 挂载到buf list头部
+    SHORT sHdrNode;
+    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IP_HDR), penErr);
+    if (sHdrNode < 0)
+        return -1;
+    buf_list_put_head(&sBufListHead, sHdrNode);
+
+    //* 计算校验和
+    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
+
+    //* 完成发送
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);
+
+    //* 使用计数减一
+    netif_used_count_decrement(pstNetif);
+
+    //* 释放刚才申请的buf list节点
+    buf_list_free(sHdrNode);
+
+    return nRtnVal;
+}
+
 INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE);
@@ -42,55 +90,23 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
             *penErr = ERRADDRESSING; 
 
         return -1;
-    }
-
-    os_critical_init();
-    ST_IP_HDR stHdr; 
-    stHdr.bitHdrLen = sizeof(ST_IP_HDR) / sizeof(UINT); //* IP头长度，单位：UINT
-    stHdr.bitVer = 4; //* IPv4
-    stHdr.bitMustBeZero = 0; 
-    stHdr.bitTOS = 0; //* 一般服务
-    stHdr.bitPrior = 0; 
-    stHdr.usPacketLen = htons(sizeof(ST_IP_HDR) + (USHORT)buf_list_get_len(sBufListHead)); 
-    os_enter_critical();
-    {
-        stHdr.usID = htons(l_usIPIdentifier);
-        l_usIPIdentifier++;
     }    
-    os_exit_critical(); 
-    stHdr.bitFragOffset0 = 0;
-    stHdr.bitFlag = 1 << 1;  //* Don't fragment
-    stHdr.bitFragOffset1 = 0;
-    stHdr.ubTTL = ubTTL;
-    stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
-    stHdr.usChecksum = 0;
-    stHdr.unSrcIP = pstNetif->stIPv4.unAddr; 
-    stHdr.unDstIP = htonl(unDstAddr); 
 
-    //* 挂载到buf list头部
-    SHORT sHdrNode;
-    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IP_HDR), penErr);
-    if (sHdrNode < 0)
-        return -1;
-    buf_list_put_head(&sBufListHead, sHdrNode);    
+    return netif_ip_send(pstNetif, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
+}
 
-    //* 计算校验和
-    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);           
-    
-    //* 完成发送
-    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);       
-
-    //* 使用计数减一
-    os_enter_critical();
+INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_ip(unSrcAddr, TRUE);
+    if (NULL == pstNetif)
     {
-        pstNetif->bUsedCount--; 
+        if (penErr)
+            *penErr = ERRNONETIFFOUND;
+
+        return -1;
     }
-    os_exit_critical(); 
 
-    //* 释放刚才申请的buf list节点
-    buf_list_free(sHdrNode);
-
-    return nRtnVal; 
+    return netif_ip_send(pstNetif, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr); 
 }
 
 void ip_recv(UCHAR *pubPacket, INT nPacketLen)

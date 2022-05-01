@@ -29,6 +29,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNOIDLETIMER, "no idle timer" }, 
 	{ ERRPPPWALISTNOINIT, "ppp's waiting list for ack is not initialized" }, 
     { ERRNONETIFNODE, "no netif nodes available" }, 
+    { ERRNONETIFFOUND, "No network interface found" }, 
     { ERRINPUTOVERFLOW, "Handle/Input overflow" }, 
     { ERRUNSUPPIPPROTO, "Unsupported ip upper layer protocol" }, 
     { ERRUNSUPPIOPT, "Unsupported control options" }, 
