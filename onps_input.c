@@ -152,7 +152,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
             pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
         else
         {
-            pstcbInput->uniHandle.stAddr.unIP = 0;
+            pstcbInput->uniHandle.stAddr.unNetifIp = 0;
             pstcbInput->uniHandle.stAddr.usPort = 0;            
             pstcbInput->pvAttach = NULL;
         }
@@ -521,5 +521,32 @@ __lblPortNew:
         goto __lblPortNew;
     else
         return usPort;
+}
+
+INT onps_input_get_handle(UINT unNetifIp, USHORT usPort)
+{
+    INT nInput = -1;
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+        PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList;
+        PSTCB_ONPS_INPUT pstcbInput;
+        while (pstNextNode)
+        {
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            if (pstcbInput->ubIPProto == IPPROTO_TCP && pstcbInput->ubIPProto == IPPROTO_UDP)
+            {
+                if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
+                {
+                    nInput = pstNextNode->uniData.nIndex;
+                    break; 
+                }                
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
+
+    return nInput;
 }
 

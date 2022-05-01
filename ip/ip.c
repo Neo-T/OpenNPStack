@@ -12,6 +12,7 @@
 #include "ip/ip.h"
 #undef SYMBOL_GLOBALS
 #include "ip/icmp.h"
+#include "ip/tcp.h"
 
 //* 必须严格按照EN_NPSPROTOCOL类型定义的顺序指定IP上层协议值
 static const EN_IPPROTO lr_enaIPProto[] = {
@@ -138,6 +139,10 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     {
     case IPPROTO_ICMP: 
         icmp_recv(pubPacket, nPacketLen);
+        break; 
+
+    case IPPROTO_TCP:
+        tcp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket, nPacketLen); 
         break; 
 
     default:

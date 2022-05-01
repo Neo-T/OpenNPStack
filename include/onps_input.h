@@ -31,8 +31,8 @@ typedef enum {
 } ONPSIOPT;
 
 typedef struct _ST_TCPUDP_HANDLE_ {
-    USHORT usPort;
-    UINT unIP;
+    UINT unNetifIp;
+    USHORT usPort;    
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 
 ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初始化
@@ -45,6 +45,7 @@ ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes);
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
+ONPSINPUT_EXT INT onps_input_get_handle(UINT unNetifIp, USHORT usPort); 
 
 ONPSINPUT_EXT const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr);
 ONPSINPUT_EXT void onps_set_last_error(INT nInput, EN_ONPSERR enErr);

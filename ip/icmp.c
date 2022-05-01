@@ -328,7 +328,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("checksum error (%04X, %04X), and the icmp packet will be dropped\r\n", usChecksum, usPktChecksum);
+        printf("checksum error (%04X, %04X), the icmp packet will be dropped\r\n", usChecksum, usPktChecksum);
         printf_hex(pubPacket, nPacketLen, 48);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
@@ -353,7 +353,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("The protocol stack doesn't support router solicitation and advertisement packets, and the packet will be dropped\r\n");
+        printf("The protocol stack doesn't support router solicitation and advertisement packets, the packet will be dropped\r\n");
         printf_hex(pubPacket, nPacketLen, 48);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
@@ -374,7 +374,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("Unsupported icmp packet type (%d), and the packet will be dropped\r\n", (UINT)pstIcmpHdr->ubType); 
+        printf("Unsupported icmp packet type (%d), the packet will be dropped\r\n", (UINT)pstIcmpHdr->ubType); 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif

@@ -17,6 +17,7 @@
 #include "ip/tcp_link.h"
 
 TCP_EXT INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort);
+TCP_EXT void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen); 
 
 
 #endif

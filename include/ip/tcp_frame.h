@@ -42,7 +42,7 @@ PACKED_END
 PACKED_BEGIN
 typedef struct _ST_TCP_HDR_ {
     USHORT usSrcPort;
-    USHORT usDestPort;
+    USHORT usDstPort;
     UINT unSeqNum;
     UINT unAckNum;
 
