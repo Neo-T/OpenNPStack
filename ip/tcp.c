@@ -120,6 +120,38 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     return nRtnVal; 
 }
 
+static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t unNetifIp, USHORT usSrcPort, UINT unSrvAckNum)
+{
+    //* 标志字段syn域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.ack = 1;
+
+    //* 更新tcp序号
+    pstLink->unSeqNum = unSrvAckNum; 
+    pstLink->unAckNum += 1; 
+
+    //* 发送
+    EN_ONPSERR enErr;
+    INT nRtnVal = tcp_send_packet(unNetifIp, usSrcPort, pstLink->stPeerAddr.unIp, pstLink->stPeerAddr.usPort, pstLink->unSeqNum, pstLink->unAckNum,
+                                    uniFlag, pstLink->usWndSize, NULL, 0, NULL, 0, &enErr);
+    if (nRtnVal > 0)
+    {
+        //* 连接成功
+        pstLink->bState = TLSCONNECTED; 
+    }
+    else 
+    {
+        pstLink->bState = TLSSYNACKACKSENTFAILED;
+
+        if (nRtnVal < 0)
+            onps_set_last_error(nInput, enErr);
+        else
+            onps_set_last_error(nInput, ERRSENDZEROBYTES);
+    }
+    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+}
+
 INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
 {
     EN_ONPSERR enErr;    
@@ -272,15 +304,21 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
+
+                //* 记录当前链路信息
                 pstLink->unAckNum = pstHdr->unSeqNum; 
                 pstLink->usWndSize = pstHdr->usWinSize; 
-                pstLink->stPeerAddr.unNetifIp = unSrcAddr; 
+                pstLink->stPeerAddr.unIp = unSrcAddr; 
                 pstLink->stPeerAddr.usPort = pstHdr->usSrcPort; 
 
                 //* 截取tcp头部选项字段
+                tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), pstHdr->uniFlag.stb16.hdr_len * 4 - sizeof(ST_TCP_HDR));
 
-                pstLink->bState = TLSRCVEDSYNACK; //* 状态迁移到已接收到syn ack报文
-                //os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+                //* 状态迁移到已接收到syn ack报文
+                pstLink->bState = TLSRCVEDSYNACK;
+
+                //* 发送syn ack的ack报文
+                tcp_send_ack_of_syn_ack(nInput, pstLink, unDstAddr, usDstPort, pstHdr->unAckNum);
             }
         }
     }

@@ -42,17 +42,17 @@ typedef struct _ST_TCPLINK_ {
     USHORT usMSS;   //* MSS值
     UINT unSeqNum;
     UINT unAckNum;     
-    USHORT usWndSize; 
-    UCHAR ubWndScale; 
+    USHORT usWndSize;      
     struct {        
         USHORT usPort;
-        in_addr_t unNetifIp;                
+        in_addr_t unIp;                
     } stPeerAddr;
     struct {        
         PST_ONESHOTTIMER pstTimer;
         HSEM hSem; 
         CHAR bIsAcked;
     } stcbWaitAck;
+    CHAR bWndScale;
     CHAR bIdx; 
     CHAR bNext; 
 } ST_TCPLINK, *PST_TCPLINK;

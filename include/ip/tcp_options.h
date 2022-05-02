@@ -26,7 +26,8 @@ typedef enum {
     TCPOPT_TIMESTAMP = 8,   //* 时间戳
 } EN_TCPOPTTYPE;
 
+typedef struct _ST_TCPLINK_ ST_TCPLINK, *PST_TCPLINK;
 TCP_OPTIONS_EXT INT tcp_options_attach(UCHAR *pubAttachAddr, INT nAttachBufSize); 
-TCP_OPTIONS_EXT void tcp_options_get(UCHAR *pubOption, INT nOptionLen); 
+TCP_OPTIONS_EXT void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen);
 
 #endif

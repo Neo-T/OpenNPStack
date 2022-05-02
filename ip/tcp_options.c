@@ -7,21 +7,30 @@
 #define SYMBOL_GLOBALS
 #include "ip/tcp_options.h"
 #undef SYMBOL_GLOBALS
+#include "ip/tcp_link.h"
 
 //* 系统支持的TCP选项列表，在TCP连接协商时（无论是作为服务器还是客户端）SYN或SYN ACK报文携带如下选项值，
 //* 如果要增加支持的选项，直接在该结构体数组增加要支持的选项即可
-static void tcp_options_attach_mss(UCHAR *pubAttachAddr); 
-static void tcp_options_attach_wndscale(UCHAR *pubAttachAddr); 
-typedef struct _ST_TCPOPT_ATTACH_HANDLER_ {
+typedef struct _ST_TCPOPT_HANDLER_ {
     EN_TCPOPTTYPE enType;
     UCHAR ubLen;
+    CHAR bIsNeedAttach; //* 只有本地支持的tcp选项该字段置TRUE，否则置FALSE
     void(*pfunAttach)(UCHAR *pubAttachAddr);
-} ST_TCPOPT_ATTACH_HANDLER, *PST_TCPOPT_ATTACH_HANDLER;
-const static ST_TCPOPT_ATTACH_HANDLER lr_staTcpOptList[] =
-{
-    { TCPOPT_MSS, (UCHAR)sizeof(ST_TCPOPT_MSS), tcp_options_attach_mss },                   //* 最大报文长度(MSS)
-    { TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), tcp_options_attach_wndscale },    //* 窗口扩大因子
-    { TCPOPT_SACK, (UCHAR)sizeof(ST_TCPOPT_HDR), NULL }, //* 是否支持SACK
+    void(*pfunPut)(PST_TCPLINK pstLink, UCHAR *pubOption); 
+} ST_TCPOPT_HANDLER, *PST_TCPOPT_HANDLER;
+static void tcp_options_attach_mss(UCHAR *pubAttachAddr); 
+static void tcp_options_attach_wndscale(UCHAR *pubAttachAddr); 
+static void tcp_options_put_mss(PST_TCPLINK pstLink, UCHAR *pubOption); 
+static void tcp_options_put_wnd_scale(PST_TCPLINK pstLink, UCHAR *pubOption);
+static void tcp_options_put_sack(PST_TCPLINK pstLink, UCHAR *pubOption);
+const static ST_TCPOPT_HANDLER lr_staTcpOptList[] =
+{    
+    { TCPOPT_MSS, (UCHAR)sizeof(ST_TCPOPT_MSS), TRUE, tcp_options_attach_mss, tcp_options_put_mss }, //* 最大报文长度(MSS)
+    { TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), TRUE, tcp_options_attach_wndscale, tcp_options_put_wnd_scale }, //* 窗口扩大因子
+    { TCPOPT_SACK, (UCHAR)sizeof(ST_TCPOPT_HDR), TRUE, NULL, tcp_options_put_sack }, //* 是否支持SACK
+
+    //* 以下为不需要挂载的tcp选项，一定要放到下面，需要挂载的放到上面    
+    { TCPOPT_TIMESTAMP, (UCHAR)sizeof(ST_TCPOPT_TIMESTAMP), FALSE },
 };
 
 static void tcp_options_attach_mss(UCHAR *pubAttachAddr)
@@ -41,8 +50,11 @@ INT tcp_options_attach(UCHAR *pubAttachAddr, INT nAttachBufSize)
     INT i, nHasAttachBytes = 0; 
     UCHAR ubNopNum = 0; 
     PST_TCPOPT_HDR pstOptHdr;
-    for (i = 0; i < (INT)(sizeof(lr_staTcpOptList) / sizeof(ST_TCPOPT_ATTACH_HANDLER)); i++)
+    for (i = 0; i < (INT)(sizeof(lr_staTcpOptList) / sizeof(ST_TCPOPT_HANDLER)); i++)
     {
+        if (!lr_staTcpOptList[i].bIsNeedAttach) //* 到头了，前面的lr_staTcpOptList数组确保假值就意味着已经挂载结束
+            break; 
+
         if (i)
         {
             //* 要确保tcp选项为4字节对齐，不对齐时填充对应字节数的nop字符以强制对齐
@@ -74,7 +86,67 @@ INT tcp_options_attach(UCHAR *pubAttachAddr, INT nAttachBufSize)
     return nHasAttachBytes; 
 }
 
-void tcp_options_get(UCHAR *pubOption, INT nOptionLen)
+static void tcp_options_put_mss(PST_TCPLINK pstLink, UCHAR *pubOption)
 {
+    PST_TCPOPT_MSS pstOption = (PST_TCPOPT_MSS)pubOption; 
+    pstLink->usMSS = htons(pstOption->usValue); 
+}
 
+static void tcp_options_put_wnd_scale(PST_TCPLINK pstLink, UCHAR *pubOption)
+{
+    PST_TCPOPT_WNDSCALE pstOption = (PST_TCPOPT_WNDSCALE)pubOption;
+    pstLink->bWndScale = pstOption->bScale;
+}
+
+static void tcp_options_put_sack(PST_TCPLINK pstLink, UCHAR *pubOption)
+{
+    pubOption = pubOption; 
+    pstLink->bSackEn = TRUE; 
+}
+
+void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
+{
+    INT nReadBytes = 0; 
+    UCHAR *pubCurOption;
+    while (nReadBytes < nOptionsLen)
+    {                
+        pubCurOption = pubOptions + nReadBytes;       
+
+        //* 先判断是否为nop或end，如果是则直接跳过
+        EN_TCPOPTTYPE enType = (EN_TCPOPTTYPE)(*pubCurOption);
+        if (enType == TCPOPT_NOP || enType == TCPOPT_END)
+        {
+            nReadBytes += 1;
+            continue; 
+        }
+        
+        BOOL blIsNotFound = TRUE;
+        INT i;
+        for (i = 0; i < (INT)(sizeof(lr_staTcpOptList) / sizeof(ST_TCPOPT_HANDLER)); i++)
+        {                       
+            if (enType == lr_staTcpOptList[i].enType)
+            {
+                if(lr_staTcpOptList[i].pfunPut)
+                    lr_staTcpOptList[i].pfunPut(pstLink, pubCurOption);
+                nReadBytes += (INT)lr_staTcpOptList[i].ubLen;
+
+                blIsNotFound = FALSE; 
+                break; 
+            }
+        }
+
+        if (blIsNotFound)
+        {
+    #if SUPPORT_PRINTF        
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif            
+            printf("Unknown tcp option %02X\r\n", pubCurOption[0]);
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
+            return; 
+        }        
+    }
 }
