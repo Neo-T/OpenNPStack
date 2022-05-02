@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "one_shot_timer.h"
 #define SYMBOL_GLOBALS
 #include "ip/tcp_link.h"
 #undef SYMBOL_GLOBALS
@@ -63,7 +64,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 
     pstFreeNode->bState = TLSINIT;
-    pstFreeNode->unAckNum = pstFreeNode->unAckNum = 0;    
+    pstFreeNode->unSeqNum = pstFreeNode->unAckNum = 0;    
     return pstFreeNode;
 }
 

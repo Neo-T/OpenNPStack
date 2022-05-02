@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "one_shot_timer.h"
 #include "mmu/buf_list.h"
 #include "onps_utils.h"
 #include "netif/netif.h"
@@ -14,6 +15,16 @@
 #define SYMBOL_GLOBALS
 #include "ip/tcp.h"
 #undef SYMBOL_GLOBALS
+
+static void tcp_ack_timeout_handler(void *pvParam)
+{
+    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam; 
+    if (!pstLink->stcbWaitAck.bIsAcked)
+    {
+        pstLink->bState = TLSACKTIMEOUT; 
+        os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
+    }
+}
 
 static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, 
                             UNI_TCP_FLAG uniFlag, USHORT usWndSize, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, EN_ONPSERR *penErr)
@@ -109,7 +120,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     return nRtnVal; 
 }
 
-INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
+INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
 {
     EN_ONPSERR enErr;    
 
@@ -153,8 +164,27 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort)
     //* 完成实际的发送
     INT nRtnVal = tcp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, 
                                     uniFlag, pstLink->usWndSize, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr); 
-    if (nRtnVal < 0)
-        onps_set_last_error(nInput, enErr);
+    if (nRtnVal > 0)
+    {
+        //* 加入定时器队列
+        pstLink->stcbWaitAck.bIsAcked = FALSE; 
+        pstLink->stcbWaitAck.hSem = hSem; 
+        pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, TCP_CONN_TIMEOUT);
+        if (!pstLink->stcbWaitAck.pstTimer)
+        {
+            onps_set_last_error(nInput, ERRNOIDLETIMER);
+            return -1;             
+        }
+        pstLink->bState = TLSSYNSENT; //* 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配
+    }
+    else
+    {
+        if(nRtnVal < 0)
+            onps_set_last_error(nInput, enErr);
+        else
+            onps_set_last_error(nInput, ERRSENDZEROBYTES);
+    }
+
     return nRtnVal; 
 }
 
@@ -213,7 +243,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
     //* 先查找当前链路是否存在
     USHORT usDstPort = htons(pstHdr->usDstPort);
-    INT nInput = onps_input_get_handle(unDstAddr, usDstPort);
+    PST_TCPLINK pstLink; 
+    INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink);
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF
@@ -231,6 +262,27 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         return; 
     }
 
-    
+    //* 依据报文头部标志字段确定下一步的处理逻辑
+    if (pstHdr->uniFlag.stb16.ack)
+    {
+        //* 连接请求的应答报文
+        if (pstHdr->uniFlag.stb16.syn)
+        {
+            if (TLSSYNSENT == pstLink->bState && pstHdr->unAckNum == pstLink->unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
+            {
+                pstLink->stcbWaitAck.bIsAcked = TRUE; 
+                one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
+                pstLink->unAckNum = pstHdr->unSeqNum; 
+                pstLink->usWndSize = pstHdr->usWinSize; 
+                pstLink->stPeerAddr.unNetifIp = unSrcAddr; 
+                pstLink->stPeerAddr.usPort = pstHdr->usSrcPort; 
+
+                //* 截取tcp头部选项字段
+
+                pstLink->bState = TLSRCVEDSYNACK; //* 状态迁移到已接收到syn ack报文
+                //os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            }
+        }
+    }
 }
 

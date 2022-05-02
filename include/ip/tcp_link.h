@@ -16,13 +16,13 @@
 #endif //* SYMBOL_GLOBALS
 
 typedef enum {
-    TLSINVALID, //* TCP链路无效（尚未申请一个有效的tcp link节点）
-    TLSINIT,    //* TCP链路初始状态
+    TLSINVALID,     //* TCP链路无效（尚未申请一个有效的tcp link节点）
+    TLSINIT,        //* TCP链路初始状态
+    TLSACKTIMEOUT,  //* 等待接收ACK报文超时
 
     //* 以下为Socket被用于TCP Client时的状态定义
     TLSSYNSENT,             //* 发送SYN请求
-    TLSRCVEDSYNACK,         //* 收到SYN ACK
-    TLSRCVSYNACKTIMEOUT,    //* 等待接收SYN ACK报文超时
+    TLSRCVEDSYNACK,         //* 收到SYN ACK    
     TLSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
     TLSCONNECTED,           //* 已连接
     TLSRESET,               //* 连接被重置
@@ -35,17 +35,24 @@ typedef enum {
     TLSSRVDOWN,     //* TCP Server已关闭
 } EN_TCPLINKSTATE;
 
+typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 typedef struct _ST_TCPLINK_ {
     CHAR bState;    //* 当前链路状态       
     CHAR bSackEn;   //* SACK选项使能
     USHORT usMSS;   //* MSS值
     UINT unSeqNum;
-    UINT unAckNum; 
+    UINT unAckNum;     
     USHORT usWndSize; 
-    struct {
-        in_addr_t unIP;
+    UCHAR ubWndScale; 
+    struct {        
         USHORT usPort;
+        in_addr_t unNetifIp;                
     } stPeerAddr;
+    struct {        
+        PST_ONESHOTTIMER pstTimer;
+        HSEM hSem; 
+        CHAR bIsAcked;
+    } stcbWaitAck;
     CHAR bIdx; 
     CHAR bNext; 
 } ST_TCPLINK, *PST_TCPLINK;

@@ -182,6 +182,13 @@ void onps_input_free(INT nInput)
 
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput]; 
 
+    //* 释放tcp/udp协议附加的保存通讯链路相关信息的数据节点
+    if (pstcbInput->pvAttach)
+    {
+        if(IPPROTO_TCP == pstcbInput->ubIPProto)
+            tcp_link_free((PST_TCPLINK)pstcbInput->pvAttach);
+    }
+
     //* 先释放申请的相关资源
     if (pstcbInput->pubRcvBuf)
     {
@@ -540,6 +547,34 @@ INT onps_input_get_handle(UINT unNetifIp, USHORT usPort)
                     nInput = pstNextNode->uniData.nIndex;
                     break; 
                 }                
+            }
+
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
+
+    return nInput;
+}
+
+INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
+{
+    INT nInput = -1;
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+        PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList;
+        PSTCB_ONPS_INPUT pstcbInput;
+        while (pstNextNode)
+        {
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            if (pstcbInput->ubIPProto == IPPROTO_TCP && pstcbInput->ubIPProto == IPPROTO_UDP)
+            {
+                if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
+                {
+                    nInput = pstNextNode->uniData.nIndex;
+                    *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
+                    break;
+                }
             }
 
             pstNextNode = pstNextNode->pstNext;

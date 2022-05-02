@@ -19,8 +19,8 @@ typedef struct _ST_TCPOPT_ATTACH_HANDLER_ {
 } ST_TCPOPT_ATTACH_HANDLER, *PST_TCPOPT_ATTACH_HANDLER;
 const static ST_TCPOPT_ATTACH_HANDLER lr_staTcpOptList[] =
 {
-    { TCPOPT_MSS, (UCHAR)sizeof(ST_TCPOPT_MSS), tcp_options_attach_mss },       //* 最大报文长度(MSS)
-    { TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), tcp_options_attach_wndscale },               //* 窗口扩大因子
+    { TCPOPT_MSS, (UCHAR)sizeof(ST_TCPOPT_MSS), tcp_options_attach_mss },                   //* 最大报文长度(MSS)
+    { TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), tcp_options_attach_wndscale },    //* 窗口扩大因子
     { TCPOPT_SACK, (UCHAR)sizeof(ST_TCPOPT_HDR), NULL }, //* 是否支持SACK
 };
 

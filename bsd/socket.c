@@ -65,23 +65,10 @@ void close(SOCKET socket)
     onps_input_free((INT)socket); 
 }
 
-static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
-{
-    EN_ONPSERR enErr;
-    HSEM hSem = INVALID_HSEM;
-    if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))
-    {
-        onps_set_last_error((INT)socket, enErr);
-        return -1;
-    }
-    if (INVALID_HSEM == hSem)
-    {
-        onps_set_last_error((INT)socket, ERRINVALIDSEM);
-        return -1;
-    }
-
+static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
+{    
     INT nRtnVal;
-    if ((nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port)) > 0)
+    if ((nRtnVal = tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port)) > 0)
     {
         //* 超时，没有收到任何数据
         if (os_thread_sem_pend(hSem, nConnTimeout) < 0)
@@ -91,6 +78,7 @@ static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short 
         }
         else
         {
+            EN_ONPSERR enErr; 
             EN_TCPLINKSTATE enLinkState; 
             if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
             {
@@ -103,7 +91,7 @@ static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short 
             case TLSCONNECTED:
                 return 0; 
 
-            case TLSRCVSYNACKTIMEOUT: 
+            case TLSACKTIMEOUT: 
                 onps_set_last_error((INT)socket, ERRTCPCONNTIMEOUT);
                 return -1; 
 
@@ -124,13 +112,13 @@ static int socket_tcp_connect(SOCKET socket, const char *srv_ip, unsigned short 
         return -1;   
 }
 
-static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
+static int socket_tcp_connect_nb(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
 {
     switch (enLinkState)
     {
     case TLSINIT:
         INT nRtnVal;
-        if ((nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port)) > 0)
+        if ((nRtnVal = tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port)) > 0)
             return 1;
         else
             return -1;
@@ -143,7 +131,7 @@ static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned sho
     case TLSCONNECTED:
         return 0;
 
-    case TLSRCVSYNACKTIMEOUT:
+    case TLSACKTIMEOUT:
         onps_set_last_error((INT)socket, ERRTCPCONNTIMEOUT);
         return -1;
 
@@ -167,6 +155,15 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
         goto __lblErr; 
 
+    HSEM hSem = INVALID_HSEM;
+    if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))
+        goto __lblErr;
+    if (INVALID_HSEM == hSem)
+    {
+        enErr = ERRINVALIDSEM;
+        goto __lblErr;
+    }
+
     onps_set_last_error((INT)socket, ERRNO);
 
     if (enProto == IPPROTO_TCP)
@@ -183,7 +180,10 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
             if(pstLink)
             { 
                 if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstLink, &enErr))
+                {
+                    tcp_link_free(pstLink);
                     goto __lblErr;
+                }
                 enLinkState = TLSINIT; 
             }
             else
@@ -191,9 +191,9 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
         }
 
         if (nConnTimeout > 0)
-            return socket_tcp_connect(socket, srv_ip, srv_port, nConnTimeout);
+            return socket_tcp_connect(socket, hSem, srv_ip, srv_port, nConnTimeout);
         else
-            return socket_tcp_connect_nb(socket, srv_ip, srv_port, enLinkState);
+            return socket_tcp_connect_nb(socket, hSem, srv_ip, srv_port, enLinkState);
     }
     else if (enProto == IPPROTO_UDP)
     {

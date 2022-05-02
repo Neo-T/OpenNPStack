@@ -42,6 +42,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPCONNRESET, "tcp connection reset" }, 
     { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
     { ERRINVALIDSEM, "invalid semaphore" }, 
+    { ERRSENDZEROBYTES, "0 bytes of data are sent" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 
