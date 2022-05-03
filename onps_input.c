@@ -522,7 +522,7 @@ USHORT onps_input_port_new(EN_IPPROTO enProtocol)
     USHORT usPort;
 
 __lblPortNew:
-    usPort = 65535 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
+    usPort = 40000 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
 
     //* 确定是否正在使用，如果未使用则没问题
     if (onps_input_port_used(enProtocol, usPort))

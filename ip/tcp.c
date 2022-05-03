@@ -57,13 +57,13 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 
     //* 填充tcp头
     ST_TCP_HDR stHdr; 
-    stHdr.usSrcPort = htons(0x8805/*usSrcPort*/);
+    stHdr.usSrcPort = htons(usSrcPort);
     stHdr.usDstPort = htons(usDstPort);
-    stHdr.unSeqNum = htonl(0x28170CA5/*unSeqNum*/);
+    stHdr.unSeqNum = htonl(unSeqNum);
     stHdr.unAckNum = htonl(unAckNum);
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
     stHdr.usFlag = uniFlag.usVal;
-    stHdr.usWinSize = htons(0xFAF0);
+    stHdr.usWinSize = htons(usWndSize);
     stHdr.usChecksum = 0;
     stHdr.usUrgentPointer = 0; 
     //* 挂载到链表头部
@@ -82,11 +82,12 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 
     //* 填充用于校验和计算的tcp伪报头
     ST_TCP_PSEUDOHDR stPseudoHdr; 
-    stPseudoHdr.unSrcAddr = 0x58F5D03C/*unSrcAddr*/;
-    stPseudoHdr.unDestAddr = 0x3401A8C0/*unDstAddr*/;
+    stPseudoHdr.unSrcAddr = unSrcAddr;
+    stPseudoHdr.unDestAddr = htonl(unDstAddr);
     stPseudoHdr.ubMustBeZero = 0; 
     stPseudoHdr.ubProto = IPPROTO_TCP; 
     stPseudoHdr.usPacketLen = htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes); 
+    printf_hex((UCHAR *)&stPseudoHdr, sizeof(stPseudoHdr), 48);
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_TCP_PSEUDOHDR), penErr);
@@ -163,7 +164,7 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
         onps_set_last_error(nInput, enErr); 
         return -1; 
     }
-    pstLink->usWndSize = TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
+    pstLink->usWndSize = 64240/*TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX*/;
 
     //* 获取tcp链路句柄访问地址，该地址保存当前tcp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle; 
