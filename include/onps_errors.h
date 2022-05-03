@@ -45,6 +45,7 @@ typedef enum {
     ERRIPROTOMATCH,     //* 协议匹配错误
     ERRNOROUTENODE,     //* 无可用的路由表单元
     ERRADDRESSING,      //* 寻址失败，不存在缺省路由
+    ERRADDRFAMILIES,    //* 地址族错误
     ERRSOCKETTYPE,      //* 不被支持的socket类型
     ERRTCSNONTCP,       //* 非TCP协议不能获取、设置TCP链路状态
     ERRTCPCONNTIMEOUT,  //* TCP连接超时

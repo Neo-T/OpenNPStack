@@ -28,7 +28,7 @@ typedef INT SOCKET;         //* socket句柄
 #define SOCK_DGRAM  2   //* UDP, datagram (conn.less) socket
 
 //* 参数family仅支持AF_INET，其它不支持，type仅支持SOCK_STREAM、SOCK_DGRAM两种协议，protocol固定为0
-SOCKET_EXT SOCKET socket(int family, int type, int protocol); 
+SOCKET_EXT SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr); 
 SOCKET_EXT void close(SOCKET socket);
 
 //* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()获得

@@ -142,7 +142,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
         break; 
 
     case IPPROTO_TCP:
-        tcp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket, nPacketLen); 
+        tcp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket + usHdrLen, nPacketLen - usHdrLen);
         break; 
 
     default:

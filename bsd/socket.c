@@ -10,20 +10,12 @@
 #undef SYMBOL_GLOBALS
 #include "ip/tcp.h"
 
-SOCKET socket(int family, int type, int protocol)
+SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr)
 {
     if (AF_INET != family)
     {
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("Unsupported address families: %d", family); 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-
+        if (penErr)
+            *penErr = ERRADDRFAMILIES;
         return INVALID_SOCKET; 
     }
 
@@ -42,20 +34,14 @@ SOCKET socket(int family, int type, int protocol)
     default: 
         nInput = INVALID_SOCKET; 
         enErr = ERRSOCKETTYPE; 
-
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("%s", onps_error(enErr)); 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
         break; 
     }
 
-    onps_set_last_error(nInput, enErr);
+    if (nInput < 0)
+    {
+        if (penErr)
+            *penErr = enErr; 
+    }
 
     return (SOCKET)nInput; 
 }
@@ -67,8 +53,7 @@ void close(SOCKET socket)
 
 static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {    
-    INT nRtnVal;
-    if ((nRtnVal = tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port)) > 0)
+    if (tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port) > 0)
     {
         //* 超时，没有收到任何数据
         if (os_thread_sem_pend(hSem, nConnTimeout) < 0)
@@ -117,12 +102,10 @@ static int socket_tcp_connect_nb(SOCKET socket, HSEM hSem, const char *srv_ip, u
     switch (enLinkState)
     {
     case TLSINIT:
-        INT nRtnVal;
-        if ((nRtnVal = tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port)) > 0)
+        if (tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port) > 0)
             return 1;
         else
             return -1;
-        break;
 
     case TLSSYNSENT:
     case TLSRCVEDSYNACK:
@@ -152,10 +135,11 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
 {
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;
+    HSEM hSem; 
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
         goto __lblErr; 
 
-    HSEM hSem = INVALID_HSEM;
+    hSem = INVALID_HSEM;
     if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))
         goto __lblErr;
     if (INVALID_HSEM == hSem)

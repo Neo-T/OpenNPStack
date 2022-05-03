@@ -223,7 +223,6 @@ UINT netif_get_first_ip(void)
     UINT unNetifIp = 0; 
     os_thread_mutex_lock(l_hMtxNetif);
     {
-        l_pstNetifLink;
         if (l_pstNetifLink)
             unNetifIp = l_pstNetifLink->stIf.stIPv4.unAddr;
     }

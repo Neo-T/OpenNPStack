@@ -62,7 +62,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     stHdr.unSeqNum = htonl(unSeqNum);
     stHdr.unAckNum = htonl(unAckNum);
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
-    stHdr.uniFlag = uniFlag;
+    stHdr.usFlag = uniFlag.usVal;
     stHdr.usWinSize = htons(usWndSize);
     stHdr.usChecksum = 0;
     stHdr.usUrgentPointer = 0; 
@@ -230,7 +230,18 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     SHORT sTcpPacketNode = -1;
     sTcpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
     if (sTcpPacketNode < 0)
-        return -1;
+    {
+#if SUPPORT_PRINTF        
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("buf_list_get_ext() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return;
+    }
     buf_list_put_head(&sBufListHead, sTcpPacketNode);
 
     //* 填充用于校验和计算的tcp伪报头
@@ -245,8 +256,18 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_TCP_PSEUDOHDR), &enErr);
     if (sPseudoHdrNode < 0)
     {        
+#if SUPPORT_PRINTF        
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("buf_list_get_ext() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+
         buf_list_free(sTcpPacketNode); 
-        return -1;
+        return;
     }
     buf_list_put_head(&sBufListHead, sPseudoHdrNode);
 
@@ -295,10 +316,12 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }
 
     //* 依据报文头部标志字段确定下一步的处理逻辑
-    if (pstHdr->uniFlag.stb16.ack)
+    UNI_TCP_FLAG uniFlag; 
+    uniFlag.usVal = pstHdr->usFlag;
+    if (uniFlag.stb16.ack)
     {
         //* 连接请求的应答报文
-        if (pstHdr->uniFlag.stb16.syn)
+        if (uniFlag.stb16.syn)
         {
             if (TLSSYNSENT == pstLink->bState && pstHdr->unAckNum == pstLink->unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
             {
@@ -312,7 +335,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->stPeerAddr.usPort = pstHdr->usSrcPort; 
 
                 //* 截取tcp头部选项字段
-                tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), pstHdr->uniFlag.stb16.hdr_len * 4 - sizeof(ST_TCP_HDR));
+                tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), uniFlag.stb16.hdr_len * 4 - sizeof(ST_TCP_HDR));
 
                 //* 状态迁移到已接收到syn ack报文
                 pstLink->bState = TLSRCVEDSYNACK;

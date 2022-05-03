@@ -30,6 +30,7 @@
 #endif
 #include "ip/icmp.h"
 #include "onps_input.h"
+#include "bsd/socket.h"
 
 ONPS_EXT BOOL open_npstack_load(EN_ONPSERR *penErr); 
 ONPS_EXT void open_npstack_unload(void);

@@ -39,7 +39,7 @@ ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初�
 ONPSINPUT_EXT void onps_input_uninit(void); //* 去初始化输入控制块
 ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr);  //* 建立一个新的输入控制块
 ONPSINPUT_EXT void onps_input_free(INT nInput);  //* 释放一个输入控制块
-ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSERR *penErr);
+ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes);

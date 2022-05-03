@@ -238,7 +238,7 @@ static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcv
     return TRUE; 
 }
 
-BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, const void *pvVal, EN_ONPSERR *penErr)
+BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
@@ -441,15 +441,9 @@ const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
-#if SUPPORT_PRINTF
-#if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-#endif
-        printf("onps_get_last_error() failed, Handle %d is out of system scope\r\n", nInput);
-#if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-#endif
-#endif
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW; 
+
         return "The handle is out of system scope";
     }
 
@@ -472,13 +466,13 @@ void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
     if (nInput > SOCKET_NUM_MAX - 1)
     {
 #if SUPPORT_PRINTF
-#if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
-#endif
+    #endif
         printf("onps_set_last_error() failed, Handle %d is out of system scope\r\n", nInput);
-#if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
-#endif
+    #endif
 #endif
         return;
     }
@@ -520,7 +514,6 @@ USHORT onps_input_port_new(EN_IPPROTO enProtocol)
     USHORT usPort;
 
 __lblPortNew:
-    INT nRand = rand() % 20001;
     usPort = 65535 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
 
     //* 确定是否正在使用，如果未使用则没问题
