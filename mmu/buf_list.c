@@ -110,6 +110,12 @@ void buf_list_free(SHORT sNode)
 	os_thread_mutex_unlock(l_hMtxMMUBufList);
 }
 
+void buf_list_free_head(SHORT *psHead, SHORT sNode)
+{
+    *psHead = l_saFreeBufNode[sNode]; 
+    buf_list_free(sNode); 
+}
+
 void buf_list_put_head(SHORT *psHead, SHORT sNode)
 {
 	l_saFreeBufNode[sNode] = *psHead;

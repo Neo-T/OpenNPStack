@@ -27,7 +27,7 @@ static void tcp_options_put_sack(PST_TCPLINK pstLink, UCHAR *pubOption);
 const static ST_TCPOPT_HANDLER lr_staTcpOptList[] =
 {    
     { TCPOPT_MSS, (UCHAR)sizeof(ST_TCPOPT_MSS), TRUE, tcp_options_attach_mss, tcp_options_put_mss }, //* 最大报文长度(MSS)
-    { TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), TRUE, tcp_options_attach_wndscale, tcp_options_put_wnd_scale }, //* 窗口扩大因子
+    //{ TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), TRUE, tcp_options_attach_wndscale, tcp_options_put_wnd_scale }, //* 窗口扩大因子
     { TCPOPT_SACK, (UCHAR)sizeof(ST_TCPOPT_HDR), TRUE, NULL, tcp_options_put_sack }, //* 是否支持SACK
 
     //* 以下为不需要挂载的tcp选项，一定要放到下面，需要挂载的放到上面    
@@ -36,7 +36,7 @@ const static ST_TCPOPT_HANDLER lr_staTcpOptList[] =
 
 static void tcp_options_attach_mss(UCHAR *pubAttachAddr)
 {
-    USHORT usMss = TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
+    USHORT usMss = 1200; //TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
     pubAttachAddr[0] = ((UCHAR *)&usMss)[1]; 
     pubAttachAddr[1] = ((UCHAR *)&usMss)[0];    
 }

@@ -47,17 +47,17 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unDstAddr, EN_NPSPROTOCOL
     stHdr.usPacketLen = htons(sizeof(ST_IP_HDR) + (USHORT)buf_list_get_len(sBufListHead));
     os_enter_critical();
     {
-        stHdr.usID = htons(l_usIPIdentifier);
+        stHdr.usID = htons(0x9563/*l_usIPIdentifier*/);
         l_usIPIdentifier++;
     }
     os_exit_critical();
     stHdr.bitFragOffset0 = 0;
     stHdr.bitFlag = 1 << 1;  //* Don't fragment
     stHdr.bitFragOffset1 = 0;
-    stHdr.ubTTL = ubTTL;
+    stHdr.ubTTL = 58;//ubTTL;
     stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
     stHdr.usChecksum = 0;
-    stHdr.unSrcIP = pstNetif->stIPv4.unAddr;
+    stHdr.unSrcIP = 0x58F5D03C; //pstNetif->stIPv4.unAddr;
     stHdr.unDstIP = htonl(unDstAddr);
 
     //* 挂载到buf list头部

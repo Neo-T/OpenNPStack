@@ -34,7 +34,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     SHORT sDataNode = -1; 
     if (pubData)
     {        
-        sDataNode = buf_list_get_ext(pubData, usDataBytes, penErr); 
+        sDataNode = buf_list_get_ext(pubData, (UINT)usDataBytes, penErr); 
         if (sDataNode < 0)
             return -1;
         buf_list_put_head(&sBufListHead, sDataNode);
@@ -44,7 +44,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     SHORT sOptionsNode = -1; 
     if (usOptionsBytes)
     {
-        sOptionsNode = buf_list_get_ext(pubOptions, usOptionsBytes, penErr);
+        sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
         if (sOptionsNode < 0)
         {
             if (sDataNode >= 0)
@@ -57,18 +57,18 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 
     //* 填充tcp头
     ST_TCP_HDR stHdr; 
-    stHdr.usSrcPort = htons(usSrcPort);
+    stHdr.usSrcPort = htons(0x8805/*usSrcPort*/);
     stHdr.usDstPort = htons(usDstPort);
-    stHdr.unSeqNum = htonl(unSeqNum);
+    stHdr.unSeqNum = htonl(0x28170CA5/*unSeqNum*/);
     stHdr.unAckNum = htonl(unAckNum);
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
     stHdr.usFlag = uniFlag.usVal;
-    stHdr.usWinSize = htons(usWndSize);
+    stHdr.usWinSize = htons(0xFAF0);
     stHdr.usChecksum = 0;
     stHdr.usUrgentPointer = 0; 
     //* 挂载到链表头部
     SHORT sHdrNode;
-    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_TCP_HDR), penErr);
+    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
     if (sHdrNode < 0)
     {
         if (sDataNode >= 0)
@@ -82,14 +82,14 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 
     //* 填充用于校验和计算的tcp伪报头
     ST_TCP_PSEUDOHDR stPseudoHdr; 
-    stPseudoHdr.unSrcAddr = unSrcAddr;
-    stPseudoHdr.unDestAddr = unDstAddr; 
+    stPseudoHdr.unSrcAddr = 0x58F5D03C/*unSrcAddr*/;
+    stPseudoHdr.unDestAddr = 0x3401A8C0/*unDstAddr*/;
     stPseudoHdr.ubMustBeZero = 0; 
     stPseudoHdr.ubProto = IPPROTO_TCP; 
     stPseudoHdr.usPacketLen = htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes); 
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_TCP_PSEUDOHDR), penErr);
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_TCP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {
         if (sDataNode >= 0)
@@ -105,7 +105,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     //* 计算校验和
     stHdr.usChecksum = tcpip_checksum_ext(sBufListHead); 
     //* 用不到了，释放伪报头
-    buf_list_free(sPseudoHdrNode);
+    buf_list_free_head(&sBufListHead, sPseudoHdrNode);
 
     //* 发送之
     INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, TCP, IP_TTL_DEFAULT, sBufListHead, penErr);

@@ -314,7 +314,12 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     {
     case IOPT_GETTCPUDPADDR: 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
-            *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stAddr;
+        {
+            if (sizeof(pvVal) == 4)
+                *((UINT *)pvVal) = (UINT)&pstcbInput->uniHandle.stAddr;
+            else
+                *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stAddr;
+        }
         else
         {
             if (penErr)
@@ -348,7 +353,10 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         break; 
 
     case IOPT_GETATTACH:
-        *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
+        if (sizeof(pvVal) == 4)
+            *((UINT *)pvVal) = (UINT)pstcbInput->pvAttach;
+        else
+            *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
         break; 
 
     default:
@@ -565,7 +573,10 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
                 if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
                 {
                     nInput = pstNextNode->uniData.nIndex;
-                    *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
+                    if (sizeof(pvAttach) == 4)
+                        *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
+                    else
+                        *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
                     break;
                 }
             }
