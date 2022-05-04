@@ -142,9 +142,11 @@ void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf,
 #if SUPPORT_PRINTF
 void printf_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine)
 {
-	INT i;
-
+    if (!usHexDataLen)
+        return; 
+	
 	printf("%02X", pubHex[0]);
+    INT i;
 	for (i = 1; i < usHexDataLen; i++)
 	{
 		if (i % (INT)ubBytesPerLine)

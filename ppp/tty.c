@@ -137,15 +137,15 @@ __lblRcv:
 		}
 
 		return nRtnVal;
-	}
+	}     
 
     //* 只有没有数据了才需要再次读取，当前的逻辑是先处理完已经收到的报文
     if (!pstcbIO->stRecv.nWriteIdx)
     {
         nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
-        if (nRcvBytes > 0)
+        if (nRcvBytes > 0)            
             pstcbIO->stRecv.nWriteIdx += nRcvBytes;
-    }	
+    }    
 
 	for (; nReadIdx < pstcbIO->stRecv.nWriteIdx; nReadIdx++)
 	{
