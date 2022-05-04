@@ -27,7 +27,7 @@ static void tcp_options_put_sack(PST_TCPLINK pstLink, UCHAR *pubOption);
 const static ST_TCPOPT_HANDLER lr_staTcpOptList[] =
 {    
     { TCPOPT_MSS, (UCHAR)sizeof(ST_TCPOPT_MSS), TRUE, tcp_options_attach_mss, tcp_options_put_mss }, //* 最大报文长度(MSS)
-    //{ TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), TRUE, tcp_options_attach_wndscale, tcp_options_put_wnd_scale }, //* 窗口扩大因子
+    { TCPOPT_WNDSCALE, (UCHAR)sizeof(ST_TCPOPT_WNDSCALE), TRUE, tcp_options_attach_wndscale, tcp_options_put_wnd_scale }, //* 窗口扩大因子
     { TCPOPT_SACK, (UCHAR)sizeof(ST_TCPOPT_HDR), TRUE, NULL, tcp_options_put_sack }, //* 是否支持SACK
 
     //* 以下为不需要挂载的tcp选项，一定要放到下面，需要挂载的放到上面    
@@ -90,19 +90,19 @@ INT tcp_options_attach(UCHAR *pubAttachAddr, INT nAttachBufSize)
 static void tcp_options_put_mss(PST_TCPLINK pstLink, UCHAR *pubOption)
 {
     PST_TCPOPT_MSS pstOption = (PST_TCPOPT_MSS)pubOption; 
-    pstLink->usMSS = htons(pstOption->usValue); 
+    pstLink->stPeer.usMSS = htons(pstOption->usValue); 
 }
 
 static void tcp_options_put_wnd_scale(PST_TCPLINK pstLink, UCHAR *pubOption)
 {
     PST_TCPOPT_WNDSCALE pstOption = (PST_TCPOPT_WNDSCALE)pubOption;
-    pstLink->bWndScale = pstOption->bScale;
+    pstLink->stPeer.bWndScale = pstOption->bScale;
 }
 
 static void tcp_options_put_sack(PST_TCPLINK pstLink, UCHAR *pubOption)
 {
     pubOption = pubOption; 
-    pstLink->bSackEn = TRUE; 
+    pstLink->stPeer.bSackEn = TRUE; 
 }
 
 void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)

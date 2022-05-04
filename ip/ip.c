@@ -118,7 +118,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     //* 首先看看校验和是否正确
     USHORT usPktChecksum = pstHdr->usChecksum;
     pstHdr->usChecksum = 0;
-    USHORT usChecksum = tcpip_checksum((USHORT *)pubPacket, nPacketLen);
+    USHORT usChecksum = tcpip_checksum((USHORT *)pubPacket, usHdrLen);
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF

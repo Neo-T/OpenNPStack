@@ -63,7 +63,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     stHdr.unAckNum = htonl(unAckNum);
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
     stHdr.usFlag = uniFlag.usVal;
-    stHdr.usWinSize = htons(usWndSize);
+    stHdr.usWinSize = htons(usWndSize - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX);
     stHdr.usChecksum = 0;
     stHdr.usUrgentPointer = 0; 
     //* 挂载到链表头部
@@ -87,7 +87,6 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     stPseudoHdr.ubMustBeZero = 0; 
     stPseudoHdr.ubProto = IPPROTO_TCP; 
     stPseudoHdr.usPacketLen = htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes); 
-    printf_hex((UCHAR *)&stPseudoHdr, sizeof(stPseudoHdr), 48);
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_TCP_PSEUDOHDR), penErr);
@@ -129,13 +128,13 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
     uniFlag.stb16.ack = 1;
 
     //* 更新tcp序号
-    pstLink->unSeqNum = unSrvAckNum; 
-    pstLink->unAckNum += 1; 
+    pstLink->stLocal.unSeqNum = unSrvAckNum; 
+    pstLink->stPeer.unSeqNum += 1; 
 
     //* 发送
     EN_ONPSERR enErr;
-    INT nRtnVal = tcp_send_packet(unNetifIp, usSrcPort, pstLink->stPeerAddr.unIp, pstLink->stPeerAddr.usPort, pstLink->unSeqNum, pstLink->unAckNum,
-                                    uniFlag, pstLink->usWndSize, NULL, 0, NULL, 0, &enErr);
+    INT nRtnVal = tcp_send_packet(unNetifIp, usSrcPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
+                                    pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);
     if (nRtnVal > 0)
     {
         //* 连接成功
@@ -164,7 +163,6 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
         onps_set_last_error(nInput, enErr); 
         return -1; 
     }
-    pstLink->usWndSize = 64240/*TCPRCVBUF_SIZE_DEFAULT - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX*/;
 
     //* 获取tcp链路句柄访问地址，该地址保存当前tcp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle; 
@@ -195,8 +193,8 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
     INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));    
 
     //* 完成实际的发送
-    INT nRtnVal = tcp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, pstLink->unSeqNum, pstLink->unAckNum, 
-                                    uniFlag, pstLink->usWndSize, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr); 
+    INT nRtnVal = tcp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, 
+                                    uniFlag, pstLink->stLocal.usWndSize, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr); 
     if (nRtnVal > 0)
     {
         //* 加入定时器队列
@@ -323,17 +321,18 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     {
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
-        {
-            if (TLSSYNSENT == pstLink->bState && pstHdr->unAckNum == pstLink->unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
+        {            
+            UINT unSrcAckNum = htonl(pstHdr->unAckNum); 
+            if (TLSSYNSENT == pstLink->bState && unSrcAckNum == pstLink->stLocal.unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
 
                 //* 记录当前链路信息
-                pstLink->unAckNum = pstHdr->unSeqNum; 
-                pstLink->usWndSize = pstHdr->usWinSize; 
-                pstLink->stPeerAddr.unIp = unSrcAddr; 
-                pstLink->stPeerAddr.usPort = pstHdr->usSrcPort; 
+                pstLink->stPeer.unSeqNum = htonl(pstHdr->unSeqNum); 
+                pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize); 
+                pstLink->stPeer.stAddr.unIp = htonl(unSrcAddr);
+                pstLink->stPeer.stAddr.usPort = htons(pstHdr->usSrcPort); 
 
                 //* 截取tcp头部选项字段
                 tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), uniFlag.stb16.hdr_len * 4 - sizeof(ST_TCP_HDR));
@@ -342,7 +341,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->bState = TLSRCVEDSYNACK;
 
                 //* 发送syn ack的ack报文
-                tcp_send_ack_of_syn_ack(nInput, pstLink, unDstAddr, usDstPort, pstHdr->unAckNum);
+                tcp_send_ack_of_syn_ack(nInput, pstLink, unDstAddr, usDstPort, unSrcAckNum);
             }
         }
     }

@@ -289,6 +289,8 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
     case IOPT_SETATTACH:
         pstcbInput->pvAttach = pvVal; 
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)        
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;         
         break; 
 
     default:
@@ -522,7 +524,7 @@ USHORT onps_input_port_new(EN_IPPROTO enProtocol)
     USHORT usPort;
 
 __lblPortNew:
-    usPort = 40000 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
+    usPort = 65535 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
 
     //* 确定是否正在使用，如果未使用则没问题
     if (onps_input_port_used(enProtocol, usPort))
@@ -568,7 +570,7 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
-            if (pstcbInput->ubIPProto == IPPROTO_TCP && pstcbInput->ubIPProto == IPPROTO_UDP)
+            if (pstcbInput->ubIPProto == IPPROTO_TCP || pstcbInput->ubIPProto == IPPROTO_UDP)
             {
                 if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
                 {
