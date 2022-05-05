@@ -228,8 +228,31 @@ void tcp_send_fin(INT nInput)
     if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
     {
         onps_set_last_error(nInput, enErr);
-        return -1;
+        return;
     }
+
+    //* 标志字段fin、ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.ack = 1; 
+    uniFlag.stb16.fin = 1;
+
+    //* 发送链路结束报文
+    tcp_send_packet(pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
+                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);
+
+    pstLink->bState = TLSCLOSED;
+}
+
+void tcp_send_ack(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, USHORT usWndSize)
+{
+    //* 标志字段ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.ack = 1;
+
+    //* 发送链路结束报文    
+    tcp_send_packet(unSrcAddr, usSrcPort, unDstAddr, usDstPort, unSeqNum, unAckNum, uniFlag, usWndSize, NULL, 0, NULL, 0, NULL);
 }
 
 void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
@@ -310,6 +333,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_TCPLINK pstLink; 
     INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink);
+    /*
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF
@@ -326,6 +350,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 #endif
         return; 
     }
+    */
 
     //* 依据报文头部标志字段确定下一步的处理逻辑
     UNI_TCP_FLAG uniFlag; 
@@ -335,6 +360,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
         {            
+            if (nInput < 0)
+                return; 
+
             UINT unSrcAckNum = htonl(pstHdr->unAckNum); 
             if (TLSSYNSENT == pstLink->bState && unSrcAckNum == pstLink->stLocal.unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
             {
@@ -359,9 +387,16 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         }
         else if (uniFlag.stb16.reset)
         {
+            if (nInput < 0)
+                return;
+
             //* 状态迁移到已接收到syn ack报文
             pstLink->bState = TLSRESET;
             os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+        }
+        else if (uniFlag.stb16.fin)
+        {
+            tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), htonl(pstHdr->unAckNum), htonl(pstHdr->unSeqNum) + 1, TCPRCVBUF_SIZE_DEFAULT);
         }
     }
 }

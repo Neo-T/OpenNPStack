@@ -48,6 +48,7 @@ SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr)
 
 void close(SOCKET socket)
 {
+    tcp_send_fin((INT)socket);
     onps_input_free((INT)socket); 
 }
 

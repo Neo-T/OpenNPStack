@@ -25,9 +25,7 @@ typedef enum {
     TLSRCVEDSYNACK,         //* 收到SYN ACK    
     TLSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
     TLSCONNECTED,           //* 已连接
-    TLSRESET,               //* 连接被重置
-    TLSFINSENT,             //* FIN已发送
-    TLSRCVEDFINACK,         //* 收到FIN ACK
+    TLSRESET,               //* 连接被重置    
     TLSCLOSED,              //* 已关闭    
 
     //* 以下为Socket被用于TCP Server时的状态定义
