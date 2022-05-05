@@ -219,6 +219,19 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
     return nRtnVal; 
 }
 
+void tcp_send_fin(INT nInput)
+{
+    EN_ONPSERR enErr;
+
+    //* 获取链路信息存储节点
+    PST_TCPLINK pstLink;
+    if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
+    {
+        onps_set_last_error(nInput, enErr);
+        return -1;
+    }
+}
+
 void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
 {
     PST_TCP_HDR pstHdr = (PST_TCP_HDR)pubPacket; 
@@ -343,6 +356,12 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 //* 发送syn ack的ack报文
                 tcp_send_ack_of_syn_ack(nInput, pstLink, unDstAddr, usDstPort, unSrcAckNum);
             }
+        }
+        else if (uniFlag.stb16.reset)
+        {
+            //* 状态迁移到已接收到syn ack报文
+            pstLink->bState = TLSRESET;
+            os_thread_sem_post(pstLink->stcbWaitAck.hSem);
         }
     }
 }

@@ -40,7 +40,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRSOCKETTYPE, "Unsupported socket type" }, 
     { ERRTCSNONTCP, "Non-TCP can't get/set tcp link state" },
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
-    { ERRTCPCONNRESET, "tcp connection reset" }, 
+    { ERRTCPCONNRESET, "tcp connection reset by peer" }, 
     { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
     { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRSENDZEROBYTES, "0 bytes of data are sent" }, 

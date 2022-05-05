@@ -36,29 +36,31 @@ typedef enum {
 } EN_TCPLINKSTATE;
 
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
+typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE; 
 typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;        
         USHORT usWndSize;
+        PST_TCPUDP_HANDLE pstAddr; 
     } stLocal;
 
     struct {        
         PST_ONESHOTTIMER pstTimer;
         HSEM hSem;
         CHAR bIsAcked;
-    } stcbWaitAck;    
+    } stcbWaitAck;     
 
-    struct {        
+    struct {
         CHAR bSackEn;       //* SACK选项使能
         CHAR bWndScale;     //* 窗口放大因子
         USHORT usMSS;       //* MSS值
-        USHORT usWndSize;   //* 当前窗口大小
-        UINT unSeqNum;      //* 当前序号
-        struct {            
-            in_addr_t unIp; //* 地址
+        USHORT usWndSize;   //* 当前窗口大小        
+        struct {
             USHORT usPort;  //* 端口
+            in_addr_t unIp; //* 地址            
         } stAddr;
-    } stPeer;    
+        UINT unSeqNum;      //* 当前序号
+    } stPeer;
 
     CHAR bState;    //* 当前链路状态    
     

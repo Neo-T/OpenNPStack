@@ -289,8 +289,11 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
     case IOPT_SETATTACH:
         pstcbInput->pvAttach = pvVal; 
-        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)        
-            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;         
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+        {
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr; 
+        }
         break; 
 
     default:
