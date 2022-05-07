@@ -135,24 +135,23 @@ static int socket_tcp_connect_nb(SOCKET socket, HSEM hSem, const char *srv_ip, u
 static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {
     EN_ONPSERR enErr;
-    EN_IPPROTO enProto;
-    HSEM hSem; 
+    EN_IPPROTO enProto;    
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-        goto __lblErr; 
-
-    hSem = INVALID_HSEM;
-    if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))
-        goto __lblErr;
-    if (INVALID_HSEM == hSem)
-    {
-        enErr = ERRINVALIDSEM;
-        goto __lblErr;
-    }
+        goto __lblErr;    
 
     onps_set_last_error((INT)socket, ERRNO);
 
     if (enProto == IPPROTO_TCP)
     {
+        HSEM hSem = INVALID_HSEM;
+        if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))
+            goto __lblErr;
+        if (INVALID_HSEM == hSem)
+        {
+            enErr = ERRINVALIDSEM;
+            goto __lblErr;
+        }
+
         //* 获取当前链路状态
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
@@ -202,4 +201,67 @@ int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nCon
 int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port)
 {
     return socket_connect(socket, srv_ip, srv_port, 0);
+}
+
+static int socket_tcp_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
+{
+
+}
+
+static int socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TCPLINKSTATE enLinkState)
+{
+
+}
+
+int socket_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
+{
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr;
+
+    onps_set_last_error((INT)socket, ERRNO); 
+
+    //* 完成实际的发送
+    if (enProto == IPPROTO_TCP)
+    {
+        //* 获取当前链路状态
+        EN_TCPLINKSTATE enLinkState;
+        if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+            goto __lblErr; 
+        if (TLSCONNECTED == enLinkState)
+        {
+            if (nWaitAckTimeout > 0)
+                return socket_tcp_send(socket, pubData, nDataLen, nWaitAckTimeout);
+            else
+                return socket_tcp_send_nb(socket, pubData, nDataLen, enLinkState); 
+        }
+        else
+        {
+            enErr = ERRTCPNOTCONNECTED;
+            goto __lblErr; 
+        }
+    }
+    else if (enProto == IPPROTO_UDP)
+    {
+        return nDataLen;
+    }
+    else
+        enErr = ERRUNSUPPIPPROTO;
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;
+}
+
+int send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
+{
+    if (nWaitAckTimeout <= 0)
+        nWaitAckTimeout = TCP_ACK_TIMEOUT;
+    return socket_send(socket, pubData, nDataLen, nWaitAckTimeout); 
+}
+
+int send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
+{
+    return socket_send(socket, pubData, nDataLen, 0);
 }

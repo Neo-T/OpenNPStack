@@ -46,7 +46,7 @@ ONE_SHOT_TIMER_EXT PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDL
 //* 定时器重新计数以延长超时时间，重新计数的前提是定时器尚未超时溢出，参数pstTimer指定要重新计数的定时器，nTimeoutCount则指定新的计数值，新的计数值必须大于0，小于等于0无效
 ONE_SHOT_TIMER_EXT void one_shot_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount);
 
-//* 停止并安全释放一个正在计时的定时器，如果以超时溢出则不执行任何操作，与one_shot_timer_free()函数不同，该函数需要先判断其是否
+//* 停止并安全释放一个正在计时的定时器，如果已超时溢出则不执行任何操作，与one_shot_timer_free()函数不同，该函数需要先判断其是否
 //* 依然还在计数，是才会执行释放并归还操作
 ONE_SHOT_TIMER_EXT void one_shot_timer_safe_free(PST_ONESHOTTIMER pstTimer);
 

@@ -11,14 +11,7 @@
 
 #define NETIF_NUM               2       //* 系统支持的网卡数量
 #define SOCKET_NUM_MAX          10      //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响）
-#define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
-#define TCPRCVBUF_SIZE_DEFAULT  1500    //* tcp层缺省的接收缓冲区大小
-#define TCP_WINDOW_SCALE        0       //* 窗口扩大因子缺省值
-#define UDPRCVBUF_SIZE_DEFAULT  512     //* udp层缺省的接收缓冲区大小
 #define IP_TTL_DEFAULT          64      //* 缺省TTL值
-#define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
-#define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（TCP客户端 + TCP服务器最大并发连接数）
-#define TCPUDP_PORT_START       20000   //* TCP/UDP协议动态分配的起始端口号
 
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================
@@ -51,6 +44,22 @@
                                 //* 32 * (2 ^ (9 - 1))，即BUDDY_MEM_SIZE = BUDDY_PAGE_SIZE * (2 ^ (BUDDY_ARER_COUNT - 1))
 								//* 之所以在此定义好要管理的内存大小，原因是buddy管理的内存其实就是一块提前分配好的静态存储
 								//* 时期的字节型一维数组，以确保协议栈不占用宝贵的堆空间
+//* ===============================================================================================
+
+//* ip支持的上层协议相关配置项
+//* ===============================================================================================
+#define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
+
+#define TCPRCVBUF_SIZE_DEFAULT  1500    //* tcp层缺省的接收缓冲区大小
+#define UDPRCVBUF_SIZE_DEFAULT  512     //* udp层缺省的接收缓冲区大小
+
+#define TCPUDP_PORT_START       20000   //* TCP/UDP协议动态分配的起始端口号
+
+#define TCP_WINDOW_SCALE        0       //* 窗口扩大因子缺省值
+#define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
+#define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
+#define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（TCP客户端 + TCP服务器最大并发连接数）
+#define SUPPORT_SACK            0       //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
 //* ===============================================================================================
 
 #endif

@@ -42,6 +42,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
     { ERRTCPCONNRESET, "tcp connection reset by peer" }, 
     { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
+    { ERRTCPNOTCONNECTED, "tcp link not connected" }
     { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRSENDZEROBYTES, "0 bytes of data are sent" }, 
     { ERRUNKNOWN, "unknown error" }

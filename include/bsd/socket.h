@@ -31,11 +31,15 @@ typedef INT SOCKET;         //* socket句柄
 SOCKET_EXT SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr); 
 SOCKET_EXT void close(SOCKET socket);
 
-//* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()获得
-//* 注意，nConnTimeout参数必须大于0，小于等于0则使用缺省超时时间TCP_CONN_TIMEOUT
+//* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数
+//* 获得，注意，nConnTimeout参数必须大于0，小于等于0则使用缺省超时时间TCP_CONN_TIMEOUT
 SOCKET_EXT int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout);
-
-//* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()获得
+//* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port); 
+
+//* 发送函数(阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
+SOCKET_EXT int send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout); 
+//* 发送函数(非阻塞型)，返回值大于0则为实际发送成功的字节数，等于0为发送中，尚未收到对端的应答，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
+SOCKET_EXT int send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
 
 #endif
