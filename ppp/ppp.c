@@ -482,8 +482,8 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 			
 		#if SUPPORT_ECHO
 			unLastSndEchoReq = os_get_system_secs();
-			pstcbPPP->enState = WAITECHOREPLY;
 		#endif
+            pstcbPPP->enState = WAITECHOREPLY;
 			break; 
 
 		case SENDECHOREQ:
@@ -517,7 +517,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
         #if SUPPORT_ECHO
 			if (pstcbPPP->stWaitAckList.ubIsTimeout || os_get_system_secs() - unLastSndEchoReq > 60) //* 意味着没收到应答报文
 				pstcbPPP->enState = SENDECHOREQ; //* 发送下一次echo request
-            else; 
+            else;         
         #endif
 			break;
 
