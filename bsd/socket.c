@@ -305,7 +305,7 @@ int socket_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout
             if (nWaitAckTimeout > 0)
             {
                 //* 如果当前尚未就绪，则直接返回0，告知调用者需要继续重复调用该函数以在状态就绪后可以立即发送数据
-                if (TDSSENDING != enSndState)
+                if (TDSSENDING == enSndState)
                     return 0;
 
                 HSEM hSem = INVALID_HSEM;

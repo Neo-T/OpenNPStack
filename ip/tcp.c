@@ -271,6 +271,7 @@ INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWait
         //* 记录当前实际发送的字节数
         pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen;
         pstLink->stLocal.bDataSendState = TDSSENDING;
+        return nSndDataLen; 
     }
     else
     {
@@ -474,7 +475,11 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             //* 已经发送了数据，看看是不是对应的ack报文            
             if (TDSSENDING == (EN_TCPDATASNDSTATE)pstLink->stLocal.bDataSendState && unSrcAckNum == pstLink->stLocal.unSeqNum + (UINT)pstLink->stcbWaitAck.usSendDataBytes)
             {
+                pstLink->stcbWaitAck.bIsAcked = TRUE; 
+                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
+
                 //* 记录当前链路信息
+                pstLink->stLocal.unSeqNum = unSrcAckNum;
                 pstLink->stPeer.unSeqNum = htonl(pstHdr->unSeqNum);
                 pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
 

@@ -439,7 +439,9 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		nPacketLen = ppp_recv(nPPPIdx, penErr, 1);
         if (nPacketLen > 0)
         {            
+    #if SUPPORT_ECHO
             unLastSndEchoReq = os_get_system_secs(); //* 记录接收到的最后一组报文时间，无论任何类型报文到达都清零echo发送计时，确保不重复发送echo报文
+    #endif
         }
         else
         {
@@ -512,9 +514,11 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 			break; 
 
 		case WAITECHOREPLY:
+        #if SUPPORT_ECHO
 			if (pstcbPPP->stWaitAckList.ubIsTimeout || os_get_system_secs() - unLastSndEchoReq > 60) //* 意味着没收到应答报文
 				pstcbPPP->enState = SENDECHOREQ; //* 发送下一次echo request
             else; 
+        #endif
 			break;
 
 		case SENDTERMREQ:
