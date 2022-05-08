@@ -46,7 +46,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPDATAEMPTY, "tcp data segment is empty" }, 
     { ERRTCPACKTIMEOUT, "tcp ack timeout" }, 
     { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
-    { ERRTCPNOTCONNECTED, "tcp link not connected" }
+    { ERRTCPNOTCONNECTED, "tcp link not connected" }, 
     { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRSENDZEROBYTES, "0 bytes of data are sent" }, 
     { ERRUNKNOWN, "unknown error" }

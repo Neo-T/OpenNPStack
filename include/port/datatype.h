@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #define	PACKED __attribute__((packed))
 #define PACKED_FIELD(x) PACKED x

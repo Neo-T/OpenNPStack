@@ -65,6 +65,11 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
 
     pstFreeNode->bState = TLSINIT;
     pstFreeNode->stLocal.unSeqNum = pstFreeNode->stPeer.unSeqNum = 0;    
+    pstFreeNode->stPeer.bSackEn = FALSE;
+    pstFreeNode->stPeer.bWndScale = 0;
+    pstFreeNode->stPeer.usMSS = 1200; 
+    pstFreeNode->stPeer.usWndSize = 8192;     
+    pstFreeNode->stLocal.bDataSendState = TDSSENDRDY;   //* 发送状态初始化
     return pstFreeNode;
 }
 

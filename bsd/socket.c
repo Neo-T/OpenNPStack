@@ -48,7 +48,13 @@ SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr)
 
 void close(SOCKET socket)
 {
-    tcp_send_fin((INT)socket);
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        return; 
+
+    if (enProto == IPPROTO_TCP)
+        tcp_send_fin((INT)socket);
     onps_input_free((INT)socket); 
 }
 
@@ -241,6 +247,8 @@ static int socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TC
         nRtnVal = tcp_send_data((INT)socket, INVALID_HSEM, pubData, nDataLen, 0); 
         if (nRtnVal < 0)
             return -1;
+        else
+            return 0; 
     }
     else
     {

@@ -21,7 +21,13 @@ static void tcp_ack_timeout_handler(void *pvParam)
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam; 
     if (!pstLink->stcbWaitAck.bIsAcked)
     {
-        pstLink->bState = TLSACKTIMEOUT; 
+        if (TLSCONNECTED == pstLink->bState)
+        {
+            if (TDSSENDING == pstLink->stLocal.bDataSendState)
+                pstLink->stLocal.bDataSendState = (CHAR)TDSTIMEOUT; 
+        }
+        else
+            pstLink->bState = TLSACKTIMEOUT; 
 
         if(INVALID_HSEM != pstLink->stcbWaitAck.hSem)
             os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
@@ -138,16 +144,13 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
     INT nRtnVal = tcp_send_packet(unNetifIp, usSrcPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
                                     pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);
     if (nRtnVal > 0)
-    {        
-        //* 发送就绪
-        pstLink->stLocal.bDataSendState = TDSSENDRDY;         
-
+    {                  
         //* 连接成功
-        pstLink->bState = TLSCONNECTED; 
+        pstLink->bState = (CHAR)TLSCONNECTED; 
     }
     else 
     {
-        pstLink->bState = TLSSYNACKACKSENTFAILED;
+        pstLink->bState = (CHAR)TLSSYNACKACKSENTFAILED;
 
         if (nRtnVal < 0)
             onps_set_last_error(nInput, enErr);
@@ -226,9 +229,58 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort, i
     return nRtnVal; 
 }
 
-INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen)
+INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 {
+    EN_ONPSERR enErr;
 
+    //* 获取链路信息存储节点
+    PST_TCPLINK pstLink;
+    if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
+    {
+        onps_set_last_error(nInput, enErr);
+        return -1;
+    }
+
+    //* 首先看看对端的mss能够接收多少数据
+    INT nSndDataLen = nDataLen < (INT)pstLink->stPeer.usMSS ? nDataLen : (INT)pstLink->stPeer.usMSS; 
+    //* 再看看对端的接收窗口是否足够大
+    INT nWndSize = ((INT)pstLink->stPeer.usWndSize) * (INT)pow(2, pstLink->stPeer.bWndScale); 
+    nSndDataLen = nSndDataLen < nWndSize ? nSndDataLen : nWndSize; 
+    
+    //* 标志字段push、ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.ack = 1;
+    uniFlag.stb16.push = 1;
+
+    //* 发送链路结束报文
+    INT nRtnVal = tcp_send_packet(pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort,
+                                    pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, pubData, (USHORT)nSndDataLen, &enErr); 
+    if (nRtnVal > 0)
+    {        
+        //* 加入定时器队列
+        pstLink->stcbWaitAck.bIsAcked = FALSE;
+        pstLink->stcbWaitAck.hSem = hSem;
+        pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
+        if (!pstLink->stcbWaitAck.pstTimer)
+        {
+            onps_set_last_error(nInput, ERRNOIDLETIMER);
+            return -1;
+        }
+        
+        //* 记录当前实际发送的字节数
+        pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen;
+        pstLink->stLocal.bDataSendState = TDSSENDING;
+    }
+    else
+    {
+        if (nRtnVal < 0)
+            onps_set_last_error(nInput, enErr);
+        else
+            onps_set_last_error(nInput, ERRSENDZEROBYTES);
+    }
+
+    return nRtnVal;
 }
 
 void tcp_send_fin(INT nInput)
@@ -242,6 +294,10 @@ void tcp_send_fin(INT nInput)
         onps_set_last_error(nInput, enErr);
         return;
     }
+
+    //* 未连接的话直接返回，没必要发送结束连接报文
+    if (TLSCONNECTED != (EN_TCPLINKSTATE)pstLink->bState)
+        return; 
 
     //* 标志字段fin、ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
@@ -369,13 +425,14 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     uniFlag.usVal = pstHdr->usFlag;
     if (uniFlag.stb16.ack)
     {
+        UINT unSrcAckNum = htonl(pstHdr->unAckNum);
+
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
         {            
             if (nInput < 0)
                 return; 
-
-            UINT unSrcAckNum = htonl(pstHdr->unAckNum); 
+            
             if (TLSSYNSENT == pstLink->bState && unSrcAckNum == pstLink->stLocal.unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
@@ -411,6 +468,21 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         else if (uniFlag.stb16.fin)
         {
             tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), htonl(pstHdr->unAckNum), htonl(pstHdr->unSeqNum) + 1, TCPRCVBUF_SIZE_DEFAULT);
+        }
+        else
+        {
+            //* 已经发送了数据，看看是不是对应的ack报文            
+            if (TDSSENDING == (EN_TCPDATASNDSTATE)pstLink->stLocal.bDataSendState && unSrcAckNum == pstLink->stLocal.unSeqNum + (UINT)pstLink->stcbWaitAck.usSendDataBytes)
+            {
+                //* 记录当前链路信息
+                pstLink->stPeer.unSeqNum = htonl(pstHdr->unSeqNum);
+                pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+
+                //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
+                pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED; 
+                if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
+                    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            }
         }
     }
 }

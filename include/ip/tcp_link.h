@@ -54,7 +54,7 @@ typedef struct _ST_TCPLINK_ {
         PST_ONESHOTTIMER pstTimer;
         HSEM hSem;
         CHAR bIsAcked; 
-        //USHORT usSendDataBytes; 
+        USHORT usSendDataBytes; 
     } stcbWaitAck;        
 
     struct {
