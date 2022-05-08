@@ -47,9 +47,13 @@ typedef enum {
     ERRADDRESSING,      //* 寻址失败，不存在缺省路由
     ERRADDRFAMILIES,    //* 地址族错误
     ERRSOCKETTYPE,      //* 不被支持的socket类型
+    ERRNOATTACH,        //* 附加数据地址为空
     ERRTCSNONTCP,       //* 非TCP协议不能获取、设置TCP链路状态
+    ERRTDSNONTCP,       //* 非TCP协议不能获取数据发送状态
     ERRTCPCONNTIMEOUT,  //* TCP连接超时
     ERRTCPCONNRESET,    //* TCP连接已被重置
+    ERRTCPDATAEMPTY,    //* TCP数据段为0
+    ERRTCPACKTIMEOUT,   //* TCP应答超时
     ERRNOTCPLINKNODE,   //* 无可用tcp link节点
     ERRTCPNOTCONNECTED, //* tcp未连接
     ERRINVALIDSEM,      //* 无效的信号量

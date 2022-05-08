@@ -364,6 +364,26 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
         break; 
 
+    case IOPT_GETTCPDATASNDSTATE:
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+        {
+            if (pstcbInput->pvAttach)
+                *((EN_TCPDATASNDSTATE *)pvVal) = (EN_TCPDATASNDSTATE)((PST_TCPLINK)(pstcbInput->pvAttach))->stLocal.bDataSendState;
+            else
+            {
+                if (penErr)
+                    *penErr = ERRNOATTACH;
+                return FALSE;
+            }
+        }
+        else
+        {
+            if (penErr)
+                *penErr = ERRTDSNONTCP; 
+            return FALSE;
+        }
+        break; 
+
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT;

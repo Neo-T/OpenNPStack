@@ -38,9 +38,13 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRADDRESSING,"Addressing failure, default route does not exist" }, 
     { ERRADDRFAMILIES, "Unsupported address families" }, 
     { ERRSOCKETTYPE, "Unsupported socket type" }, 
+    { ERRNOATTACH, "Attached data address is null" }, 
     { ERRTCSNONTCP, "Non-TCP can't get/set tcp link state" },
+    { ERRTDSNONTCP, "Non-TCP can't get tcp send data state" }, 
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
     { ERRTCPCONNRESET, "tcp connection reset by peer" }, 
+    { ERRTCPDATAEMPTY, "tcp data segment is empty" }, 
+    { ERRTCPACKTIMEOUT, "tcp ack timeout" }, 
     { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
     { ERRTCPNOTCONNECTED, "tcp link not connected" }
     { ERRINVALIDSEM, "invalid semaphore" }, 

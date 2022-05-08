@@ -33,20 +33,29 @@ typedef enum {
     TLSSRVDOWN,     //* TCP Server已关闭
 } EN_TCPLINKSTATE;
 
+typedef enum {
+    TDSSENDRDY = 0, 
+    TDSSENDING, 
+    TDSACKRCVED, 
+    TDSTIMEOUT
+} EN_TCPDATASNDSTATE;
+
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE; 
 typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;        
         USHORT usWndSize;
+        CHAR bDataSendState; 
         PST_TCPUDP_HANDLE pstAddr; 
     } stLocal;
 
     struct {        
         PST_ONESHOTTIMER pstTimer;
         HSEM hSem;
-        CHAR bIsAcked;
-    } stcbWaitAck;     
+        CHAR bIsAcked; 
+        //USHORT usSendDataBytes; 
+    } stcbWaitAck;        
 
     struct {
         CHAR bSackEn;       //* SACK选项使能

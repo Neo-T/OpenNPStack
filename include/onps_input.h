@@ -18,16 +18,17 @@
 
 //* 协议栈支持的输入控制块相关配置项定义
 typedef enum {
-    IOPT_RCVBUFSIZE = 0,    //* 设置接收缓冲区大小
-    IOPT_SETICMPECHOID,     //* 设置icmp echo请求ID
-    IOPT_SETTCPUDPADDR,     //* 设置TCP/UDP本地分配的地址
-    IOPT_GETTCPUDPADDR,     //* 获取TCP/UDP本地分配的地址
-    IOPT_GETSEM,            //* 获取input用到的semaphore
-    IOPT_GETIPPROTO,        //* 获取当前input绑定的ip上层协议
-    IOPT_GETTCPLINKSTATE,   //* 获取tcp链路状态
-    IOPT_SETTCPLINKSTATE,   //* 设置tcp链路状态
-    IOPT_SETATTACH,         //* 设置附加信息
-    IOPT_GETATTACH,         //* 获取附加信息地址
+    IOPT_RCVBUFSIZE = 0,        //* 设置接收缓冲区大小
+    IOPT_SETICMPECHOID,         //* 设置icmp echo请求ID
+    IOPT_SETTCPUDPADDR,         //* 设置TCP/UDP本地分配的地址
+    IOPT_GETTCPUDPADDR,         //* 获取TCP/UDP本地分配的地址
+    IOPT_GETSEM,                //* 获取input用到的semaphore
+    IOPT_GETIPPROTO,            //* 获取当前input绑定的ip上层协议
+    IOPT_GETTCPLINKSTATE,       //* 获取tcp链路状态
+    IOPT_SETTCPLINKSTATE,       //* 设置tcp链路状态
+    IOPT_SETATTACH,             //* 设置附加信息
+    IOPT_GETATTACH,             //* 获取附加信息地址
+    IOPT_GETTCPDATASNDSTATE,    //* 获取tcp链路数据发送的状态
 } ONPSIOPT;
 
 typedef struct _ST_TCPUDP_HANDLE_ {

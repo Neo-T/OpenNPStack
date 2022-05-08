@@ -16,7 +16,8 @@
 #endif //* SYMBOL_GLOBALS
 #include "ip/tcp_link.h"
 
-TCP_EXT INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort);
+TCP_EXT INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTimeout);
+TCP_EXT INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout);
 TCP_EXT void tcp_send_fin(INT nInput); 
 TCP_EXT void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen); 
 

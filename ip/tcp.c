@@ -22,7 +22,9 @@ static void tcp_ack_timeout_handler(void *pvParam)
     if (!pstLink->stcbWaitAck.bIsAcked)
     {
         pstLink->bState = TLSACKTIMEOUT; 
-        os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
+
+        if(INVALID_HSEM != pstLink->stcbWaitAck.hSem)
+            os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
     }
 }
 
@@ -137,6 +139,9 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
                                     pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);
     if (nRtnVal > 0)
     {        
+        //* 发送就绪
+        pstLink->stLocal.bDataSendState = TDSSENDRDY;         
+
         //* 连接成功
         pstLink->bState = TLSCONNECTED; 
     }
@@ -149,10 +154,12 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
         else
             onps_set_last_error(nInput, ERRSENDZEROBYTES);
     }
-    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+
+    if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
+        os_thread_sem_post(pstLink->stcbWaitAck.hSem);
 }
 
-INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
+INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTimeout)
 {
     EN_ONPSERR enErr;    
 
@@ -200,7 +207,7 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
         //* 加入定时器队列
         pstLink->stcbWaitAck.bIsAcked = FALSE; 
         pstLink->stcbWaitAck.hSem = hSem; 
-        pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, TCP_CONN_TIMEOUT);
+        pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT); 
         if (!pstLink->stcbWaitAck.pstTimer)
         {
             onps_set_last_error(nInput, ERRNOIDLETIMER);
@@ -217,6 +224,11 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort)
     }
 
     return nRtnVal; 
+}
+
+INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen)
+{
+
 }
 
 void tcp_send_fin(INT nInput)
@@ -392,7 +404,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             //* 状态迁移到已接收到syn ack报文
             pstLink->bState = TLSRESET;
-            os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+
+            if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
+                os_thread_sem_post(pstLink->stcbWaitAck.hSem);
         }
         else if (uniFlag.stb16.fin)
         {
