@@ -437,7 +437,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             if (TLSSYNSENT == pstLink->bState && unSrcAckNum == pstLink->stLocal.unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
-                one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
+                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer); 
+                //one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
 
                 //* 记录当前链路信息
                 pstLink->stPeer.unSeqNum = htonl(pstHdr->unSeqNum); 
