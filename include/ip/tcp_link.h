@@ -46,7 +46,7 @@ typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;        
         USHORT usWndSize;
-        CHAR bDataSendState; 
+        CHAR bDataSendState;         
         PST_TCPUDP_HANDLE pstAddr; 
     } stLocal;
 

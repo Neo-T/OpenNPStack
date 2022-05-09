@@ -473,23 +473,40 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         }
         else
         {
+            //* 记录当前链路信息
+            pstLink->stLocal.unSeqNum = unSrcAckNum;
+            pstLink->stPeer.unSeqNum = htonl(pstHdr->unSeqNum);
+            pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+
             //* 已经发送了数据，看看是不是对应的ack报文            
             if (TDSSENDING == (EN_TCPDATASNDSTATE)pstLink->stLocal.bDataSendState && unSrcAckNum == pstLink->stLocal.unSeqNum + (UINT)pstLink->stcbWaitAck.usSendDataBytes)
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
-                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
-
-                //* 记录当前链路信息
-                pstLink->stLocal.unSeqNum = unSrcAckNum;
-                pstLink->stPeer.unSeqNum = htonl(pstHdr->unSeqNum);
-                pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                
 
                 //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
                 pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED; 
                 if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
                     os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            }            
+
+            //* 看看有数据吗？
+            INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4; 
+            INT nDataLen = nPacketLen - nTcpHdrLen; 
+            if (nDataLen)
+            {
+                HSEM hSem;
+                CHAR bRecvTimeout; 
+                UINT unDataBytes = (UINT)nDataLen;
+                UCHAR *pubDataBuf = onps_input_get_rcv_buf(nInput, &hSem, &unDataBytes, &bRecvTimeout);
+                memcpy(pubDataBuf, pubPacket + nTcpHdrLen, unDataBytes);
+                os_thread_sem_post(hSem); 
             }
         }
     }
 }
 
+INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, INT nDataBufSize, int nWaitSecs)
+{
+    
+}

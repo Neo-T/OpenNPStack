@@ -351,3 +351,13 @@ int send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
 {
     return socket_send(socket, pubData, nDataLen, 0);
 }
+
+int recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, int nWaitSecs)
+{
+
+}
+
+int recv_nb(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
+{
+
+}

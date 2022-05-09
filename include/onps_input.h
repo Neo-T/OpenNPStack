@@ -43,7 +43,7 @@ ONPSINPUT_EXT void onps_input_free(INT nInput);  //* 释放一个输入控制块
 ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
-ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes);
+ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes, CHAR *pbRecvTimeout);
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 ONPSINPUT_EXT INT onps_input_get_handle(UINT unNetifIp, USHORT usPort); 

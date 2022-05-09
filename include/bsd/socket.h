@@ -42,4 +42,9 @@ SOCKET_EXT int send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTim
 //* 发送函数(非阻塞型)，返回值大于0则为实际发送成功的字节数，等于0为发送中，尚未收到对端的应答，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT int send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
 
+//* 接收函数(阻塞型)，直至收到数据或者超时，返回值为实际收到的数据长度，0表示未收到数据，小于0则接收失败，具体错误信息通过onps_get_last_error()函数获得
+SOCKET_EXT int recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, int nWaitSecs); 
+//* 接收函数(非阻塞型)，返回值为实际收到的数据长度，小于0则接收失败，具体错误信息通过onps_get_last_error()函数获得
+SOCKET_EXT int recv_nb(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
+
 #endif

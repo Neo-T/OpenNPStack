@@ -12,10 +12,7 @@
 
 //* 协议栈icmp/tcp/udp层接收处理节点
 typedef struct _STCB_ONPS_INPUT_ {
-    HSEM hSem;          //* 信号量，一旦收到数据，协议栈将投递信号量给上层接收者，避免上层调用者采用轮询读取数据的方式，避免CPU资源被过多占用
-    UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
-
-    UCHAR ubLastErr;    //* 最近的错误信息，实际类型为EN_ONPSERR
+    HSEM hSem;          //* 信号量，一旦收到数据，协议栈将投递信号量给上层接收者，避免上层调用者采用轮询读取数据的方式，避免CPU资源被过多占用    
 
     union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
         struct {
@@ -24,6 +21,11 @@ typedef struct _STCB_ONPS_INPUT_ {
 
         ST_TCPUDP_HANDLE stAddr; //* 句柄，使用IP地址和端口就可以唯一的标识一个tcp连接       
     } uniHandle;
+
+    UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
+    UCHAR ubLastErr;    //* 最近的错误信息，实际类型为EN_ONPSERR
+    CHAR bRecvTimeout;  //* 接收超时时间，单位：秒，大于0，指定等待的最长秒数；0，不等待，直接返回；-1，一直等待直至数据到达
+
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
     UINT unRcvedBytes; 
@@ -144,6 +146,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         pstNode = sllist_get_node(&l_pstFreedSLList);
         pstcbInput = &l_stcbaInput[pstNode->uniData.nIndex];
         pstcbInput->hSem = hSem; 
+        pstcbInput->bRecvTimeout = -1; 
         pstcbInput->ubIPProto = (UCHAR)enProtocol; 
         pstcbInput->pubRcvBuf = pubRcvBuf; 
         pstcbInput->unRcvBufSize = unSize;
@@ -417,7 +420,7 @@ INT onps_input_get_icmp(USHORT usIdentifier)
     return nInput; 
 }
 
-UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes)
+UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes, CHAR *pbRecvTimeout)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
@@ -435,6 +438,8 @@ UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes)
 
     if (phSem)
         *phSem = l_stcbaInput[nInput].hSem; 
+    if (pbRecvTimeout)
+        *pbRecvTimeout = l_stcbaInput[nInput].bRecvTimeout; 
 
     l_stcbaInput[nInput].unRcvedBytes = *punRcvedBytes < l_stcbaInput[nInput].unRcvBufSize ? *punRcvedBytes : l_stcbaInput[nInput].unRcvBufSize;
 

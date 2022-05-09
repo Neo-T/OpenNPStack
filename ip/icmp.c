@@ -272,7 +272,7 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     //* 将数据搬运到用户的接收缓冲区，然后发送一个信号量通知用户数据已到达
     HSEM hSem;
     UINT unRcvedBytes = (UINT)nPacketLen;
-    UCHAR *pubRcvBuf = onps_input_get_rcv_buf(nInput, &hSem, &unRcvedBytes);
+    UCHAR *pubRcvBuf = onps_input_get_rcv_buf(nInput, &hSem, &unRcvedBytes, NULL);
     memcpy(pubRcvBuf, pubPacket, unRcvedBytes);
     os_thread_sem_post(hSem);
 }
