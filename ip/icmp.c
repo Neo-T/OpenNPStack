@@ -269,15 +269,20 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
         return;
     }
 
-    //* 将数据搬运到用户的接收缓冲区，然后发送一个信号量通知用户数据已到达
-    HSEM hSem;
-    UINT unRcvedBytes = (UINT)nPacketLen;
-    UCHAR *pubRcvBuf = onps_input_get_rcv_buf(nInput, &hSem, &unRcvedBytes, NULL);
-    if (pubRcvBuf)
+    //* 将数据搬运到用户的接收缓冲区并通知用户
+    EN_ONPSERR enErr; 
+    if (!onps_input_recv(nInput, (const UCHAR *)pubPacket, nPacketLen, &enErr))
     {
-        memcpy(pubRcvBuf, pubPacket, unRcvedBytes);
-        os_thread_sem_post(hSem);
-    }    
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_recv() failed, %s\r\n", onps_error(enErr)); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
 }
 
 static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)

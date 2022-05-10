@@ -360,12 +360,39 @@ BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr)
 INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
 {
     EN_ONPSERR enErr;
+
+    //* 获取当前socket绑定的协议类型
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr;
+
+    //* 仅支持tcp和udp，其它不支持
+    if (enProto != IPPROTO_UDP && enProto != IPPROTO_TCP)
+    {
+        enErr = ERRUNSUPPIPPROTO;
+        goto __lblErr;
+    }
+
+    //* 获取接收等待时长
     CHAR bRcvTimeout;
     if (!onps_input_get((INT)socket, IOPT_GETRCVTIMEOUT, &bRcvTimeout, &enErr))
     {
-        onps_set_last_error((INT)socket, enErr); 
-        return -1; 
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
     }
 
-    return tcp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout); 
+    //* 错误清0
+    onps_set_last_error((INT)socket, ERRNO);
+
+    //* 读取收到的数据
+    if (enProto == IPPROTO_TCP)
+        return tcp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout);
+    else
+    {
+        return 0; 
+    }
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;            
 }

@@ -429,53 +429,68 @@ INT onps_input_get_icmp(USHORT usIdentifier)
     return nInput; 
 }
 
-UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes, CHAR *pbRecvTimeout)
+BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("onps_input_get_rcv_buf() failed, Handle %d is out of system scope\r\n", nInput);
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-        return NULL;
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+
+        return FALSE; 
     }
 
-    if (phSem)
-        *phSem = l_stcbaInput[nInput].hSem; 
+    //* 将数据搬运到接收缓冲区
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+        UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
+        unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes; //* 由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
+        memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes); 
+        l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 
 
-    if (pbRecvTimeout)
-        *pbRecvTimeout = l_stcbaInput[nInput].bRecvTimeout; 
+        //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小
+        if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
 
+    //* 投递信号给上层用户，告知对端数据已到达
+    if (l_stcbaInput[nInput].bRecvTimeout)
+        os_thread_sem_post(l_stcbaInput[nInput].hSem); 
 
-    UINT unFreeSpace = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
-    l_stcbaInput[nInput].unRcvedBytes = *punRcvedBytes < l_stcbaInput[nInput].unRcvBufSize ? *punRcvedBytes : l_stcbaInput[nInput].unRcvBufSize;
-
-    return l_stcbaInput[nInput].pubRcvBuf; 
+    return TRUE; 
 }
 
-const UCHAR *onps_input_get_rcv_data(INT nInput, UINT *punRcvedBytes)
+INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("onps_input_get_rcv_data() failed, Handle %d is out of system scope\r\n", nInput);
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-        return NULL;
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+
+        return -1;
     }
 
-    *punRcvedBytes = l_stcbaInput[nInput].unRcvedBytes; 
-    return l_stcbaInput[nInput].pubRcvBuf;
+    //* 没有收到任何数据则立即返回0
+    if (!l_stcbaInput[nInput].unRcvedBytes)
+        return 0; 
+
+    //* 将数据搬运到用户的接收缓冲区
+    UINT unCpyBytes; 
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+        unCpyBytes = unDataBufSize > l_stcbaInput[nInput].unRcvedBytes ? l_stcbaInput[nInput].unRcvedBytes : unDataBufSize; 
+        memcpy(pubDataBuf, l_stcbaInput[nInput].pubRcvBuf, unCpyBytes); 
+        l_stcbaInput[nInput].unRcvedBytes = l_stcbaInput[nInput].unRcvedBytes - unCpyBytes;
+        if (l_stcbaInput[nInput].unRcvedBytes)
+            memmove(l_stcbaInput[nInput].pubRcvBuf, l_stcbaInput[nInput].pubRcvBuf + unCpyBytes, l_stcbaInput[nInput].unRcvedBytes); 
+
+        //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小
+        if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)        
+            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
+
+    return (INT)unCpyBytes; 
 }
 
 INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
