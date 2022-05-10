@@ -29,6 +29,8 @@ typedef enum {
     IOPT_SETATTACH,             //* 设置附加信息
     IOPT_GETATTACH,             //* 获取附加信息地址
     IOPT_GETTCPDATASNDSTATE,    //* 获取tcp链路数据发送的状态
+    IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
+    IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
 } ONPSIOPT;
 
 typedef struct _ST_TCPUDP_HANDLE_ {
@@ -36,19 +38,42 @@ typedef struct _ST_TCPUDP_HANDLE_ {
     USHORT usPort;    
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 
-ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);  //* 输入控制块初始化
-ONPSINPUT_EXT void onps_input_uninit(void); //* 去初始化输入控制块
-ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr);  //* 建立一个新的输入控制块
-ONPSINPUT_EXT void onps_input_free(INT nInput);  //* 释放一个输入控制块
+//* 输入控制块初始化
+ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr); 
+
+//* 去初始化输入控制块
+ONPSINPUT_EXT void onps_input_uninit(void); 
+
+//* 建立一个新的输入控制块
+ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr); 
+
+//* 释放一个输入控制块
+ONPSINPUT_EXT void onps_input_free(INT nInput); 
+
+//* 设置/获取相关配置项
 ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
+
+//* 根据对端发送的标识获取本地icmp句柄
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
-ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes, CHAR *pbRecvTimeout);
+
+//* 获取接收缓冲区地址，该缓冲区用于接收对端发送的数据
+ONPSINPUT_EXT UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes, CHAR *pbRecvTimeout); 
+
+//* 获取对端发送的数据
+ONPSINPUT_EXT const UCHAR *onps_input_get_rcv_data(INT nInput, UINT *punRcvedBytes); 
+
+//* 等待接收icmp层对端发送的数据
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
+
+//* 分配一个动态端口
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
+
+//* 根据ip地址和端口号获取input句柄
 ONPSINPUT_EXT INT onps_input_get_handle(UINT unNetifIp, USHORT usPort); 
 ONPSINPUT_EXT INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach);
 
+//* 设置/获取最近一次发生的错误
 ONPSINPUT_EXT const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr);
 ONPSINPUT_EXT void onps_set_last_error(INT nInput, EN_ONPSERR enErr);
 

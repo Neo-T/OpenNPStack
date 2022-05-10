@@ -24,7 +24,7 @@ typedef struct _STCB_ONPS_INPUT_ {
 
     UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
     UCHAR ubLastErr;    //* 最近的错误信息，实际类型为EN_ONPSERR
-    CHAR bRecvTimeout;  //* 接收超时时间，单位：秒，大于0，指定等待的最长秒数；0，不等待，直接返回；-1，一直等待直至数据到达
+    CHAR bRecvTimeout;  //* 接收超时时间（单位：秒），大于0，指定等待的最长秒数；0，不等待，直接返回；-1，一直等待直至数据到达
 
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
@@ -150,6 +150,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         pstcbInput->ubIPProto = (UCHAR)enProtocol; 
         pstcbInput->pubRcvBuf = pubRcvBuf; 
         pstcbInput->unRcvBufSize = unSize;
+        pstcbInput->unRcvedBytes = 0; 
 
         if (IPPROTO_ICMP == enProtocol)
             pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
@@ -299,6 +300,10 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         }
         break; 
 
+    case IOPT_SETRCVTIMEOUT:
+        pstcbInput->bRecvTimeout = *((CHAR *)pvVal); 
+        break; 
+
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT; 
@@ -387,6 +392,10 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         }
         break; 
 
+    case IOPT_GETRCVTIMEOUT: 
+        *((CHAR *)pvVal) = pstcbInput->bRecvTimeout; 
+        break; 
+
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT;
@@ -438,12 +447,35 @@ UCHAR *onps_input_get_rcv_buf(INT nInput, HSEM *phSem, UINT *punRcvedBytes, CHAR
 
     if (phSem)
         *phSem = l_stcbaInput[nInput].hSem; 
+
     if (pbRecvTimeout)
         *pbRecvTimeout = l_stcbaInput[nInput].bRecvTimeout; 
 
+
+    UINT unFreeSpace = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
     l_stcbaInput[nInput].unRcvedBytes = *punRcvedBytes < l_stcbaInput[nInput].unRcvBufSize ? *punRcvedBytes : l_stcbaInput[nInput].unRcvBufSize;
 
     return l_stcbaInput[nInput].pubRcvBuf; 
+}
+
+const UCHAR *onps_input_get_rcv_data(INT nInput, UINT *punRcvedBytes)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_input_get_rcv_data() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return NULL;
+    }
+
+    *punRcvedBytes = l_stcbaInput[nInput].unRcvedBytes; 
+    return l_stcbaInput[nInput].pubRcvBuf;
 }
 
 INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)

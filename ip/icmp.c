@@ -273,8 +273,11 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     HSEM hSem;
     UINT unRcvedBytes = (UINT)nPacketLen;
     UCHAR *pubRcvBuf = onps_input_get_rcv_buf(nInput, &hSem, &unRcvedBytes, NULL);
-    memcpy(pubRcvBuf, pubPacket, unRcvedBytes);
-    os_thread_sem_post(hSem);
+    if (pubRcvBuf)
+    {
+        memcpy(pubRcvBuf, pubPacket, unRcvedBytes);
+        os_thread_sem_post(hSem);
+    }    
 }
 
 static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)

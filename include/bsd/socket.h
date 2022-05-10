@@ -28,23 +28,25 @@ typedef INT SOCKET;         //* socket句柄
 #define SOCK_DGRAM  2   //* UDP, datagram (conn.less) socket
 
 //* 参数family仅支持AF_INET，其它不支持，type仅支持SOCK_STREAM、SOCK_DGRAM两种协议，protocol固定为0
-SOCKET_EXT SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr); 
+SOCKET_EXT SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr); 
 SOCKET_EXT void close(SOCKET socket);
 
 //* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数
 //* 获得，注意，nConnTimeout参数必须大于0，小于等于0则使用缺省超时时间TCP_CONN_TIMEOUT
-SOCKET_EXT int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout);
+SOCKET_EXT INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout);
 //* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数获得
-SOCKET_EXT int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port); 
+SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port); 
 
 //* 发送函数(阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
-SOCKET_EXT int send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout); 
+SOCKET_EXT INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout); 
 //* 发送函数(非阻塞型)，返回值大于0则为实际发送成功的字节数，等于0为发送中，尚未收到对端的应答，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
-SOCKET_EXT int send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
+SOCKET_EXT INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
 
-//* 接收函数(阻塞型)，直至收到数据或者超时，返回值为实际收到的数据长度，0表示未收到数据，小于0则接收失败，具体错误信息通过onps_get_last_error()函数获得
-SOCKET_EXT int recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, int nWaitSecs); 
-//* 接收函数(非阻塞型)，返回值为实际收到的数据长度，小于0则接收失败，具体错误信息通过onps_get_last_error()函数获得
-SOCKET_EXT int recv_nb(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
+//* 设定recv()函数等待接收的时长（单位：秒），大于0指定数据到达的最长等待时间；0，则不等待；-1，则一直等待直至数据到达或报错
+SOCKET_EXT BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr);
+
+//* 接收函数(阻塞型/非阻塞型)，依赖于socket_set_rcv_timeout()函数设定的接收等待时长，缺省为一直等待直至收到数据或报错，阻塞型返回值为实际收到的数据长度，-1则代
+//* 表出错；非阻塞型返回值为实际收到的数据长度（大于等于0），-1同样代表接收失败
+SOCKET_EXT INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
 
 #endif

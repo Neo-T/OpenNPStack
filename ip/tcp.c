@@ -499,14 +499,42 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 CHAR bRecvTimeout; 
                 UINT unDataBytes = (UINT)nDataLen;
                 UCHAR *pubDataBuf = onps_input_get_rcv_buf(nInput, &hSem, &unDataBytes, &bRecvTimeout);
-                memcpy(pubDataBuf, pubPacket + nTcpHdrLen, unDataBytes);
-                os_thread_sem_post(hSem); 
+                if (pubDataBuf)
+                {
+                    memcpy(pubDataBuf, pubPacket + nTcpHdrLen, unDataBytes);
+
+                    //* 阻塞型，则发送数据到达信号
+                    if(bRecvTimeout)
+                        os_thread_sem_post(hSem);
+                }                
             }
         }
     }
 }
 
-INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, INT nDataBufSize, int nWaitSecs)
+INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, INT nDataBufSize, CHAR bRcvTimeout)
 {
-    
+    EN_ONPSERR enErr;
+    if (bRcvTimeout)
+    {
+        HSEM hSem = INVALID_HSEM;
+        if (!onps_input_get(nInput, IOPT_GETSEM, &hSem, &enErr))
+            goto __lblErr;
+
+        if (bRcvTimeout > 0)
+        {
+            if (os_thread_sem_pend(hSem, bRcvTimeout) < 0) //* 超时，则直接返回0
+                return 0;
+        }
+        else
+            os_thread_sem_pend(hSem, 0); 
+
+        //* 取出数据
+        UINT unDataBytes; 
+        const UCHAR *pubData = onps_input_get_rcv_data(nInput, &unDataBytes);
+    }
+
+__lblErr: 
+    onps_set_last_error(nInput, enErr);
+    return -1;
 }

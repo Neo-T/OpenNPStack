@@ -10,7 +10,7 @@
 #undef SYMBOL_GLOBALS
 #include "ip/tcp.h"
 
-SOCKET socket(int family, int type, int protocol, EN_ONPSERR *penErr)
+SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr)
 {
     if (AF_INET != family)
     {
@@ -193,26 +193,26 @@ __lblErr:
     return -1;
 }
 
-int connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
+INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout)
 {
     if (nConnTimeout <= 0)
         nConnTimeout = TCP_CONN_TIMEOUT; 
     return socket_connect(socket, srv_ip, srv_port, nConnTimeout);
 }
 
-int connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port)
+INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port)
 {
     return socket_connect(socket, srv_ip, srv_port, 0);
 }
 
-static int socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
+static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 {    
     //* 发送数据
     INT nRtnVal = tcp_send_data((INT)socket, hSem, pubData, nDataLen, nWaitAckTimeout);
     if (nRtnVal < 0)    
         return -1;    
     
-    //* 等待信号量到达：超时或者ack到达
+    //* 等待信号量到达：定时器报超时或者ack到达
     os_thread_sem_pend(hSem, 0); 
     
     //* 信号量到达，根据实际处理结果返回不同值
@@ -239,7 +239,7 @@ static int socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
     }
 }
 
-static int socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TCPDATASNDSTATE enSndState)
+static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TCPDATASNDSTATE enSndState)
 {
     static INT nRtnVal; 
     if (TDSSENDING != enSndState)
@@ -340,24 +340,32 @@ __lblErr:
     return -1;
 }
 
-int send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
+INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 {
     if (nWaitAckTimeout <= 0)
         nWaitAckTimeout = TCP_ACK_TIMEOUT;
     return socket_send(socket, pubData, nDataLen, nWaitAckTimeout); 
 }
 
-int send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
+INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
 {
     return socket_send(socket, pubData, nDataLen, 0);
 }
 
-int recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, int nWaitSecs)
-{
-
+BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr)
+{    
+    return onps_input_set((INT)socket, IOPT_SETRCVTIMEOUT, &bRcvTimeout, penErr); 
 }
 
-int recv_nb(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
+INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
 {
+    EN_ONPSERR enErr;
+    CHAR bRcvTimeout;
+    if (!onps_input_get((INT)socket, IOPT_GETRCVTIMEOUT, &bRcvTimeout, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr); 
+        return -1; 
+    }
 
+    return tcp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout); 
 }
