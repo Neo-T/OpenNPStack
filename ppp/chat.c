@@ -241,6 +241,9 @@ __lblExecAT:
 	ubRetryNum++;
 	if (ubRetryNum > 10)
 	{
+        if (penErr)
+            *penErr = enErr; 
+
 #if SUPPORT_PRINTF
 		printf("the command <%s> failed, %s\r\n", AT, onps_error(enErr));
 #endif
@@ -267,6 +270,9 @@ __lblExecATE:
 	ubRetryNum++;
 	if (ubRetryNum > 3)
 	{
+        if (penErr)
+            *penErr = enErr;
+
 #if SUPPORT_PRINTF
 		printf("the command <%s> failed, %s\r\n", ATE0, onps_error(enErr));
 #endif
@@ -295,6 +301,9 @@ __lblSIMTest:
 	{
 		if (ERRNO == enErr)
 			enErr = ERRSIMCARD;
+
+        if (penErr)
+            *penErr = enErr;
 #if SUPPORT_PRINTF
 		printf("the command <%s> failed, %s\r\n", ATSIMTEST, onps_error(enErr));
 #endif
@@ -318,6 +327,9 @@ __lblRegMobileNet:
 	{
 		if (ERRNO == enErr)
 			enErr = ERRREGMOBILENET;
+
+        if (penErr)
+            *penErr = enErr;
 #if SUPPORT_PRINTF
 		printf("the command <%s> failed, %s\r\n", ATREG, onps_error(enErr));
 #endif

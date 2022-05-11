@@ -36,7 +36,7 @@ HTTY tty_init(const CHAR *pszTTYName, EN_ONPSERR *penErr)
 	}	
 
 	l_stcbaIO[l_unTTYIdx].hTTY = hTTY;
-	l_stcbaIO[l_unTTYIdx].stRecv.nWriteIdx = 0;
+	//l_stcbaIO[l_unTTYIdx].stRecv.nWriteIdx = 0;
 	l_unTTYIdx++; 
 
 	return hTTY; 
@@ -47,24 +47,6 @@ void tty_uninit(HTTY hTTY)
 {
 	if (INVALID_HTTY != hTTY)
 		os_close_tty(hTTY);
-}
-
-BOOL tty_ready(HTTY hTTY, EN_ONPSERR *penErr)
-{	
-    //* 先复位modem，以消除一切不必要的设备错误，如果不需要则port层只需实现一个无任何操作的空函数即可，或者直接注释掉这个函数的调用
-	os_modem_reset(hTTY);
-	do {
-		if (!modem_ready(hTTY, penErr))
-			break; 
-
-		if (!modem_dial(hTTY, penErr))
-			break; 
-
-		return TRUE; 
-	} while (FALSE);
-
-	os_close_tty(hTTY);	
-	return FALSE; 
 }
 
 static PSTCB_TTYIO get_io_control_block(HTTY hTTY, EN_ONPSERR *penErr)
@@ -79,19 +61,42 @@ static PSTCB_TTYIO get_io_control_block(HTTY hTTY, EN_ONPSERR *penErr)
 	if (penErr)
 		*penErr = ERRTTYHANDLE;
 
-#if SUPPORT_PRINTF	
-	#if DEBUG_LEVEL
-        #if PRINTF_THREAD_MUTEX
+#if SUPPORT_PRINTF && DEBUG_LEVEL	
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
+    #endif
 		printf("<%d> get_io_control_block() failed, %s\r\n", hTTY, onps_error(ERRTTYHANDLE));
-        #if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-	#endif
+    #endif	
 #endif
 
 	return NULL; 
+}
+
+BOOL tty_ready(HTTY hTTY, EN_ONPSERR *penErr)
+{	
+    //* 确保modem复位时能够重新接收数据
+    PSTCB_TTYIO pstcbIO = get_io_control_block(hTTY, penErr);
+    if (NULL == pstcbIO)
+        return FALSE;
+    pstcbIO->stRecv.nWriteIdx = 0;
+
+    //* 先复位modem，以消除一切不必要的设备错误，如果不需要则port层只需实现一个无任何操作的空函数即可，或者直接注释掉这个函数的调用
+	os_modem_reset(hTTY);    
+
+	do {
+		if (!modem_ready(hTTY, penErr))
+			break; 
+
+		if (!modem_dial(hTTY, penErr))
+			break; 
+
+		return TRUE; 
+	} while (FALSE);
+
+	os_close_tty(hTTY);	
+	return FALSE; 
 }
 
 INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, INT nWaitSecs, EN_ONPSERR *penErr)

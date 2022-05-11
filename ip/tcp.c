@@ -465,12 +465,22 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             //* 状态迁移到已接收到syn ack报文
             pstLink->bState = TLSRESET;
+            if (pstLink->stLocal.bDataSendState == TDSSENDING)
+                pstLink->stLocal.bDataSendState = TDSLINKRESET; 
 
             if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
                 os_thread_sem_post(pstLink->stcbWaitAck.hSem);
         }
         else if (uniFlag.stb16.fin)
         {
+            if (pstLink->stLocal.bDataSendState == TDSSENDING)
+            {
+                pstLink->stLocal.bDataSendState = TDSLINKCLOSED;
+
+                if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
+                    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            }
+
             tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum + 1, TCPRCVBUF_SIZE_DEFAULT);
         }
         else

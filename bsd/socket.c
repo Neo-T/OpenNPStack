@@ -225,9 +225,11 @@ __lblWaitAck:
         return -1;
     }
     
-    EN_TCPLINKSTATE enLinkState;
     switch (enSndState)
-    {        
+    {  
+    case TDSSENDING: 
+        goto __lblWaitAck; 
+
     case TDSACKRCVED:
         return nRtnVal; 
 
@@ -235,20 +237,15 @@ __lblWaitAck:
         onps_set_last_error((INT)socket, ERRTCPACKTIMEOUT);
         return -1; 
 
-    default:
-        //* 获取当前链路状态        
-        if (onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-        {
-            if (enLinkState == TLSCONNECTED)
-                goto __lblWaitAck; 
-            else if (enLinkState == TLSRESET)
-            {
-                onps_set_last_error((INT)socket, ERRTCPCONNRESET);
-                return -1; 
-            }
-            else; 
-        }
-        
+    case TDSLINKRESET: 
+        onps_set_last_error((INT)socket, ERRTCPCONNRESET);
+        return -1;
+
+    case TDSLINKCLOSED:
+        onps_set_last_error((INT)socket, ERRTCPCONNCLOSED);
+        return -1;
+
+    default:              
         onps_set_last_error((INT)socket, ERRUNKNOWN);
         return -1;
     }
@@ -281,6 +278,14 @@ static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TC
 
         case TDSTIMEOUT:
             onps_set_last_error((INT)socket, ERRTCPACKTIMEOUT);
+            return -1;
+
+        case TDSLINKRESET:
+            onps_set_last_error((INT)socket, ERRTCPCONNRESET);
+            return -1;
+
+        case TDSLINKCLOSED:
+            onps_set_last_error((INT)socket, ERRTCPCONNCLOSED);
             return -1;
 
         default:

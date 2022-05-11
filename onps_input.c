@@ -435,7 +435,7 @@ INT onps_input_get_icmp(USHORT usIdentifier)
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
-            if (pstcbInput->ubIPProto == IPPROTO_ICMP && usIdentifier == pstcbInput->uniHandle.stIcmp.usIdentifier)
+            if ((EN_IPPROTO)pstcbInput->ubIPProto == IPPROTO_ICMP && usIdentifier == pstcbInput->uniHandle.stIcmp.usIdentifier)
             {
                 nInput = pstNextNode->uniData.nIndex; 
                 break;
@@ -457,6 +457,20 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
             *penErr = ERRINPUTOVERFLOW;
 
         return FALSE; 
+    }
+
+    //* icmp报文只要是到达就直接覆盖前一组，无论前一组报文是否已被读取
+    if (IPPROTO_ICMP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+    {        
+        UINT unCpyBytes = (UINT)nDataBytes < l_stcbaInput[nInput].unRcvBufSize ? (UINT)nDataBytes : l_stcbaInput[nInput].unRcvBufSize; 
+        memcpy(l_stcbaInput[nInput].pubRcvBuf, pubData, unCpyBytes);
+        l_stcbaInput[nInput].unRcvedBytes = unCpyBytes; 
+
+        //* 投递信号给上层用户，告知对端数据已到达
+        if (l_stcbaInput[nInput].bRecvTimeout)
+            os_thread_sem_post(l_stcbaInput[nInput].hSem);
+
+        return TRUE; 
     }
 
     //* 将数据搬运到接收缓冲区

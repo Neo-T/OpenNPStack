@@ -52,6 +52,7 @@ typedef enum {
     ERRTDSNONTCP,       //* 非TCP协议不能获取数据发送状态
     ERRTCPCONNTIMEOUT,  //* TCP连接超时
     ERRTCPCONNRESET,    //* TCP连接已被重置
+    ERRTCPCONNCLOSED,   //* TCP链路已关闭
     ERRTCPDATAEMPTY,    //* TCP数据段为0
     ERRTCPACKTIMEOUT,   //* TCP应答超时
     ERRNOTCPLINKNODE,   //* 无可用tcp link节点
