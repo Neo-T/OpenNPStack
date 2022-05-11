@@ -31,6 +31,7 @@ typedef enum {
     IOPT_GETTCPDATASNDSTATE,    //* 获取tcp链路数据发送的状态
     IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
     IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
+    IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度
 } ONPSIOPT;
 
 typedef struct _ST_TCPUDP_HANDLE_ {

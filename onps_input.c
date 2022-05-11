@@ -396,6 +396,26 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         *((CHAR *)pvVal) = pstcbInput->bRecvTimeout; 
         break; 
 
+    case IOPT_GETLASTSNDBYTES: 
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+        {
+            if (pstcbInput->pvAttach)
+                *((USHORT *)pvVal) = (USHORT)((PST_TCPLINK)(pstcbInput->pvAttach))->stcbWaitAck.usSendDataBytes; 
+            else
+            {
+                if (penErr)
+                    *penErr = ERRNOATTACH;
+                return FALSE;
+            }
+        }
+        else
+        {
+            if (penErr)
+                *penErr = ERRTDSNONTCP;
+            return FALSE;
+        }
+        break; 
+
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT;

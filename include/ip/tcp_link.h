@@ -44,7 +44,8 @@ typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE; 
 typedef struct _ST_TCPLINK_ {
     struct {
-        UINT unSeqNum;        
+        UINT unSeqNum;  
+        UINT unAckNum; 
         USHORT usWndSize;
         CHAR bDataSendState;         
         PST_TCPUDP_HANDLE pstAddr; 

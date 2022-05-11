@@ -212,8 +212,9 @@ static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
     if (nRtnVal < 0)    
         return -1;    
     
+__lblWaitAck: 
     //* 等待信号量到达：定时器报超时或者ack到达
-    os_thread_sem_pend(hSem, 0); 
+    os_thread_sem_pend(hSem, 0);     
     
     //* 信号量到达，根据实际处理结果返回不同值
     EN_ONPSERR enErr;
@@ -224,8 +225,9 @@ static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
         return -1;
     }
     
+    EN_TCPLINKSTATE enLinkState;
     switch (enSndState)
-    {
+    {        
     case TDSACKRCVED:
         return nRtnVal; 
 
@@ -234,17 +236,29 @@ static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
         return -1; 
 
     default:
+        //* 获取当前链路状态        
+        if (onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+        {
+            if (enLinkState == TLSCONNECTED)
+                goto __lblWaitAck; 
+            else if (enLinkState == TLSRESET)
+            {
+                onps_set_last_error((INT)socket, ERRTCPCONNRESET);
+                return -1; 
+            }
+            else; 
+        }
+        
         onps_set_last_error((INT)socket, ERRUNKNOWN);
         return -1;
     }
 }
 
 static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TCPDATASNDSTATE enSndState)
-{
-    static INT nRtnVal; 
+{    
     if (TDSSENDING != enSndState)
     {
-        nRtnVal = tcp_send_data((INT)socket, INVALID_HSEM, pubData, nDataLen, 0); 
+        INT nRtnVal = tcp_send_data((INT)socket, INVALID_HSEM, pubData, nDataLen, 0); 
         if (nRtnVal < 0)
             return -1;
         else
@@ -252,10 +266,18 @@ static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TC
     }
     else
     {
+        EN_ONPSERR enErr; 
+        USHORT usLastSndBytes; 
         switch (enSndState)
         {
         case TDSACKRCVED:
-            return nRtnVal;
+            if (onps_input_get((INT)socket, IOPT_GETLASTSNDBYTES, &usLastSndBytes, &enErr))            
+                return (INT)usLastSndBytes;             
+            else
+            {
+                onps_set_last_error((INT)socket, enErr);
+                return -1;
+            }            
 
         case TDSTIMEOUT:
             onps_set_last_error((INT)socket, ERRTCPACKTIMEOUT);

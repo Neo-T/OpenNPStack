@@ -426,6 +426,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     uniFlag.usVal = pstHdr->usFlag;
     if (uniFlag.stb16.ack)
     {
+        INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
         UINT unSrcAckNum = htonl(pstHdr->unAckNum);
         UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
 
@@ -448,7 +449,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->stPeer.stAddr.usPort = htons(pstHdr->usSrcPort); 
 
                 //* 截取tcp头部选项字段
-                tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), uniFlag.stb16.hdr_len * 4 - sizeof(ST_TCP_HDR));
+                tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
 
                 //* 状态迁移到已接收到syn ack报文
                 pstLink->bState = TLSRCVEDSYNACK;
@@ -492,16 +493,17 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     os_thread_sem_post(pstLink->stcbWaitAck.hSem);
             }            
 
-            //* 看看有数据吗？
-            INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4; 
+            //* 看看有数据吗？            
             INT nDataLen = nPacketLen - nTcpHdrLen; 
             if (nDataLen)
             {
                 //* 只有序号不同才会搬运数据，确认过序号的说明已经搬运不能重复搬运了，对端重复发送的原因是没有收到ack报文，所以只需再次发送ack报文即可
-                if (unPeerSeqNum == 1 || unPeerSeqNum != pstLink->stPeer.unSeqNum)
+                if (unPeerSeqNum != pstLink->stLocal.unAckNum)
                 {
                     //* 将数据搬运到input层
-                    if (!onps_input_recv(nInput, (const UCHAR *)pubPacket, nPacketLen, &enErr))
+                    if (onps_input_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, &enErr))
+                        pstLink->stLocal.unAckNum = unPeerSeqNum; 
+                    else
                     {
                 #if SUPPORT_PRINTF
                     #if PRINTF_THREAD_MUTEX
@@ -520,9 +522,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum + nDataLen, pstLink->stLocal.usWndSize);
             }
 
-            //* 更新对端的相关链路信息            
-            if (unPeerSeqNum != pstLink->stPeer.unSeqNum)            
-                pstLink->stPeer.unSeqNum = unPeerSeqNum;            
+            //* 更新对端的相关链路信息                        
+            pstLink->stPeer.unSeqNum = unPeerSeqNum;            
             pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
         }
     }
