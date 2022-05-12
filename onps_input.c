@@ -296,6 +296,7 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
             ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.bIsZeroWnd = FALSE;
             ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr; 
         }
         break; 
@@ -425,6 +426,16 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     return TRUE;
 }
 
+void onps_input_post_sem(INT nInput)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+        return; 
+
+    //* 只有bRecvTimeout不为0才需要等待报文到达信号，不为0意味着这是一个阻塞型input
+    if (INVALID_HSEM != l_stcbaInput[nInput].hSem && l_stcbaInput[nInput].bRecvTimeout)
+        os_thread_sem_post(l_stcbaInput[nInput].hSem); 
+}
+
 INT onps_input_get_icmp(USHORT usIdentifier)
 {
     INT nInput = -1; 
@@ -483,7 +494,11 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
 
         //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小
         if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
-            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
+        {
+            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
+            if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
+                ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE; 
+        }
     }
     os_thread_mutex_unlock(l_hMtxInput);
 
@@ -503,6 +518,20 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_
 
         return -1;
     }
+
+    if (TLSRESET == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
+    {
+        if (penErr)
+            *penErr = ERRTCPCONNRESET; 
+        return -1; 
+    }
+    else if (TLSCLOSED == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
+    {
+        if (penErr)
+            *penErr = ERRTCPCONNCLOSED;
+        return -1;
+    }
+    else; 
 
     //* 没有收到任何数据则立即返回0
     if (!l_stcbaInput[nInput].unRcvedBytes)

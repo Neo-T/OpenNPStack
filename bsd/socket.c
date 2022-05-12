@@ -53,8 +53,15 @@ void close(SOCKET socket)
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
         return; 
 
+    EN_TCPLINKSTATE enLinkState;
+    if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+        return; 
+
     if (enProto == IPPROTO_TCP)
-        tcp_send_fin((INT)socket);
+    {
+        if(TLSCONNECTED == enLinkState)
+            tcp_send_fin((INT)socket);
+    }
     onps_input_free((INT)socket); 
 }
 

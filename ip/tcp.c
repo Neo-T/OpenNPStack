@@ -71,7 +71,7 @@ static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     stHdr.unAckNum = htonl(unAckNum);
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
     stHdr.usFlag = uniFlag.usVal;
-    stHdr.usWinSize = htons(usWndSize - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX);
+    stHdr.usWinSize = htons(usWndSize/* - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX*/);
     stHdr.usChecksum = 0;
     stHdr.usUrgentPointer = 0; 
     //* 挂载到链表头部
@@ -308,9 +308,7 @@ void tcp_send_fin(INT nInput)
 
     //* 发送链路结束报文
     tcp_send_packet(pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
-                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);
-
-    pstLink->bState = TLSCLOSED;
+                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);     
 }
 
 void tcp_send_ack(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, USHORT usWndSize)
@@ -468,8 +466,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             if (pstLink->stLocal.bDataSendState == TDSSENDING)
                 pstLink->stLocal.bDataSendState = TDSLINKRESET; 
 
-            if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-                os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            //if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
+            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            onps_input_post_sem(nInput); 
         }
         else if (uniFlag.stb16.fin)
         {
@@ -481,7 +480,11 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     os_thread_sem_post(pstLink->stcbWaitAck.hSem);
             }
 
+            //* 发送ack
             tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum + 1, TCPRCVBUF_SIZE_DEFAULT);
+
+            pstLink->bState = TLSCLOSED;
+            onps_input_post_sem(nInput);
         }
         else
         {
@@ -506,30 +509,42 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             //* 看看有数据吗？            
             INT nDataLen = nPacketLen - nTcpHdrLen; 
             if (nDataLen)
-            {
+            {                           
                 //* 只有序号不同才会搬运数据，确认过序号的说明已经搬运不能重复搬运了，对端重复发送的原因是没有收到ack报文，所以只需再次发送ack报文即可
                 if (unPeerSeqNum != pstLink->stLocal.unAckNum)
                 {
-                    //* 将数据搬运到input层
-                    if (onps_input_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, &enErr))
-                        pstLink->stLocal.unAckNum = unPeerSeqNum; 
-                    else
+                    //* 必须是非零窗口探测报文才搬运数据
+                    if (!(nDataLen == 1 && pstLink->stLocal.bIsZeroWnd))
                     {
-                #if SUPPORT_PRINTF
-                    #if PRINTF_THREAD_MUTEX
-                        os_thread_mutex_lock(o_hMtxPrintf);
+                        //* 将数据搬运到input层
+                        if (onps_input_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, &enErr))
+                            pstLink->stLocal.unAckNum = unPeerSeqNum;
+                        else
+                        {
+                    #if SUPPORT_PRINTF
+                        #if PRINTF_THREAD_MUTEX
+                            os_thread_mutex_lock(o_hMtxPrintf);
+                        #endif
+                            printf("onps_input_recv() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+                        #if PRINTF_THREAD_MUTEX
+                            os_thread_mutex_unlock(o_hMtxPrintf);
+                        #endif
                     #endif
-                        printf("onps_input_recv() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
-                    #if PRINTF_THREAD_MUTEX
-                        os_thread_mutex_unlock(o_hMtxPrintf);
-                    #endif
-                #endif
-                        return; 
-                    }
+                            return;
+                        }
+                    }                    
                 }
 
-                //* 应答
-                tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum + nDataLen, pstLink->stLocal.usWndSize);
+                //* 如果是零窗口探测报文则只更新当前窗口大小并通知给对端
+                if (nDataLen == 1 && pstLink->stLocal.bIsZeroWnd)
+                {
+                    USHORT usWndSize = pstLink->stLocal.usWndSize;
+                    if (usWndSize)                    
+                        pstLink->stLocal.bIsZeroWnd = FALSE;                        
+                    tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum, usWndSize);
+                }
+                else                
+                    tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum + nDataLen, pstLink->stLocal.usWndSize);
             }
 
             //* 更新对端的相关链路信息                        

@@ -44,7 +44,8 @@ void wait_ack_list_uninit(PST_PPPWAITACKLIST pstWAList)
 		os_thread_mutex_unlock(pstWAList->hMutex);
 
 		//* 等待所有节点释放完毕
-		while (pstWAList->pstHead);
+        while (pstWAList->pstHead)
+            os_sleep_ms(10);
 
 		//* 销毁互斥锁
 		os_thread_mutex_uninit(pstWAList->hMutex);

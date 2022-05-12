@@ -55,6 +55,9 @@ ONPSINPUT_EXT void onps_input_free(INT nInput);
 ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 
+//* 投递一个数据到达或链路异常的信号
+ONPSINPUT_EXT void onps_input_post_sem(INT nInput); 
+
 //* 根据对端发送的标识获取本地icmp句柄
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 
