@@ -16,6 +16,8 @@
 #include "ip/tcp.h"
 #undef SYMBOL_GLOBALS
 
+static void tcp_send_fin(PST_TCPLINK pstLink); 
+
 static void tcp_ack_timeout_handler(void *pvParam)
 {
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam; 
@@ -29,9 +31,33 @@ static void tcp_ack_timeout_handler(void *pvParam)
         else
             pstLink->bState = TLSACKTIMEOUT; 
 
-        if(INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-            os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
+        if(pstLink->stcbWaitAck.bRcvTimeout)
+            onps_input_post_sem(pstLink->stcbWaitAck.nInput);
     }
+}
+
+static void tcp_close_timeout_handler(void *pvParam)
+{
+    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;
+    switch ((EN_TCPLINKSTATE)pstLink->bState)
+    {
+    case TLSFINWAIT1: 
+        pstLink->stcbWaitAck.bIsAcked++; 
+        if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 15)
+        {
+            pstLink->stcbWaitAck.bIsAcked = (CHAR)(pstLink->stcbWaitAck.bIsAcked & 0xF0) + (CHAR)0x10;
+            if(pstLink->stcbWaitAck.bIsAcked < 3 * 16) //* 尝试发送3次            
+                tcp_send_fin(pstLink); 
+            else //*一直没收到对端的ACK报文，直接进入FIN_WAIT2态
+            {
+                
+            }
+        }
+
+        break; 
+    }
+
+    if (TLSFINWAIT2 == )
 }
 
 static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, 
@@ -158,11 +184,11 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
             onps_set_last_error(nInput, ERRSENDZEROBYTES);
     }
 
-    if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-        os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+    if (pstLink->stcbWaitAck.bRcvTimeout)
+        onps_input_post_sem(pstLink->stcbWaitAck.nInput);
 }
 
-INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTimeout)
+INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTimeout)
 {
     EN_ONPSERR enErr;    
 
@@ -209,7 +235,6 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort, i
     {
         //* 加入定时器队列
         pstLink->stcbWaitAck.bIsAcked = FALSE; 
-        pstLink->stcbWaitAck.hSem = hSem; 
         pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT); 
         if (!pstLink->stcbWaitAck.pstTimer)
         {
@@ -229,7 +254,7 @@ INT tcp_send_syn(INT nInput, HSEM hSem, in_addr_t unSrvAddr, USHORT usSrvPort, i
     return nRtnVal; 
 }
 
-INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
+INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 {
     EN_ONPSERR enErr;
 
@@ -260,7 +285,6 @@ INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWait
     {        
         //* 加入定时器队列
         pstLink->stcbWaitAck.bIsAcked = FALSE;
-        pstLink->stcbWaitAck.hSem = hSem;
         pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
         if (!pstLink->stcbWaitAck.pstTimer)
         {
@@ -284,7 +308,33 @@ INT tcp_send_data(INT nInput, HSEM hSem, UCHAR *pubData, INT nDataLen, int nWait
     return nRtnVal;
 }
 
-void tcp_send_fin(INT nInput)
+static void tcp_send_fin(PST_TCPLINK pstLink)
+{
+    //* 标志字段fin、ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.ack = 1; 
+    uniFlag.stb16.fin = 1;
+
+    //* 发送链路结束报文
+    tcp_send_packet(pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
+                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, NULL);     
+    //* 加入定时器队列  
+    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
+    if (!pstLink->stcbWaitAck.pstTimer)
+    {
+        onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
+        return -1;
+    }
+
+    //* 当前处于FIN_WAIT2态意味着这是一个由对端主动发起的断开操作，底层接收函数已经回馈了以恶搞ACK报文，本地也不再发送数据了，直接下发一个FIN给对端告诉它我这边也没数据要发送了
+    if(TLSFINWAIT2 == (EN_TCPLINKSTATE)pstLink->bState)
+        pstLink->bState = (CHAR)TLSTIMEWAIT; 
+    else
+        pstLink->bState = (CHAR)TLSFINWAIT1; 
+}
+
+void tcp_disconnect(INT nInput)
 {
     EN_ONPSERR enErr;
 
@@ -298,17 +348,13 @@ void tcp_send_fin(INT nInput)
 
     //* 未连接的话直接返回，没必要发送结束连接报文
     if (TLSCONNECTED != (EN_TCPLINKSTATE)pstLink->bState)
-        return; 
+        return;
 
-    //* 标志字段fin、ack域置1，其它标志域为0
-    UNI_TCP_FLAG uniFlag;
-    uniFlag.usVal = 0;
-    uniFlag.stb16.ack = 1; 
-    uniFlag.stb16.fin = 1;
+    //* 一旦进入fin操作，bIsAcked不再被使用，为了节约内存，这里用于close操作计时
+    pstLink->stcbWaitAck.bIsAcked = 0;
 
-    //* 发送链路结束报文
-    tcp_send_packet(pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
-                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, &enErr);     
+    //* 发送fin报文
+    tcp_send_fin(pstLink); 
 }
 
 void tcp_send_ack(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, USHORT usWndSize)
@@ -476,8 +522,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             {
                 pstLink->stLocal.bDataSendState = TDSLINKCLOSED;
 
-                if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-                    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+                if (pstLink->stcbWaitAck.bRcvTimeout)
+                    onps_input_post_sem(pstLink->stcbWaitAck.nInput);
             }
 
             //* 发送ack
@@ -502,8 +548,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
                 //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
                 pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED; 
-                if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-                    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+                if (pstLink->stcbWaitAck.bRcvTimeout)
+                    onps_input_post_sem(pstLink->stcbWaitAck.nInput);
             }            
 
             //* 看看有数据吗？            

@@ -59,15 +59,18 @@ void close(SOCKET socket)
 
     if (enProto == IPPROTO_TCP)
     {
-        if(TLSCONNECTED == enLinkState)
-            tcp_send_fin((INT)socket);
+        if (TLSCONNECTED == enLinkState)
+        {
+            tcp_disconnect((INT)socket);
+            return; 
+        }
     }
     onps_input_free((INT)socket); 
 }
 
 static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {    
-    if (tcp_send_syn((INT)socket, hSem, inet_addr(srv_ip), srv_port, nConnTimeout) > 0)
+    if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout) > 0)
     {
         //* 等待信号到达：超时或者收到syn ack同时本地回馈的syn ack的ack发送成功
         os_thread_sem_pend(hSem, 0); 
@@ -110,7 +113,7 @@ static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned sho
     switch (enLinkState)
     {
     case TLSINIT:
-        if (tcp_send_syn((INT)socket, INVALID_HSEM, inet_addr(srv_ip), srv_port, 0) > 0)
+        if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, 0) > 0)
             return 1;
         else
             return -1;
@@ -215,7 +218,7 @@ INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port)
 static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 {    
     //* 发送数据
-    INT nRtnVal = tcp_send_data((INT)socket, hSem, pubData, nDataLen, nWaitAckTimeout);
+    INT nRtnVal = tcp_send_data((INT)socket, pubData, nDataLen, nWaitAckTimeout);
     if (nRtnVal < 0)    
         return -1;    
     
@@ -262,7 +265,7 @@ static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TC
 {    
     if (TDSSENDING != enSndState)
     {
-        INT nRtnVal = tcp_send_data((INT)socket, INVALID_HSEM, pubData, nDataLen, 0); 
+        INT nRtnVal = tcp_send_data((INT)socket, pubData, nDataLen, 0); 
         if (nRtnVal < 0)
             return -1;
         else

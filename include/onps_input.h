@@ -58,6 +58,9 @@ ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 //* 投递一个数据到达或链路异常的信号
 ONPSINPUT_EXT void onps_input_post_sem(INT nInput); 
 
+//* 对tcp链路关闭状态进行迁移
+ONPSINPUT_EXT void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enLinkState); 
+
 //* 根据对端发送的标识获取本地icmp句柄
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 

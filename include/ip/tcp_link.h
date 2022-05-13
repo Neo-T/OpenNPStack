@@ -21,12 +21,18 @@ typedef enum {
     TLSACKTIMEOUT,  //* 等待接收ACK报文超时
 
     //* 以下为Socket被用于TCP Client时的状态定义
-    TLSSYNSENT,             //* 发送SYN请求
+    TLSSYNSENT,             //* SYN请求已发送
     TLSRCVEDSYNACK,         //* 收到SYN ACK    
     TLSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
     TLSCONNECTED,           //* 已连接
+    
     TLSRESET,               //* 连接被重置    
-    TLSCLOSED,              //* 已关闭    
+
+    //* 链路关闭状态定义
+    TLSFINWAIT1,            //* FIN请求已发送，等待对端回馈应答    
+    TLSFINWAIT2,            //* 收到对端回馈的FIN ACK报文
+    TLSTIMEWAIT,            //* 收到对端的FIN报文
+    TLSCLOSING,             //* 收到对端发送的FIN时，链路关闭状态正处于TLSFINWAIT1态，尚未进入TLSFINWAIT2    
 
     //* 以下为Socket被用于TCP Server时的状态定义
     TLSSRVSTARTED,  //* TCP Server已启动
@@ -56,7 +62,8 @@ typedef struct _ST_TCPLINK_ {
 
     struct {        
         PST_ONESHOTTIMER pstTimer;
-        HSEM hSem;
+        INT nInput;
+        CHAR bRcvTimeout;
         CHAR bIsAcked; 
         USHORT usSendDataBytes; 
     } stcbWaitAck;        

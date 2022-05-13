@@ -24,7 +24,7 @@ typedef struct _STCB_ONPS_INPUT_ {
 
     UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
     UCHAR ubLastErr;    //* 最近的错误信息，实际类型为EN_ONPSERR
-    CHAR bRecvTimeout;  //* 接收超时时间（单位：秒），大于0，指定等待的最长秒数；0，不等待，直接返回；-1，一直等待直至数据到达
+    CHAR bRcvTimeout;   //* 接收超时时间（单位：秒），大于0，指定等待的最长秒数；0，不等待，直接返回；-1，一直等待直至数据到达
 
     UCHAR *pubRcvBuf;
     UINT unRcvBufSize;
@@ -146,7 +146,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         pstNode = sllist_get_node(&l_pstFreedSLList);
         pstcbInput = &l_stcbaInput[pstNode->uniData.nIndex];
         pstcbInput->hSem = hSem; 
-        pstcbInput->bRecvTimeout = -1; 
+        pstcbInput->bRcvTimeout = -1; 
         pstcbInput->ubIPProto = (UCHAR)enProtocol; 
         pstcbInput->pubRcvBuf = pubRcvBuf; 
         pstcbInput->unRcvBufSize = unSize;
@@ -298,11 +298,13 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
             ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.bIsZeroWnd = FALSE;
             ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr; 
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = pstcbInput->bRcvTimeout; 
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.nInput = nInput; 
         }
         break; 
 
     case IOPT_SETRCVTIMEOUT:
-        pstcbInput->bRecvTimeout = *((CHAR *)pvVal); 
+        pstcbInput->bRcvTimeout = *((CHAR *)pvVal); 
         break; 
 
     default:
@@ -394,7 +396,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         break; 
 
     case IOPT_GETRCVTIMEOUT: 
-        *((CHAR *)pvVal) = pstcbInput->bRecvTimeout; 
+        *((CHAR *)pvVal) = pstcbInput->bRcvTimeout; 
         break; 
 
     case IOPT_GETLASTSNDBYTES: 
@@ -432,8 +434,20 @@ void onps_input_post_sem(INT nInput)
         return; 
 
     //* 只有bRecvTimeout不为0才需要等待报文到达信号，不为0意味着这是一个阻塞型input
-    if (INVALID_HSEM != l_stcbaInput[nInput].hSem && l_stcbaInput[nInput].bRecvTimeout)
+    if (INVALID_HSEM != l_stcbaInput[nInput].hSem && l_stcbaInput[nInput].bRcvTimeout)
         os_thread_sem_post(l_stcbaInput[nInput].hSem); 
+}
+
+void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enLinkState)
+{
+    if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+    {
+        os_thread_mutex_lock(l_hMtxInput);
+        {            
+            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState = (CHAR)enLinkState; 
+        }
+        os_thread_mutex_unlock(l_hMtxInput);
+    }    
 }
 
 INT onps_input_get_icmp(USHORT usIdentifier)
@@ -478,7 +492,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
         l_stcbaInput[nInput].unRcvedBytes = unCpyBytes; 
 
         //* 投递信号给上层用户，告知对端数据已到达
-        if (l_stcbaInput[nInput].bRecvTimeout)
+        if (l_stcbaInput[nInput].bRcvTimeout)
             os_thread_sem_post(l_stcbaInput[nInput].hSem);
 
         return TRUE; 
@@ -503,7 +517,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
     os_thread_mutex_unlock(l_hMtxInput);
 
     //* 投递信号给上层用户，告知对端数据已到达
-    if (l_stcbaInput[nInput].bRecvTimeout)
+    if (l_stcbaInput[nInput].bRcvTimeout)
         os_thread_sem_post(l_stcbaInput[nInput].hSem); 
 
     return TRUE; 
@@ -525,7 +539,8 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_
             *penErr = ERRTCPCONNRESET; 
         return -1; 
     }
-    else if (TLSCLOSED == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
+    else if (TLSTIMEWAIT == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState 
+            || TLSCLOSING == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
     {
         if (penErr)
             *penErr = ERRTCPCONNCLOSED;
