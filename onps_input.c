@@ -438,16 +438,94 @@ void onps_input_post_sem(INT nInput)
         os_thread_sem_post(l_stcbaInput[nInput].hSem); 
 }
 
-void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enLinkState)
+void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enDstState)
 {
     if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {
+        PST_TCPLINK pstLink = (PST_TCPLINK)l_stcbaInput[nInput].pvAttach;
         os_thread_mutex_lock(l_hMtxInput);
         {            
-            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState = (CHAR)enLinkState; 
+            EN_TCPLINKSTATE enCurState = (EN_TCPLINKSTATE)pstLink->bState;
+            if (TLSFINWAIT1 == enDstState)
+            {
+                if (TLSCONNECTED == enCurState)
+                {
+                    pstLink->bState = (CHAR)TLSFINWAIT1;
+                    pstLink->stcbWaitAck.bIsAcked = 0; 
+                }
+                else if (TLSFINWAIT1 == enCurState) //* 说明在这之前至少本地或对端已经发送或收到一个FIN了，此时两端的FIN均已到达，但ACK尚未收到或发送，状态迁移到CLOSING态
+                {
+                    pstLink->bState = (CHAR)TLSCLOSING;
+                    pstLink->stcbWaitAck.bIsAcked = 0;
+                }
+                else if (TLSFINWAIT2 == enCurState)
+                {
+                    pstLink->bState = (CHAR)TLSTIMEWAIT;
+                    pstLink->stcbWaitAck.bIsAcked = 0;
+                }
+                else; 
+            }
+            else if (TLSFINWAIT2 == enDstState)
+            {
+                if (TLSFINWAIT1 == enCurState)
+                {
+                    pstLink->bState = (CHAR)TLSFINWAIT2;
+                    pstLink->stcbWaitAck.bIsAcked = 0;
+                }
+                
+                else; 
+            }
+            else if (TLSCLOSING == enDstState)
+            {
+                if (TLSFINWAIT1 == enCurState)
+                {
+                    pstLink->bState = (CHAR)TLSCLOSING;
+                    pstLink->stcbWaitAck.bIsAcked = 0;
+                }
+                else if (TLSFINWAIT2 == enCurState)
+                {
+                    pstLink->bState = (CHAR)TLSTIMEWAIT;
+                    pstLink->stcbWaitAck.bIsAcked = 0;
+                }
+                else; 
+            }
+            else if (TLSTIMEWAIT == enDstState)
+            {
+                if (TLSFINWAIT2 == enCurState || TLSCLOSING == enCurState)
+                {
+                    pstLink->bState = (CHAR)TLSTIMEWAIT;
+                    pstLink->stcbWaitAck.bIsAcked = 0;
+                }
+                else; 
+            }            
         }
         os_thread_mutex_unlock(l_hMtxInput);
     }    
+}
+
+BOOL onps_input_tcp_close_time_count(INT nInput)
+{
+    INT nRtnVal = 0; 
+
+    if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+    {
+        PST_TCPLINK pstLink = (PST_TCPLINK)l_stcbaInput[nInput].pvAttach; 
+        os_thread_mutex_lock(l_hMtxInput);
+        {
+            pstLink->stcbWaitAck.bIsAcked++;
+            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 5)
+            {
+                pstLink->stcbWaitAck.bIsAcked = (CHAR)(pstLink->stcbWaitAck.bIsAcked & 0xF0) + (CHAR)0x10;
+                if (pstLink->stcbWaitAck.bIsAcked < 6 * 16) //* 小于6次超时则继续等待
+                    nRtnVal = 1;
+                else //* 已经连续6次超时即已经等待6 * 5 = 30秒了
+                    nRtnVal = 2;                
+            }
+        }
+        os_thread_mutex_unlock(l_hMtxInput);
+    }
+
+    return nRtnVal; 
 }
 
 INT onps_input_get_icmp(USHORT usIdentifier)

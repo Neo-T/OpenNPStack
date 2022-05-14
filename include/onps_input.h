@@ -59,7 +59,9 @@ ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 ONPSINPUT_EXT void onps_input_post_sem(INT nInput); 
 
 //* 对tcp链路关闭状态进行迁移
-ONPSINPUT_EXT void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enLinkState); 
+ONPSINPUT_EXT void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enDstState); 
+//* tcp链路关闭操作定时器计数函数
+ONPSINPUT_EXT INT onps_input_tcp_close_time_count(INT nInput);
 
 //* 根据对端发送的标识获取本地icmp句柄
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
