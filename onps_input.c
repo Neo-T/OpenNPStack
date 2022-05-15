@@ -438,72 +438,75 @@ void onps_input_post_sem(INT nInput)
         os_thread_sem_post(l_stcbaInput[nInput].hSem); 
 }
 
-void onps_input_set_tcp_close_state(INT nInput, EN_TCPLINKSTATE enDstState)
+BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState)
 {
+    BOOL blRtnVal = FALSE; 
     if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {
         PST_TCPLINK pstLink = (PST_TCPLINK)l_stcbaInput[nInput].pvAttach;
         os_thread_mutex_lock(l_hMtxInput);
         {            
             EN_TCPLINKSTATE enCurState = (EN_TCPLINKSTATE)pstLink->bState;
-            if (TLSFINWAIT1 == enDstState)
+            if (TLSFINWAIT1 == (EN_TCPLINKSTATE)bDstState)
             {
                 if (TLSCONNECTED == enCurState)
                 {
                     pstLink->bState = (CHAR)TLSFINWAIT1;
                     pstLink->stcbWaitAck.bIsAcked = 0; 
+                    blRtnVal = TRUE;
                 }
                 else if (TLSFINWAIT1 == enCurState) //* 说明在这之前至少本地或对端已经发送或收到一个FIN了，此时两端的FIN均已到达，但ACK尚未收到或发送，状态迁移到CLOSING态
                 {
                     pstLink->bState = (CHAR)TLSCLOSING;
                     pstLink->stcbWaitAck.bIsAcked = 0;
                 }
-                else if (TLSFINWAIT2 == enCurState)
-                {
-                    pstLink->bState = (CHAR)TLSTIMEWAIT;
-                    pstLink->stcbWaitAck.bIsAcked = 0;
-                }
-                else; 
+                else; //* 其它情况不再处理
             }
-            else if (TLSFINWAIT2 == enDstState)
+            else if (TLSFINWAIT2 == (EN_TCPLINKSTATE)bDstState)
             {
                 if (TLSFINWAIT1 == enCurState)
                 {
                     pstLink->bState = (CHAR)TLSFINWAIT2;
-                    pstLink->stcbWaitAck.bIsAcked = 0;
-                }
-                
+                    pstLink->stcbWaitAck.bIsAcked = 0; 
+                    blRtnVal = TRUE;
+                }                
                 else; 
             }
-            else if (TLSCLOSING == enDstState)
+            else if (TLSCLOSING == (EN_TCPLINKSTATE)bDstState)
             {
                 if (TLSFINWAIT1 == enCurState)
                 {
                     pstLink->bState = (CHAR)TLSCLOSING;
                     pstLink->stcbWaitAck.bIsAcked = 0;
-                }
-                else if (TLSFINWAIT2 == enCurState)
-                {
-                    pstLink->bState = (CHAR)TLSTIMEWAIT;
-                    pstLink->stcbWaitAck.bIsAcked = 0;
+                    blRtnVal = TRUE;
                 }
                 else; 
             }
-            else if (TLSTIMEWAIT == enDstState)
+            else if (TLSTIMEWAIT == (EN_TCPLINKSTATE)bDstState)
             {
                 if (TLSFINWAIT2 == enCurState || TLSCLOSING == enCurState)
                 {
                     pstLink->bState = (CHAR)TLSTIMEWAIT;
                     pstLink->stcbWaitAck.bIsAcked = 0;
+                    blRtnVal = TRUE;
                 }
                 else; 
             }            
+            else if (TLSCLOSED == (EN_TCPLINKSTATE)bDstState)
+            {
+                pstLink->bState = (CHAR)TLSCLOSED;
+                pstLink->stcbWaitAck.bIsAcked = 0;
+                blRtnVal = TRUE;
+            }
+            else; 
         }
         os_thread_mutex_unlock(l_hMtxInput);
     }    
+
+    return blRtnVal; 
 }
 
-BOOL onps_input_tcp_close_time_count(INT nInput)
+INT onps_input_tcp_close_time_count(INT nInput)
 {
     INT nRtnVal = 0; 
 

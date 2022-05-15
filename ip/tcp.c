@@ -52,12 +52,7 @@ static void tcp_close_timeout_handler(void *pvParam)
         break; 
 
     case TLSFINWAIT2:
-        nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);
-        if (nRtnVal == 1)
-        {
-            if (pstLink->bIsPassiveFin)            
-                tcp_send_fin(pstLink); 
-        }
+        nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);        
         if (nRtnVal == 2) //* 一直未收到对端发送的FIN报文        
             onps_input_set_tcp_close_state(pstLink->stcbWaitAck.nInput, TLSTIMEWAIT);
         else;                
@@ -72,13 +67,26 @@ static void tcp_close_timeout_handler(void *pvParam)
 
     case TLSTIMEWAIT:
         nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);
-        if (nRtnVal == 2) //* FIN操作结束        
+        if (nRtnVal == 1)
+        {
+            if (pstLink->bIsPassiveFin)
+                tcp_send_fin(pstLink);
+        }
+        if (nRtnVal == 2) //* 超时，则FIN操作结束，释放input资源
         {
             onps_input_free(pstLink->stcbWaitAck.nInput); 
         }
         else;
         break;
-    }    
+
+    case TLSCLOSED: 
+        //* FIN操作结束，释放input资源
+        onps_input_free(pstLink->stcbWaitAck.nInput);
+        return;  
+    }   
+
+    //* 重新启动定时器
+    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1); 
 }
 
 static INT tcp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, 
@@ -339,14 +347,7 @@ static void tcp_send_fin(PST_TCPLINK pstLink)
 
     //* 发送链路结束报文
     tcp_send_packet(pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
-                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, NULL);     
-    //* 加入定时器队列  
-    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
-    if (!pstLink->stcbWaitAck.pstTimer)
-    {
-        onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
-        return -1;
-    }
+                        pstLink->stLocal.unSeqNum, pstLink->stPeer.unSeqNum, uniFlag, pstLink->stLocal.usWndSize, NULL, 0, NULL, 0, NULL);                   
 }
 
 void tcp_disconnect(INT nInput)
@@ -369,9 +370,16 @@ void tcp_disconnect(INT nInput)
     pstLink->stcbWaitAck.bIsAcked = 0;
     pstLink->bIsPassiveFin = FALSE;
 
-    //* 发送fin报文
-    tcp_send_fin(pstLink); 
-    onps_input_set_tcp_close_state(nInput, TLSFINWAIT1); 
+    //* 只有状态迁移成功才会发送fin报文
+    if (onps_input_set_tcp_close_state(nInput, TLSFINWAIT1))
+    {
+        tcp_send_fin(pstLink);
+
+        //* 加入定时器队列  
+        pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
+        if (!pstLink->stcbWaitAck.pstTimer)
+            onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
+    }
 }
 
 void tcp_send_ack(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UINT unSeqNum, UINT unAckNum, USHORT usWndSize)
@@ -538,10 +546,20 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             //* 迁移到相关状态
             if (TLSCONNECTED == (EN_TCPLINKSTATE)pstLink->bState)
             {                       
-                onps_input_set_tcp_close_state(nInput, TLSFINWAIT1);
-                tcp_send_fin(pstLink); 
-                pstLink->bIsPassiveFin = TRUE;
-                onps_input_set_tcp_close_state(nInput, TLSFINWAIT2);
+                if (onps_input_set_tcp_close_state(nInput, TLSFINWAIT1))
+                {
+                    onps_input_set_tcp_close_state(nInput, TLSFINWAIT2); //* 进入FIN_WAIT2态
+                    pstLink->bIsPassiveFin = TRUE;
+
+                    //* 同样立即下发结束报文，本地也不再继续发送了（而不是按照协议约定允许上层用户继续在半关闭状态下发送数据）
+                    tcp_send_fin(pstLink);
+
+                    //* 加入定时器队列  
+                    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
+                    if (!pstLink->stcbWaitAck.pstTimer)
+                        onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
+                    onps_input_set_tcp_close_state(nInput, TLSTIMEWAIT); //* 等待对端的ACK，然后结束
+                }                                
             }
             else if(TLSFINWAIT1 == (EN_TCPLINKSTATE)pstLink->bState)
                 onps_input_set_tcp_close_state(nInput, TLSCLOSING);
@@ -552,14 +570,17 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         else
         {            
             //* 处于关闭状态
-            if ((EN_TCPLINKSTATE)pstLink->bState > TLSRESET && (EN_TCPLINKSTATE)pstLink->bState < TLSTIMEWAIT)
+            if ((EN_TCPLINKSTATE)pstLink->bState > TLSRESET && (EN_TCPLINKSTATE)pstLink->bState < TLSCLOSED)
             {
                 if(TLSFINWAIT1 == (EN_TCPLINKSTATE)pstLink->bState)
                     onps_input_set_tcp_close_state(nInput, TLSFINWAIT2); 
                 else
                 {
                     if (TLSFINWAIT2 == (EN_TCPLINKSTATE)pstLink->bState || TLSCLOSING == (EN_TCPLINKSTATE)pstLink->bState)
-                        onps_input_set_tcp_close_state(nInput, TLSTIMEWAIT);
+                        onps_input_set_tcp_close_state(nInput, TLSTIMEWAIT); 
+                    else if(TLSTIMEWAIT == (EN_TCPLINKSTATE)pstLink->bState)
+                        onps_input_set_tcp_close_state(nInput, TLSCLOSED);
+                    else; 
                 }
             }
 

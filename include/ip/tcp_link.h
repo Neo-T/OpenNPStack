@@ -33,6 +33,7 @@ typedef enum {
     TLSFINWAIT2,            //* 收到对端回馈的FIN ACK报文    
     TLSCLOSING,             //* 收到对端发送的FIN时，链路关闭状态正处于TLSFINWAIT1态，尚未进入TLSFINWAIT2    
     TLSTIMEWAIT,            //* 收到对端的FIN报文
+    TLSCLOSED,              //* 彻底关闭
 
     //* 以下为Socket被用于TCP Server时的状态定义
     TLSSRVSTARTED,  //* TCP Server已启动
