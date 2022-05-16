@@ -148,8 +148,13 @@ __lblRcv:
     if (!pstcbIO->stRecv.nWriteIdx)
     {
         nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
-        if (nRcvBytes > 0)            
+        if (nRcvBytes > 0)
+        {
+            os_thread_mutex_lock(o_hMtxPrintf);
+            printf_hex(pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, nRcvBytes, 48);
+            os_thread_mutex_unlock(o_hMtxPrintf);
             pstcbIO->stRecv.nWriteIdx += nRcvBytes;
+        }
     }    
 
 	for (; nReadIdx < pstcbIO->stRecv.nWriteIdx; nReadIdx++)
@@ -158,11 +163,12 @@ __lblRcv:
 		{
 			if (blHasFoundHdrFlag)
 			{				
-				UINT unPacketByes = ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)(nReadIdx - nStartIdx + 1), pubRecvBuf, (UINT *)&nRecvBufLen);
-				UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx - 1;
-				if (unRemainBytes > 0)
-					memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx + 1, unRemainBytes);
+				/*UINT unPacketBytes = */ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)(nReadIdx - nStartIdx + 1), pubRecvBuf, (UINT *)&nRecvBufLen);
+                UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx - 1;
+                if (unRemainBytes > 0)                                    
+                    memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx + 1, unRemainBytes);                
 				pstcbIO->stRecv.nWriteIdx = unRemainBytes;
+                printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d - %d\r\n", nRecvBufLen, unRemainBytes);
 
 	#if SUPPORT_PRINTF	
 		#if DEBUG_LEVEL	

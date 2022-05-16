@@ -516,7 +516,7 @@ INT onps_input_tcp_close_time_count(INT nInput)
         os_thread_mutex_lock(l_hMtxInput);
         {
             pstLink->stcbWaitAck.bIsAcked++;
-            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 5)
+            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 10)
             {
                 pstLink->stcbWaitAck.bIsAcked = (CHAR)(pstLink->stcbWaitAck.bIsAcked & 0xF0) + (CHAR)0x10;
                 if (pstLink->stcbWaitAck.bIsAcked < 6 * 16) //* 小于6次超时则继续等待

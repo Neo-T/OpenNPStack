@@ -229,6 +229,7 @@ static INT ppp_recv(INT nPPPIdx, EN_ONPSERR *penErr, INT nWaitSecs)
 	if (nRcvBytes > 0)
 	{
 		//* 验证校验和是否正确
+        printf("===============================================================================%d\r\n", nRcvBytes); 
 		USHORT usFCS = ppp_fcs16(pubFrameBuf + 1, (USHORT)(nRcvBytes - 1 - sizeof(ST_PPP_TAIL)));
 		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)(pubFrameBuf + nRcvBytes - sizeof(ST_PPP_TAIL));
 		if (usFCS != pstTail->usFCS)

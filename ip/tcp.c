@@ -628,21 +628,24 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     }                    
                 }
 
+                //* 更新对端的窗口信息                                                    
+                pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+
                 //* 如果是零窗口探测报文则只更新当前窗口大小并通知给对端
                 if (nDataLen == 1 && pstLink->stLocal.bIsZeroWnd)
                 {
                     USHORT usWndSize = pstLink->stLocal.usWndSize;
                     if (usWndSize)                    
-                        pstLink->stLocal.bIsZeroWnd = FALSE;                        
+                        pstLink->stLocal.bIsZeroWnd = FALSE; 
+                    pstLink->stPeer.unSeqNum = unPeerSeqNum;
                     tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum, usWndSize);
                 }
-                else                
-                    tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, unPeerSeqNum + nDataLen, pstLink->stLocal.usWndSize);
-            }
-
-            //* 更新对端的相关链路信息                        
-            pstLink->stPeer.unSeqNum = unPeerSeqNum;            
-            pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+                else
+                {
+                    pstLink->stPeer.unSeqNum = unPeerSeqNum + nDataLen;
+                    tcp_send_ack(unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort), unSrcAckNum, pstLink->stPeer.unSeqNum, pstLink->stLocal.usWndSize);
+                }
+            }            
         }
     }
 }
