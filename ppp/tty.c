@@ -21,6 +21,7 @@ static UINT l_unTTYIdx = 0;
 //* tty设备初始化
 HTTY tty_init(const CHAR *pszTTYName, EN_ONPSERR *penErr)
 {
+    *penErr = ERRNO; 
 	if (l_unTTYIdx >= PPP_NETLINK_NUM)
 	{
 		*penErr = ERRTOOMANYTTYS; 
@@ -36,6 +37,7 @@ HTTY tty_init(const CHAR *pszTTYName, EN_ONPSERR *penErr)
 	}	
 
 	l_stcbaIO[l_unTTYIdx].hTTY = hTTY;
+    l_stcbaIO[l_unTTYIdx].stRecv.bErrCount = 0; 
 	//l_stcbaIO[l_unTTYIdx].stRecv.nWriteIdx = 0;
 	l_unTTYIdx++; 
 
@@ -122,37 +124,56 @@ __lblRcv:
 	{
 		INT nRtnVal = 0;
 		if (pstcbIO->stRecv.nWriteIdx > 0)
-		{			
-	#if SUPPORT_PRINTF	
-		#if DEBUG_LEVEL
-            #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
-            #endif
-			printf("ppp frame delimiter not found, recv %d bytes:\r\n", pstcbIO->stRecv.nWriteIdx); 
-			printf_hex(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.nWriteIdx, 48);
-            #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-            #endif
-		#endif
-	#endif
-			if (penErr)
-				*penErr = ERRPPPDELIMITER; 
+		{	
+            /*
+            if (blHasFoundHdrFlag)
+            {
+                UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx + 1;
+                if (unRemainBytes > 0)
+                    memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx - 1, unRemainBytes);
+                pstcbIO->stRecv.nWriteIdx = unRemainBytes;                                
+            }
+            else
+            */
+            {                
+                pstcbIO->stRecv.bErrCount++; 
+                if (pstcbIO->stRecv.bErrCount > 6)
+                {
+                    if (penErr)
+                        *penErr = ERRPPPDELIMITER;
+                    nRtnVal = -1;
 
-			nRtnVal = -1;
+        #if SUPPORT_PRINTF	
+            #if DEBUG_LEVEL
+                #if PRINTF_THREAD_MUTEX
+                    os_thread_mutex_lock(o_hMtxPrintf);
+                #endif
+                    printf("ppp frame delimiter not found, recv %d bytes:\r\n", pstcbIO->stRecv.nWriteIdx);
+                    printf_hex(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.nWriteIdx, 48);
+                #if PRINTF_THREAD_MUTEX
+                    os_thread_mutex_unlock(o_hMtxPrintf);
+                #endif
+            #endif
+        #endif
+                }
+            }				
 		}
 
 		return nRtnVal;
 	}     
 
     //* 只有没有数据了才需要再次读取，当前的逻辑是先处理完已经收到的报文
-    if (!pstcbIO->stRecv.nWriteIdx)
+    if (!pstcbIO->stRecv.nWriteIdx || nReadIdx == pstcbIO->stRecv.nWriteIdx)
     {
         nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
         if (nRcvBytes > 0)
-        {
+        {     
+            /*
             os_thread_mutex_lock(o_hMtxPrintf);
             printf_hex(pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, nRcvBytes, 48);
-            os_thread_mutex_unlock(o_hMtxPrintf);
+            os_thread_mutex_unlock(o_hMtxPrintf); 
+            */
+
             pstcbIO->stRecv.nWriteIdx += nRcvBytes;
         }
     }    
@@ -162,13 +183,21 @@ __lblRcv:
 		if (pstcbIO->stRecv.ubaBuf[nReadIdx] == PPP_FLAG)
 		{
 			if (blHasFoundHdrFlag)
-			{				
-				/*UINT unPacketBytes = */ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)(nReadIdx - nStartIdx + 1), pubRecvBuf, (UINT *)&nRecvBufLen);
+			{			
+                pstcbIO->stRecv.bErrCount = 0; 
+
+                INT nPacketBytes = nReadIdx - nStartIdx + 1; 
+                if (nPacketBytes < sizeof(ST_PPP_HDR) + sizeof(ST_PPP_TAIL) + 1)
+                {                    
+                    nStartIdx = nReadIdx;
+                    continue; 
+                }
+
+				/*UINT unPacketBytes = */ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)nPacketBytes, pubRecvBuf, (UINT *)&nRecvBufLen);
                 UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx - 1;
                 if (unRemainBytes > 0)                                    
                     memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx + 1, unRemainBytes);                
-				pstcbIO->stRecv.nWriteIdx = unRemainBytes;
-                printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d - %d\r\n", nRecvBufLen, unRemainBytes);
+				pstcbIO->stRecv.nWriteIdx = unRemainBytes;                
 
 	#if SUPPORT_PRINTF	
 		#if DEBUG_LEVEL	

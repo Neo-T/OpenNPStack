@@ -23,9 +23,10 @@ typedef struct _STCB_TTYIO_ {
 	struct {
 		UCHAR ubaBuf[TTY_RCV_BUF_SIZE];
 		INT nWriteIdx;
+        CHAR bErrCount; 
 	} stRecv;
 
-	UCHAR ubaSendBuf[TTY_SEND_BUF_SIZE];
+	UCHAR ubaSendBuf[TTY_SEND_BUF_SIZE]; 
 } STCB_TTYIO, *PSTCB_TTYIO;
 
 TTY_EXT HTTY tty_init(const CHAR *pszTTYName, EN_ONPSERR *penErr); 

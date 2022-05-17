@@ -516,10 +516,10 @@ INT onps_input_tcp_close_time_count(INT nInput)
         os_thread_mutex_lock(l_hMtxInput);
         {
             pstLink->stcbWaitAck.bIsAcked++;
-            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 10)
+            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 3)
             {
                 pstLink->stcbWaitAck.bIsAcked = (CHAR)(pstLink->stcbWaitAck.bIsAcked & 0xF0) + (CHAR)0x10;
-                if (pstLink->stcbWaitAck.bIsAcked < 6 * 16) //* 小于6次超时则继续等待
+                if (pstLink->stcbWaitAck.bIsAcked < 5 * 16) //* 小于5次超时则继续等待
                     nRtnVal = 1;
                 else //* 已经连续6次超时即已经等待6 * 5 = 30秒了
                     nRtnVal = 2;                
@@ -529,6 +529,16 @@ INT onps_input_tcp_close_time_count(INT nInput)
     }
 
     return nRtnVal; 
+}
+
+void onps_input_lock(INT nInput)
+{
+    os_thread_mutex_lock(l_hMtxInput);
+}
+
+void onps_input_unlock(INT nInput)
+{
+    os_thread_mutex_unlock(l_hMtxInput);
 }
 
 INT onps_input_get_icmp(USHORT usIdentifier)
@@ -563,6 +573,12 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
             *penErr = ERRINPUTOVERFLOW;
 
         return FALSE; 
+    }
+
+    if (!pubData)
+    {
+        ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize;
+        return TRUE;
     }
 
     //* icmp报文只要是到达就直接覆盖前一组，无论前一组报文是否已被读取

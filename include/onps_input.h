@@ -63,6 +63,10 @@ ONPSINPUT_EXT BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState);
 //* tcp链路关闭操作定时器计数函数
 ONPSINPUT_EXT INT onps_input_tcp_close_time_count(INT nInput);
 
+//* input层未tcp之类的ip上层数据流协议提供的线程锁，确保发送序号不出现乱序的情形
+ONPSINPUT_EXT void onps_input_lock(INT nInput); 
+ONPSINPUT_EXT void onps_input_unlock(INT nInput);
+
 //* 根据对端发送的标识获取本地icmp句柄
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 
