@@ -18,6 +18,24 @@
 typedef CRITICAL_SECTION THMUTEX;
 #define WSALIB_VER MAKEWORD(2, 2)  //* 要加载的WSA库的版本
 
+#pragma pack(push)
+#pragma pack(1)		//* 设置为1字节对齐
+#define PKT_FLAG    0xEE
+typedef struct _ST_COMMUPKT_HDR_ {
+    CHAR bFlag;
+    CHAR bCmd;
+    UINT unTimestamp;
+    USHORT usDataLen;
+    USHORT usChechsum;
+} ST_COMMUPKT_HDR, *PST_COMMUPKT_HDR;
+
+typedef struct _ST_COMMUPKT_ACK_ {
+    ST_COMMUPKT_HDR stHdr;
+    UINT unTimestamp;
+    CHAR bTail;
+} ST_COMMUPKT_ACK, *PST_COMMUPKT_ACK;
+#pragma pack(pop)
+
 TCPHELPER_EXT INT load_socket_lib(USHORT usVer, CHAR *pbLoadNum); 
 TCPHELPER_EXT BOOL load_socket_lib(void);
 TCPHELPER_EXT void unload_socket_lib(void); 

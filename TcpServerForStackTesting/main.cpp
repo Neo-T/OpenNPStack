@@ -32,24 +32,6 @@ static SOCKET l_hSocketSrv;
 static SOCKET l_hSocketMax; 
 static THMUTEX l_thLockClients; 
 
-#pragma pack(push)	//* 保存对齐状态
-#pragma pack()		//* 设置为1字节对齐
-#define PKT_FLAG    0xEE
-typedef struct _ST_PACKET_HDR_ {
-    CHAR bFlag;
-    CHAR bCmd;
-    UINT unTimestamp;
-    USHORT usDataLen;
-    USHORT usChechsum;
-} ST_PACKET_HDR, *PST_PACKET_HDR;
-
-typedef struct _ST_PACKET_ACK_ {
-    ST_PACKET_HDR stHdr;
-    UINT unTimestamp;
-    CHAR bTail;
-} ST_PACKET_ACK, *PST_PACKET_ACK;
-#pragma pack(pop)	//* 恢复对齐状态
-
 //* TCP客户端
 typedef struct _ST_TCPCLIENT_ {
     SOCKET hClient;
@@ -60,10 +42,10 @@ typedef struct _ST_TCPCLIENT_ {
         UINT unWriteIdx; 
         UINT unPktStartIdx;         
         CHAR bParsingState;
-        UCHAR *pubRcvBuf;
+        UCHAR ubaRcvBuf[RCV_BUF_SIZE];
     } stcbRcv;
     BOOL blTHIsRunning; 
-    thread *pobjTHSender;
+    thread objTHSender;
 } ST_TCPCLIENT, *PST_TCPCLIENT;
 unordered_map<SOCKET, ST_TCPCLIENT> l_umstClients;
 
@@ -100,10 +82,8 @@ static void uninit(void)
     for (; iter != l_umstClients.end(); iter++)
     {
         closesocket(iter->second.hClient); 
-        if (iter->second.pobjTHSender->joinable())
-            iter->second.pobjTHSender->join();
-        delete iter->second.pobjTHSender; 
-        delete[] iter->second.stcbRcv.pubRcvBuf; 
+        if (iter->second.objTHSender.joinable())
+            iter->second.objTHSender.join();        
     }
 
     if (INVALID_SOCKET != l_hSocketSrv)
@@ -116,14 +96,11 @@ void ClearClient(PST_TCPCLIENT pstClient, fd_set *pfdsRead, fd_set *pfdsExceptio
 {                
     SOCKET hClient = pstClient->hClient;
     FD_CLR(pstClient->hClient, pfdsRead);
-    FD_CLR(pstClient->hClient, pfdsException);        
-
-    delete pstClient->pobjTHSender; 
-    delete[] pstClient->stcbRcv.pubRcvBuf; 
+    FD_CLR(pstClient->hClient, pfdsException);            
 
     (*pIter)->second.blTHIsRunning = FALSE;
-    if ((*pIter)->second.pobjTHSender->joinable())
-        (*pIter)->second.pobjTHSender->join();
+    if ((*pIter)->second.objTHSender.joinable())
+        (*pIter)->second.objTHSender.join();        
     *pIter = l_umstClients.erase(*pIter);
 
     //* 确定当前SOCKET是不是最大值,如果是则需要重新比较当前所有已连接客户端以获取最新的最大值
@@ -140,14 +117,14 @@ void ClearClient(PST_TCPCLIENT pstClient, fd_set *pfdsRead, fd_set *pfdsExceptio
 
 static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataLen)
 {
-    PST_PACKET_HDR pstHdr = (PST_PACKET_HDR)pubPacket; 
+    PST_COMMUPKT_HDR pstHdr = (PST_COMMUPKT_HDR)pubPacket;
     pstHdr->bFlag = (CHAR)PKT_FLAG; 
     pstHdr->bCmd = 0x01; 
     pstHdr->unTimestamp = (UINT)time(NULL); 
     pstHdr->usDataLen = usDataLen; 
     pstHdr->usChechsum = 0; 
-    pstHdr->usChechsum = crc16(pubPacket + sizeof(ST_PACKET_HDR::bFlag), sizeof(ST_PACKET_HDR) - sizeof(ST_PACKET_HDR::bFlag) + usDataLen, 0xFFFF); 
-    pubPacket[sizeof(ST_PACKET_HDR) + usDataLen] = PKT_FLAG; 
+    pstHdr->usChechsum = crc16(pubPacket + sizeof(ST_COMMUPKT_HDR::bFlag), sizeof(ST_COMMUPKT_HDR) - sizeof(ST_COMMUPKT_HDR::bFlag) + usDataLen, 0xFFFF);
+    pubPacket[sizeof(ST_COMMUPKT_HDR) + usDataLen] = PKT_FLAG;
 
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
@@ -159,7 +136,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
 
     //* 发送并等待接收对端的应答
     INT nSndTotalBytes;
-    INT nPacketLen = sizeof(ST_PACKET_HDR) + usDataLen + sizeof(ST_PACKET_HDR::bFlag); 
+    INT nPacketLen = sizeof(ST_COMMUPKT_HDR) + usDataLen + sizeof(ST_COMMUPKT_HDR::bFlag);
     time_t tStartSecs; 
     INT nTryNum = 0; 
 __lblSend: 
@@ -212,12 +189,12 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
     }
 
     //* 填充要下发的数据
-    CHAR szPacket[sizeof(ST_PACKET_HDR) + 1200]; 
+    CHAR szPacket[sizeof(ST_COMMUPKT_HDR) + 1200];
     CHAR szData[94];
     for (INT i = 33; i < 127; i++)
         szData[i - 33] = (CHAR)i;
 
-    INT nHasCpyBytes = sizeof(ST_PACKET_HDR);
+    INT nHasCpyBytes = sizeof(ST_COMMUPKT_HDR);
     for (INT i = 0; i < 12; i++)
     {
         memcpy(&szPacket[nHasCpyBytes], szData, sizeof(szData));
@@ -236,7 +213,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
         tInterval = 120 - (time_t)rand() % 31; 
         if (time(NULL) - tLastSendSecs > tInterval)
         {
-            if (!SendCtlCmd(pstClient, (UCHAR *)szPacket, nHasCpyBytes - sizeof(ST_PACKET_HDR)))
+            if (!SendCtlCmd(pstClient, (UCHAR *)szPacket, nHasCpyBytes - sizeof(ST_COMMUPKT_HDR)))
                 break; 
         }
     }
@@ -248,14 +225,14 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
 static void HandleRead(PST_TCPCLIENT pstClient)
 {    
     UINT unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx;
-    INT nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.pubRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
+    INT nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
     if (nRcvBytes > 0)
     {
-       PST_PACKET_HDR pstHdr;
+        PST_COMMUPKT_HDR pstHdr;
         pstClient->stcbRcv.unWriteIdx += (UINT)nRcvBytes; 
         for (; pstClient->stcbRcv.unReadIdx < pstClient->stcbRcv.unWriteIdx; )
         {
-            UCHAR ch = pstClient->stcbRcv.pubRcvBuf[pstClient->stcbRcv.unReadIdx]; 
+            UCHAR ch = pstClient->stcbRcv.ubaRcvBuf[pstClient->stcbRcv.unReadIdx]; 
             switch (pstClient->stcbRcv.bParsingState)
             {
             case 0: //* 找到头部标志
@@ -271,11 +248,11 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                 }
 
             case 1: //* 获取整个头部数据
-                if (pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unPktStartIdx < sizeof(ST_PACKET_HDR))
+                if (pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unPktStartIdx < sizeof(ST_COMMUPKT_HDR))
                     return; 
                 else
                 {
-                    pstHdr = (PST_PACKET_HDR)(pstClient->stcbRcv.pubRcvBuf + pstClient->stcbRcv.unPktStartIdx); 
+                    pstHdr = (PST_COMMUPKT_HDR)(pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unPktStartIdx);
                     if (pstHdr->usDataLen < PKT_DATA_LEN_MAX) //* 只有小于系统允许的最大数据长度才是合法报文
                         pstClient->stcbRcv.bParsingState = 2;
                     else
@@ -288,22 +265,22 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                 }
 
             case 2: //* 获取完整报文
-                pstHdr = (PST_PACKET_HDR)(pstClient->stcbRcv.pubRcvBuf + pstClient->stcbRcv.unPktStartIdx);
-                if (pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unPktStartIdx < sizeof(ST_PACKET_HDR) + (UINT)pstHdr->usDataLen + 1)
+                pstHdr = (PST_COMMUPKT_HDR)(pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unPktStartIdx);
+                if (pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unPktStartIdx < sizeof(ST_COMMUPKT_HDR) + (UINT)pstHdr->usDataLen + 1)
                     return; 
                 else
                 {
-                    pstClient->stcbRcv.unReadIdx = pstClient->stcbRcv.unPktStartIdx + sizeof(ST_PACKET_HDR) + (UINT)pstHdr->usDataLen; 
+                    pstClient->stcbRcv.unReadIdx = pstClient->stcbRcv.unPktStartIdx + sizeof(ST_COMMUPKT_HDR) + (UINT)pstHdr->usDataLen;
 
                     //* 尾部标识必须匹配
-                    ch = pstClient->stcbRcv.pubRcvBuf[pstClient->stcbRcv.unReadIdx];
+                    ch = pstClient->stcbRcv.ubaRcvBuf[pstClient->stcbRcv.unReadIdx];
                     if (ch == PKT_FLAG)
                     {
                         //* 判断校验和是否正确
                         USHORT usPktChecksum = pstHdr->usChechsum;
                         pstHdr->usChechsum = 0;
-                        USHORT usChecksum = crc16(&pstClient->stcbRcv.pubRcvBuf[pstClient->stcbRcv.unPktStartIdx + sizeof(ST_PACKET_HDR::bFlag)],
-                            sizeof(ST_PACKET_HDR) - sizeof(ST_PACKET_HDR::bFlag) + (UINT)pstHdr->usDataLen, 0xFFFF);
+                        USHORT usChecksum = crc16(&pstClient->stcbRcv.ubaRcvBuf[pstClient->stcbRcv.unPktStartIdx + sizeof(ST_COMMUPKT_HDR::bFlag)],
+                            sizeof(ST_COMMUPKT_HDR) - sizeof(ST_COMMUPKT_HDR::bFlag) + (UINT)pstHdr->usDataLen, 0xFFFF);
                         if (usChecksum == usPktChecksum)
                         {
                             pstClient->tPrevActiveTime = time(NULL);  //* 记录最后一组报文到达时间，告知主线程这个客户端上报的最后一组报文是在什么时间
@@ -314,8 +291,8 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                             //* 收到下发报文的应答
                             if (pstHdr->bCmd == 0)
                             {
-                                UCHAR ubaSndBuf[sizeof(ST_PACKET_ACK)];
-                                PST_PACKET_ACK pstAck = (PST_PACKET_ACK)ubaSndBuf;
+                                UCHAR ubaSndBuf[sizeof(ST_COMMUPKT_ACK)];
+                                PST_COMMUPKT_ACK pstAck = (PST_COMMUPKT_ACK)ubaSndBuf;
                                 pstAck->stHdr.bFlag = (CHAR)PKT_FLAG;
                                 pstAck->stHdr.bCmd = 0x00; 
                                 pstAck->stHdr.unTimestamp = (time_t)time(NULL); 
@@ -323,13 +300,13 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 pstAck->stHdr.usChechsum = 0; 
                                 pstAck->unTimestamp = pstHdr->unTimestamp; 
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
-                                pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_PACKET_HDR::bFlag)], sizeof(ST_PACKET_ACK) - 2 * sizeof(ST_PACKET_HDR::bFlag), 0xFFFF); 
+                                pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
                                 printf("#%s#>recv the uploaded packet, the cmd is 0x%02X, the data length is %d bytes\r\n ", szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
-                                send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_PACKET_ACK), 0); 
+                                send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
                             else if (pstHdr->bCmd == 1)
                             {
-                                PST_PACKET_ACK pstAck = (PST_PACKET_ACK)pstHdr; 
+                                PST_COMMUPKT_ACK pstAck = (PST_COMMUPKT_ACK)pstHdr;
                                 if (pstAck->unTimestamp == (UINT)pstClient->tTimestampToAck)
                                 {
                                     pstClient->tTimestampToAck = 0;
@@ -388,22 +365,9 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
 
     //* 添加到客户端列表中
     l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0, { 0, 0, 0, 0 } });
-    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL }, TRUE, NULL });
+    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL } });
     atoPair.first->second.blTHIsRunning = TRUE; 
-    atoPair.first->second.pobjTHSender = new(std::nothrow) thread(THSender, hClient, pfdsRead, pfdsException); 
-    if (!atoPair.first->second.pobjTHSender)
-    {
-        printf("Unable to create THSender thread for new tcp client, the error code is %d, the process will exit\r\n", GetLastError());
-        return FALSE; 
-    }
-    atoPair.first->second.stcbRcv.pubRcvBuf = new(std::nothrow) UCHAR[RCV_BUF_SIZE]; 
-    if (!atoPair.first->second.stcbRcv.pubRcvBuf)
-    {
-        delete atoPair.first->second.pobjTHSender; 
-
-        printf("Unable to create recv buf for new tcp client, the error code is %d, the process will exit\r\n", GetLastError());
-        return FALSE;
-    }
+    atoPair.first->second.objTHSender = thread(THSender, hClient, pfdsRead, pfdsException); 
 
     return TRUE; 
 }
@@ -426,7 +390,7 @@ void ScanInactiveClients(fd_set *pfdsRead, fd_set *pfdsException)
 }
 
 int main()
-{
+{    
     //* 捕获控制台的CTRL+C输入
     SetConsoleCtrlHandler((PHANDLER_ROUTINE)ConsoleCtrlHandler, TRUE);
 
