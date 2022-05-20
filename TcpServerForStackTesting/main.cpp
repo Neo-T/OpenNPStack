@@ -129,7 +129,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
     unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));
-    printf("#%s#>send control command to peer, the cmd is 0x01, the data length is %d bytes\r\n", szPktTime, pstHdr->usDataLen); 
+    printf("#%s#>sent control command to peer, the cmd is 0x01, the data length is %d bytes\r\n", szPktTime, pstHdr->usDataLen); 
 
     //* 更新需要等待的报文标识
     pstClient->tTimestampToAck = (time_t)pstHdr->unTimestamp;     
@@ -213,7 +213,9 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
         tInterval = 120 - (time_t)rand() % 31; 
         if (time(NULL) - tLastSendSecs > tInterval)
         {
-            if (!SendCtlCmd(pstClient, (UCHAR *)szPacket, nHasCpyBytes - sizeof(ST_COMMUPKT_HDR)))
+            if (SendCtlCmd(pstClient, (UCHAR *)szPacket, nHasCpyBytes - sizeof(ST_COMMUPKT_HDR)))
+                tLastSendSecs = time(NULL); 
+            else
                 break; 
         }
     }
@@ -279,8 +281,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                         //* 判断校验和是否正确
                         USHORT usPktChecksum = pstHdr->usChechsum;
                         pstHdr->usChechsum = 0;
-                        USHORT usChecksum = crc16(&pstClient->stcbRcv.ubaRcvBuf[pstClient->stcbRcv.unPktStartIdx + sizeof(ST_COMMUPKT_HDR::bFlag)],
-                            sizeof(ST_COMMUPKT_HDR) - sizeof(ST_COMMUPKT_HDR::bFlag) + (UINT)pstHdr->usDataLen, 0xFFFF);
+                        USHORT usChecksum = crc16(&pstClient->stcbRcv.ubaRcvBuf[pstClient->stcbRcv.unPktStartIdx + sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_HDR) - sizeof(ST_COMMUPKT_HDR::bFlag) + (UINT)pstHdr->usDataLen, 0xFFFF);
                         if (usChecksum == usPktChecksum)
                         {
                             pstClient->tPrevActiveTime = time(NULL);  //* 记录最后一组报文到达时间，告知主线程这个客户端上报的最后一组报文是在什么时间
@@ -288,37 +289,43 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                             CHAR szPktTime[24] = { 0 }; 
                             unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));
 
-                            //* 收到下发报文的应答
+                            //* 处理收到的报文，首先看看这是不是上传的数据报文
                             if (pstHdr->bCmd == 0)
                             {
                                 UCHAR ubaSndBuf[sizeof(ST_COMMUPKT_ACK)];
                                 PST_COMMUPKT_ACK pstAck = (PST_COMMUPKT_ACK)ubaSndBuf;
                                 pstAck->stHdr.bFlag = (CHAR)PKT_FLAG;
                                 pstAck->stHdr.bCmd = 0x00; 
-                                pstAck->stHdr.unTimestamp = (time_t)time(NULL); 
-                                pstAck->stHdr.usDataLen = sizeof(time_t); 
+                                pstAck->stHdr.unTimestamp = (UINT)time(NULL); 
+                                pstAck->stHdr.usDataLen = sizeof(UINT); 
                                 pstAck->stHdr.usChechsum = 0; 
                                 pstAck->unTimestamp = pstHdr->unTimestamp; 
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
-                                printf("#%s#>recv the uploaded packet, the cmd is 0x%02X, the data length is %d bytes\r\n ", szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
+                                printf("#%s#>recved the uploaded packet, the cmd is 0x%02X, the data length is %d bytes\r\n", szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
-                            else if (pstHdr->bCmd == 1)
+                            else if (pstHdr->bCmd == 1) //* 这是控制指令的应答报文
                             {
                                 PST_COMMUPKT_ACK pstAck = (PST_COMMUPKT_ACK)pstHdr;
                                 if (pstAck->unTimestamp == (UINT)pstClient->tTimestampToAck)
                                 {
                                     pstClient->tTimestampToAck = 0;
-                                    printf("#%s#>recv acknowledge packet, the timestamp of the acked packet is ", szPktTime);
+                                    printf("#%s#>recved acknowledge packet, the timestamp of the acked packet is ", szPktTime);
                                     unix_time_to_local((time_t)pstAck->unTimestamp, szPktTime, sizeof(szPktTime));
                                     printf("%s\r\n", szPktTime);
                                 }
                             }
                             else; 
 
+                            //* 搬运剩余的字节
+                            UINT unRemainBytes = pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unReadIdx - 1;
+                            if (pstClient->stcbRcv.unReadIdx < pstClient->stcbRcv.unWriteIdx) 
+                                memmove(pstClient->stcbRcv.ubaRcvBuf, pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unReadIdx + 1, unRemainBytes);
+                            pstClient->stcbRcv.unWriteIdx = unRemainBytes;
+
                             //* 开始截取下一个报文
-                            pstClient->stcbRcv.unReadIdx += 1;
+                            pstClient->stcbRcv.unReadIdx = 0;
                         }
                         else
                         {
