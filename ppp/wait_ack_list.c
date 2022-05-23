@@ -10,9 +10,19 @@
 #include "ppp/wait_ack_list.h"
 #undef SYMBOL_GLOBALS
 
+#define PPP_WAIT_ACK_NODE_NUM  5 //* 分配的应答等待节点的数量，每个ppp链路拨号时使用4个，多出几个留点裕富
+static ST_PPPWAITACKNODE l_staaPPPWaitAckNode[PPP_NETLINK_NUM][PPP_WAIT_ACK_NODE_NUM];
+
 //* 等待应答队列
 BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ONPSERR *penErr)
 {	
+    if (pstWAList->bPPPIdx < 0 || pstWAList->bPPPIdx >= PPP_NETLINK_NUM)
+    {
+        if (penErr)
+            *penErr = ERRPPPIDXOVERFLOW;
+        return FALSE;
+    }
+
 	pstWAList->hMutex = os_thread_mutex_init();
     if (INVALID_HMUTEX == pstWAList->hMutex)
     {
@@ -20,6 +30,10 @@ BOOL wait_ack_list_init(PST_PPPWAITACKLIST pstWAList, EN_ONPSERR *penErr)
             *penErr = ERRMUTEXINITFAILED; 
         return FALSE;
     }
+
+    INT i;
+    for (i = 0; i < PPP_WAIT_ACK_NODE_NUM; i++)
+        l_staaPPPWaitAckNode[pstWAList->bPPPIdx][i].bIsUsed = FALSE;
 	
 	pstWAList->pstHead = NULL;
 	pstWAList->ubTimeoutCount = 0;
@@ -53,6 +67,27 @@ void wait_ack_list_uninit(PST_PPPWAITACKLIST pstWAList)
 	}
 }
 
+static PST_PPPWAITACKNODE wait_ack_list_get_free_node(PST_PPPWAITACKLIST pstWAList)
+{
+    PST_PPPWAITACKNODE pstNode = NULL; 
+    os_thread_mutex_lock(pstWAList->hMutex);
+    {
+        INT i;
+        for (i = 0; i < PPP_WAIT_ACK_NODE_NUM; i++)
+        {
+            if (!l_staaPPPWaitAckNode[pstWAList->bPPPIdx][i].bIsUsed)
+            {
+                pstNode = &l_staaPPPWaitAckNode[pstWAList->bPPPIdx][i]; 
+                pstNode->bIsUsed = TRUE; 
+                break; 
+            }
+        }
+    }
+    os_thread_mutex_unlock(pstWAList->hMutex);
+
+    return pstNode;
+}
+
 static void wait_ack_list_free_node(PST_PPPWAITACKLIST pstWAList, PST_PPPWAITACKNODE pstFreedNode)
 {
 	if (!pstWAList || INVALID_HMUTEX == pstWAList->hMutex || !pstFreedNode)
@@ -65,6 +100,9 @@ static void wait_ack_list_free_node(PST_PPPWAITACKLIST pstWAList, PST_PPPWAITACK
 		pstFreedNode->pstNext->pstPrev = pstFreedNode->pstPrev;
 	if (pstWAList->pstHead == pstFreedNode)
 		pstWAList->pstHead = pstFreedNode->pstNext;
+
+    //* 归还当前已经结束使命的wait ack节点
+    pstFreedNode->bIsUsed = FALSE; 
 }
 
 static void wait_ack_timeout_handler(void *pvParam)
@@ -74,11 +112,11 @@ static void wait_ack_timeout_handler(void *pvParam)
 	
 	os_thread_mutex_lock(pstWAList->hMutex);
 	{
-		if (pstTimeoutNode->ubIsAcked) //* 如果已经收到应答报文，则错误计数归零
+		if (pstTimeoutNode->bIsAcked) //* 如果已经收到应答报文，则错误计数归零
 			pstWAList->ubTimeoutCount = 0;
 		else //* 超时了，当前节点记录的报文未收到应答
 		{
-			if (pstTimeoutNode->ubIsAcked) //* 存在这种情况，等待进入临界段时好巧不巧收到应答报文了			
+			if (pstTimeoutNode->bIsAcked) //* 存在这种情况，等待进入临界段时好巧不巧收到应答报文了			
 				pstWAList->ubTimeoutCount = 0;
 			else
 			{
@@ -88,12 +126,9 @@ static void wait_ack_timeout_handler(void *pvParam)
 		}
 
 		//* 直接释放当前节点即可，不需要单独释放申请的定时器，定时器超时后会自动归还给系统
-		wait_ack_list_free_node(pstWAList, pstTimeoutNode);
+		wait_ack_list_free_node(pstWAList, pstTimeoutNode);         
 	}
-	os_thread_mutex_unlock(pstWAList->hMutex);
-
-	//* 内存归还给mmu
-	buddy_free(pstTimeoutNode);
+	os_thread_mutex_unlock(pstWAList->hMutex);	
 }
 
 BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ubCode, UCHAR ubIdentifier, INT nTimerCount, EN_ONPSERR *penErr)
@@ -106,9 +141,14 @@ BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ub
 	}
 
 	//* 申请一块内存以建立一个新的队列节点
-	PST_PPPWAITACKNODE pstNewNode = (PST_PPPWAITACKNODE)buddy_alloc(sizeof(ST_PPPWAITACKNODE), penErr); 
-	if (!pstNewNode)
-		return FALSE; 
+    PST_PPPWAITACKNODE pstNewNode = wait_ack_list_get_free_node(pstWAList); 
+    if (!pstNewNode)
+    {
+        if (penErr)
+            *penErr = ERRNOFREEPPWANODE;
+        
+        return FALSE;
+    }
 
 	//* 新建一个定时器用于等待应答计时
 	pstNewNode->pstTimer = one_shot_timer_new(wait_ack_timeout_handler, pstNewNode, nTimerCount);
@@ -125,7 +165,7 @@ BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ub
 	pstNewNode->stPacket.ubCode = ubCode; 
 	pstNewNode->stPacket.ubIdentifier = ubIdentifier; 
 	//* 尚未等到应答
-	pstNewNode->ubIsAcked = FALSE; 
+	pstNewNode->bIsAcked = FALSE; 
 
 	//* 记录链表首地址，超时处理函数需要
 	pstNewNode->pstList = pstWAList;
@@ -157,7 +197,7 @@ void wait_ack_list_del(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ub
 		{
 			if (usProtocol == pstNextNode->stPacket.usProtocol && ubIdentifier == pstNextNode->stPacket.ubIdentifier)
 			{
-				pstNextNode->ubIsAcked = TRUE;
+				pstNextNode->bIsAcked = TRUE;
 				one_shot_timer_recount(pstNextNode->pstTimer, 1); //* 其实还是交给超时函数去统一处理，这样才可确保对该链表的访问不会冲突，因为存在应答收到这一刻同时定时器超时溢出的情况，所以
 																  //* 在这里我们只是打上已收到应答的标志，同时调整定时器1秒后溢出，由定时器超时函数统一回收相关资源
 				break; 

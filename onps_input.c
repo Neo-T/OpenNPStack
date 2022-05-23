@@ -224,24 +224,6 @@ void onps_input_free(INT nInput)
     os_thread_mutex_unlock(l_hMtxInput);
 }
 
-static BOOL onps_input_set_recv_buf_size(PSTCB_ONPS_INPUT pstcbInput, UINT unRcvBufSize, EN_ONPSERR *penErr)
-{
-    if (pstcbInput->unRcvBufSize == unRcvBufSize)
-        return TRUE; 
-
-    if (pstcbInput->pubRcvBuf)
-    {
-        buddy_free(pstcbInput->pubRcvBuf);
-        pstcbInput->unRcvBufSize = 0; 
-    }
-
-    pstcbInput->pubRcvBuf = (UCHAR *)buddy_alloc(unRcvBufSize, penErr);
-    if (NULL == pstcbInput->pubRcvBuf)    
-        return FALSE;     
-    pstcbInput->unRcvBufSize = unRcvBufSize; 
-    return TRUE; 
-}
-
 BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
@@ -254,10 +236,7 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
     switch (enInputOpt)
-    {
-    case IOPT_RCVBUFSIZE:
-        return onps_input_set_recv_buf_size(pstcbInput, *((UINT*)pvVal), penErr);  
-
+    {    
     case IOPT_SETICMPECHOID:
         if (pstcbInput->ubIPProto == IPPROTO_ICMP)
             pstcbInput->uniHandle.stIcmp.usIdentifier = *((USHORT *)pvVal); 
@@ -516,10 +495,10 @@ INT onps_input_tcp_close_time_count(INT nInput)
         os_thread_mutex_lock(l_hMtxInput);
         {
             pstLink->stcbWaitAck.bIsAcked++;
-            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 3)
+            if ((pstLink->stcbWaitAck.bIsAcked & 0x0F) >= 3) //* 根据目标资源情况调整此值，单位：秒，缩短或延长FIN操作时长以尽快或延缓资源释放时间
             {
                 pstLink->stcbWaitAck.bIsAcked = (CHAR)(pstLink->stcbWaitAck.bIsAcked & 0xF0) + (CHAR)0x10;
-                if (pstLink->stcbWaitAck.bIsAcked < 5 * 16) //* 小于5次超时则继续等待
+                if (pstLink->stcbWaitAck.bIsAcked < 2 * 16) //* 小于3次超时则继续等待
                     nRtnVal = 1;
                 else //* 已经连续6次超时即已经等待6 * 5 = 30秒了
                     nRtnVal = 2;                

@@ -17,9 +17,8 @@
 #include "ip/ip.h"
 
 //* 协议栈支持的输入控制块相关配置项定义
-typedef enum {
-    IOPT_RCVBUFSIZE = 0,        //* 设置接收缓冲区大小
-    IOPT_SETICMPECHOID,         //* 设置icmp echo请求ID
+typedef enum {    
+    IOPT_SETICMPECHOID = 0,         //* 设置icmp echo请求ID
     IOPT_SETTCPUDPADDR,         //* 设置TCP/UDP本地分配的地址
     IOPT_GETTCPUDPADDR,         //* 获取TCP/UDP本地分配的地址
     IOPT_GETSEM,                //* 获取input用到的semaphore

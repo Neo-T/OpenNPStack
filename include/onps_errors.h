@@ -29,13 +29,15 @@ typedef enum {
     ERRATEXECTIMEOUT,   //* AT指令执行超时
     ERRSIMCARD,         //* 未检测到SIM卡
     ERRREGMOBILENET,    //* 没有注册到移动网络
+    ERRPPPIDXOVERFLOW,  //* ppp链路索引溢出
     ERRPPPDELIMITER,    //* 未找到ppp帧定界符
-    ERRPPPFCS,          //* ppp帧校验和错误
     ERRTOOMANYTTYS,     //* tty数量过多
     ERRTTYHANDLE,       //* tty句柄无效
     ERROSADAPTER,       //* os适配层错误
     ERRUNKNOWNPROTOCOL, //* 未知协议类型
+    ERRPPPFCS,          //* ppp帧校验和错误                
     ERRNOIDLETIMER,     //* 没有空闲的定时器
+    ERRNOFREEPPWANODE,  //* 用于ppp协商等待的节点不可用
     ERRPPPWALISTNOINIT, //* ppp等待应答链表未初始化
     ERRNONETIFNODE,     //* 无可用的netif节点
     ERRNONETIFFOUND,    //* 未找到网络接口

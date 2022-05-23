@@ -49,7 +49,6 @@ static void tcp_close_timeout_handler(void *pvParam)
         else if (nRtnVal == 2) //*一直没收到对端的ACK报文，直接进入FIN_WAIT2态        
             onps_input_set_tcp_close_state(pstLink->stcbWaitAck.nInput, TLSFINWAIT2); 
         else; 
-        printf("<FIN_WAIT1> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
         break; 
 
     case TLSFINWAIT2:
@@ -57,19 +56,16 @@ static void tcp_close_timeout_handler(void *pvParam)
         if (nRtnVal == 2) //* 一直未收到对端发送的FIN报文        
             onps_input_set_tcp_close_state(pstLink->stcbWaitAck.nInput, TLSTIMEWAIT);
         else; 
-        printf("<FIN_WAIT2> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
         break; 
 
     case TLSCLOSING:
         nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);
         if (nRtnVal == 2) //* 一直未收到对端发送的FIN报文        
             onps_input_set_tcp_close_state(pstLink->stcbWaitAck.nInput, TLSTIMEWAIT); 
-        else; 
-        printf("<FIN_CLOSING> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
+        else;         
         break; 
 
-    case TLSTIMEWAIT:
-        printf("<FIN_TIMEWAIT> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
+    case TLSTIMEWAIT:        
         nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);
         if (nRtnVal == 1)
         {
@@ -78,18 +74,15 @@ static void tcp_close_timeout_handler(void *pvParam)
         }
         if (nRtnVal == 2) //* 超时，则FIN操作结束，释放input资源
         {
-            onps_input_free(pstLink->stcbWaitAck.nInput); 
-            printf("<0: FIN_FREED> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
+            onps_input_free(pstLink->stcbWaitAck.nInput);             
             return; 
         }
         else;        
         break;
 
-    case TLSCLOSED: 
-        printf("<FIN_CLOSED> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
+    case TLSCLOSED:         
         //* FIN操作结束，释放input资源
-        onps_input_free(pstLink->stcbWaitAck.nInput);
-        printf("<1: FIN_FREED> $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\r\n");
+        onps_input_free(pstLink->stcbWaitAck.nInput);        
         return;  
     }   
 

@@ -45,7 +45,7 @@ static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
 	{ "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量及 */
 									  /* pap.c中pap_send_auth_request()函数的ubaPacket数组的容量，确保其能够封装一个完整的响应报文              */
 }; 
-static STCB_PPP l_staPPP[PPP_NETLINK_NUM]; 
+static STCB_PPP l_staPPP[PPP_NETLINK_NUM];
 static PST_NETIF_NODE l_pstaNetif[PPP_NETLINK_NUM];
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
 static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
@@ -81,8 +81,9 @@ BOOL ppp_init(EN_ONPSERR *penErr)
         {
             *penErr = ERRMUTEXINITFAILED; 
             goto __lblEnd;
-        }
+        }        
 
+        l_staPPP[i].stWaitAckList.bPPPIdx = i; 
 		l_staPPP[i].enState = TTYINIT; 
 		l_staPPP[i].pstNegoResult = &l_staNegoResult[i];
         l_pstaNetif[i] = NULL;
@@ -232,10 +233,10 @@ static INT ppp_recv(INT nPPPIdx, EN_ONPSERR *penErr, INT nWaitSecs)
 		USHORT usFCS = ppp_fcs16(pubFrameBuf + 1, (USHORT)(nRcvBytes - 1 - sizeof(ST_PPP_TAIL)));
 		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)(pubFrameBuf + nRcvBytes - sizeof(ST_PPP_TAIL));
 		if (usFCS != pstTail->usFCS)
-		{
+		{          
 			if (penErr)
 				*penErr = ERRPPPFCS; 
-			return -1; 
+			return 0; 
 		}
 
 		//* 解析ppp帧携带的上层协议类型值

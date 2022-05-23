@@ -16,22 +16,25 @@
 #endif //* SYMBOL_GLOBALS
 #include "one_shot_timer.h"
 
+typedef struct _ST_PPPWAITACKLIST_ ST_PPPWAITACKLIST, *PST_PPPWAITACKLIST;
 typedef struct _ST_PPPWAITACKNODE_ { //* 等待应答的PPP报文链表节点
 	struct _ST_PPPWAITACKNODE_ *pstPrev;
 	struct _ST_PPPWAITACKNODE_ *pstNext;
-	UCHAR ubIsAcked; 
+    CHAR bIsUsed; 
+	CHAR bIsAcked; 
 	struct {
 		UCHAR ubCode;
 		UCHAR ubIdentifier;				
 		USHORT usProtocol;
 	} stPacket;	
 	PST_ONESHOTTIMER pstTimer;
-	struct _ST_PPPWAITACKLIST_ *pstList; 
+    PST_PPPWAITACKLIST pstList;
 } ST_PPPWAITACKNODE, *PST_PPPWAITACKNODE;
 
 typedef struct _ST_PPPWAITACKLIST_ { //* 等待应答的PPP报文链表
 	PST_PPPWAITACKNODE pstHead;
 	HMUTEX hMutex;
+    CHAR bPPPIdx;
 	UCHAR ubIsTimeout; 
 	UCHAR ubTimeoutCount;	//* 连续触发超时事件的累计次数
 } ST_PPPWAITACKLIST, *PST_PPPWAITACKLIST;
