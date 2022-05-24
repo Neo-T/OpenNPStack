@@ -83,6 +83,8 @@ BOOL tty_ready(HTTY hTTY, EN_ONPSERR *penErr)
     if (NULL == pstcbIO)
         return FALSE;
     pstcbIO->stRecv.nWriteIdx = 0;
+    pstcbIO->stRecv.nReadIdx = 0; 
+    pstcbIO->stRecv.bState = 0; 
 
     //* 先复位modem，以消除一切不必要的设备错误，如果不需要则port层只需实现一个无任何操作的空函数即可，或者直接注释掉这个函数的调用
 	os_modem_reset(hTTY);    
@@ -101,127 +103,146 @@ BOOL tty_ready(HTTY hTTY, EN_ONPSERR *penErr)
 	return FALSE; 
 }
 
-INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, INT nWaitSecs, EN_ONPSERR *penErr)
+INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*pfunPacketHandler)(INT, UCHAR *, INT), INT nWaitSecs, EN_ONPSERR *penErr)
 {
-	INT nRcvBytes; 
-	INT nStartIdx;
-	BOOL blHasFoundHdrFlag = FALSE;
-	UINT unStartSecs = os_get_system_secs(); 
-	INT nReadIdx = 0;
-	UINT unTimeout;
-	PSTCB_TTYIO pstcbIO = get_io_control_block(hTTY, penErr);	
-	if (NULL == pstcbIO)
-		return -1; 
+    CHAR bIsExempt = FALSE;
 
-	//* 读取数据
-__lblRcv:
-	if (pstcbIO->stRecv.nWriteIdx > 0)
-		unTimeout = 3;
-	else
-		unTimeout = 1;
+    PSTCB_TTYIO pstcbIO = get_io_control_block(hTTY, penErr);
+    if (NULL == pstcbIO)
+        return -1;
 
-	if (os_get_system_secs() - unStartSecs > unTimeout)
-	{
-		INT nRtnVal = 0;
-		if (pstcbIO->stRecv.nWriteIdx > 0)
-		{	
-            /*
-            if (blHasFoundHdrFlag)
-            {
-                UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx + 1;
-                if (unRemainBytes > 0)
-                    memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx - 1, unRemainBytes);
-                pstcbIO->stRecv.nWriteIdx = unRemainBytes;                                
-            }
-            else
-            */
-            {                
-                pstcbIO->stRecv.bErrCount++; 
-                if (pstcbIO->stRecv.bErrCount > 6)
-                {
-                    if (penErr)
-                        *penErr = ERRPPPDELIMITER;
-                    nRtnVal = -1;
-
-        #if SUPPORT_PRINTF	
-            #if DEBUG_LEVEL
-                #if PRINTF_THREAD_MUTEX
-                    os_thread_mutex_lock(o_hMtxPrintf);
-                #endif
-                    printf("ppp frame delimiter not found, recv %d bytes:\r\n", pstcbIO->stRecv.nWriteIdx);
-                    printf_hex(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.nWriteIdx, 48);
-                #if PRINTF_THREAD_MUTEX
-                    os_thread_mutex_unlock(o_hMtxPrintf);
-                #endif
-            #endif
-        #endif
-                }
-            }				
-		}
-
-		return nRtnVal;
-	}     
-
-    //* 只有没有数据了才需要再次读取，当前的逻辑是先处理完已经收到的报文
-    if (!pstcbIO->stRecv.nWriteIdx || nReadIdx == pstcbIO->stRecv.nWriteIdx)
+    //* 读取新到达的数据，只要重新进入该函数，说明收到的数据已经处理完毕，需要新的血液到达来重新激活处理过程
+    printf("0>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d\r\n", pstcbIO->stRecv.nWriteIdx);
+    INT nRcvBytes = os_tty_recv(hTTY, pubRecvBuf + pstcbIO->stRecv.nWriteIdx, (nRecvBufLen - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
+    if (nRcvBytes > 0)
     {
-        nRcvBytes = os_tty_recv(hTTY, pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, (INT)(TTY_RCV_BUF_SIZE - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
-        if (nRcvBytes > 0)
-        {     
-            /*
-            os_thread_mutex_lock(o_hMtxPrintf);
-            printf_hex(pstcbIO->stRecv.ubaBuf + pstcbIO->stRecv.nWriteIdx, nRcvBytes, 48);
-            os_thread_mutex_unlock(o_hMtxPrintf); 
-            */
+        /*
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf_hex(pubRecvBuf + pstcbIO->stRecv.nWriteIdx, nRcvBytes, 48);
+        os_thread_mutex_unlock(o_hMtxPrintf);
+        */
 
-            pstcbIO->stRecv.nWriteIdx += nRcvBytes;
-        }
-    }    
+        //* 更新写指针
+        pstcbIO->stRecv.nWriteIdx += nRcvBytes; 
 
-	for (; nReadIdx < pstcbIO->stRecv.nWriteIdx; nReadIdx++)
-	{
-		if (pstcbIO->stRecv.ubaBuf[nReadIdx] == PPP_FLAG)
-		{
-			if (blHasFoundHdrFlag)
-			{			
-                pstcbIO->stRecv.bErrCount = 0; 
-
-                INT nPacketBytes = nReadIdx - nStartIdx + 1; 
-                if (nPacketBytes < sizeof(ST_PPP_HDR) + sizeof(ST_PPP_TAIL) + 1)
-                {                    
-                    nStartIdx = nReadIdx;
-                    continue; 
+        //* 解析收到数据，处理逻辑如下：
+        //* 1) 先查找ppp报文头标识，找到一对该标识，一头一尾，中间为携带的ppp报文；
+        //* 2) 为节省内存就地转义，不再使用暂存缓冲区；
+        //* 3) 计算校验和，正确，调用回调函数pfunPacketHandler处理之，回到第一步继续解析剩余的数据；
+        //* 4) 失败，pstcbIO->stRecv.nReadIdx调整到ppp尾部标识处，使其组为新一组ppp报文的起始标识；
+        //* 5) 使用memmove()函数将缓冲区中剩余数据全部移动到缓冲区前部，以方便下一组报文的处理；
+        //* 6) 回到第1步重新开始解析流程；
+        //* 7) nReadIdx与nWriteIdx相等则解析完毕，函数返回；                 
+        while (pstcbIO->stRecv.nReadIdx < pstcbIO->stRecv.nWriteIdx)
+        {
+            if (pstcbIO->stRecv.bState) //* 尚未找到第一个标识
+            {                
+                UCHAR *pubStart = memchr(pubRecvBuf, (int)PPP_FLAG, pstcbIO->stRecv.nWriteIdx);
+                printf("0>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%p\r\n", pubStart);
+                if (pubStart)
+                {
+                    pstcbIO->stRecv.nReadIdx = pubStart - pubRecvBuf; 
+                    pstcbIO->stRecv.bState = 1;
                 }
+                else                
+                    goto __lblErr;                
+            }
+            else 
+            {
+                //* 找尾部标识
+                printf("1>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d, %d, %d\r\n", pstcbIO->stRecv.nWriteIdx, pstcbIO->stRecv.nReadIdx, pstcbIO->stRecv.nWriteIdx - (pstcbIO->stRecv.nReadIdx + 1));
+                UCHAR *pubEnd = memchr(pubRecvBuf + pstcbIO->stRecv.nReadIdx + 1, (int)PPP_FLAG, pstcbIO->stRecv.nWriteIdx - (pstcbIO->stRecv.nReadIdx + 1));
+                if (pubEnd)
+                {
+                    //* 先计算剩余数据长度，这个数值一定大于0，因为两个标识都找到了，所以剩余字节数至少为1
+                    UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - (pubEnd - pubRecvBuf);
 
-				/*UINT unPacketBytes = */ppp_escape_decode(pstcbIO->stRecv.ubaBuf + nStartIdx, (UINT)nPacketBytes, pubRecvBuf, (UINT *)&nRecvBufLen);
-                UINT unRemainBytes = pstcbIO->stRecv.nWriteIdx - nReadIdx - 1;
-                if (unRemainBytes > 0)                                    
-                    memmove(pstcbIO->stRecv.ubaBuf, pstcbIO->stRecv.ubaBuf + nReadIdx + 1, unRemainBytes);                
-				pstcbIO->stRecv.nWriteIdx = unRemainBytes;                
+                    //* 计算原始报文的长度
+                    UINT unRawPacketBytes = (UINT)(pubEnd - (pubRecvBuf + pstcbIO->stRecv.nReadIdx) + 1);
 
-	#if SUPPORT_PRINTF	
-		#if DEBUG_LEVEL	
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_lock(o_hMtxPrintf);
-            #endif
-				printf("recv %d bytes: \r\n", nRecvBufLen);
-				printf_hex(pubRecvBuf, nRecvBufLen, 48);
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_unlock(o_hMtxPrintf);
-            #endif
-		#endif	
-	#endif			                
-				return nRecvBufLen; 
-			}
-			else
-			{
-				nStartIdx = nReadIdx;
-				blHasFoundHdrFlag = TRUE;
-			}
-		}
-	}
+                    //* 原始报文长度太短，有可能是前一个报文没收全仅收到了尾部标识，紧接着tty收到的是下一个报文的头部标识，两个紧挨着就会出现这种情况
+                    if (unRawPacketBytes < sizeof(ST_PPP_HDR) + sizeof(ST_PPP_TAIL) + 1)
+                    {                                                
+                        memmove(pubRecvBuf, pubEnd, unRemainBytes); 
+                        pstcbIO->stRecv.nWriteIdx = unRemainBytes; 
+                        pstcbIO->stRecv.nReadIdx = 0;   //* 首部即是ppp帧开始位置
+                        pstcbIO->stRecv.bState = 1;     //* 只需再找到一个尾部标识即可
+                        bIsExempt = TRUE;
+                        continue;
+                    }
 
-	goto __lblRcv;
+                    //* 就地转义，转义后的报文直接从接收缓冲区的起始地址开始存放
+                    UINT unDecodedBytes = nRecvBufLen; 
+                    ppp_escape_decode(pubRecvBuf + pstcbIO->stRecv.nReadIdx, (UINT)unRawPacketBytes, pubRecvBuf, &unDecodedBytes);                                       
+
+                    //* 报文校验                    
+                    USHORT usFCS = ppp_fcs16(pubRecvBuf + 1, (USHORT)(unDecodedBytes - 1 - sizeof(ST_PPP_TAIL)));
+                    PST_PPP_TAIL pstTail = (PST_PPP_TAIL)(pubRecvBuf + unDecodedBytes - sizeof(ST_PPP_TAIL)); 
+                    if (usFCS == pstTail->usFCS)
+                    {  
+                        //* 传递给ppp层，处理之
+                        pfunPacketHandler(nPPPIdx, pubRecvBuf, (INT)unDecodedBytes);
+
+                        //* 处理完毕，看看是否还存在剩余数据，如果存在则将剩余数据转移到接收缓冲区首部                        
+                        unRemainBytes -= 1; 
+                        if (unRemainBytes)                        
+                            memmove(pubRecvBuf, pubEnd + 1/* 跳过尾部标识 */, unRemainBytes);
+                        pstcbIO->stRecv.nWriteIdx = unRemainBytes;
+                        pstcbIO->stRecv.nReadIdx = 0;   //* 首部即是ppp帧开始位置
+                        pstcbIO->stRecv.bState = 0;     //* 开始截取下一个ppp帧
+                    }
+                    else
+                    {
+                        if (penErr)
+                            *penErr = ERRPPPFCS;
+
+                        //* 校验和不对，尾部标识转成首部标识，继续解析下一组报文                       
+                        memmove(pubRecvBuf, pubEnd + 1, unRemainBytes);
+                        pstcbIO->stRecv.nWriteIdx = unRemainBytes;
+                        pstcbIO->stRecv.nReadIdx = 0;   //* 首部即是ppp帧开始位置
+                        pstcbIO->stRecv.bState = 1;     //* 只需再找到一个尾部标识即可
+                        bIsExempt = TRUE;
+                        continue;
+                    }
+                }
+                else
+                    goto __lblErr; 
+            }
+        }
+    }
+
+    return 0; 
+
+__lblErr: 
+    if (bIsExempt)
+        return 0; 
+
+    //* 没找到，说明当前接收到的数据不完整，存在tty接收过速的问题，直接丢弃当前的数据，一切归零，并记录这个错误
+    pstcbIO->stRecv.nReadIdx = pstcbIO->stRecv.nWriteIdx = 0;
+    pstcbIO->stRecv.bErrCount++;
+    if (pstcbIO->stRecv.bErrCount < 6)
+    {
+        pstcbIO->stRecv.bState = 0;
+        return 0;
+    }
+ 
+#if SUPPORT_PRINTF && DEBUG_LEVEL    
+    #if PRINTF_THREAD_MUTEX
+    os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+    printf("#%d# ppp frame delimiter not found, recv %d bytes:\r\n", (INT)pstcbIO->stRecv.bState, pstcbIO->stRecv.nWriteIdx); 
+    printf_hex(pubRecvBuf, pstcbIO->stRecv.nWriteIdx, 48);
+    #if PRINTF_THREAD_MUTEX
+    os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+
+    pstcbIO->stRecv.bState = 0;
+
+    if (penErr)
+        *penErr = ERRPPPDELIMITER;
+
+    return -1; 
 }
 
 INT tty_send(HTTY hTTY, UINT unACCM, UCHAR *pubData, INT nDataLen, EN_ONPSERR *penErr)

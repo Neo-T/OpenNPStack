@@ -48,7 +48,7 @@ static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
 static STCB_PPP l_staPPP[PPP_NETLINK_NUM];
 static PST_NETIF_NODE l_pstaNetif[PPP_NETLINK_NUM];
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
-static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][TTY_RCV_BUF_SIZE];
+static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][PPP_MRU];
 static UCHAR l_ubaThreadExitFlag[PPP_NETLINK_NUM];
 static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
 	{
@@ -219,51 +219,6 @@ void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword
 	}
 }
 
-static void ppp_recv_handler(INT nPPPIdx, UCHAR *pubPacket, INT nPacketLen)
-{
-    PSTCB_PPP pstcbPPP = &l_staPPP[nPPPIdx];
-
-    //* 解析ppp帧携带的上层协议类型值
-    USHORT usProtocol;
-    INT nUpperStartIdx;
-    if (pubPacket[1] == PPP_ALLSTATIONS && pubPacket[2] == PPP_UI) //* 地址域与控制域未被压缩，使用正常协议头
-    {
-        PST_PPP_HDR pstHdr = (PST_PPP_HDR)pubPacket;
-        usProtocol = ENDIAN_CONVERTER_USHORT(pstHdr->usProtocol);
-        nUpperStartIdx = sizeof(ST_PPP_HDR);
-    }
-    else
-    {
-        if (pubPacket[1] == PPP_IP
-#if SUPPORT_IPV6
-            || pstcbNetif->ubaFrameBuf[1] == PPP_IPV6 //* 系统仅支持IP协议族，其它如IPX之类的协议族不提供支持
-#endif
-            )
-        {
-            usProtocol = (USHORT)pubPacket[1];
-            nUpperStartIdx = 2;
-        }
-        else
-        {
-            ((UCHAR *)&usProtocol)[0] = pubPacket[2];
-            ((UCHAR *)&usProtocol)[1] = pubPacket[1];
-            nUpperStartIdx = 3;
-        }
-    }
-
-    //* 遍历协议栈支持的上层协议，找出匹配的类型值并调用对应的upper函数将报文传递给该函数处理之
-    INT i;
-    for (i = 0; i < (INT)(sizeof(lr_staProtocol) / sizeof(ST_PPP_PROTOCOL)); i++)
-    {
-        if (usProtocol == lr_staProtocol[i].usType)
-        {
-            if (lr_staProtocol[i].pfunUpper)
-                lr_staProtocol[i].pfunUpper(pstcbPPP, pubPacket + nUpperStartIdx, nPacketLen - nUpperStartIdx - sizeof(ST_PPP_TAIL));
-            break;
-        }
-    }
-}
-
 //* ppp接收
 static INT ppp_recv(INT nPPPIdx, EN_ONPSERR *penErr, INT nWaitSecs)
 {
@@ -271,7 +226,61 @@ static INT ppp_recv(INT nPPPIdx, EN_ONPSERR *penErr, INT nWaitSecs)
 
 	//* 读取数据
 	UCHAR *pubFrameBuf = l_ubaaFrameBuf[nPPPIdx];
-	return tty_recv(nPPPIdx, pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), ppp_recv_handler, nWaitSecs, penErr); 
+	INT nRcvBytes = tty_recv(pstcbPPP->hTTY, pubFrameBuf, sizeof(l_ubaaFrameBuf[nPPPIdx]), nWaitSecs, penErr);
+	if (nRcvBytes > 0)
+	{
+		//* 验证校验和是否正确        
+		USHORT usFCS = ppp_fcs16(pubFrameBuf + 1, (USHORT)(nRcvBytes - 1 - sizeof(ST_PPP_TAIL)));
+		PST_PPP_TAIL pstTail = (PST_PPP_TAIL)(pubFrameBuf + nRcvBytes - sizeof(ST_PPP_TAIL));
+		if (usFCS != pstTail->usFCS)
+		{          
+			if (penErr)
+				*penErr = ERRPPPFCS; 
+			return 0; 
+		}
+
+		//* 解析ppp帧携带的上层协议类型值
+		USHORT usProtocol; 
+		INT nUpperStartIdx; 
+		if (pubFrameBuf[1] == PPP_ALLSTATIONS && pubFrameBuf[2] == PPP_UI) //* 地址域与控制域未被压缩，使用正常协议头
+		{
+			PST_PPP_HDR pstHdr = (PST_PPP_HDR)pubFrameBuf;
+			usProtocol = ENDIAN_CONVERTER_USHORT(pstHdr->usProtocol);
+			nUpperStartIdx = sizeof(ST_PPP_HDR); 
+		}
+		else
+		{
+			if (pubFrameBuf[1] == PPP_IP
+	#if SUPPORT_IPV6
+					|| pstcbNetif->ubaFrameBuf[1] ==  PPP_IPV6 //* 系统仅支持IP协议族，其它如IPX之类的协议族不提供支持
+	#endif
+				)
+			{
+				usProtocol = (USHORT)pubFrameBuf[1];
+				nUpperStartIdx = 2; 
+			}
+			else
+			{
+				((UCHAR *)&usProtocol)[0] = pubFrameBuf[2];
+				((UCHAR *)&usProtocol)[1] = pubFrameBuf[1];
+				nUpperStartIdx = 3; 
+			}
+		}
+
+		//* 遍历协议栈支持的上层协议，找出匹配的类型值并调用对应的upper函数将报文传递给该函数处理之
+		INT i;
+		for (i = 0; i < (INT)(sizeof(lr_staProtocol) / sizeof(ST_PPP_PROTOCOL)); i++)
+		{
+            if (usProtocol == lr_staProtocol[i].usType)
+            {
+                if (lr_staProtocol[i].pfunUpper)
+                    lr_staProtocol[i].pfunUpper(pstcbPPP, pubFrameBuf + nUpperStartIdx, nRcvBytes - nUpperStartIdx - sizeof(ST_PPP_TAIL));
+                break; 
+            }			
+		}
+	}
+
+	return nRcvBytes; 
 }
 
 //* ppp发送

@@ -20,10 +20,9 @@
 
 typedef struct _STCB_TTYIO_ {
 	HTTY hTTY;
-	struct {		
+	struct {
+		UCHAR ubaBuf[TTY_RCV_BUF_SIZE];
 		INT nWriteIdx;
-        INT nReadIdx; 
-        CHAR bState; 
         CHAR bErrCount; 
 	} stRecv;
 
@@ -33,7 +32,7 @@ typedef struct _STCB_TTYIO_ {
 TTY_EXT HTTY tty_init(const CHAR *pszTTYName, EN_ONPSERR *penErr); 
 TTY_EXT void tty_uninit(HTTY hTTY);
 TTY_EXT BOOL tty_ready(HTTY hTTY, EN_ONPSERR *penErr); 
-TTY_EXT INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*pfunPacketHandler)(INT, UCHAR *, INT), INT nWaitSecs, EN_ONPSERR *penErr);
+TTY_EXT INT tty_recv(HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, INT nWaitSecs, EN_ONPSERR *penErr);
 TTY_EXT INT tty_send(HTTY hTTY, UINT unACCM, UCHAR *pubData, INT nDataLen, EN_ONPSERR *penErr);
 TTY_EXT INT tty_send_ext(HTTY hTTY, UINT unACCM, SHORT sBufListHead, EN_ONPSERR *penErr);
 
