@@ -31,10 +31,11 @@ using namespace std;
 static SOCKET l_hSocketSrv;
 static SOCKET l_hSocketMax; 
 static THMUTEX l_thLockClients; 
+static CHAR l_bLinkIdx = 0;
 
 //* TCP客户端
 typedef struct _ST_TCPCLIENT_ {
-    SOCKET hClient;
+    SOCKET hClient;    
     time_t tPrevActiveTime;    
     time_t tTimestampToAck; 
     struct {
@@ -44,6 +45,7 @@ typedef struct _ST_TCPCLIENT_ {
         CHAR bParsingState;
         UCHAR ubaRcvBuf[RCV_BUF_SIZE];
     } stcbRcv;
+    CHAR bLinkIdx;
     BOOL blTHIsRunning; 
     thread objTHSender;
 } ST_TCPCLIENT, *PST_TCPCLIENT;
@@ -120,6 +122,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
     PST_COMMUPKT_HDR pstHdr = (PST_COMMUPKT_HDR)pubPacket;
     pstHdr->bFlag = (CHAR)PKT_FLAG; 
     pstHdr->bCmd = 0x01; 
+    pstHdr->bLinkIdx = pstClient->bLinkIdx;
     pstHdr->unTimestamp = (UINT)time(NULL); 
     pstHdr->usDataLen = usDataLen; 
     pstHdr->usChechsum = 0; 
@@ -129,7 +132,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
     unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));
-    printf("#%s#>sent control command to peer, the cmd is 0x01, the data length is %d bytes\r\n", szPktTime, pstHdr->usDataLen); 
+    printf("%d#%s#>sent control command to peer, cmd = 0x01, LinkIdx = %d, the data length is %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bLinkIdx, pstHdr->usDataLen);
 
     //* 更新需要等待的报文标识
     pstClient->tTimestampToAck = (time_t)pstHdr->unTimestamp;     
@@ -210,7 +213,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
     time_t tLastSendSecs = 0;    
     while (l_blIsRunning && pstClient->blTHIsRunning)
     {
-#if 0
+#if 1
         tInterval = 120 - (time_t)rand() % 31; 
         if (time(NULL) - tLastSendSecs > tInterval)
         {
@@ -300,24 +303,26 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 PST_COMMUPKT_ACK pstAck = (PST_COMMUPKT_ACK)ubaSndBuf;
                                 pstAck->stHdr.bFlag = (CHAR)PKT_FLAG;
                                 pstAck->stHdr.bCmd = 0x00; 
+                                pstAck->stHdr.bLinkIdx = pstClient->bLinkIdx;
                                 pstAck->stHdr.unTimestamp = (UINT)time(NULL); 
-                                pstAck->stHdr.usDataLen = sizeof(UINT); 
+                                pstAck->stHdr.usDataLen = sizeof(UINT) + sizeof(CHAR); 
                                 pstAck->stHdr.usChechsum = 0; 
                                 pstAck->unTimestamp = pstHdr->unTimestamp; 
+                                pstAck->bLinkIdx = pstHdr->bLinkIdx; 
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
-                                printf("#%s#>recved the uploaded packet, the cmd is 0x%02X, the data length is %d bytes\r\n", szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
+                                printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, the data length is %d bytes\r\n", pstHdr->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
                             else if (pstHdr->bCmd == 1) //* 这是控制指令的应答报文
                             {
                                 PST_COMMUPKT_ACK pstAck = (PST_COMMUPKT_ACK)pstHdr;
-                                if (pstAck->unTimestamp == (UINT)pstClient->tTimestampToAck)
+                                if (pstAck->unTimestamp == (UINT)pstClient->tTimestampToAck && pstAck->bLinkIdx == pstClient->bLinkIdx)
                                 {
                                     pstClient->tTimestampToAck = 0;
-                                    printf("#%s#>recved acknowledge packet, the timestamp of the acked packet is ", szPktTime);
+                                    printf("%d#%s#>recved acknowledge packet, AckedLinkIdx = %d, AckedTimestamp <", pstHdr->bLinkIdx, szPktTime, pstAck->bLinkIdx);
                                     unix_time_to_local((time_t)pstAck->unTimestamp, szPktTime, sizeof(szPktTime));
-                                    printf("%s\r\n", szPktTime);
+                                    printf("%s>\r\n", szPktTime);
                                 }
                             }
                             else; 
@@ -376,7 +381,7 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
 
     //* 添加到客户端列表中
     l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0, { 0, 0, 0, 0 } });
-    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL } });
+    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL }, l_bLinkIdx++ });
     atoPair.first->second.blTHIsRunning = TRUE; 
     atoPair.first->second.objTHSender = thread(THSender, hClient, pfdsRead, pfdsException); 
 
@@ -391,7 +396,7 @@ void ScanInactiveClients(fd_set *pfdsRead, fd_set *pfdsException)
         unordered_map<SOCKET, ST_TCPCLIENT>::iterator iter = l_umstClients.begin();
         for (; iter != l_umstClients.end();)
         {            
-            if (abs(time(NULL) - iter->second.tPrevActiveTime) > 300)            
+            if (abs(time(NULL) - iter->second.tPrevActiveTime) > 30)            
                 ClearClient(&iter->second, pfdsRead, pfdsException, &iter);             
             else
                 iter++; 

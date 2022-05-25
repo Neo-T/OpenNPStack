@@ -165,7 +165,7 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
 
                     //* 原始报文长度太短，有可能是前一个报文没收全仅收到了尾部标识，紧接着tty收到的是下一个报文的头部标识，两个紧挨着就会出现这种情况
                     if (unRawPacketBytes < sizeof(ST_PPP_HDR) + sizeof(ST_PPP_TAIL) + 1)
-                    {                                                
+                    {                               
                         memmove(pubRecvBuf, pubEnd, unRemainBytes); 
                         pstcbIO->stRecv.nWriteIdx = unRemainBytes; 
                         pstcbIO->stRecv.nReadIdx = 0;   //* 首部即是ppp帧开始位置
@@ -196,7 +196,7 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
                         nRtnVal = 1;
                     }
                     else
-                    {
+                    {                        
                         if (penErr)
                             *penErr = ERRPPPFCS;
 

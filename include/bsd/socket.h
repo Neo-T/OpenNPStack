@@ -49,4 +49,7 @@ SOCKET_EXT BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSE
 //* 表出错；非阻塞型返回值为实际收到的数据长度（大于等于0），-1同样代表接收失败
 SOCKET_EXT INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
 
+//* 获取当前tcp连接状态，0：未连接；1：已连接；-1：读取状态失败，具体错误信息由参数penErr返回
+SOCKET_EXT INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr); 
+
 #endif

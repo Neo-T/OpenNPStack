@@ -24,6 +24,7 @@ typedef CRITICAL_SECTION THMUTEX;
 typedef struct _ST_COMMUPKT_HDR_ {
     CHAR bFlag;
     CHAR bCmd;
+    CHAR bLinkIdx; 
     UINT unTimestamp;
     USHORT usDataLen;
     USHORT usChechsum;
@@ -32,6 +33,7 @@ typedef struct _ST_COMMUPKT_HDR_ {
 typedef struct _ST_COMMUPKT_ACK_ {
     ST_COMMUPKT_HDR stHdr;
     UINT unTimestamp;
+    CHAR bLinkIdx; 
     CHAR bTail;
 } ST_COMMUPKT_ACK, *PST_COMMUPKT_ACK;
 #pragma pack(pop)

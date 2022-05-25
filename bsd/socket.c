@@ -433,3 +433,16 @@ __lblErr:
     onps_set_last_error((INT)socket, enErr);
     return -1;            
 }
+
+INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr)
+{
+    //* 获取当前链路状态
+    EN_TCPLINKSTATE enLinkState;
+    if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, penErr))
+        return -1; 
+
+    if (TLSCONNECTED == enLinkState)
+        return 1; 
+
+    return 0; 
+}
