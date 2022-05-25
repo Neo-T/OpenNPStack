@@ -106,21 +106,26 @@ BOOL tty_ready(HTTY hTTY, EN_ONPSERR *penErr)
 INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*pfunPacketHandler)(INT, UCHAR *, INT), INT nWaitSecs, EN_ONPSERR *penErr)
 {
     CHAR bIsExempt = FALSE;
+    INT nRtnVal = 0; 
 
     PSTCB_TTYIO pstcbIO = get_io_control_block(hTTY, penErr);
     if (NULL == pstcbIO)
         return -1;
 
-    //* 读取新到达的数据，只要重新进入该函数，说明收到的数据已经处理完毕，需要新的血液到达来重新激活处理过程
-    printf("0>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d\r\n", pstcbIO->stRecv.nWriteIdx);
+    //* 读取新到达的数据，只要重新进入该函数，说明收到的数据已经处理完毕，需要新的血液到达来重新激活处理过程    
     INT nRcvBytes = os_tty_recv(hTTY, pubRecvBuf + pstcbIO->stRecv.nWriteIdx, (nRecvBufLen - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
     if (nRcvBytes > 0)
     {
-        /*
+#if SUPPORT_PRINTF && DEBUG_LEVEL	        
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
+    #endif        
+        printf("recv %d bytes: \r\n", nRcvBytes);
         printf_hex(pubRecvBuf + pstcbIO->stRecv.nWriteIdx, nRcvBytes, 48);
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
-        */
+    #endif
+#endif        
 
         //* 更新写指针
         pstcbIO->stRecv.nWriteIdx += nRcvBytes; 
@@ -135,10 +140,9 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
         //* 7) nReadIdx与nWriteIdx相等则解析完毕，函数返回；                 
         while (pstcbIO->stRecv.nReadIdx < pstcbIO->stRecv.nWriteIdx)
         {
-            if (pstcbIO->stRecv.bState) //* 尚未找到第一个标识
-            {                
-                UCHAR *pubStart = memchr(pubRecvBuf, (int)PPP_FLAG, pstcbIO->stRecv.nWriteIdx);
-                printf("0>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%p\r\n", pubStart);
+            if (!pstcbIO->stRecv.bState) //* 尚未找到第一个标识
+            {                                
+                UCHAR *pubStart = memchr(pubRecvBuf, (int)PPP_FLAG, pstcbIO->stRecv.nWriteIdx);                
                 if (pubStart)
                 {
                     pstcbIO->stRecv.nReadIdx = pubStart - pubRecvBuf; 
@@ -149,9 +153,8 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
             }
             else 
             {
-                //* 找尾部标识
-                printf("1>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d, %d, %d\r\n", pstcbIO->stRecv.nWriteIdx, pstcbIO->stRecv.nReadIdx, pstcbIO->stRecv.nWriteIdx - (pstcbIO->stRecv.nReadIdx + 1));
-                UCHAR *pubEnd = memchr(pubRecvBuf + pstcbIO->stRecv.nReadIdx + 1, (int)PPP_FLAG, pstcbIO->stRecv.nWriteIdx - (pstcbIO->stRecv.nReadIdx + 1));
+                //* 找尾部标识                
+                UCHAR *pubEnd = memchr(pubRecvBuf + pstcbIO->stRecv.nReadIdx + 1, (int)PPP_FLAG, pstcbIO->stRecv.nWriteIdx - (pstcbIO->stRecv.nReadIdx + 1));                
                 if (pubEnd)
                 {
                     //* 先计算剩余数据长度，这个数值一定大于0，因为两个标识都找到了，所以剩余字节数至少为1
@@ -190,6 +193,7 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
                         pstcbIO->stRecv.nWriteIdx = unRemainBytes;
                         pstcbIO->stRecv.nReadIdx = 0;   //* 首部即是ppp帧开始位置
                         pstcbIO->stRecv.bState = 0;     //* 开始截取下一个ppp帧
+                        nRtnVal = 1;
                     }
                     else
                     {
@@ -211,7 +215,7 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
         }
     }
 
-    return 0; 
+    return nRtnVal;
 
 __lblErr: 
     if (bIsExempt)

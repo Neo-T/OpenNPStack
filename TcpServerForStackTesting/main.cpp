@@ -210,6 +210,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
     time_t tLastSendSecs = 0;    
     while (l_blIsRunning && pstClient->blTHIsRunning)
     {
+#if 0
         tInterval = 120 - (time_t)rand() % 31; 
         if (time(NULL) - tLastSendSecs > tInterval)
         {
@@ -218,6 +219,9 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
             else
                 break; 
         }
+#else
+        Sleep(1000);
+#endif
     }
 
     printf("A client exception is caught, the client will be removed\r\n");
@@ -387,7 +391,7 @@ void ScanInactiveClients(fd_set *pfdsRead, fd_set *pfdsException)
         unordered_map<SOCKET, ST_TCPCLIENT>::iterator iter = l_umstClients.begin();
         for (; iter != l_umstClients.end();)
         {            
-            if (abs(time(NULL) - iter->second.tPrevActiveTime) > 30)            
+            if (abs(time(NULL) - iter->second.tPrevActiveTime) > 300)            
                 ClearClient(&iter->second, pfdsRead, pfdsException, &iter);             
             else
                 iter++; 
