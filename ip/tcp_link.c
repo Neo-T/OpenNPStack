@@ -75,6 +75,10 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
 
 void tcp_link_free(PST_TCPLINK pstTcpLink)
 {
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@socket_connect: %08X\r\n", pstTcpLink);
+    os_thread_mutex_unlock(o_hMtxPrintf);
+
     os_thread_mutex_lock(l_hMtxTcpLinkList);
     {
         if (l_pstFreeTcpLinkList)        

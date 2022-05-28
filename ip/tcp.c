@@ -19,8 +19,13 @@
 static void tcp_send_fin(PST_TCPLINK pstLink); 
 
 static void tcp_ack_timeout_handler(void *pvParam)
-{
+{        
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam; 
+
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>tcp_ack_timeout_handler(): %d, state: %d, bIsAcked: %d, %08X\r\n", pstLink->stcbWaitAck.nInput, pstLink->bState, pstLink->stcbWaitAck.bIsAcked, pstLink);
+    os_thread_mutex_unlock(o_hMtxPrintf);
+
     if (!pstLink->stcbWaitAck.bIsAcked)
     {
         if (TLSCONNECTED == pstLink->bState)
@@ -30,15 +35,25 @@ static void tcp_ack_timeout_handler(void *pvParam)
         }
         else
             pstLink->bState = TLSACKTIMEOUT; 
-
-        if(pstLink->stcbWaitAck.bRcvTimeout)
+        
+        if (pstLink->stcbWaitAck.bRcvTimeout)
+        {
+            os_thread_mutex_lock(o_hMtxPrintf);
+            printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>tcp_ack_timeout_handler(): %d, state: %d\r\n", pstLink->stcbWaitAck.nInput, pstLink->bState);
+            os_thread_mutex_unlock(o_hMtxPrintf);
             onps_input_post_sem(pstLink->stcbWaitAck.nInput);
+        }
     }
 }
 
 static void tcp_close_timeout_handler(void *pvParam)
 {
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;
+
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("===================================================tcp_close_timeout_handler(): %d, state: %d, %08X\r\n", pstLink->stcbWaitAck.nInput, pstLink->bState, pstLink);
+    os_thread_mutex_unlock(o_hMtxPrintf);
+
     INT nRtnVal; 
     switch ((EN_TCPLINKSTATE)pstLink->bState)
     {
@@ -276,7 +291,15 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
             onps_set_last_error(nInput, ERRNOIDLETIMER);
             return -1;             
         }
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf("0^^^^^^^^^^^^^^^^^^^^^^^tcp_send_syn(): %d %08X %08X %d\r\n", nInput, pstLink->stcbWaitAck.pstTimer, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT);
+        os_thread_mutex_unlock(o_hMtxPrintf);
+
         pstLink->bState = TLSSYNSENT; //* 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配
+
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf("1^^^^^^^^^^^^^^^^^^^^^^^tcp_send_syn(): %d %08X %08X\r\n", nInput, pstLink->stcbWaitAck.pstTimer, pstLink);
+        os_thread_mutex_unlock(o_hMtxPrintf);
     }
     else
     {
@@ -507,6 +530,10 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer); 
+                
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf("syn^^^^^^^^^^^^^^^^^^^^^^^%d %08X\r\n", nInput, pstLink->stcbWaitAck.pstTimer);
+                os_thread_mutex_unlock(o_hMtxPrintf);
                 //one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
 
                 //* 记录当前链路信息
@@ -526,14 +553,14 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }
         }
         else if (uniFlag.stb16.reset)
-        {            
+        {                        
             //* 状态迁移到已接收到syn ack报文
             pstLink->bState = TLSRESET;
             if (pstLink->stLocal.bDataSendState == TDSSENDING)
                 pstLink->stLocal.bDataSendState = TDSLINKRESET; 
 
             //if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem);
+            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem);            
             onps_input_post_sem(nInput); 
         }
         else if (uniFlag.stb16.fin)
@@ -541,9 +568,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             if (pstLink->stLocal.bDataSendState == TDSSENDING)
             {
                 pstLink->stLocal.bDataSendState = TDSLINKCLOSED;
-
+                
                 if (pstLink->stcbWaitAck.bRcvTimeout)
-                    onps_input_post_sem(pstLink->stcbWaitAck.nInput);
+                    onps_input_post_sem(pstLink->stcbWaitAck.nInput);                
             }            
 
             //* 发送ack
@@ -605,8 +632,12 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                                
 
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf("sending^^^^^^^^^^^^^^^^^^^^^^^%d %08X\r\n", nInput, pstLink->stcbWaitAck.pstTimer);
+                os_thread_mutex_unlock(o_hMtxPrintf);
+
                 //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
-                pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED; 
+                pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED;                 
                 if (pstLink->stcbWaitAck.bRcvTimeout)
                     onps_input_post_sem(pstLink->stcbWaitAck.nInput);
             }

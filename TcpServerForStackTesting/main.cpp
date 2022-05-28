@@ -381,7 +381,8 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
 
     //* 添加到客户端列表中
     l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0, { 0, 0, 0, 0 } });
-    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL }, l_bLinkIdx++ });
+    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL } });
+    atoPair.first->second.bLinkIdx = l_bLinkIdx++; 
     atoPair.first->second.blTHIsRunning = TRUE; 
     atoPair.first->second.objTHSender = thread(THSender, hClient, pfdsRead, pfdsException); 
 

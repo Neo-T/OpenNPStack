@@ -140,7 +140,8 @@ void thread_one_shot_timer_count(void *pvParam)
 						pstTimer->pstNext = l_pstOneShotTimeoutLink;
 						l_pstOneShotTimeoutLink = pstTimer;
 					}
-					os_thread_mutex_unlock(l_hMtxOneShotTimeout);
+					os_thread_mutex_unlock(l_hMtxOneShotTimeout);                    
+
 
 					//* 通知计时溢出线程处理溢出事件
 					os_thread_sem_post(l_hSemOneShotTimeout);
@@ -203,8 +204,12 @@ void thread_one_shot_timeout_handler(void *pvParam)
 		{
 			//* 执行溢出函数
 			pstTimer->pfunTimeoutHandler(pstTimer->pvParam);
+            os_thread_mutex_lock(o_hMtxPrintf);
+            printf("thread_one_shot_timeout_handler^^^^^^^^^^^^^^^^^^^^^^^%08X %08X\r\n", pstTimer, pstTimer->pvParam);
+            os_thread_mutex_unlock(o_hMtxPrintf);
+
 			//* 归还给系统
-			one_shot_timer_free(pstTimer); 
+			one_shot_timer_free(pstTimer);             
 		}
 	}
 

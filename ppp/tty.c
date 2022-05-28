@@ -185,6 +185,7 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
                     {  
                         //* 传递给ppp层，处理之
                         pfunPacketHandler(nPPPIdx, pubRecvBuf, (INT)unDecodedBytes);
+                        pstcbIO->stRecv.bErrCount = 0; 
 
                         //* 处理完毕，看看是否还存在剩余数据，如果存在则将剩余数据转移到接收缓冲区首部                        
                         unRemainBytes -= 1; 
@@ -226,6 +227,7 @@ __lblErr:
     pstcbIO->stRecv.bErrCount++;
     if (pstcbIO->stRecv.bErrCount < 6)
     {
+        pstcbIO->stRecv.bErrCount = 0; 
         pstcbIO->stRecv.bState = 0;
         return 0;
     }

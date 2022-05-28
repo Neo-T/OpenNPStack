@@ -71,9 +71,9 @@ void close(SOCKET socket)
 static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {    
     if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout) > 0)
-    {
+    {       
         //* 等待信号到达：超时或者收到syn ack同时本地回馈的syn ack的ack发送成功
-        os_thread_sem_pend(hSem, 0); 
+        os_thread_sem_pend(hSem, 0);        
 
         EN_ONPSERR enErr;
         EN_TCPLINKSTATE enLinkState;
@@ -164,6 +164,10 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
             PST_TCPLINK pstLink = tcp_link_get(&enErr); 
             if(pstLink)
             { 
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf("~~~~~~~~~~~~~~~~~~~~~~~~socket_connect: %d %08X\r\n", socket, pstLink);
+                os_thread_mutex_unlock(o_hMtxPrintf);
+
                 if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstLink, &enErr))
                 {
                     tcp_link_free(pstLink);
@@ -223,8 +227,16 @@ static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
         return -1;    
     
 __lblWaitAck: 
-    //* 等待信号量到达：定时器报超时或者ack到达
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("before socket_tcp_send<%d>->send %d bytes\r\n", socket, nRtnVal);
+    os_thread_mutex_unlock(o_hMtxPrintf);
+
+    //* 等待信号量到达：定时器报超时或者ack到达    
     os_thread_sem_pend(hSem, 0);     
+
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("after socket_tcp_send<%d>->send %d bytes\r\n", socket, nRtnVal);
+    os_thread_mutex_unlock(o_hMtxPrintf);
     
     //* 信号量到达，根据实际处理结果返回不同值
     EN_ONPSERR enErr;
@@ -329,6 +341,9 @@ int socket_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
             goto __lblErr; 
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf("socket_send<%d>->tcp link state: %d\r\n", socket, enLinkState);
+        os_thread_mutex_unlock(o_hMtxPrintf);
         if (TLSCONNECTED == enLinkState)
         {          
             //* 获取当前数据发送状态，如果上一条数据尚未发送结束则暂不发送当前这条数据，因为在资源受限系统中内存有限，无法在协议栈底层实现数据重传，所以必须在用户层来控制
