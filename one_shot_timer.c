@@ -187,7 +187,7 @@ void thread_one_shot_timeout_handler(void *pvParam)
 	while (l_blIsRunning)
 	{
 		//* 等待溢出事件到达
-		if (os_thread_sem_pend(l_hSemOneShotTimeout, 1) < 0)
+		if (os_thread_sem_pend(l_hSemOneShotTimeout, 1) != 0)
 			continue; 
 
 		//* 取出已经溢出的定时器

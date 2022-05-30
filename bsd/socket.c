@@ -64,16 +64,31 @@ void close(SOCKET socket)
             tcp_disconnect((INT)socket);
             return; 
         }
+
+        if (TLSFINWAIT1 == enLinkState 
+            || TLSFINWAIT2 == enLinkState 
+            || TLSCLOSING == enLinkState 
+            || TLSTIMEWAIT == enLinkState
+            || TLSCLOSED == enLinkState) 
+            return; 
     }
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#enLinkState: %d %d\r\n", enLinkState, socket);
+    os_thread_mutex_unlock(o_hMtxPrintf);
     onps_input_free((INT)socket); 
 }
 
 static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
 {    
     if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout) > 0)
-    {       
+    {    
+__lblWait: 
         //* 等待信号到达：超时或者收到syn ack同时本地回馈的syn ack的ack发送成功
-        os_thread_sem_pend(hSem, 0);        
+        if (os_thread_sem_pend(hSem, 0) < 0)
+        {
+            onps_set_last_error((INT)socket, ERRINVALIDSEM);
+            return -1;
+        }
 
         EN_ONPSERR enErr;
         EN_TCPLINKSTATE enLinkState;
@@ -82,6 +97,9 @@ static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsi
             onps_set_last_error((INT)socket, enErr);
             return -1;
         }
+
+        if (TLSSYNSENT == enLinkState)
+            goto __lblWait; 
 
         switch (enLinkState)
         {
@@ -99,7 +117,7 @@ static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsi
         case TLSSYNACKACKSENTFAILED:
             return -1;
 
-        default:
+        default:            
             onps_set_last_error((INT)socket, ERRUNKNOWN);
             return -1;
         }
@@ -226,17 +244,13 @@ static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
     if (nRtnVal < 0)    
         return -1;    
     
-__lblWaitAck: 
-    os_thread_mutex_lock(o_hMtxPrintf);
-    printf("before socket_tcp_send<%d>->send %d bytes\r\n", socket, nRtnVal);
-    os_thread_mutex_unlock(o_hMtxPrintf);
-
+__lblWaitAck:     
     //* 等待信号量到达：定时器报超时或者ack到达    
-    os_thread_sem_pend(hSem, 0);     
-
-    os_thread_mutex_lock(o_hMtxPrintf);
-    printf("after socket_tcp_send<%d>->send %d bytes\r\n", socket, nRtnVal);
-    os_thread_mutex_unlock(o_hMtxPrintf);
+    if (os_thread_sem_pend(hSem, 0) < 0)
+    {
+        onps_set_last_error((INT)socket, ERRINVALIDSEM); 
+        return -1; 
+    }
     
     //* 信号量到达，根据实际处理结果返回不同值
     EN_ONPSERR enErr;
@@ -340,10 +354,7 @@ int socket_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout
         //* 获取当前链路状态
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-            goto __lblErr; 
-        os_thread_mutex_lock(o_hMtxPrintf);
-        printf("socket_send<%d>->tcp link state: %d\r\n", socket, enLinkState);
-        os_thread_mutex_unlock(o_hMtxPrintf);
+            goto __lblErr;         
         if (TLSCONNECTED == enLinkState)
         {          
             //* 获取当前数据发送状态，如果上一条数据尚未发送结束则暂不发送当前这条数据，因为在资源受限系统中内存有限，无法在协议栈底层实现数据重传，所以必须在用户层来控制

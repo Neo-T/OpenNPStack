@@ -20,11 +20,7 @@ static void tcp_send_fin(PST_TCPLINK pstLink);
 
 static void tcp_ack_timeout_handler(void *pvParam)
 {        
-    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam; 
-
-    os_thread_mutex_lock(o_hMtxPrintf);
-    printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>tcp_ack_timeout_handler(): %d, state: %d, bIsAcked: %d, %08X\r\n", pstLink->stcbWaitAck.nInput, pstLink->bState, pstLink->stcbWaitAck.bIsAcked, pstLink);
-    os_thread_mutex_unlock(o_hMtxPrintf);
+    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;     
 
     if (!pstLink->stcbWaitAck.bIsAcked)
     {
@@ -36,13 +32,8 @@ static void tcp_ack_timeout_handler(void *pvParam)
         else
             pstLink->bState = TLSACKTIMEOUT; 
         
-        if (pstLink->stcbWaitAck.bRcvTimeout)
-        {
-            os_thread_mutex_lock(o_hMtxPrintf);
-            printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>tcp_ack_timeout_handler(): %d, state: %d\r\n", pstLink->stcbWaitAck.nInput, pstLink->bState);
-            os_thread_mutex_unlock(o_hMtxPrintf);
-            onps_input_post_sem(pstLink->stcbWaitAck.nInput);
-        }
+        if (pstLink->stcbWaitAck.bRcvTimeout)                    
+            onps_input_post_sem(pstLink->stcbWaitAck.nInput);         
     }
 }
 
@@ -235,6 +226,10 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
             onps_set_last_error(nInput, ERRSENDZEROBYTES);
     }
 
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++tcp_send_ack_of_syn_ack->enLinkState: %d\r\n", pstLink->bState);
+    os_thread_mutex_unlock(o_hMtxPrintf);
+
     if (pstLink->stcbWaitAck.bRcvTimeout)
         onps_input_post_sem(pstLink->stcbWaitAck.nInput);
 }
@@ -404,6 +399,9 @@ void tcp_disconnect(INT nInput)
         tcp_send_fin(pstLink);
 
         //* 加入定时器队列  
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$tcp_disconnect\r\n");
+        os_thread_mutex_unlock(o_hMtxPrintf);
         pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
         if (!pstLink->stcbWaitAck.pstTimer)
             onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
@@ -553,22 +551,25 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }
         }
         else if (uniFlag.stb16.reset)
-        {                        
-            //* 状态迁移到已接收到syn ack报文
-            pstLink->bState = TLSRESET;
+        {   
+            if (TLSFINWAIT1 < pstLink->bState)
+            {
+                //* 状态迁移到链路已被对端复位的状态
+                pstLink->bState = TLSRESET;
+            }
             if (pstLink->stLocal.bDataSendState == TDSSENDING)
                 pstLink->stLocal.bDataSendState = TDSLINKRESET; 
 
             //if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem);            
+            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
             onps_input_post_sem(nInput); 
         }
         else if (uniFlag.stb16.fin)
         {                       
             if (pstLink->stLocal.bDataSendState == TDSSENDING)
             {
-                pstLink->stLocal.bDataSendState = TDSLINKCLOSED;
-                
+                pstLink->stLocal.bDataSendState = TDSLINKCLOSED;                                 
+
                 if (pstLink->stcbWaitAck.bRcvTimeout)
                     onps_input_post_sem(pstLink->stcbWaitAck.nInput);                
             }            
@@ -585,10 +586,15 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     pstLink->bIsPassiveFin = TRUE;
 
                     //* 同样立即下发结束报文，本地也不再继续发送了（而不是按照协议约定允许上层用户继续在半关闭状态下发送数据）
-                    tcp_send_fin(pstLink);
+                    tcp_send_fin(pstLink);                   
 
-                    //* 加入定时器队列  
+                    //* 加入定时器队列                      
                     pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
+
+                    os_thread_mutex_lock(o_hMtxPrintf);
+                    printf("####################################################################################################recv fin: %d %08x %08X\r\n", pstLink->bState, pstLink->stcbWaitAck.pstTimer, pstLink);
+                    os_thread_mutex_unlock(o_hMtxPrintf);
+
                     if (!pstLink->stcbWaitAck.pstTimer)
                         onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
                     onps_input_set_tcp_close_state(nInput, TLSTIMEWAIT); //* 等待对端的ACK，然后结束
@@ -630,11 +636,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->stLocal.unSeqNum = unSrcAckNum;
 
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
-                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                                
-
-                os_thread_mutex_lock(o_hMtxPrintf);
-                printf("sending^^^^^^^^^^^^^^^^^^^^^^^%d %08X\r\n", nInput, pstLink->stcbWaitAck.pstTimer);
-                os_thread_mutex_unlock(o_hMtxPrintf);
+                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                 
 
                 //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
                 pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED;                 
@@ -719,11 +721,22 @@ __lblWaitRecv:
         bWaitSecs = bRcvTimeout; 
         if (bRcvTimeout > 0)
         {
-            os_thread_sem_pend(hSem, 1);
+            if (os_thread_sem_pend(hSem, 1) < 0)
+            {
+                enErr = ERRINVALIDSEM; 
+                goto __lblErr;
+            }
+
             bWaitSecs--; 
         }
         else
-            os_thread_sem_pend(hSem, 0); 
+        {
+            if (os_thread_sem_pend(hSem, 0) < 0)
+            {
+                enErr = ERRINVALIDSEM;
+                goto __lblErr;
+            }
+        }
 
         //* 读取数据
         nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, &enErr);

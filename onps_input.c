@@ -182,28 +182,7 @@ void onps_input_free(INT nInput)
     #endif
 #endif
         return; 
-    }
-
-    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput]; 
-
-    //* 释放tcp/udp协议附加的保存通讯链路相关信息的数据节点
-    if (pstcbInput->pvAttach)
-    {
-        if(IPPROTO_TCP == pstcbInput->ubIPProto)
-            tcp_link_free((PST_TCPLINK)pstcbInput->pvAttach);
-    }
-
-    //* 先释放申请的相关资源
-    if (pstcbInput->pubRcvBuf)
-    {
-        buddy_free(pstcbInput->pubRcvBuf);
-        pstcbInput->pubRcvBuf = NULL;
     }    
-    if (INVALID_HSEM != pstcbInput->hSem)
-    {
-        os_thread_sem_uninit(pstcbInput->hSem);
-        pstcbInput->hSem = INVALID_HSEM;
-    }
 
     //* 归还节点
     os_thread_mutex_lock(l_hMtxInput);
@@ -213,6 +192,27 @@ void onps_input_free(INT nInput)
         {
             if (pstNextNode->uniData.nIndex == nInput)
             {
+                PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+
+                //* 释放tcp/udp协议附加的保存通讯链路相关信息的数据节点
+                if (pstcbInput->pvAttach)
+                {
+                    if (IPPROTO_TCP == pstcbInput->ubIPProto)
+                        tcp_link_free((PST_TCPLINK)pstcbInput->pvAttach);
+                }
+
+                //* 先释放申请的相关资源
+                if (pstcbInput->pubRcvBuf)
+                {
+                    buddy_free(pstcbInput->pubRcvBuf);
+                    pstcbInput->pubRcvBuf = NULL;
+                }
+                if (INVALID_HSEM != pstcbInput->hSem)
+                {
+                    os_thread_sem_uninit(pstcbInput->hSem);
+                    pstcbInput->hSem = INVALID_HSEM;
+                }
+
                 sllist_del_node(&l_pstInputSLList, pstNextNode); //* 从input链表摘除
                 sllist_put_node(&l_pstFreedSLList, pstNextNode); //* 归还给free链表
                 break; 
@@ -565,7 +565,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
     {        
         UINT unCpyBytes = (UINT)nDataBytes < l_stcbaInput[nInput].unRcvBufSize ? (UINT)nDataBytes : l_stcbaInput[nInput].unRcvBufSize; 
         memcpy(l_stcbaInput[nInput].pubRcvBuf, pubData, unCpyBytes);
-        l_stcbaInput[nInput].unRcvedBytes = unCpyBytes; 
+        l_stcbaInput[nInput].unRcvedBytes = unCpyBytes;      
 
         //* 投递信号给上层用户，告知对端数据已到达
         if (l_stcbaInput[nInput].bRcvTimeout)
@@ -587,10 +587,10 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
         {
             ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
             if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
-                ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE; 
+                ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;             
         }
     }
-    os_thread_mutex_unlock(l_hMtxInput);
+    os_thread_mutex_unlock(l_hMtxInput);    
 
     //* 投递信号给上层用户，告知对端数据已到达
     if (l_stcbaInput[nInput].bRcvTimeout)
@@ -664,8 +664,25 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR
     }
 
     //* 超时，没有收到任何数据
-    if (os_thread_sem_pend(l_stcbaInput[nInput].hSem, nWaitSecs) < 0)
-        return 0; 
+    INT nRtnVal = os_thread_sem_pend(l_stcbaInput[nInput].hSem, nWaitSecs); 
+    if (nRtnVal != 0)
+    {
+        if (nRtnVal < 0)
+        {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+            printf("onps_input_recv_icmp() failed, invalid semaphore, the input is %d\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+            return -1; 
+        }
+        else
+            return 0;
+    }
 
     //* 报文继续上报给上层调用者
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
