@@ -40,11 +40,6 @@ static void tcp_ack_timeout_handler(void *pvParam)
 static void tcp_close_timeout_handler(void *pvParam)
 {
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;
-
-    os_thread_mutex_lock(o_hMtxPrintf);
-    printf("===================================================tcp_close_timeout_handler(): %d, state: %d, %08X\r\n", pstLink->stcbWaitAck.nInput, pstLink->bState, pstLink);
-    os_thread_mutex_unlock(o_hMtxPrintf);
-
     INT nRtnVal; 
     switch ((EN_TCPLINKSTATE)pstLink->bState)
     {
@@ -71,15 +66,15 @@ static void tcp_close_timeout_handler(void *pvParam)
         else;         
         break; 
 
-    case TLSTIMEWAIT:        
-        nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);
+    case TLSTIMEWAIT:             
+        nRtnVal = onps_input_tcp_close_time_count(pstLink->stcbWaitAck.nInput);         
         if (nRtnVal == 1)
         {
             if (pstLink->bIsPassiveFin)
                 tcp_send_fin(pstLink);
         }
         if (nRtnVal == 2) //* 超时，则FIN操作结束，释放input资源
-        {
+        {           
             onps_input_free(pstLink->stcbWaitAck.nInput);             
             return; 
         }
@@ -90,7 +85,7 @@ static void tcp_close_timeout_handler(void *pvParam)
         //* FIN操作结束，释放input资源
         onps_input_free(pstLink->stcbWaitAck.nInput);        
         return;  
-    }   
+    }       
 
     //* 重新启动定时器
     pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1); 
@@ -224,11 +219,7 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
             onps_set_last_error(nInput, enErr);
         else
             onps_set_last_error(nInput, ERRSENDZEROBYTES);
-    }
-
-    os_thread_mutex_lock(o_hMtxPrintf);
-    printf("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++tcp_send_ack_of_syn_ack->enLinkState: %d\r\n", pstLink->bState);
-    os_thread_mutex_unlock(o_hMtxPrintf);
+    }    
 
     if (pstLink->stcbWaitAck.bRcvTimeout)
         onps_input_post_sem(pstLink->stcbWaitAck.nInput);
@@ -285,16 +276,9 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
         {
             onps_set_last_error(nInput, ERRNOIDLETIMER);
             return -1;             
-        }
-        os_thread_mutex_lock(o_hMtxPrintf);
-        printf("0^^^^^^^^^^^^^^^^^^^^^^^tcp_send_syn(): %d %08X %08X %d\r\n", nInput, pstLink->stcbWaitAck.pstTimer, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT);
-        os_thread_mutex_unlock(o_hMtxPrintf);
+        }        
 
-        pstLink->bState = TLSSYNSENT; //* 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配
-
-        os_thread_mutex_lock(o_hMtxPrintf);
-        printf("1^^^^^^^^^^^^^^^^^^^^^^^tcp_send_syn(): %d %08X %08X\r\n", nInput, pstLink->stcbWaitAck.pstTimer, pstLink);
-        os_thread_mutex_unlock(o_hMtxPrintf);
+        pstLink->bState = TLSSYNSENT; //* 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配        
     }
     else
     {
@@ -367,10 +351,10 @@ static void tcp_send_fin(PST_TCPLINK pstLink)
     UNI_TCP_FLAG uniFlag;
     uniFlag.usVal = 0;
     uniFlag.stb16.ack = 1; 
-    uniFlag.stb16.fin = 1;
+    uniFlag.stb16.fin = 1;    
 
     //* 发送链路结束报文
-    tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, NULL, 0, NULL);                   
+    tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, NULL, 0, NULL);     
 }
 
 void tcp_disconnect(INT nInput)
@@ -398,10 +382,7 @@ void tcp_disconnect(INT nInput)
     {        
         tcp_send_fin(pstLink);
 
-        //* 加入定时器队列  
-        os_thread_mutex_lock(o_hMtxPrintf);
-        printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$tcp_disconnect\r\n");
-        os_thread_mutex_unlock(o_hMtxPrintf);
+        //* 加入定时器队列          
         pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
         if (!pstLink->stcbWaitAck.pstTimer)
             onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);
@@ -527,11 +508,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             if (TLSSYNSENT == pstLink->bState && unSrcAckNum == pstLink->stLocal.unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
             {
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
-                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer); 
-                
-                os_thread_mutex_lock(o_hMtxPrintf);
-                printf("syn^^^^^^^^^^^^^^^^^^^^^^^%d %08X\r\n", nInput, pstLink->stcbWaitAck.pstTimer);
-                os_thread_mutex_unlock(o_hMtxPrintf);
+                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                                 
                 //one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
 
                 //* 记录当前链路信息
@@ -552,7 +529,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         }
         else if (uniFlag.stb16.reset)
         {   
-            if (TLSFINWAIT1 < pstLink->bState)
+            if (pstLink->bState < TLSFINWAIT1)
             {
                 //* 状态迁移到链路已被对端复位的状态
                 pstLink->bState = TLSRESET;
@@ -589,11 +566,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     tcp_send_fin(pstLink);                   
 
                     //* 加入定时器队列                      
-                    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);
-
-                    os_thread_mutex_lock(o_hMtxPrintf);
-                    printf("####################################################################################################recv fin: %d %08x %08X\r\n", pstLink->bState, pstLink->stcbWaitAck.pstTimer, pstLink);
-                    os_thread_mutex_unlock(o_hMtxPrintf);
+                    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);                    
 
                     if (!pstLink->stcbWaitAck.pstTimer)
                         onps_set_last_error(pstLink->stcbWaitAck.nInput, ERRNOIDLETIMER);

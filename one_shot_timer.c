@@ -203,13 +203,10 @@ void thread_one_shot_timeout_handler(void *pvParam)
 		if (pstTimer)
 		{
 			//* 执行溢出函数
-			pstTimer->pfunTimeoutHandler(pstTimer->pvParam);
-            os_thread_mutex_lock(o_hMtxPrintf);
-            printf("thread_one_shot_timeout_handler^^^^^^^^^^^^^^^^^^^^^^^%08X %08X\r\n", pstTimer, pstTimer->pvParam);
-            os_thread_mutex_unlock(o_hMtxPrintf);
+			pstTimer->pfunTimeoutHandler(pstTimer->pvParam);                      
 
-			//* 归还给系统
-			one_shot_timer_free(pstTimer);             
+			//* 归还给系统           
+			one_shot_timer_free(pstTimer);
 		}
 	}
 

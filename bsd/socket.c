@@ -71,10 +71,7 @@ void close(SOCKET socket)
             || TLSTIMEWAIT == enLinkState
             || TLSCLOSED == enLinkState) 
             return; 
-    }
-    os_thread_mutex_lock(o_hMtxPrintf);
-    printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#enLinkState: %d %d\r\n", enLinkState, socket);
-    os_thread_mutex_unlock(o_hMtxPrintf);
+    }    
     onps_input_free((INT)socket); 
 }
 
@@ -181,11 +178,7 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
         {
             PST_TCPLINK pstLink = tcp_link_get(&enErr); 
             if(pstLink)
-            { 
-                os_thread_mutex_lock(o_hMtxPrintf);
-                printf("~~~~~~~~~~~~~~~~~~~~~~~~socket_connect: %d %08X\r\n", socket, pstLink);
-                os_thread_mutex_unlock(o_hMtxPrintf);
-
+            {                 
                 if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstLink, &enErr))
                 {
                     tcp_link_free(pstLink);

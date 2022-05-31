@@ -45,7 +45,8 @@ typedef struct _ST_TCPCLIENT_ {
         CHAR bParsingState;
         UCHAR ubaRcvBuf[RCV_BUF_SIZE];
     } stcbRcv;
-    CHAR bLinkIdx;
+    CHAR bClientIdx; 
+    CHAR bLinkIdx;    
     BOOL blTHIsRunning; 
     thread objTHSender;
 } ST_TCPCLIENT, *PST_TCPCLIENT;
@@ -132,7 +133,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
     unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));
-    printf("%d#%s#>sent control command to peer, cmd = 0x01, LinkIdx = %d, the data length is %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bLinkIdx, pstHdr->usDataLen);
+    printf("%d#%s#>sent control command to peer, cmd = 0x01, LinkIdx = %d, the data length is %d bytes\r\n", pstClient->bClientIdx < 0 ? pstClient->bLinkIdx : pstClient->bClientIdx, szPktTime, pstHdr->bLinkIdx, pstHdr->usDataLen);
 
     //* 更新需要等待的报文标识
     pstClient->tTimestampToAck = (time_t)pstHdr->unTimestamp;     
@@ -311,6 +312,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 pstAck->bLinkIdx = pstHdr->bLinkIdx; 
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
+                                pstClient->bClientIdx = pstHdr->bLinkIdx; 
                                 printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, the data length is %d bytes\r\n", pstHdr->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
@@ -380,8 +382,8 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
     FD_SET(hClient, pfdsException);
 
     //* 添加到客户端列表中
-    l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0, { 0, 0, 0, 0 } });
-    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL } });
+    l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0, { 0, 0, 0, 0 }, -1 });
+    auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL }, -1 });
     atoPair.first->second.bLinkIdx = l_bLinkIdx++; 
     atoPair.first->second.blTHIsRunning = TRUE; 
     atoPair.first->second.objTHSender = thread(THSender, hClient, pfdsRead, pfdsException); 
