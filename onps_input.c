@@ -12,14 +12,14 @@
 
 //* 协议栈icmp/tcp/udp层接收处理节点
 typedef struct _STCB_ONPS_INPUT_ {
-    HSEM hSem;          //* 信号量，一旦收到数据，协议栈将投递信号量给上层接收者，避免上层调用者采用轮询读取数据的方式，避免CPU资源被过多占用    
+    HSEM hSem;  //* 信号量，一旦收到数据，协议栈将投递信号量给上层接收者，避免上层调用者采用轮询读取数据的方式，避免CPU资源被过多占用    
 
     union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
         struct {
             USHORT usIdentifier;
         } stIcmp; //* icmp层句柄
 
-        ST_TCPUDP_HANDLE stAddr; //* 句柄，使用IP地址和端口就可以唯一的标识一个tcp连接       
+        ST_TCPUDP_HANDLE stAddr; //* 句柄，使用IP地址和端口就可以唯一的标识一个tcp/udp通讯链路
     } uniHandle;
 
     UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
