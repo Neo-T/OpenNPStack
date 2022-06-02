@@ -52,4 +52,7 @@ SOCKET_EXT INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize);
 //* 获取当前tcp连接状态，0：未连接；1：已连接；-1：读取状态失败，具体错误信息由参数penErr返回
 SOCKET_EXT INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr); 
 
+//* 为socket绑定指定的网络地址和端口，如果想绑定任意网络接口地址，参数pszNetifIp为NULL即可
+SOCKET_EXT INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort);
+
 #endif

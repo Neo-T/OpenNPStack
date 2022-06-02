@@ -60,6 +60,7 @@
 #define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
 #define TCP_MSL                 15      //* 指定TCP链路TIMEWAIT态的最大关闭时长：2 * TCP_MSL，单位：秒
 #define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（TCP客户端 + TCP服务器最大并发连接数）
+#define UDP_LINK_NUM_MAX        4       //* 调用connect()函数连接对端udp服务器的最大数量（一旦调用connect()函数，收到的非服务器报文将被直接丢弃）
 #define SUPPORT_SACK            0       //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
 //* ===============================================================================================
 

@@ -238,25 +238,17 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     switch (enInputOpt)
     {    
     case IOPT_SETICMPECHOID:
-        if (pstcbInput->ubIPProto == IPPROTO_ICMP)
+        if ((EN_IPPROTO)pstcbInput->ubIPProto == IPPROTO_ICMP)
             pstcbInput->uniHandle.stIcmp.usIdentifier = *((USHORT *)pvVal); 
         else
-        {
-            if (penErr)
-                *penErr = ERRIPROTOMATCH; 
-            return FALSE; 
-        }
+            goto __lblIpProtoNotMatched;
         break;
 
     case IOPT_SETTCPUDPADDR:
-        if (IPPROTO_TCP == pstcbInput->ubIPProto || IPPROTO_UDP == pstcbInput->ubIPProto)
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
             pstcbInput->uniHandle.stAddr = *((PST_TCPUDP_HANDLE)pvVal);
         else
-        {
-            if (penErr)
-                *penErr = ERRIPROTOMATCH;
-            return FALSE;
-        }
+            goto __lblIpProtoNotMatched; 
         break; 
 
     case IOPT_SETTCPLINKSTATE: 
@@ -280,6 +272,12 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = pstcbInput->bRcvTimeout; 
             ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.nInput = nInput; 
         }
+        else if (IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
+        {
+            //* 暂时没有额外操作
+        }
+        else
+            goto __lblIpProtoNotMatched;
         break; 
 
     case IOPT_SETRCVTIMEOUT:
@@ -293,6 +291,11 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     }
 
     return TRUE; 
+
+__lblIpProtoNotMatched: 
+    if (penErr)
+        *penErr = ERRIPROTOMATCH;
+    return FALSE;
 }
 
 BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
@@ -741,7 +744,7 @@ void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
     os_exit_critical();
 }
 
-static BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
+BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
 {
     BOOL blIsUsed = FALSE;
     os_thread_mutex_lock(l_hMtxInput);

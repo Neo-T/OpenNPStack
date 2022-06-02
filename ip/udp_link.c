@@ -8,7 +8,7 @@
 #include "ip/udp_link.h"
 #undef SYMBOL_GLOBALS
 
-static ST_UDPLINK l_staUdpLinkNode[TCP_LINK_NUM_MAX]; 
+static ST_UDPLINK l_staUdpLinkNode[UDP_LINK_NUM_MAX]; 
 static PST_UDPLINK l_pstFreeUdpLinkList = NULL;
 static HMUTEX l_hMtxUdpLinkList = INVALID_HMUTEX;
 
@@ -62,8 +62,7 @@ PST_UDPLINK tcp_link_get(EN_ONPSERR *penErr)
             l_pstFreeUdpLinkList = NULL;
     }
     os_thread_mutex_unlock(l_hMtxUdpLinkList);
-
-    pstFreeNode->bIsMatched = FALSE;
+    
     pstFreeNode->stPeerAddr.unIp = 0;
     pstFreeNode->stPeerAddr.usPort = 0; 
     return pstFreeNode;

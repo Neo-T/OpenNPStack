@@ -14,6 +14,7 @@
 #else
 	#define UDP_EXT extern
 #endif //* SYMBOL_GLOBALS
+#include "ip/udp_link.h"
 
 UDP_EXT INT udp_send_data(INT nInput, UCHAR *pubData, INT nDataLen); 
 

@@ -52,6 +52,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPNOTCONNECTED, "tcp link not connected" }, 
     { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRSENDZEROBYTES, "0 bytes of data are sent" }, 
+    { ERRPORTOCCUPIED, "Port is already occupied" },
     { ERRUNKNOWN, "unknown error" }
 }; 
 

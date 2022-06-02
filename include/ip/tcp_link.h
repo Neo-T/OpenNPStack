@@ -49,25 +49,25 @@ typedef enum {
     TDSLINKCLOSED
 } EN_TCPDATASNDSTATE;
 
-typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
-typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE; 
+typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
+typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 typedef struct _ST_TCPLINK_ {
     struct {
-        UINT unSeqNum;  
-        UINT unAckNum; 
+        UINT unSeqNum;
+        UINT unAckNum;
         USHORT usWndSize;
         CHAR bIsZeroWnd;
-        CHAR bDataSendState;         
-        PST_TCPUDP_HANDLE pstAddr; 
+        CHAR bDataSendState;
+        PST_TCPUDP_HANDLE pstAddr;
     } stLocal;
 
-    struct {        
+    struct {
         PST_ONESHOTTIMER pstTimer;
         INT nInput;
         CHAR bRcvTimeout;
-        CHAR bIsAcked; 
-        USHORT usSendDataBytes; 
-    } stcbWaitAck;        
+        CHAR bIsAcked;
+        USHORT usSendDataBytes;
+    } stcbWaitAck;
 
     struct {
         CHAR bSackEn;       //* SACK选项使能
@@ -83,9 +83,9 @@ typedef struct _ST_TCPLINK_ {
 
     CHAR bState;        //* 当前链路状态
     CHAR bIsPassiveFin; //* 是被动FIN操作    
-    
-    CHAR bIdx; 
-    CHAR bNext; 
+
+    CHAR bIdx;
+    CHAR bNext;
 } ST_TCPLINK, *PST_TCPLINK;
 
 TCP_LINK_EXT BOOL tcp_link_init(EN_ONPSERR *penErr); 

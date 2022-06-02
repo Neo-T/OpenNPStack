@@ -9,6 +9,7 @@
 #include "bsd/socket.h"
 #undef SYMBOL_GLOBALS
 #include "ip/tcp.h"
+#include "ip/udp.h"
 
 SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr)
 {
@@ -208,6 +209,22 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
     }
     else if (enProto == IPPROTO_UDP)
     {
+        //* 说明要绑定一个具体的目标服务器，所以这里需要记录下目标服务器的地址
+        PST_UDPLINK pstLink = udp_link_get(&enErr); 
+        if (pstLink)
+        {
+            pstLink->stPeerAddr.unIp = (UINT)inet_addr(srv_ip); 
+            pstLink->stPeerAddr.usPort = srv_port; 
+
+            //* 附加到input
+            if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstLink, &enErr))
+            {
+                udp_link_free(pstLink);
+                goto __lblErr;
+            }
+        }
+        else
+            goto __lblErr;
         return 0; 
     }
     else    
@@ -464,4 +481,33 @@ INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr)
         return 1; 
 
     return 0; 
+}
+
+INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
+{
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr;    
+
+    //* 首先看看指定的端口是否已被使用
+    if (onps_input_port_used(enProto, usPort))
+    {
+        enErr = ERRPORTOCCUPIED; 
+        goto __lblErr; 
+    }
+
+    //* 设置地址
+    ST_TCPUDP_HANDLE stHandle; 
+    if (pszNetifIp)    
+        stHandle.unNetifIp = (UINT)inet_addr(pszNetifIp);
+    else
+        stHandle.unNetifIp = 0; 
+    stHandle.usPort = usPort;  
+    if (onps_input_set((INT)socket, IOPT_SETTCPUDPADDR, &stHandle, &enErr))
+        return TRUE; 
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;      
 }

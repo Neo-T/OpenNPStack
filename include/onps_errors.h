@@ -61,6 +61,7 @@ typedef enum {
     ERRTCPNOTCONNECTED, //* tcp未连接
     ERRINVALIDSEM,      //* 无效的信号量
     ERRSENDZEROBYTES,   //* 发送了0字节的数据
+    ERRPORTOCCUPIED,    //* 端口已被占用
     ERRUNKNOWN,         //* 未知错误
 } EN_ONPSERR;
 

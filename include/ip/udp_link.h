@@ -2,7 +2,7 @@
  *
  * 保存udp链路相关信息的辅助功能函数
  *
- * Neo-T, 创建于2022.06.01 16:69
+ * Neo-T, 创建于2022.06.01 16:59
  * 版本: 1.0
  *
  */
@@ -15,17 +15,14 @@
 	#define UDP_LINK_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-typedef struct _ST_UDPLINK_ {    
+typedef struct _ST_UDPLINK_ {
     CHAR bIdx;
     CHAR bNext;
 
-    //* 如果用户调用了connect()函数，该字段置TRUE，到达的UDP报文只有源地址与目标地址严格匹配才会被认为是合法报文，否则直接丢弃 
-    CHAR bIsMatched;
-
-    struct {        
+    struct {
         USHORT usPort;  //* 端口
         in_addr_t unIp; //* 地址            
-    } stPeerAddr;        
+    } stPeerAddr;
 } ST_UDPLINK, *PST_UDPLINK;
 
 UDP_LINK_EXT BOOL udp_link_init(EN_ONPSERR *penErr); 

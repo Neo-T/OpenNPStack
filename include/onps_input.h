@@ -30,7 +30,7 @@ typedef enum {
     IOPT_GETTCPDATASNDSTATE,    //* 获取tcp链路数据发送的状态
     IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
     IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
-    IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度
+    IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度    
 } ONPSIOPT;
 
 typedef struct _ST_TCPUDP_HANDLE_ {
@@ -77,6 +77,9 @@ ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDa
 
 //* 等待接收icmp层对端发送的数据
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
+
+//* 检查要某个端口是否已被使用              
+ONPSINPUT_EXT BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort);
 
 //* 分配一个动态端口
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
