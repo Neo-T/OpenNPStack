@@ -41,6 +41,8 @@ SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port);
 SOCKET_EXT INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout); 
 //* 发送函数(非阻塞型)，返回值大于0则为实际发送成功的字节数，等于0为发送中，尚未收到对端的应答，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
+//* 仅用于udp发送，发送时指定目标地址
+SOCKET_EXT INT sendto(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, UCHAR *pubData, INT nDataLen);
 
 //* 设定recv()函数等待接收的时长（单位：秒），大于0指定数据到达的最长等待时间；0，则不等待；-1，则一直等待直至数据到达或报错
 SOCKET_EXT BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr);

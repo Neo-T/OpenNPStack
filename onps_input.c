@@ -9,6 +9,7 @@
 #include "onps_input.h"
 #undef SYMBOL_GLOBALS
 #include "ip/tcp_link.h"
+#include "ip/udp_link.h"
 
 //* 协议栈icmp/tcp/udp层接收处理节点
 typedef struct _STCB_ONPS_INPUT_ {
@@ -46,9 +47,18 @@ BOOL onps_input_init(EN_ONPSERR *penErr)
     if (!tcp_link_init(penErr))
         return FALSE; 
 
+    if (!udp_link_init(penErr))
+    {
+        udp_link_uninit();
+        return FALSE;
+    }
+
     l_hMtxInput = os_thread_mutex_init();
     if (INVALID_HMUTEX == l_hMtxInput)
     {
+        udp_link_uninit();
+        tcp_link_uninit();
+
         *penErr = ERRMUTEXINITFAILED;
         return FALSE; 
     }
@@ -97,6 +107,7 @@ void onps_input_uninit(void)
         l_hMtxInput = INVALID_HMUTEX; 
     }
 
+    udp_link_uninit();
     tcp_link_uninit(); 
 }
 

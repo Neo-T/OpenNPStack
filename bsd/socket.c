@@ -345,7 +345,7 @@ int socket_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout
     //* 空数据没必要发送，这里并不返回-1以显式地告诉用户，仅记录这个错误即可，用户可以主动获取这个错误
     if (NULL == pubData || !nDataLen)
     {
-        onps_set_last_error((INT)socket, ERRTCPDATAEMPTY);
+        onps_set_last_error((INT)socket, ERRDATAEMPTY);
         return 0;
     }    
 
@@ -403,7 +403,7 @@ int socket_send(SOCKET socket, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout
     }
     else if (enProto == IPPROTO_UDP)
     {
-        return nDataLen;
+        return udp_send((INT)socket, pubData, nDataLen); 
     }
     else
         enErr = ERRUNSUPPIPPROTO;
@@ -423,6 +423,37 @@ INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
 {
     return socket_send(socket, pubData, nDataLen, 0);
+}
+
+INT sendto(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, UCHAR *pubData, INT nDataLen)
+{
+    //* 空数据没必要发送，这里并不返回-1以显式地告诉用户，仅记录这个错误即可，用户可以主动获取这个错误
+    if (NULL == pubData || !nDataLen)
+    {
+        onps_set_last_error((INT)socket, ERRDATAEMPTY);
+        return 0;
+    }
+
+    //* 确定这是系统支持的协议才可
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr;
+
+    //* 错误清0
+    onps_set_last_error((INT)socket, ERRNO);
+
+    //* 只有udp协议才支持指定目标地址的发送操作
+    if (IPPROTO_UDP == enProto)
+    {
+        return udp_sendto((INT)socket, inet_addr(srv_ip), srv_port, pubData, nDataLen);  
+    }
+    else
+        enErr = ERRIPROTOMATCH;
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;
 }
 
 BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr)

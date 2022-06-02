@@ -12,7 +12,7 @@ static ST_UDPLINK l_staUdpLinkNode[UDP_LINK_NUM_MAX];
 static PST_UDPLINK l_pstFreeUdpLinkList = NULL;
 static HMUTEX l_hMtxUdpLinkList = INVALID_HMUTEX;
 
-BOOL tcp_link_init(EN_ONPSERR *penErr)
+BOOL udp_link_init(EN_ONPSERR *penErr)
 {
     //* 链接	
     INT i;
@@ -34,13 +34,13 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
     return FALSE;
 }
 
-void tcp_link_uninit(void)
+void udp_link_uninit(void)
 {
     if (INVALID_HMUTEX != l_hMtxUdpLinkList)
         os_thread_mutex_uninit(l_hMtxUdpLinkList);
 }
 
-PST_UDPLINK tcp_link_get(EN_ONPSERR *penErr)
+PST_UDPLINK udp_link_get(EN_ONPSERR *penErr)
 {
     PST_UDPLINK pstFreeNode;
     os_thread_mutex_lock(l_hMtxUdpLinkList);
@@ -68,7 +68,7 @@ PST_UDPLINK tcp_link_get(EN_ONPSERR *penErr)
     return pstFreeNode;
 }
 
-void tcp_link_free(PST_UDPLINK pstTcpLink)
+void udp_link_free(PST_UDPLINK pstTcpLink)
 {    
     os_thread_mutex_lock(l_hMtxUdpLinkList);
     {

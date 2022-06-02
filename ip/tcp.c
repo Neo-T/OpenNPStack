@@ -112,14 +112,14 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
         sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
         if (sOptionsNode < 0)
         {
-            if (sDataNode >= 0)
-                buf_list_free(sDataNode);
-
+            buf_list_free(sDataNode);
             return -1;
         }
         buf_list_put_head(&sBufListHead, sOptionsNode);
     }
 
+    //* 要确保本地Sequence Number和对端Sequence Number不乱序就必须加锁，因为tcp接收线程与发送线程并不属于同一个，因为线程优先级问题导致发送线程在发送前一刻被接收线程强行打断并率先发送了
+    //* 应答报文，此时序号有可能已大于发送线程携带的序号，乱序问题就此产生
     onps_input_lock(pstLink->stcbWaitAck.nInput); 
 
     //* 填充tcp头
@@ -138,10 +138,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
     if (sHdrNode < 0)
     {
-        if (sDataNode >= 0)
-            buf_list_free(sDataNode);
-        if (sOptionsNode >= 0)
-            buf_list_free(sOptionsNode);
+        buf_list_free(sDataNode);
+        buf_list_free(sOptionsNode);
 
         onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
@@ -161,10 +159,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_TCP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {
-        if (sDataNode >= 0)
-            buf_list_free(sDataNode);
-        if (sOptionsNode >= 0)
-            buf_list_free(sOptionsNode);
+        buf_list_free(sDataNode);
+        buf_list_free(sOptionsNode);
         buf_list_free(sHdrNode);
 
         onps_input_unlock(pstLink->stcbWaitAck.nInput);
@@ -183,10 +179,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
     //* 释放刚才申请的buf list节点
-    if(sDataNode >= 0)
-        buf_list_free(sDataNode); 
-    if(sOptionsNode >= 0)
-        buf_list_free(sOptionsNode); 
+    buf_list_free(sDataNode); 
+    buf_list_free(sOptionsNode); 
     buf_list_free(sHdrNode);
 
     return nRtnVal; 

@@ -55,13 +55,14 @@ typedef enum {
     ERRTCPCONNTIMEOUT,  //* TCP连接超时
     ERRTCPCONNRESET,    //* TCP连接已被重置
     ERRTCPCONNCLOSED,   //* TCP链路已关闭
-    ERRTCPDATAEMPTY,    //* TCP数据段为0
+    ERRDATAEMPTY,       //* 数据段为0
     ERRTCPACKTIMEOUT,   //* TCP应答超时
     ERRNOTCPLINKNODE,   //* 无可用tcp link节点
     ERRTCPNOTCONNECTED, //* tcp未连接
     ERRINVALIDSEM,      //* 无效的信号量
     ERRSENDZEROBYTES,   //* 发送了0字节的数据
     ERRPORTOCCUPIED,    //* 端口已被占用
+    ERRSENDADDR,        //* 发送地址错误
     ERRUNKNOWN,         //* 未知错误
 } EN_ONPSERR;
 

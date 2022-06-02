@@ -46,13 +46,14 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPCONNTIMEOUT, "tcp connection timeout" }, 
     { ERRTCPCONNRESET, "tcp connection reset by peer" },
     { ERRTCPCONNCLOSED, "TCP link closed" }, 
-    { ERRTCPDATAEMPTY, "tcp data segment is empty" }, 
+    { ERRDATAEMPTY, "tcp/udp data segment is empty" }, 
     { ERRTCPACKTIMEOUT, "tcp ack timeout" }, 
     { ERRNOTCPLINKNODE, "the tcp link list is empty" }, 
     { ERRTCPNOTCONNECTED, "tcp link not connected" }, 
     { ERRINVALIDSEM, "invalid semaphore" }, 
     { ERRSENDZEROBYTES, "0 bytes of data are sent" }, 
-    { ERRPORTOCCUPIED, "Port is already occupied" },
+    { ERRPORTOCCUPIED, "Port is already occupied" }, 
+    { ERRSENDADDR, "destination address is empty" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 
