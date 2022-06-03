@@ -421,7 +421,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     return TRUE;
 }
 
-void onps_input_post_sem(INT nInput)
+void onps_input_sem_post(INT nInput)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
         return; 
@@ -429,6 +429,29 @@ void onps_input_post_sem(INT nInput)
     //* 只有bRecvTimeout不为0才需要等待报文到达信号，不为0意味着这是一个阻塞型input
     if (INVALID_HSEM != l_stcbaInput[nInput].hSem && l_stcbaInput[nInput].bRcvTimeout)
         os_thread_sem_post(l_stcbaInput[nInput].hSem); 
+}
+
+INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
+{
+    if (nInput > SOCKET_NUM_MAX - 1)
+    {
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+        return -1;
+    }
+
+    if (INVALID_HSEM != l_stcbaInput[nInput].hSem && l_stcbaInput[nInput].bRcvTimeout)
+    {
+        INT nRtnVal = os_thread_sem_pend(l_stcbaInput[nInput].hSem, nWaitSecs); 
+        if (nRtnVal < 0)
+        {
+            if (penErr)
+                *penErr = ERRINVALIDSEM;
+        }
+        return nRtnVal; 
+    }
+
+    return 0; 
 }
 
 BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState)
@@ -568,11 +591,13 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
         return FALSE; 
     }
 
-    if (!pubData)
-    {
+    /*
+    if (!nDataBytes)
+    {        
         ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize;
         return TRUE;
     }
+    */
 
     //* icmp报文只要是到达就直接覆盖前一组，无论前一组报文是否已被读取
     if (IPPROTO_ICMP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
@@ -592,7 +617,9 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
     os_thread_mutex_lock(l_hMtxInput);
     {
         UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
-        unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes; //* 由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
+        //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
+        //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了；
+        unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
         memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes); 
         l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 
 
@@ -623,20 +650,23 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_
         return -1;
     }
 
-    if (TLSRESET == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
+    if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {
-        if (penErr)
-            *penErr = ERRTCPCONNRESET; 
-        return -1; 
-    }
-    else if (TLSTIMEWAIT == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState 
+        if (TLSRESET == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
+        {
+            if (penErr)
+                *penErr = ERRTCPCONNRESET;
+            return -1;
+        }
+        else if (TLSTIMEWAIT == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState
             || TLSCLOSING == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
-    {
-        if (penErr)
-            *penErr = ERRTCPCONNCLOSED;
-        return -1;
-    }
-    else; 
+        {
+            if (penErr)
+                *penErr = ERRTCPCONNCLOSED;
+            return -1;
+        }
+        else;
+    }    
 
     //* 没有收到任何数据则立即返回0
     if (!l_stcbaInput[nInput].unRcvedBytes)
@@ -831,7 +861,23 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
             if (pstcbInput->ubIPProto == IPPROTO_TCP || pstcbInput->ubIPProto == IPPROTO_UDP)
-            {
+            {                
+                //* 端口必须匹配，地址则根据不同情况另说
+                if (usPort == pstcbInput->uniHandle.stAddr.usPort)
+                {
+                    //* 未指定地址（地址为0，则当前绑定所有网络接口，此为对外提供服务端口）；指定地址则必须完全匹配
+                    if (pstcbInput->uniHandle.stAddr.unNetifIp == 0 || unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp)
+                    {
+                        nInput = pstNextNode->uniData.nIndex;
+                        if (sizeof(pvAttach) == 4)
+                            *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
+                        else
+                            *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
+                        break;
+                    }
+                }
+
+                /*
                 if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
                 {
                     nInput = pstNextNode->uniData.nIndex;
@@ -841,6 +887,7 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
                         *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
                     break;
                 }
+                */
             }
 
             pstNextNode = pstNextNode->pstNext;

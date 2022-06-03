@@ -493,7 +493,7 @@ INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
         return tcp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout);
     else
     {
-        return 0; 
+        return udp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout);
     }
 
 __lblErr:

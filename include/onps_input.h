@@ -55,7 +55,8 @@ ONPSINPUT_EXT BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr);
 
 //* 投递一个数据到达或链路异常的信号
-ONPSINPUT_EXT void onps_input_post_sem(INT nInput); 
+ONPSINPUT_EXT void onps_input_sem_post(INT nInput); 
+ONPSINPUT_EXT INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
 
 //* 对tcp链路关闭状态进行迁移
 ONPSINPUT_EXT BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState); 
