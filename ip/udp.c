@@ -100,7 +100,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
         return -1; 
     }
 
-    //* 获取tcp链路句柄访问地址，该地址保存当前tcp链路由协议栈自动分配的端口及本地网络接口地址
+    //* 获取tcp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle;
     if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
     {
@@ -130,7 +130,7 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
 {
     EN_ONPSERR enErr;
 
-    //* 获取tcp链路句柄访问地址，该地址保存当前tcp链路由协议栈自动分配的端口及本地网络接口地址
+    //* 获取tcp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle;
     if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
     {
@@ -297,13 +297,13 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }    
 }
 
-INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvTimeout)
+INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, CHAR bRcvTimeout)
 {
     EN_ONPSERR enErr;
     INT nRcvedBytes;
 
     //* 读取数据
-    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
+    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, punFromIP, pusFromPort, &enErr);
     if (nRcvedBytes > 0)
         return nRcvedBytes;
     else
@@ -333,7 +333,7 @@ INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
         }
 
         //* 读取数据
-        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
+        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, punFromIP, pusFromPort, &enErr);
         if (nRcvedBytes > 0)
             return nRcvedBytes;
         else

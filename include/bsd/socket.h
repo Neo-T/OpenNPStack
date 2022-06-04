@@ -38,8 +38,10 @@ SOCKET_EXT INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT n
 SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port); 
 
 //* 发送函数(阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
+//* 对于udp协议来说参数nWaitAckTimeout将被忽略，其将作为非阻塞型函数使用
 SOCKET_EXT INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout); 
 //* 发送函数(非阻塞型)，返回值大于0则为实际发送成功的字节数，等于0为发送中，尚未收到对端的应答，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
+//* udp协议该函数与send()函数功能及实现逻辑完全相同
 SOCKET_EXT INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
 //* 仅用于udp发送，发送时指定目标地址
 SOCKET_EXT INT sendto(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, UCHAR *pubData, INT nDataLen);
@@ -51,8 +53,8 @@ SOCKET_EXT BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSE
 //* 表出错；非阻塞型返回值为实际收到的数据长度（大于等于0），-1同样代表接收失败
 SOCKET_EXT INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
 
-//* 接收函数
-SOCKET_EXT INT recvfrom(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
+//* 接收函数，仅用于udp协议接收
+SOCKET_EXT INT recvfrom(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort);
 
 //* 获取当前tcp连接状态，0：未连接；1：已连接；-1：读取状态失败，具体错误信息由参数penErr返回
 SOCKET_EXT INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr); 

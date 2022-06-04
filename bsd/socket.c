@@ -493,12 +493,46 @@ INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
         return tcp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout);
     else
     {
-        return udp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, bRcvTimeout);
+        return udp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, NULL, NULL, bRcvTimeout);
     }
 
 __lblErr:
     onps_set_last_error((INT)socket, enErr);
     return -1;            
+}
+
+INT recvfrom(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort)
+{
+    EN_ONPSERR enErr;
+
+    //* 获取当前socket绑定的协议类型
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr;
+
+    //* 仅支持tcp和udp，其它不支持
+    if (enProto != IPPROTO_UDP)
+    {
+        enErr = ERRUNSUPPIPPROTO;
+        goto __lblErr;
+    }
+
+    //* 获取接收等待时长
+    CHAR bRcvTimeout;
+    if (!onps_input_get((INT)socket, IOPT_GETRCVTIMEOUT, &bRcvTimeout, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
+    }
+
+    //* 错误清0
+    onps_set_last_error((INT)socket, ERRNO);
+
+    return udp_recv_upper((INT)socket, pubDataBuf, nDataBufSize, punFromIP, pusFromPort, bRcvTimeout);
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;
 }
 
 INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr)
