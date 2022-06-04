@@ -25,6 +25,15 @@ typedef struct _ST_UDPLINK_ {
     } stPeerAddr;
 } ST_UDPLINK, *PST_UDPLINK;
 
+//* 到达的udp报文
+typedef struct _ST_RCVED_UDP_PACKET_ ST_RCVED_UDP_PACKET, *PST_RCVED_UDP_PACKET;
+typedef struct _ST_RCVED_UDP_PACKET_ {
+    USHORT usLen;
+    USHORT usFromPort;
+    in_addr_t unFromIP;
+    PST_RCVED_UDP_PACKET pstNext;
+} ST_RCVED_UDP_PACKET, *PST_RCVED_UDP_PACKET;
+
 UDP_LINK_EXT BOOL udp_link_init(EN_ONPSERR *penErr); 
 UDP_LINK_EXT void udp_link_uninit(void); 
 UDP_LINK_EXT PST_UDPLINK udp_link_get(EN_ONPSERR *penErr);

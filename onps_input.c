@@ -133,7 +133,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         break; 
 
     case IPPROTO_UDP:
-        unSize = UDPRCVBUF_SIZE_DEFAULT;
+        unSize = 0;
         break; 
 
     default:
@@ -142,12 +142,16 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         return -1; 
     }
 
-    UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
-    if (NULL == pubRcvBuf)
+    UCHAR *pubRcvBuf = NULL;
+    if (unSize)
     {
-        os_thread_sem_uninit(hSem);  
-        return -1;
-    }
+        pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
+        if (NULL == pubRcvBuf)
+        {
+            os_thread_sem_uninit(hSem);
+            return -1;
+        }
+    }    
 
     //* 申请一个input节点
     PST_SLINKEDLIST_NODE pstNode; 
@@ -581,7 +585,7 @@ INT onps_input_get_icmp(USHORT usIdentifier)
     return nInput; 
 }
 
-BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSERR *penErr)
+BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t unFromIP, USHORT usFromPort, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
@@ -590,14 +594,17 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
 
         return FALSE; 
     }
-
-    /*
-    if (!nDataBytes)
-    {        
-        ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize;
-        return TRUE;
-    }
-    */
+    
+    if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+    {
+        //* TCP层进入FIN操作后如果还有数据到来，依然会调用该搬运函数，只不过入口参数pubData为NULL，如此操作的原因是确保接收窗口不影响对端数据发送，虽然
+        //* 本地已经关闭了发送，且到达的数据会被丢弃（主要是看着wireshark上的0窗口报警心烦）
+        if (!pubData)
+        {
+            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize;
+            return TRUE;
+        }
+    }    
 
     //* icmp报文只要是到达就直接覆盖前一组，无论前一组报文是否已被读取
     if (IPPROTO_ICMP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
@@ -614,33 +621,77 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSER
     }
 
     //* 将数据搬运到接收缓冲区
+    BOOL blIsOK = TRUE; 
     os_thread_mutex_lock(l_hMtxInput);
     {
-        UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
-        //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
-        //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了；
-        unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
-        memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes); 
-        l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 
-
-        //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小
         if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {
+            UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
+            //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
+            //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了；
+            unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
+            memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes); 
+            l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 
+
+            //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小        
             ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
             if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
                 ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;             
         }
+        else if (IPPROTO_UDP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+        {
+            UINT unSize = sizeof(ST_RCVED_UDP_PACKET) + nDataBytes;
+            UCHAR *pubRcvedPacket = (UCHAR *)buddy_alloc(unSize, penErr);
+            if (pubRcvedPacket)
+            {
+                //* 填充数据到节点上
+                PST_RCVED_UDP_PACKET pstRcvedPacket = (PST_RCVED_UDP_PACKET)pubRcvedPacket; 
+                pstRcvedPacket->usLen = (USHORT)nDataBytes; 
+                pstRcvedPacket->usFromPort = usFromPort;
+                pstRcvedPacket->unFromIP = unFromIP; 
+                pstRcvedPacket->pstNext = NULL; 
+                memcpy(pubRcvedPacket + sizeof(ST_RCVED_UDP_PACKET), pubData, nDataBytes);
+
+                //* 挂接到主链表上
+                PST_RCVED_UDP_PACKET pstRcvedPacketLink = (PST_RCVED_UDP_PACKET)l_stcbaInput[nInput].pubRcvBuf; 
+                if (pstRcvedPacketLink)
+                {
+                    PST_RCVED_UDP_PACKET pstNextPacket = pstRcvedPacketLink;
+                    while (pstNextPacket)
+                    {
+                        if (!pstNextPacket->pstNext)
+                        {
+                            pstNextPacket->pstNext = pstRcvedPacket;
+                            break; 
+                        }
+                    }
+                }
+                else                
+                    l_stcbaInput[nInput].pubRcvBuf = (UCHAR *)pstRcvedPacket;
+            }
+            else
+                blIsOK = FALSE;
+        }
+        else
+        {
+            if (penErr)
+                *penErr = ERRIPROTOMATCH; 
+            blIsOK = FALSE;
+        }
     }
     os_thread_mutex_unlock(l_hMtxInput);    
 
-    //* 投递信号给上层用户，告知对端数据已到达
-    if (l_stcbaInput[nInput].bRcvTimeout)
-        os_thread_sem_post(l_stcbaInput[nInput].hSem); 
+    //* 搬运成功则投递信号给上层用户，告知对端数据已到达
+    if (blIsOK)
+    {       
+        if (l_stcbaInput[nInput].bRcvTimeout)
+            os_thread_sem_post(l_stcbaInput[nInput].hSem);
+    }    
 
-    return TRUE; 
+    return blIsOK; 
 }
 
-INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_ONPSERR *penErr)
+INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
     {
@@ -649,7 +700,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_
 
         return -1;
     }
-
+    
     if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {
         if (TLSRESET == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
@@ -673,22 +724,54 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_
         return 0; 
 
     //* 将数据搬运到用户的接收缓冲区
+    INT nRtnVal = -1;
     UINT unCpyBytes; 
     os_thread_mutex_lock(l_hMtxInput);
     {
-        unCpyBytes = unDataBufSize > l_stcbaInput[nInput].unRcvedBytes ? l_stcbaInput[nInput].unRcvedBytes : unDataBufSize; 
-        memcpy(pubDataBuf, l_stcbaInput[nInput].pubRcvBuf, unCpyBytes); 
-        l_stcbaInput[nInput].unRcvedBytes = l_stcbaInput[nInput].unRcvedBytes - unCpyBytes;
-        if (l_stcbaInput[nInput].unRcvedBytes)
-            memmove(l_stcbaInput[nInput].pubRcvBuf, l_stcbaInput[nInput].pubRcvBuf + unCpyBytes, l_stcbaInput[nInput].unRcvedBytes); 
+        if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+        {
+            unCpyBytes = unDataBufSize > l_stcbaInput[nInput].unRcvedBytes ? l_stcbaInput[nInput].unRcvedBytes : unDataBufSize;
+            memcpy(pubDataBuf, l_stcbaInput[nInput].pubRcvBuf, unCpyBytes);
+            l_stcbaInput[nInput].unRcvedBytes = l_stcbaInput[nInput].unRcvedBytes - unCpyBytes;
+            if (l_stcbaInput[nInput].unRcvedBytes)
+                memmove(l_stcbaInput[nInput].pubRcvBuf, l_stcbaInput[nInput].pubRcvBuf + unCpyBytes, l_stcbaInput[nInput].unRcvedBytes);
 
-        //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小
-        if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)        
+            //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小        
             ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
+            nRtnVal = (INT)unCpyBytes;
+        }
+        else if (IPPROTO_UDP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+        {
+            //* 从主链表获取数据
+            PST_RCVED_UDP_PACKET pstRcvedPacketLink = (PST_RCVED_UDP_PACKET)l_stcbaInput[nInput].pubRcvBuf;            
+            if (pstRcvedPacketLink)
+            {
+                PST_RCVED_UDP_PACKET pstRcvedPacket = pstRcvedPacketLink;
+                unCpyBytes = unDataBufSize > (UINT)pstRcvedPacket->usLen ? (UINT)pstRcvedPacket->usLen : unDataBufSize;
+                memcpy(pubDataBuf, l_stcbaInput[nInput].pubRcvBuf + sizeof(ST_RCVED_UDP_PACKET), unCpyBytes);
+                if (punFromIP)
+                    *punFromIP = pstRcvedPacket->unFromIP;
+                if (pusFromPort)
+                    *pusFromPort = pstRcvedPacket->usFromPort;
+
+                //* 移动到下一个报文节点并释放当前占用的内存
+                l_stcbaInput[nInput].pubRcvBuf = (UCHAR *)pstRcvedPacketLink->pstNext;
+                buddy_free(pstRcvedPacket);
+
+                nRtnVal = (INT)unCpyBytes;
+            }
+            else
+                nRtnVal = 0;
+        }
+        else
+        {
+            if (penErr)
+                *penErr = ERRIPROTOMATCH;
+        }
     }
     os_thread_mutex_unlock(l_hMtxInput);
 
-    return (INT)unCpyBytes; 
+    return nRtnVal;
 }
 
 INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)

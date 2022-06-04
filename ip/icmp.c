@@ -271,7 +271,7 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
 
     //* 将数据搬运到用户的接收缓冲区并通知用户
     EN_ONPSERR enErr; 
-    if (!onps_input_recv(nInput, (const UCHAR *)pubPacket, nPacketLen, &enErr))
+    if (!onps_input_recv(nInput, (const UCHAR *)pubPacket, nPacketLen, 0, 0, &enErr))
     {
 #if SUPPORT_PRINTF
     #if PRINTF_THREAD_MUTEX

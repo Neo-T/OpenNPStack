@@ -51,7 +51,6 @@
 #define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 
 #define TCPRCVBUF_SIZE_DEFAULT  2048    //* tcp层缺省的接收缓冲区大小，大小应是2^n次幂才能最大限度不浪费budyy模块分配的内存
-#define UDPRCVBUF_SIZE_DEFAULT  512     //* udp层缺省的接收缓冲区大小
 
 #define TCPUDP_PORT_START       20000   //* TCP/UDP协议动态分配的起始端口号
 

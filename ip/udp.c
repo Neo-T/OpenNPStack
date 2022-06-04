@@ -237,6 +237,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }
 
     //* 校验和计算通过，则查找当前udp链路是否存在
+    USHORT usSrcPort = htons(pstHdr->usSrcPort); 
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_UDPLINK pstLink;
     INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink); 
@@ -244,15 +245,36 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     {
 #if SUPPORT_PRINTF        
         UCHAR *pubAddr = (UCHAR *)&unDstAddr;
-#if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
-#endif        
+    #endif        
         printf("The udp link of %d.%d.%d.%d:%d isn't found, the packet will be dropped\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3], usDstPort);
-#if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
-#endif
+    #endif
 #endif
         return;
+    }
+
+    //* 如果当前链路存在附加信息，意味着这是一个已经与udp服务器绑定的链路，需要判断源地址是否也匹配，不匹配的直接丢弃
+    in_addr_t unFromIP = htonl(unSrcAddr); 
+    if (pstLink)
+    {
+        if (pstLink->stPeerAddr.unIp != unFromIP || pstLink->stPeerAddr.usPort != usSrcPort)
+        {
+    #if SUPPORT_PRINTF        
+            UCHAR *pubFromAddr = (UCHAR *)&unSrcAddr;
+            UCHAR *pubSrvAddr = (UCHAR *)&pstLink->stPeerAddr.unIp;
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif        
+            printf("udp packets from address %d.%d.%d.%d:%d are not allowed (connected to udp server %d.%d.%d.%d:%d), the packet will be dropped\r\n", pubFromAddr[0], pubFromAddr[1], pubFromAddr[2], pubFromAddr[3], usSrcPort, pubSrvAddr[3], pubSrvAddr[2], pubSrvAddr[1], pubSrvAddr[0], pstLink->stPeerAddr.usPort);
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
+            return;
+        }
     }
 
     //* 看看有数据吗？            
@@ -260,7 +282,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     if (nDataLen)
     {
         //* 将数据搬运到input层
-        if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, &enErr))
+        if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, unFromIP, usSrcPort, &enErr))
         {
     #if SUPPORT_PRINTF
         #if PRINTF_THREAD_MUTEX
@@ -281,7 +303,7 @@ INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
     INT nRcvedBytes;
 
     //* 读取数据
-    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, &enErr);
+    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
     if (nRcvedBytes > 0)
         return nRcvedBytes;
     else
@@ -311,7 +333,7 @@ INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
         }
 
         //* 读取数据
-        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, &enErr);
+        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
         if (nRcvedBytes > 0)
             return nRcvedBytes;
         else

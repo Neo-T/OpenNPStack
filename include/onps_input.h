@@ -71,10 +71,10 @@ ONPSINPUT_EXT void onps_input_unlock(INT nInput);
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 
 //* 将底层协议收到的对端发送过来的数据放入接收缓冲区
-ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataByte, EN_ONPSERR *penErrs);
+ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataByte, in_addr_t unFromIP, USHORT usFromPort, EN_ONPSERR *penErrs);
 
 //* 将收到的数据推送给用户层
-ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr);
 
 //* 等待接收icmp层对端发送的数据
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 

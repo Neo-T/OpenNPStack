@@ -604,7 +604,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 else;                 
 
                 if (nDataLen)
-                    onps_input_recv(nInput, NULL, 0, NULL);                 
+                    onps_input_recv(nInput, NULL, 0, 0, 0, NULL);                 
             }            
 
             //* 已经发送了数据，看看是不是对应的ack报文            
@@ -632,7 +632,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     if (!(nDataLen == 1 && pstLink->stLocal.bIsZeroWnd))
                     {
                         //* 将数据搬运到input层
-                        if (onps_input_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, &enErr))
+                        if (onps_input_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, 0, 0, &enErr))
                             pstLink->stLocal.unAckNum = unPeerSeqNum;
                         else
                         {
@@ -678,7 +678,7 @@ INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
     INT nRcvedBytes; 
 
     //* 读取数据
-    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, &enErr);
+    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
     if (nRcvedBytes > 0)
         return nRcvedBytes; 
     else
@@ -708,7 +708,7 @@ __lblWaitRecv:
         }
 
         //* 读取数据
-        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, &enErr);
+        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
         if (nRcvedBytes > 0)
             return nRcvedBytes;
         else
