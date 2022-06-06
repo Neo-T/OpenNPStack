@@ -720,7 +720,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
     }    
 
     //* 没有收到任何数据则立即返回0
-    if (!l_stcbaInput[nInput].unRcvedBytes)
+    if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto && !l_stcbaInput[nInput].unRcvedBytes)
         return 0; 
 
     //* 将数据搬运到用户的接收缓冲区

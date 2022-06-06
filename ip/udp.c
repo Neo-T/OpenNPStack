@@ -123,7 +123,11 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
         pstHandle->usPort = onps_input_port_new(IPPROTO_UDP);
     }
 
-    return udp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, pstLink->stPeerAddr.unIp, pstLink->stPeerAddr.usPort, pubData, nDataLen, &enErr); 
+    INT nRtnVal = udp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, pstLink->stPeerAddr.unIp, pstLink->stPeerAddr.usPort, pubData, nDataLen, &enErr); 
+    if (nRtnVal > 0)
+        return nDataLen;
+    else
+        return nRtnVal; 
 }
 
 INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, INT nDataLen)
@@ -153,7 +157,11 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
         pstHandle->usPort = onps_input_port_new(IPPROTO_UDP);
     }
 
-    return udp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, unDstIP, usDstPort, pubData, nDataLen, &enErr); 
+    INT nRtnVal = udp_send_packet(pstHandle->unNetifIp, pstHandle->usPort, unDstIP, usDstPort, pubData, nDataLen, &enErr);
+    if (nRtnVal > 0)
+        return nDataLen;
+    else
+        return nRtnVal;
 }
 
 void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)

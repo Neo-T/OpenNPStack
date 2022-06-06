@@ -112,7 +112,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
         sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
         if (sOptionsNode < 0)
         {
-            buf_list_free(sDataNode);
+            if (sDataNode >= 0)
+                buf_list_free(sDataNode);
             return -1;
         }
         buf_list_put_head(&sBufListHead, sOptionsNode);
@@ -138,8 +139,10 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
     if (sHdrNode < 0)
     {
-        buf_list_free(sDataNode);
-        buf_list_free(sOptionsNode);
+        if (sDataNode >= 0)
+            buf_list_free(sDataNode);
+        if (sOptionsNode >= 0)
+            buf_list_free(sOptionsNode);
 
         onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
@@ -159,8 +162,10 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_TCP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {
-        buf_list_free(sDataNode);
-        buf_list_free(sOptionsNode);
+        if (sDataNode >= 0)
+            buf_list_free(sDataNode);
+        if (sOptionsNode >= 0)
+            buf_list_free(sOptionsNode);
         buf_list_free(sHdrNode);
 
         onps_input_unlock(pstLink->stcbWaitAck.nInput);
@@ -179,8 +184,10 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
     //* 释放刚才申请的buf list节点
-    buf_list_free(sDataNode); 
-    buf_list_free(sOptionsNode); 
+    if (sDataNode >= 0)
+        buf_list_free(sDataNode);
+    if (sOptionsNode >= 0)
+        buf_list_free(sOptionsNode);
     buf_list_free(sHdrNode);
 
     return nRtnVal; 
