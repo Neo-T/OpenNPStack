@@ -100,6 +100,9 @@ void buf_list_attach_data(SHORT sNode, void *pvData, UINT unDataSize)
 
 void buf_list_free(SHORT sNode)
 {
+    if (sNode < 0)
+        return; 
+
 	os_thread_mutex_lock(l_hMtxMMUBufList);
 	{
 		l_pvaBufNode[sNode]    = NULL;
@@ -112,6 +115,9 @@ void buf_list_free(SHORT sNode)
 
 void buf_list_free_head(SHORT *psHead, SHORT sNode)
 {
+    if (sNode < 0)
+        return;
+
     *psHead = l_saFreeBufNode[sNode]; 
     buf_list_free(sNode); 
 }

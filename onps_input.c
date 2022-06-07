@@ -146,6 +146,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     if (unSize)
     {
         pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
+        printf("alloc>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%08X\r\n", pubRcvBuf);
         if (NULL == pubRcvBuf)
         {
             os_thread_sem_uninit(hSem);
@@ -197,7 +198,9 @@ void onps_input_free(INT nInput)
     #endif
 #endif
         return; 
-    }    
+    }   
+
+    printf("===========================onps_input_free()#######################################################%d\r\n", nInput);
 
     //* 归还节点
     os_thread_mutex_lock(l_hMtxInput);
@@ -664,6 +667,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
                             pstNextPacket->pstNext = pstRcvedPacket;
                             break; 
                         }
+                        pstNextPacket = pstNextPacket->pstNext; 
                     }
                 }
                 else                

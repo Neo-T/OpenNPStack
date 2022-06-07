@@ -8,13 +8,6 @@
 #include "one_shot_timer.h"
 #undef SYMBOL_GLOBALS
 
-typedef struct _ST_ONESHOTTIMER_ { //* 定时器
-    PST_ONESHOTTIMER pstNext;
-    PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler;
-    void *pvParam;
-    INT nTimeoutCount;	//* 溢出值，单位：秒	
-} ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
-
 static HMUTEX l_hMtxFreeOneShotTimer;	//* 可用定时器链表同步锁
 static HMUTEX l_hMtxOneShotTimer;		//* 正在计时的定时器链表同步锁
 static ST_ONESHOTTIMER l_staOneShotTimerNode[ONE_SHOT_TIMER_NUM];
@@ -34,7 +27,7 @@ BOOL one_shot_timer_init(EN_ONPSERR *penErr)
 	l_staOneShotTimerNode[ONE_SHOT_TIMER_NUM - 1].pstNext = NULL; //* 最后一个节点单独赋值
 	l_pstFreeOneShotTimerLink = &l_staOneShotTimerNode[0];		  //* 接入链表头，形成真正的链表
 
-	do {
+	do {		
 		//* 建立可用定时器队列同步锁
 		l_hMtxFreeOneShotTimer = os_thread_mutex_init();
 		if (INVALID_HMUTEX == l_hMtxFreeOneShotTimer)
@@ -55,7 +48,7 @@ BOOL one_shot_timer_init(EN_ONPSERR *penErr)
 	} while (FALSE); 	
 
 	if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
-		os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);	
+		os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);
 	
 	return FALSE; 
 }
@@ -65,14 +58,14 @@ void one_shot_timer_uninit(void)
 {
     l_blIsRunning = FALSE; 
 
-    while (!l_ubThreadExitFlag)
-        os_sleep_secs(1);     
+    while (l_ubThreadExitFlag)
+        os_sleep_secs(1);
 
     if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
         os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);
 
     if (INVALID_HMUTEX != l_hMtxOneShotTimer)
-        os_thread_mutex_uninit(l_hMtxOneShotTimer);    
+        os_thread_mutex_uninit(l_hMtxOneShotTimer);
 }
 
 //* 结束两个定时器线程，并释放所有工作队列，并归还给系统
@@ -89,22 +82,28 @@ void thread_one_shot_timer_count(void *pvParam)
     l_ubThreadExitFlag = FALSE;
 	while (l_blIsRunning)
 	{
+        pstTimer = NULL; 
 		os_thread_mutex_lock(l_hMtxOneShotTimer);
 		{
 			pstNextTimer = l_pstOneShotTimerLink;
 			pstPrevTimer = NULL;
-            pstTimer = NULL; 
 			while (pstNextTimer)
 			{
 				if (pstNextTimer->nTimeoutCount-- <= 0)
 				{
 					//* 先从计时器队列摘除
-                    if (pstPrevTimer)
-                        pstPrevTimer->pstNext = NULL;
-                    else
-                        l_pstOneShotTimerLink = NULL; 
+					if (pstPrevTimer)
+						pstPrevTimer->pstNext = pstNextTimer->pstNext; 
+					else
+						l_pstOneShotTimerLink = pstNextTimer->pstNext; 					
 					pstTimer = pstNextTimer;
-                    break; 					
+
+					//* 指向下一个节点
+					pstNextTimer = pstNextTimer->pstNext;
+
+                    //* 执行溢出操作，然后归还给系统
+                    pstTimer->pfunTimeoutHandler(pstTimer->pvParam); 
+                    one_shot_timer_free(pstTimer); 
 				}
 				else //* 计时尚未结束，检查下一个节点
 				{
@@ -114,22 +113,6 @@ void thread_one_shot_timer_count(void *pvParam)
 			}
 		}
 		os_thread_mutex_unlock(l_hMtxOneShotTimer);		
-
-        //* 如果存在溢出节点则开始执行溢出操作
-        if (pstTimer)
-        {
-            pstNextTimer = pstTimer;
-            while (pstNextTimer)
-            {
-                //* 保存当前要操作的定时器并在操作之前推进到下一个溢出定时器
-                pstTimer = pstNextTimer; 
-                pstNextTimer = pstNextTimer->pstNext; 
-
-                //* 执行溢出函数并归还给系统
-                pstTimer->pfunTimeoutHandler(pstTimer->pvParam);                           
-                one_shot_timer_free(pstTimer);
-            }
-        }        
 
 		//* 这个休眠可以不用特别精确（1秒左右），我们的应用场景足够了
 		os_sleep_secs(1);
@@ -179,34 +162,42 @@ PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandl
 		//* 挂接到计时队列中，开始计数
 		os_thread_mutex_lock(l_hMtxOneShotTimer);
 		{
-            //* 按照降序挂载到链表
-            PST_ONESHOTTIMER pstNextTimer = l_pstOneShotTimerLink; 
-            PST_ONESHOTTIMER pstPrevTimer = NULL; 
-            while (pstNextTimer)
-            {
-                if (pstNextTimer->nTimeoutCount > nTimeoutCount)                
-                    pstPrevTimer = pstNextTimer; 
-                else
-                    break;                 
-
-                pstNextTimer = pstNextTimer->pstNext;
-            }
-
-            if (pstPrevTimer) //* 说明是中间部分节点
-            {
-                pstTimer->pstNext = pstPrevTimer->pstNext; 
-                pstPrevTimer->pstNext = pstTimer;
-            }
-            else //* 直接挂载到头部（头部节点计数比新分配的计数要小，直接挂载到头部）
-            {
-                pstTimer->pstNext = l_pstOneShotTimerLink;
-                l_pstOneShotTimerLink = pstTimer;
-            }			
+			pstTimer->pstNext = l_pstOneShotTimerLink;
+			l_pstOneShotTimerLink = pstTimer;
 		}
 		os_thread_mutex_unlock(l_hMtxOneShotTimer);
 	}
 
 	return pstTimer; 
+}
+
+PST_ONESHOTTIMER one_shot_timer_new_nolock(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, void *pvParam, INT nTimeoutCount)
+{
+    PST_ONESHOTTIMER pstTimer = NULL;
+
+    //* 从可用队列中摘取一个空闲节点
+    os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+    {
+        pstTimer = l_pstFreeOneShotTimerLink;
+        if (l_pstFreeOneShotTimerLink)
+            l_pstFreeOneShotTimerLink = l_pstFreeOneShotTimerLink->pstNext;
+    }
+    os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+
+    //* 存在空闲节点则赋值并挂接到计时队列中
+    if (pstTimer)
+    {
+        //* 先赋值再挂载，否则可能导致计数线程出现错误
+        pstTimer->pfunTimeoutHandler = pfunTimeoutHandler;
+        pstTimer->pvParam = pvParam;
+        pstTimer->nTimeoutCount = nTimeoutCount;
+
+        //* 挂接到计时队列中，开始计数        
+        pstTimer->pstNext = l_pstOneShotTimerLink;
+        l_pstOneShotTimerLink = pstTimer;
+    }
+
+    return pstTimer;
 }
 
 void one_shot_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount)
@@ -220,52 +211,17 @@ void one_shot_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount)
 	//*	确保计时队列中还存在这个节点，否则没必要重计数了
 	os_thread_mutex_lock(l_hMtxOneShotTimer);
 	{
-        PST_ONESHOTTIMER pstPrevTimer = NULL;
-		pstNextTimer = l_pstOneShotTimerLink;        
+		pstNextTimer = l_pstOneShotTimerLink;
 		while (pstNextTimer)
 		{
-            //* 找到了这个节点，则先从中摘除以重新排序
 			if (pstTimer == pstNextTimer)
 			{
-                if (pstPrevTimer)                
-                    pstPrevTimer->pstNext = pstTimer->pstNext;                
-                else                
-                    l_pstOneShotTimerLink = l_pstOneShotTimerLink->pstNext;                 
+				pstTimer->nTimeoutCount = nTimeoutCount; 
 				break; 
 			}
-             
-            pstPrevTimer = pstNextTimer; 
+
 			pstNextTimer = pstNextTimer->pstNext; 
 		}
-
-        //* 如果不为空，意味着匹配，则重新排序后挂载到链表上
-        if (pstNextTimer)
-        {
-            pstTimer->nTimeoutCount = nTimeoutCount; 
-            
-            pstNextTimer = l_pstOneShotTimerLink;
-            pstPrevTimer = NULL;
-            while (pstNextTimer)
-            {
-                if (pstNextTimer->nTimeoutCount > nTimeoutCount)
-                    pstPrevTimer = pstNextTimer;
-                else
-                    break;
-
-                pstNextTimer = pstNextTimer->pstNext;
-            }
-
-            if (pstPrevTimer) //* 说明是中间部分节点
-            {
-                pstTimer->pstNext = pstPrevTimer->pstNext;
-                pstPrevTimer->pstNext = pstTimer;
-            }
-            else //* 直接挂载到头部（头部节点计数比新分配的计数要小，直接挂载到头部）
-            {
-                pstTimer->pstNext = l_pstOneShotTimerLink;
-                l_pstOneShotTimerLink = pstTimer;
-            }
-        }
 	}
 	os_thread_mutex_unlock(l_hMtxOneShotTimer); 
 }

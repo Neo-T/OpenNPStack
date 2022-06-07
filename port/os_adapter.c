@@ -15,8 +15,7 @@
 
 //* 协议栈内部工作线程列表
 const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
-	{ thread_one_shot_timer_count, NULL},
-	{ thread_one_shot_timeout_handler, NULL }, 
+	{ thread_one_shot_timer_count, NULL}, 	
 #if SUPPORT_PPP
 	//* 在此按照顺序建立ppp工作线程，入口函数为thread_ppp_handler()，线程入口参数为该ppp链路在l_staTTY数组的存储单元索引值
 	//* 其直接强行进行数据类型转换即可，即作为线程入口参数时直接以如下形式传递：

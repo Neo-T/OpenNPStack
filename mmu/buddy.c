@@ -60,6 +60,8 @@ BOOL buddy_init(EN_ONPSERR *penErr)
 	UINT unPageSize = BUDDY_PAGE_SIZE; 
 	EN_ONPSERR enCode;
 
+    printf("@@@@>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%08X\r\n", l_ubaMemPool);
+
 	//* 存储页面控制信息的链表必须先初始化，接下来就要用到
 	for (i = 0; i < lr_unPageCount; i++)
 	{
@@ -248,7 +250,9 @@ BOOL buddy_free(void *pvStart)
 	INT i;
 	PST_BUDDY_AREA pstArea;
 	PST_BUDDY_PAGE pstNextPage, pstPrevPage1, pstPrevPage2, pstFreedPage;
-	UCHAR *pubBuddyAddr;    
+	UCHAR *pubBuddyAddr;
+
+    printf("***********************************************free>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%08X\r\n", pvStart);
 
 	os_thread_mutex_lock(l_hMtxMMUBuddy);
 	{

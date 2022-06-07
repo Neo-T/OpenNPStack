@@ -41,6 +41,7 @@ static void tcp_close_timeout_handler(void *pvParam)
 {
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;
     INT nRtnVal; 
+
     switch ((EN_TCPLINKSTATE)pstLink->bState)
     {
     case TLSFINWAIT1: 
@@ -88,7 +89,7 @@ static void tcp_close_timeout_handler(void *pvParam)
     }       
 
     //* 重新启动定时器
-    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1); 
+    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);     
 }
 
 static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort,

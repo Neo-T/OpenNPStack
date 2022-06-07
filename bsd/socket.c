@@ -56,7 +56,7 @@ void close(SOCKET socket)
 
     EN_TCPLINKSTATE enLinkState;
     if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-        return; 
+        return;     
 
     if (enProto == IPPROTO_TCP)
     {

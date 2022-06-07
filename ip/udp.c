@@ -296,7 +296,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-            printf("onps_input_recv() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+            printf("onps_input_recv() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
