@@ -145,8 +145,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     UCHAR *pubRcvBuf = NULL;
     if (unSize)
     {
-        pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
-        printf("alloc>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%08X\r\n", pubRcvBuf);
+        pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);        
         if (NULL == pubRcvBuf)
         {
             os_thread_sem_uninit(hSem);
@@ -199,9 +198,7 @@ void onps_input_free(INT nInput)
 #endif
         return; 
     }   
-
-    printf("===========================onps_input_free()#######################################################%d\r\n", nInput);
-
+    
     //* 归还节点
     os_thread_mutex_lock(l_hMtxInput);
     {
