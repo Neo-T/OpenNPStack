@@ -25,7 +25,7 @@ typedef enum {
 
 //* 网卡发送函数
 typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
-typedef INT(*PFUN_NETIF_SEND)(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr);
+typedef INT(*PFUN_NETIF_SEND)(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, UCHAR *pubErr);
 
 //* 记录IPv4地址的结构体
 typedef struct _ST_IPV4_ {

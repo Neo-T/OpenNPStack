@@ -369,10 +369,10 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 	return nRtnVal; 
 }
 
-static INT netif_send(PST_NETIF pstIf, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT netif_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, UCHAR *pubErr)
 {    
     HTTY hTTY = *((HTTY *)pstIf->pvExtra);
-    return ppp_send(hTTY, enProtocol, sBufListHead, penErr);
+    return ppp_send(hTTY, (EN_NPSPROTOCOL)ubProtocol, sBufListHead, (EN_ONPSERR *)pubErr); 
 }
 
 //* 将当前ppp链路作为网卡添加到协议栈

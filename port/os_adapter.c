@@ -3,9 +3,9 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "one_shot_timer.h"
+#include "protocols.h"
 
 #if SUPPORT_PPP
-#include "protocols.h"
 #include "ppp/ppp.h"
 #endif
 

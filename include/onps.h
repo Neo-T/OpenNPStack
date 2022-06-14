@@ -22,6 +22,7 @@
 #include "mmu/buddy.h"
 #include "mmu/buf_list.h"
 #include "onps_utils.h"
+#include "one_shot_timer.h"
 #include "netif/netif.h" 
 #include "netif/route.h"
 #if SUPPORT_PPP
