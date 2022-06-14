@@ -56,5 +56,10 @@ OS_ADAPTER_EXT INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen, INT 
 OS_ADAPTER_EXT void os_modem_reset(HTTY hTTY); 
 #endif
 
+#if SUPPORT_ETHERNET
+OS_ADAPTER_EXT HETH os_open_eth(const CHAR *pszEthName/* ethXX etc.*/);
+OS_ADAPTER_EXT void os_close_eth(HETH hEth);
+#endif
+
 #endif
 
