@@ -59,6 +59,7 @@ OS_ADAPTER_EXT void os_modem_reset(HTTY hTTY);
 #if SUPPORT_ETHERNET
 OS_ADAPTER_EXT HETH os_open_eth(const CHAR *pszEthName/* 名称如：ethXX等，能够唯一标识这个网卡即可*/);
 OS_ADAPTER_EXT void os_close_eth(HETH hEth);
+OS_ADAPTER_EXT const UCHAR *os_get_eth_mac_addr(const CHAR *pszEthName); 
 #endif
 
 #endif

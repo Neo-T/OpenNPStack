@@ -31,6 +31,12 @@ ST_PPPNEGORESULT o_staNegoResult[PPP_NETLINK_NUM] = {
 };
 #endif
 
+#if SUPPORT_ETHERNET
+const CHAR *or_pszaEthName[ETHERNET_NUM] = {
+    "eth0"
+};
+#endif
+
 //* 协议栈内部工作线程列表
 const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
 	{ thread_one_shot_timer_count, NULL}, 	
@@ -184,5 +190,10 @@ HETH os_open_eth(const CHAR *pszEthName)
 void os_close_eth(HETH hEth)
 {
     /* 关闭网卡，其实就是去初始化，去初始化的操作必须确保ethernet接口能够再次被正确初始化 */
+}
+
+const UCHAR *os_get_eth_mac_addr(const CHAR *pszEthName)
+{
+    /* 根据指定的ethernet网卡名称返回其mac地址 */
 }
 #endif

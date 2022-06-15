@@ -177,6 +177,36 @@ void netif_del(PST_NETIF_NODE pstNode)
     put_free_node(pstNode); 
 }
 
+void netif_del_ext(PST_NETIF pstNetif)
+{
+    PST_NETIF_NODE pstNode = NULL; 
+
+    //* 从网卡链表删除
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        PST_NETIF_NODE pstPrevNode = NULL;
+        while (pstNextNode)
+        {
+            if (&pstNextNode->stIf == pstNetif)
+            {       
+                pstNode = pstNextNode;
+                if (pstPrevNode)
+                    pstPrevNode->pstNext = pstNode->pstNext;
+                else
+                    l_pstNetifLink = pstNode->pstNext;
+                break;
+            }
+            pstPrevNode = pstNextNode;
+            pstNextNode = pstNextNode->pstNext;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    if(pstNode)
+        put_free_node(pstNode);
+}
+
 PST_NETIF netif_get_first(BOOL blIsForSending)
 {
     PST_NETIF_NODE pstNode = NULL;

@@ -15,7 +15,8 @@
 	#define ETHERNET_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-//ETHERNET_EXT BOOL ppp_init(EN_ONPSERR *penErr);
-//ETHERNET_EXT void ppp_uninit(void);
+ETHERNET_EXT void ethernet_init(void); 
+ETHERNET_EXT PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, EN_ONPSERR *penErr);
+ETHERNET_EXT void ethernet_del(PST_NETIF pstNetif); 
 
 #endif

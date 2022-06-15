@@ -17,11 +17,6 @@ typedef INT HTTY;			//* tty终端句柄
 #define INVALID_HTTY -1		//* 无效的tty终端句柄
 #endif
 
-#if SUPPORT_ETHERNET
-typedef INT HETH;           //* 以太网卡（ethernet）访问句柄
-#define INVALID_HETH -1     //* 无效的以太网卡（ethernet）访问句柄
-#endif
-
 typedef INT HSEM;			//* 信号量，适用与不同线程间通讯
 #define INVALID_HSEM -1		//* 无效的线程同步锁句柄
 

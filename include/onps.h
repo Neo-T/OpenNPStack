@@ -29,6 +29,9 @@
 #include "ppp/negotiation.h"
 #include "ppp/ppp.h"
 #endif
+#if SUPPORT_ETHERNET
+#include "ethernet/ethernet.h"
+#endif
 #include "ip/icmp.h"
 #include "onps_input.h"
 #include "bsd/socket.h"

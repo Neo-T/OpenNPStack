@@ -26,7 +26,7 @@
 	#define AUTH_USER_DEFAULT		"card"		//* ppp认证缺省用户名
 	#define AUTH_PASSWORD_DEFAULT	"any_char"	//* ppp认证缺省口令
 
-	#define PPP_NETLINK_NUM			1	//* 最多支持几路ppp链路（系统存在几个modem这里就指定几就行）
+	#define PPP_NETLINK_NUM			1	//* 协议栈加载几路ppp链路（系统存在几个modem这里就指定几就行）
 	#define	SUPPORT_ECHO			1	//* 对端是否支持echo链路探测
 	#define WAIT_ACK_TIMEOUT_NUM	5	//* 在这里指定连续几次接收不到对端的应答报文就进入协议栈故障处理流程（STACKFAULT），这意味着当前链路已经因严重故障终止了
 #else

@@ -65,14 +65,17 @@ typedef struct _ST_NETIF_ETH_IP_NODE_ {
 
 //* ethernet网卡附加信息
 typedef struct _ST_NETIFEXTRA_ETH_ { 
-    UCHAR ubaMacAddr[6]; 
-    ST_NETIF_ETH_IP_NODE stIPList; 
+    CHAR bIsUsed; 
+    CHAR bIsStaticAddr;     //* 静态地址？
+    UCHAR ubaMacAddr[6];    //* mac地址   
+    PST_NETIF_ETH_IP_NODE pstIPList; //* 绑定到该网卡的IP地址
 } ST_NETIFEXTRA_ETH, *PST_NETIFEXTRA_ETH;
 
 NETIF_EXT BOOL netif_init(EN_ONPSERR *penErr);
 NETIF_EXT void netif_uninit(void);
 NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr);
 NETIF_EXT void netif_del(PST_NETIF_NODE pstNode); 
+NETIF_EXT void netif_del_ext(PST_NETIF pstNetif);
 NETIF_EXT PST_NETIF netif_get_first(BOOL blIsForSending);
 NETIF_EXT PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending);
 NETIF_EXT UINT netif_get_first_ip(void);

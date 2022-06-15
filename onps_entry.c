@@ -41,6 +41,10 @@ BOOL open_npstack_load(EN_ONPSERR *penErr)
             break; 
 #endif
 
+#if SUPPORT_ETHERNET
+        ethernet_init(); 
+#endif
+
         //* 启动协议栈
         os_thread_onpstack_start(NULL);
 

@@ -63,6 +63,7 @@ typedef enum {
     ERRSENDZEROBYTES,   //* 发送了0字节的数据
     ERRPORTOCCUPIED,    //* 端口已被占用
     ERRSENDADDR,        //* 发送地址错误
+    ERRETHEXTRAEMPTY,   //* 无可用的ethernet网卡附加信息节点
     ERRUNKNOWN,         //* 未知错误
 } EN_ONPSERR;
 
