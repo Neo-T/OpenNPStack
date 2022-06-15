@@ -15,6 +15,10 @@
 #include "ethernet/ethernet.h"
 #undef SYMBOL_GLOBALS
 
+static const CHAR *lr_pszaEthName[ETHERNET_NUM] = {
+    "eth0"
+}; 
+
 //* ethernet ii层协议支持的上层协议
 typedef struct _ST_ETHIIPROTOCOL_ {
     USHORT usType;
@@ -22,5 +26,8 @@ typedef struct _ST_ETHIIPROTOCOL_ {
 } ST_ETHIIPROTOCOL, *PST_ETHIIPROTOCOL;
 static const ST_ETHIIPROTOCOL lr_staProtocol[] = { 
 }; 
+
+static PST_NETIF_NODE l_pstaNetif[ETHERNET_NUM]; 
+static HMUTEX l_haMtxEth[ETHERNET_NUM];
 
 #endif

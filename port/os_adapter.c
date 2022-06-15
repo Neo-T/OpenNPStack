@@ -6,12 +6,30 @@
 #include "protocols.h"
 
 #if SUPPORT_PPP
+#include "ppp/negotiation_storage.h"
 #include "ppp/ppp.h"
 #endif
 
 #define SYMBOL_GLOBALS
 #include "port/os_adapter.h"
 #undef SYMBOL_GLOBALS
+
+#if SUPPORT_PPP
+//* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
+const CHAR *or_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
+const ST_DIAL_AUTH_INFO or_staDialAuth[PPP_NETLINK_NUM] = {
+    { "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量及 */
+                                      /* pap.c中pap_send_auth_request()函数的ubaPacket数组的容量，确保其能够封装一个完整的响应报文              */
+};
+ST_PPPNEGORESULT o_staNegoResult[PPP_NETLINK_NUM] = {
+    {
+        { 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE },
+        { IP_ADDR_INIT, DNS_ADDR_INIT, DNS_ADDR_INIT, IP_ADDR_INIT, MASK_INIT }, 0
+    },
+
+    /* 系统存在几路ppp链路，就在这里添加几路的协商初始值，如果不确定，可以直接将上面预定义的初始值直接复制过来即可 */
+};
+#endif
 
 //* 协议栈内部工作线程列表
 const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
@@ -154,5 +172,17 @@ void os_modem_reset(HTTY hTTY)
 {
 	/* 用户自定义代码，不需要复位modem设备则这里可以不进行任何操作 */
 	/* …… */
+}
+#endif
+
+#if SUPPORT_ETHERNET
+HETH os_open_eth(const CHAR *pszEthName)
+{
+    /* 完成底层网卡初始化 */
+}
+
+void os_close_eth(HETH hEth)
+{
+    /* 关闭网卡，其实就是去初始化，去初始化的操作必须确保ethernet接口能够再次被正确初始化 */
 }
 #endif

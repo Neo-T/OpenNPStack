@@ -51,8 +51,23 @@ typedef struct _ST_NETIF_ {
 //* 网卡链表节点
 typedef struct _ST_NETIF_NODE_ {
     struct _ST_NETIF_NODE_ *pstNext;
-    ST_NETIF stIf;      
+    ST_NETIF stIf; 
 } ST_NETIF_NODE, *PST_NETIF_NODE;
+
+//* ethernet网卡接口附加IP地址
+typedef struct _ST_NETIF_ETH_IP_NODE_ ST_NETIF_ETH_IP_NODE, *PST_NETIF_ETH_IP_NODE;
+typedef struct _ST_NETIF_ETH_IP_NODE_ {
+    PST_NETIF_ETH_IP_NODE pstNext;
+    UINT unAddr; 
+    UINT unSubnetMask; 
+    UINT unGateway; 
+} ST_NETIF_ETH_IP_NODE, *PST_NETIF_ETH_IP_NODE; 
+
+//* ethernet网卡附加信息
+typedef struct _ST_NETIFEXTRA_ETH_ { 
+    UCHAR ubaMacAddr[6]; 
+    ST_NETIF_ETH_IP_NODE stIPList; 
+} ST_NETIFEXTRA_ETH, *PST_NETIFEXTRA_ETH;
 
 NETIF_EXT BOOL netif_init(EN_ONPSERR *penErr);
 NETIF_EXT void netif_uninit(void);

@@ -9,7 +9,6 @@
 #ifndef SYS_CONFIG_H
 #define SYS_CONFIG_H
 
-#define NETIF_NUM               2       //* 系统支持的网卡数量
 #define SOCKET_NUM_MAX          10      //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响）
 #define IP_TTL_DEFAULT          64      //* 缺省TTL值
 
@@ -30,9 +29,19 @@
 	#define PPP_NETLINK_NUM			1	//* 最多支持几路ppp链路（系统存在几个modem这里就指定几就行）
 	#define	SUPPORT_ECHO			1	//* 对端是否支持echo链路探测
 	#define WAIT_ACK_TIMEOUT_NUM	5	//* 在这里指定连续几次接收不到对端的应答报文就进入协议栈故障处理流程（STACKFAULT），这意味着当前链路已经因严重故障终止了
+#else
+    #define PPP_NETLINK_NUM			0
 #endif
 
 #define SUPPORT_ETHERNET    1   //* 是否支持ethernet：1，支持；0，不支持
+#if SUPPORT_ETHERNET
+    #define ETHERNET_NUM    1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
+#else
+    #define ETHERNET_NUM    0
+#endif
+
+//* 系统支持的网卡数量
+#define NETIF_NUM   (PPP_NETLINK_NUM + ETHERNET_NUM)
 
 #define SUPPORT_IPV6	0	//* 是否支持IPv6：1，支持；0，不支持
  //* ===============================================================================================

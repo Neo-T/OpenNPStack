@@ -57,7 +57,7 @@ OS_ADAPTER_EXT void os_modem_reset(HTTY hTTY);
 #endif
 
 #if SUPPORT_ETHERNET
-OS_ADAPTER_EXT HETH os_open_eth(const CHAR *pszEthName/* ethXX etc.*/);
+OS_ADAPTER_EXT HETH os_open_eth(const CHAR *pszEthName/* 名称如：ethXX等，能够唯一标识这个网卡即可*/);
 OS_ADAPTER_EXT void os_close_eth(HETH hEth);
 #endif
 

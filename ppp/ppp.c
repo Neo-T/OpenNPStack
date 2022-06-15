@@ -40,24 +40,14 @@ static const ST_PPP_PROTOCOL lr_staProtocol[] = { //* 这个结构体必须严�
 }; 
 
 //* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
-static const CHAR *lr_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
-static const ST_DIAL_AUTH_INFO lr_staDialAuth[PPP_NETLINK_NUM] = {
-	{ "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量及 */
-									  /* pap.c中pap_send_auth_request()函数的ubaPacket数组的容量，确保其能够封装一个完整的响应报文              */
-}; 
+extern const CHAR *or_pszaTTY[PPP_NETLINK_NUM];
+extern const ST_DIAL_AUTH_INFO or_staDialAuth[PPP_NETLINK_NUM]; 
 static STCB_PPP l_staPPP[PPP_NETLINK_NUM];
 static PST_NETIF_NODE l_pstaNetif[PPP_NETLINK_NUM];
 static HMUTEX l_haMtxTTY[PPP_NETLINK_NUM];
 static UCHAR l_ubaaFrameBuf[PPP_NETLINK_NUM][TTY_RCV_BUF_SIZE];
 static UCHAR l_ubaThreadExitFlag[PPP_NETLINK_NUM];
-static ST_PPPNEGORESULT l_staNegoResult[PPP_NETLINK_NUM] = {
-	{
-		{ 0, PPP_MRU, ACCM_INIT,{ PPP_CHAP, 0x05 /* 对于CHAP协议来说，0-4未使用，0x05代表采用MD5算法 */ }, TRUE, TRUE, FALSE, FALSE },
-		{ IP_ADDR_INIT, DNS_ADDR_INIT, DNS_ADDR_INIT, IP_ADDR_INIT, MASK_INIT }, 0
-	}, 
-
-	/* 系统存在几路ppp链路，就在这里添加几路的协商初始值，如果不确定，可以直接将上面预定义的初始值直接复制过来即可 */
-}; 
+extern ST_PPPNEGORESULT o_staNegoResult[PPP_NETLINK_NUM]; 
 
 BOOL ppp_init(EN_ONPSERR *penErr)
 {
@@ -72,7 +62,7 @@ BOOL ppp_init(EN_ONPSERR *penErr)
 	//* 初始化tty
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
-		l_staPPP[i].hTTY = tty_init(lr_pszaTTY[i], penErr);
+		l_staPPP[i].hTTY = tty_init(or_pszaTTY[i], penErr);
 		if (INVALID_HTTY == l_staPPP[i].hTTY)
 			goto __lblEnd; 
 
@@ -85,7 +75,7 @@ BOOL ppp_init(EN_ONPSERR *penErr)
 
         l_staPPP[i].stWaitAckList.bPPPIdx = i; 
 		l_staPPP[i].enState = TTYINIT; 
-		l_staPPP[i].pstNegoResult = &l_staNegoResult[i];
+		l_staPPP[i].pstNegoResult = &o_staNegoResult[i];
         l_pstaNetif[i] = NULL;
         l_ubaThreadExitFlag[i] = TRUE;
 	}
@@ -182,7 +172,7 @@ const CHAR *get_ppp_port_name(HTTY hTTY)
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
 		if (hTTY == l_staPPP[i].hTTY)
-			return lr_pszaTTY[i];
+			return or_pszaTTY[i];
 	}
 
 	return "unspecified"; 
@@ -197,7 +187,7 @@ const ST_DIAL_AUTH_INFO *get_ppp_dial_auth_info(HTTY hTTY)
 	for (i = 0; i < PPP_NETLINK_NUM; i++)
 	{
 		if (hTTY == l_staPPP[i].hTTY)
-			return &lr_staDialAuth[i];
+			return &or_staDialAuth[i];
 	}
 
 	return NULL;
@@ -213,8 +203,8 @@ void get_ppp_auth_info(HTTY hTTY, const CHAR **pszUser, const CHAR **pszPassword
 	{
 		if (hTTY == l_staPPP[i].hTTY)
 		{
-			*pszUser = lr_staDialAuth[i].pszUser;
-			*pszPassword = lr_staDialAuth[i].pszPassword;
+			*pszUser = or_staDialAuth[i].pszUser;
+			*pszPassword = or_staDialAuth[i].pszPassword;
 		}
 	}
 }
@@ -388,7 +378,7 @@ static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
     CHAR szNetIfName[NETIF_NAME_LEN]; 
     snprintf(szNetIfName, sizeof(szNetIfName), "ppp%d", nPPPIdx); 
 #if SUPPORT_PRINTF
-    printf("Connect: %s <--> %s\r\n", szNetIfName, lr_pszaTTY[nPPPIdx]);
+    printf("Connect: %s <--> %s\r\n", szNetIfName, or_pszaTTY[nPPPIdx]);
 #endif
     l_pstaNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErr); 
     if (l_pstaNetif[nPPPIdx])
