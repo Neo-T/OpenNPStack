@@ -10,6 +10,7 @@
 #include "ip/ip.h"
 
 #if SUPPORT_ETHERNET
+#include "ethernet/arp.h" 
 #include "ethernet/ethernet_frame.h"
 #define SYMBOL_GLOBALS
 #include "ethernet/ethernet.h"
@@ -31,7 +32,7 @@ void ethernet_init(void)
 }
 
 //* 添加ethernet网卡
-PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, EN_ONPSERR *penErr)
+PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, EN_ONPSERR *penErr)
 {
     PST_NETIF pstNetif = NULL; 
     PST_NETIFEXTRA_ETH pstExtra = NULL; 
@@ -58,12 +59,13 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV
         return NULL;
     }
 
-    PST_NETIF_NODE pstIfNode = netif_add(NIF_ETHERNET, pszIfName, pstIPv4, pfunSend, pstExtra, penErr); 
+    PST_NETIF_NODE pstIfNode = netif_add(NIF_ETHERNET, pszIfName, pstIPv4, ethernet_ii_send, pstExtra, penErr);
     if (pstIfNode)
     {
         pstNetif = &pstIfNode->stIf;
 
         pstExtra->pstIPList = NULL;
+        pstExtra->pfunEmacSend = pfunEmacSend; 
         memcpy(pstExtra->ubaMacAddr, ubaMacAddr, 6); 
         if (pstIPv4->unAddr) //* 地址不为0则为静态地址，需要将其添加到路由表中
         {
@@ -94,6 +96,13 @@ void ethernet_del(PST_NETIF pstNetif)
 
     //* 再从网卡链表删除
     netif_del_ext(pstNetif); 
+}
+
+//* 通过ethernet网卡进行发送
+INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, UCHAR *pubErr)
+{
+    //* 增加ethernet II协议层
+    
 }
 
 #endif

@@ -36,6 +36,7 @@
 #define SUPPORT_ETHERNET    1   //* 是否支持ethernet：1，支持；0，不支持
 #if SUPPORT_ETHERNET
     #define ETHERNET_NUM    1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
+    #define ARPENTRY_NUM    32  //* 要添加
 #else
     #define ETHERNET_NUM    0
 #endif

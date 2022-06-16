@@ -25,7 +25,11 @@ typedef enum {
 
 //* 网卡发送函数
 typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
-typedef INT(*PFUN_NETIF_SEND)(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, UCHAR *pubErr);
+typedef INT(*PFUN_NETIF_SEND)(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, EN_ONPSERR *penErr); 
+
+#if SUPPORT_ETHERNET
+typedef INT(*PFUN_EMAC_SEND)(SHORT sBufListHead, UCHAR *pubErr);
+#endif
 
 //* 记录IPv4地址的结构体
 typedef struct _ST_IPV4_ {
@@ -54,6 +58,7 @@ typedef struct _ST_NETIF_NODE_ {
     ST_NETIF stIf; 
 } ST_NETIF_NODE, *PST_NETIF_NODE;
 
+#if SUPPORT_ETHERNET
 //* ethernet网卡接口附加IP地址
 typedef struct _ST_NETIF_ETH_IP_NODE_ ST_NETIF_ETH_IP_NODE, *PST_NETIF_ETH_IP_NODE;
 typedef struct _ST_NETIF_ETH_IP_NODE_ {
@@ -69,7 +74,9 @@ typedef struct _ST_NETIFEXTRA_ETH_ {
     CHAR bIsStaticAddr;     //* 静态地址？
     UCHAR ubaMacAddr[6];    //* mac地址   
     PST_NETIF_ETH_IP_NODE pstIPList; //* 绑定到该网卡的IP地址
+    PFUN_EMAC_SEND pfunEmacSend; 
 } ST_NETIFEXTRA_ETH, *PST_NETIFEXTRA_ETH;
+#endif
 
 NETIF_EXT BOOL netif_init(EN_ONPSERR *penErr);
 NETIF_EXT void netif_uninit(void);
