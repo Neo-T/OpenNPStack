@@ -28,6 +28,7 @@ const ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM];
 
 void ethernet_init(void)
 {
+    arp_init(); 
     memset(l_staExtraOfEth, 0, sizeof(l_staExtraOfEth)); 
 }
 
@@ -99,7 +100,7 @@ void ethernet_del(PST_NETIF pstNetif)
 }
 
 //* 通过ethernet网卡进行发送
-INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, UCHAR *pubErr)
+INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     //* 增加ethernet II协议层
     

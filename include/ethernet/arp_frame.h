@@ -17,6 +17,15 @@ c0 a8 00 fc 2c fd a1 ae 27 3e c0 a8 00 03
 00 00 00 00
 */
 
+#define ARP_HARDWARE_ETH    0x0001  //* 硬件类型为ethernet
+#define ARP_PROTO_IPv4      0x0800  //* 协议类型为IPv4
+
+//* ARP操作码定义
+typedef enum {
+    ARPOPCODE_REQUEST = 1,
+    ARPOPCODE_REPLY = 2,
+} EN_ARPOPCODE;
+
 //* arp协议帧头部结构体
 PACKED_BEGIN
 typedef struct _ST_ARP_HDR_ {
@@ -27,12 +36,6 @@ typedef struct _ST_ARP_HDR_ {
     USHORT usOptCode;           //* 操作码
 } PACKED ST_ARP_HDR, *PST_ARP_HDR; 
 PACKED_END
-
-//* ARP操作码定义
-typedef enum { 
-    ARPOPCODE_REQUEST = 1, 
-    ARPOPCODE_REPLY = 2,     
-} EN_ARPOPCODE;
 
 PACKED_BEGIN
 typedef struct _ST_ETHIIARP_IPV4_ {

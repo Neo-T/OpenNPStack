@@ -55,6 +55,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRPORTOCCUPIED, "Port is already occupied" }, 
     { ERRSENDADDR, "destination address is empty" }, 
     { ERRETHEXTRAEMPTY, "No eth additional info node available" }, 
+    { ERRNETUNREACHABLE, "Network unreachable" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

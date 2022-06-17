@@ -15,4 +15,9 @@
 	#define ARP_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+ARP_EXT void arp_init(void); 
+ARP_EXT void arp_add_ethii_ipv4(UINT unIPAddr, UCHAR ubaMacAddr[6]); 
+ARP_EXT INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr);
+ARP_EXT INT arp_send_request_ethii_ipv4(UINT unIPAddr, EN_ONPSERR *penErr);
+
 #endif

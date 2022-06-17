@@ -15,7 +15,7 @@
 	#define ONE_SHOT_TIMER_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#define ONE_SHOT_TIMER_NUM	12		//* 定时器数量
+#define ONE_SHOT_TIMER_NUM	16		//* 定时器数量
 
 typedef void(*PFUN_ONESHOTTIMEOUT_HANDLER)(void *pvParam); 
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;

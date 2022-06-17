@@ -248,6 +248,47 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
     return NULL; 
 }
 
+PST_NETIF netif_get_eth_by_genmask(UINT unDstIp)
+{
+    PST_NETIF pstNetif = NULL;
+
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        while (pstNextNode)
+        {
+            if (NIF_ETHERNET == pstNextNode->stIf.enType)
+            {
+                //* 先本地寻址，网段匹配则直接返回
+                if (ip_addressing(unDstIp, pstNextNode->stIf.stIPv4.unAddr, pstNextNode->stIf.stIPv4.unSubnetMask))
+                {
+                    pstNetif = &pstNextNode->stIf;
+                    break;
+                }
+
+                //* 然后再遍历附加地址链表，看看是否有匹配的网段吗
+                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra; 
+                PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList; 
+                while (pstNextIP)
+                {
+                    if (ip_addressing(unDstIp, pstNextIP->unAddr, pstNextIP->unSubnetMask)) 
+                    {
+                        pstNetif = &pstNextNode->stIf; 
+                        break;
+                    }
+
+                    pstNextIP = pstNextIP->pstNext; 
+                }                
+            }            
+
+            pstNextNode = pstNextNode->pstNext; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    return pstNetif; 
+}
+
 UINT netif_get_first_ip(void)
 {
     UINT unNetifIp = 0; 
