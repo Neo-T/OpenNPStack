@@ -10,7 +10,7 @@
 #include "netif/route.h"
 #undef SYMBOL_GLOBALS
 
-static ST_ROUTE_NODE l_staRouteNode[NETIF_NUM];
+static ST_ROUTE_NODE l_staRouteNode[ROUTE_ITEM_NUM];
 static PST_ROUTE_NODE l_pstFreeNode = NULL;
 static PST_ROUTE_NODE l_pstRouteLink = NULL;
 static HMUTEX l_hMtxRoute = INVALID_HMUTEX;
@@ -21,7 +21,7 @@ BOOL route_table_init(EN_ONPSERR *penErr)
 
     //* 初始化
     INT i;
-    for (i = 1; i < NETIF_NUM; i++)
+    for (i = 1; i < ROUTE_ITEM_NUM; i++)
         l_staRouteNode[i - 1].pstNext = &l_staRouteNode[i];
     l_pstFreeNode = &l_staRouteNode[0];
 
@@ -84,7 +84,8 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
         while (pstNextNode)
         {
             if (unDestination == pstNextNode->stRoute.unDestination) //* 目标网段相等
-            {
+            {                     
+                pstNextNode->stRoute.unSource = netif_get_source_ip_by_gateway(pstNetif, unGateway);
                 pstNextNode->stRoute.unGateway = unGateway;
                 pstNextNode->stRoute.unGenmask = unGenmask;
                 pstNextNode->stRoute.pstNetif = pstNetif; 
@@ -109,6 +110,7 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
     }
 
     //* 保存路由相关信息
+    pstNode->stRoute.unSource = netif_get_source_ip_by_gateway(pstNetif, unGateway); 
     pstNode->stRoute.unDestination = unDestination; 
     pstNode->stRoute.unGateway = unGateway; 
     pstNode->stRoute.unGenmask = unGenmask; 
@@ -218,13 +220,13 @@ void route_del_ext(PST_NETIF pstNetif)
     os_thread_mutex_unlock(l_hMtxRoute);
 }
 
-PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *punSrcIp)
+PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *punSrcIp, in_addr_t *punArpDstAddr)
 {
-    PST_NETIF pstNetif = NULL; 
-    PST_NETIF pstDefaultNetif = NULL;
+    PST_ROUTE pstRoute = NULL/*PST_NETIF pstNetif = NULL*/;
+    PST_ROUTE pstDefaultRoute = NULL/*PST_NETIF pstDefaultNetif = NULL*/;
 
-    //* 先查找ethernet网卡链表（PPP不需要，因为这个只能按照既定规则发到拨号网络的对端），看看本地网段是否就可以满足要求，而不是需要查找路由表
-    pstNetif = netif_get_eth_by_genmask(unDestination, punSrcIp);
+    //* 先查找ethernet网卡链表（PPP链路不需要，因为这个只能按照既定规则发到拨号网络的对端），看看本地网段是否就可以满足要求，而不是需要查找路由表
+    PST_NETIF pstNetif = netif_get_eth_by_genmask(unDestination, punSrcIp);
     if (pstNetif)
         return pstNetif; 
 
@@ -238,12 +240,12 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *pu
             {
                 if (ip_addressing(unDestination, pstNextNode->stRoute.unDestination, pstNextNode->stRoute.unGenmask))
                 {
-                    pstNetif = pstNextNode->stRoute.pstNetif; 
+                    pstRoute/*pstNetif*/ = &pstNextNode->stRoute/*.pstNetif*/;
                     break;
                 }
             }
             else
-                pstDefaultNetif = pstNextNode->stRoute.pstNetif;             
+                pstDefaultRoute/*pstDefaultNetif*/ = &pstNextNode->stRoute/*.pstNetif*/;
 
             pstNextNode = pstNextNode->pstNext;
         }
@@ -251,30 +253,38 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *pu
         //* 如果调用者调用该函数获取网络接口是用于发送，则需要对此进行计数，以确保使用期间该接口不会被删除
         if (blIsForSending)
         {
-            if (pstNetif)
-                pstNetif->bUsedCount++;
+            if (pstRoute/*pstNetif*/)
+                pstRoute->pstNetif->bUsedCount++;
             else
             {
-                if(pstDefaultNetif)
-                    pstDefaultNetif->bUsedCount++; 
+                if(pstDefaultRoute/*pstDefaultNetif*/)
+                    pstDefaultRoute->pstNetif/*pstDefaultNetif*/->bUsedCount++;
             }
         }        
     }
     os_thread_mutex_unlock(l_hMtxRoute);
 
-    if (pstNetif)
+    if (pstRoute/*pstNetif*/)
     {
         if (punSrcIp)
-            *punSrcIp = pstNetif->stIPv4.unAddr; 
-        return pstNetif;
+            *punSrcIp = pstRoute->unSource/*pstNetif->stIPv4.unAddr*/;
+
+        if (punArpDstAddr)
+            *punArpDstAddr = pstRoute->unGateway/*pstNetif->stIPv4.unGateway*/;
+
+        return pstRoute->pstNetif;
     }
     else
     {
-        if (pstDefaultNetif)
+        if (pstDefaultRoute/*pstDefaultNetif*/)
         {
             if (punSrcIp)
-                *punSrcIp = pstDefaultNetif->stIPv4.unAddr;
-            return pstDefaultNetif;
+                *punSrcIp = pstDefaultRoute->unSource/*pstDefaultNetif->stIPv4.unAddr*/;
+
+            if (punArpDstAddr)
+                *punArpDstAddr = pstDefaultRoute->unGateway/*pstDefaultNetif->stIPv4.unGateway*/; 
+
+            return pstDefaultRoute->pstNetif/*pstDefaultNetif*/; 
         }
         else //* 缺省路由也为空，则直接使用网络接口链表的首节点作为缺省路由
         {
@@ -283,6 +293,9 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *pu
             {
                 if (punSrcIp)
                     *punSrcIp = pstNetif->stIPv4.unAddr;
+
+                if (punArpDstAddr)
+                    *punArpDstAddr = pstNetif->stIPv4.unGateway;
             }
 
             return pstNetif; 
@@ -308,14 +321,14 @@ UINT route_get_netif_ip(UINT unDestination)
             if (pstNextNode->stRoute.unDestination)
             {
                 if (ip_addressing(unDestination, pstNextNode->stRoute.unDestination, pstNextNode->stRoute.unGenmask))
-                {                    
-                    unNetifIp = pstNextNode->stRoute.pstNetif->stIPv4.unAddr; 
+                {                                       
+                    unNetifIp = pstNextNode->stRoute.unSource; 
                     break;
                 }
             }
             else
             {
-                unNetifIp = pstNextNode->stRoute.pstNetif->stIPv4.unAddr; 
+                unNetifIp = pstNextNode->stRoute.unSource; 
             }
 
             pstNextNode = pstNextNode->pstNext;

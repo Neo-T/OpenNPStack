@@ -71,6 +71,12 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     //* 计算校验和
     stHdr.usChecksum = tcpip_checksum((USHORT *)&stHdr, sizeof(ST_IP_HDR))/*tcpip_checksum_ext(sBufListHead)*/;
 
+    //* 看看选择的网卡是否是ethernet类型，如果是则首先需要在此获取目标mac地址
+    if (NIF_ETHERNET == pstNetif->enType)
+    {
+
+    }
+
     //* 完成发送
     INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, NULL, penErr);
 
@@ -85,8 +91,8 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
 
 INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    in_addr_t unSrcAddr; 
-    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unSrcAddr);
+    in_addr_t unSrcAddr, unArpDstAddr = unDstAddr;
+    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unSrcAddr, &unArpDstAddr);
     if (NULL == pstNetif)
     {
         if (penErr)
