@@ -231,6 +231,7 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
         PST_NETIF_NODE pstNextNode = l_pstNetifLink;
         while (pstNextNode)
         {
+            //* 如果主ip地址匹配，则立即返回，否则需要看看当前网卡类型是否是ethernet，如果是就需要查找附加ip地址链表，确定其是否匹配某个附加的地址
             if (unNetifIp == pstNextNode->stIf.stIPv4.unAddr)
             {
                 if(blIsForSending)
@@ -238,6 +239,26 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
                 os_thread_mutex_unlock(l_hMtxNetif);
 
                 return &pstNextNode->stIf; 
+            }
+
+            //* ethernet网卡，则需要看看附加地址链表是否有匹配的ip地址了
+            if (NIF_ETHERNET == pstNextNode->stIf.enType)
+            {
+                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra;
+                PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
+                while (pstNextIP)
+                {
+                    if (unNetifIp == pstNextIP->unAddr)
+                    {
+                        if (blIsForSending)
+                            pstNextNode->stIf.bUsedCount++;
+                        os_thread_mutex_unlock(l_hMtxNetif);
+
+                        return &pstNextNode->stIf;
+                    }                    
+
+                    pstNextIP = pstNextIP->pstNext;
+                }
             }
 
             pstNextNode = pstNextNode->pstNext;
@@ -248,7 +269,7 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
     return NULL; 
 }
 
-PST_NETIF netif_get_eth_by_genmask(UINT unDstIp)
+PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp)
 {
     PST_NETIF pstNetif = NULL;
 
@@ -263,6 +284,9 @@ PST_NETIF netif_get_eth_by_genmask(UINT unDstIp)
                 if (ip_addressing(unDstIp, pstNextNode->stIf.stIPv4.unAddr, pstNextNode->stIf.stIPv4.unSubnetMask))
                 {
                     pstNetif = &pstNextNode->stIf;
+                    if (punSrcIp)
+                        *punSrcIp = pstNetif->stIPv4.unAddr; 
+
                     break;
                 }
 
@@ -274,6 +298,9 @@ PST_NETIF netif_get_eth_by_genmask(UINT unDstIp)
                     if (ip_addressing(unDstIp, pstNextIP->unAddr, pstNextIP->unSubnetMask)) 
                     {
                         pstNetif = &pstNextNode->stIf; 
+                        if (punSrcIp)
+                            *punSrcIp = pstNextIP->unAddr;
+
                         break;
                     }
 

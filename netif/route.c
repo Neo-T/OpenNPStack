@@ -218,11 +218,17 @@ void route_del_ext(PST_NETIF pstNetif)
     os_thread_mutex_unlock(l_hMtxRoute);
 }
 
-PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending)
+PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *punSrcIp)
 {
     PST_NETIF pstNetif = NULL; 
     PST_NETIF pstDefaultNetif = NULL;
 
+    //* 先查找ethernet网卡链表（PPP不需要，因为这个只能按照既定规则发到拨号网络的对端），看看本地网段是否就可以满足要求，而不是需要查找路由表
+    pstNetif = netif_get_eth_by_genmask(unDestination, punSrcIp);
+    if (pstNetif)
+        return pstNetif; 
+
+    //* 查找路由表
     os_thread_mutex_lock(l_hMtxRoute);
     {
         PST_ROUTE_NODE pstNextNode = l_pstRouteLink;
@@ -257,13 +263,30 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending)
     os_thread_mutex_unlock(l_hMtxRoute);
 
     if (pstNetif)
+    {
+        if (punSrcIp)
+            *punSrcIp = pstNetif->stIPv4.unAddr; 
         return pstNetif;
+    }
     else
     {
         if (pstDefaultNetif)
+        {
+            if (punSrcIp)
+                *punSrcIp = pstDefaultNetif->stIPv4.unAddr;
             return pstDefaultNetif;
+        }
         else //* 缺省路由也为空，则直接使用网络接口链表的首节点作为缺省路由
-            return netif_get_first(blIsForSending);
+        {
+            pstNetif = netif_get_first(blIsForSending); 
+            if (pstNetif)
+            {
+                if (punSrcIp)
+                    *punSrcIp = pstNetif->stIPv4.unAddr;
+            }
+
+            return pstNetif; 
+        }
     }
 }
 
@@ -271,6 +294,12 @@ UINT route_get_netif_ip(UINT unDestination)
 {
     UINT unNetifIp = 0; 
 
+    //* 查找本地ethernet网卡链表，先看看是否目标地址在同一个网段
+    PST_NETIF pstNetif = netif_get_eth_by_genmask(unDestination, &unNetifIp);
+    if (pstNetif)    
+        return unNetifIp;
+
+    //* 本地网段不匹配，只能走路由了
     os_thread_mutex_lock(l_hMtxRoute);
     {
         PST_ROUTE_NODE pstNextNode = l_pstRouteLink;

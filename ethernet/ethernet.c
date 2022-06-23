@@ -100,7 +100,7 @@ void ethernet_del(PST_NETIF pstNetif)
 }
 
 //* 通过ethernet网卡进行发送
-INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
+INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr)
 {
     //* 增加ethernet II协议层
     

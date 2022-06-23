@@ -35,7 +35,7 @@ static const EN_IPPROTO lr_enaIPProto[] = {
 };
 static USHORT l_usIPIdentifier = 0; 
 
-static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     os_critical_init();
 
@@ -58,7 +58,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unDstAddr, EN_NPSPROTOCOL
     stHdr.ubTTL = ubTTL;
     stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
     stHdr.usChecksum = 0;
-    stHdr.unSrcIP = pstNetif->stIPv4.unAddr;
+    stHdr.unSrcIP = unSrcAddr/*pstNetif->stIPv4.unAddr*/;
     stHdr.unDstIP = htonl(unDstAddr);
 
     //* 挂载到buf list头部
@@ -72,7 +72,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unDstAddr, EN_NPSPROTOCOL
     stHdr.usChecksum = tcpip_checksum((USHORT *)&stHdr, sizeof(ST_IP_HDR))/*tcpip_checksum_ext(sBufListHead)*/;
 
     //* 完成发送
-    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, penErr);
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, NULL, penErr);
 
     //* 使用计数减一
     netif_used_count_decrement(pstNetif);
@@ -85,7 +85,8 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unDstAddr, EN_NPSPROTOCOL
 
 INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE);
+    in_addr_t unSrcAddr; 
+    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unSrcAddr);
     if (NULL == pstNetif)
     {
         if (penErr)
@@ -94,7 +95,7 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
         return -1;
     }    
 
-    return netif_ip_send(pstNetif, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
+    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
 
 INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
@@ -108,7 +109,7 @@ INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProto
         return -1;
     }
 
-    return netif_ip_send(pstNetif, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr); 
+    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr); 
 }
 
 void ip_recv(UCHAR *pubPacket, INT nPacketLen)

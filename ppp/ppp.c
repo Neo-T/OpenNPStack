@@ -359,8 +359,10 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 	return nRtnVal; 
 }
 
-static INT netif_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
-{    
+static INT netif_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr)
+{   
+    pvExtraParam = pvExtraParam; //* 避免编译器警告，ppp网卡的发送函数不需要这个参数
+
     HTTY hTTY = *((HTTY *)pstIf->pvExtra);
     return ppp_send(hTTY, (EN_NPSPROTOCOL)ubProtocol, sBufListHead, penErr); 
 }
