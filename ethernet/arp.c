@@ -24,7 +24,7 @@ typedef struct _ST_ENTRY_ETHIIIPV4_ {
 
 //* ethernet ii协议arp缓存表及最近读取使用的地址条目
 static ST_ENTRY_ETHIIIPV4 l_staEntryIPv4[ARPENTRY_NUM];
-static UCHAR l_ubLastEntryIPV4ToRead = 0; 
+static UCHAR l_ubLastEntryIPv4ToRead = 0; 
 
 //* arp初始化
 void arp_init(void)
@@ -88,10 +88,10 @@ INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
 
     //* 是否命中最近刚读取过的条目
     os_enter_critical();
-    if (unIPAddr == l_staEntryIPv4[l_ubLastEntryIPV4ToRead].unIPAddr)
+    if (unIPAddr == l_staEntryIPv4[l_ubLastEntryIPv4ToRead].unIPAddr)
     {        
-        memcpy(ubaMacAddr, l_staEntryIPv4[l_ubLastEntryIPV4ToRead].ubaMacAddr, 6); 
-        l_staEntryIPv4[l_ubLastEntryIPV4ToRead].unUpdateTime = os_get_system_secs();
+        memcpy(ubaMacAddr, l_staEntryIPv4[l_ubLastEntryIPv4ToRead].ubaMacAddr, 6); 
+        l_staEntryIPv4[l_ubLastEntryIPv4ToRead].unUpdateTime = os_get_system_secs();
         os_exit_critical(); 
         return 0; 
     }
@@ -106,7 +106,7 @@ INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
         {
             memcpy(ubaMacAddr, l_staEntryIPv4[i].ubaMacAddr, 6);
             l_staEntryIPv4[i].unUpdateTime = os_get_system_secs();
-            l_ubLastEntryIPV4ToRead = i; 
+            l_ubLastEntryIPv4ToRead = i; 
             os_exit_critical();
             return 0;
         }

@@ -7,6 +7,7 @@
 #include "onps_utils.h"
 #include "netif/netif.h"
 #include "netif/route.h"
+#include "ethernet/arp.h"
 
 #define SYMBOL_GLOBALS
 #include "ip/ip.h"
@@ -35,7 +36,7 @@ static const EN_IPPROTO lr_enaIPProto[] = {
 };
 static USHORT l_usIPIdentifier = 0; 
 
-static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unArpDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     os_critical_init();
 
@@ -65,7 +66,11 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     SHORT sHdrNode;
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IP_HDR), penErr);
     if (sHdrNode < 0)
+    {
+        //* 使用计数减一，当前发送释放对网卡资源的占用
+        netif_used_count_decrement(pstNetif);
         return -1;
+    }
     buf_list_put_head(&sBufListHead, sHdrNode);
 
     //* 计算校验和
@@ -74,7 +79,12 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     //* 看看选择的网卡是否是ethernet类型，如果是则首先需要在此获取目标mac地址
     if (NIF_ETHERNET == pstNetif->enType)
     {
-
+        UCHAR ubaDstMac[6]; 
+        INT nRtnVal = arp_get_mac(unArpDstAddr, ubaDstMac, penErr); 
+        if (!nRtnVal)
+        {
+            
+        }
     }
 
     //* 完成发送
@@ -101,11 +111,31 @@ INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT s
         return -1;
     }    
 
-    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
+    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
 
 INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
+    in_addr_t unRouteSrcAddr, unArpDstAddr = unDstAddr; 
+    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unRouteSrcAddr, &unArpDstAddr); 
+    if (NULL == pstNetif)
+    {
+        if (penErr)
+            *penErr = ERRADDRESSING;
+
+        return -1;
+    }
+
+    //* 再次寻址与上层协议寻址结果不一致，则直接放弃该报文
+    if (unSrcAddr != unArpDstAddr)
+    {
+        if (penErr)
+            *penErr = ERRROUTEADDRMATCH;
+
+        return -1; 
+    }
+
+    /* 
     PST_NETIF pstNetif = netif_get_by_ip(unSrcAddr, TRUE);
     if (NULL == pstNetif)
     {
@@ -114,8 +144,9 @@ INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProto
 
         return -1;
     }
+    */
 
-    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, enProtocol, ubTTL, sBufListHead, penErr); 
+    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
 
 void ip_recv(UCHAR *pubPacket, INT nPacketLen)

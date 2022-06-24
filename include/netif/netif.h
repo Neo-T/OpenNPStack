@@ -88,7 +88,6 @@ NETIF_EXT PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp);
 NETIF_EXT UINT netif_get_first_ip(void);
 NETIF_EXT void netif_used_count_decrement(PST_NETIF pstNetif);
 NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName); 
-NETIF_EXT void netif_eth_get_arp_dst_addr(PST_NETIF pstNetif, in_addr_t unSource, in_addr_t unDestination, in_addr_t *punArpDstAddr); 
 NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway);
 
 #endif

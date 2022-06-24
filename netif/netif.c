@@ -363,31 +363,6 @@ BOOL netif_is_ready(const CHAR *pszIfName)
     return FALSE; 
 }
 
-void netif_eth_get_arp_dst_addr(PST_NETIF pstNetif, in_addr_t unSource, UINT unDestination, in_addr_t *punArpDstAddr)
-{
-    if (NIF_ETHERNET != pstNetif->enType)
-        return; 
-
-    //* 主ip地址网段匹配，则直接返回，arp寻址时直接以目标地址为寻址依据
-    if (ip_addressing(unDestination, pstNetif->stIPv4.unAddr, pstNetif->stIPv4.unSubnetMask))
-        return; 
-
-    //* 然后再遍历附加地址链表，看看是否有匹配的网段吗
-    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-    PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
-    while (pstNextIP)
-    {
-        //* 附加地址网段匹配，同样直接返回，arp寻址依然以目标地址为寻址依据
-        if (ip_addressing(unDestination, pstNextIP->unAddr, pstNextIP->unSubnetMask))
-            return; 
-
-        pstNextIP = pstNextIP->pstNext;
-    }
-
-    //* 到这里了说明本地网段均不匹配，需要走网关了
-
-}
-
 UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 {
     if (NIF_ETHERNET == pstNetif->enType)

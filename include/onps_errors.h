@@ -65,6 +65,7 @@ typedef enum {
     ERRSENDADDR,        //* 发送地址错误
     ERRETHEXTRAEMPTY,   //* 无可用的ethernet网卡附加信息节点
     ERRNETUNREACHABLE,  //* 网络不可达
+    ERRROUTEADDRMATCH,  //* 两次寻址结果不匹配
     ERRUNKNOWN,         //* 未知错误
 } EN_ONPSERR;
 
