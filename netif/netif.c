@@ -329,7 +329,16 @@ UINT netif_get_first_ip(void)
     return unNetifIp; 
 }
 
-void netif_used_count_decrement(PST_NETIF pstNetif)
+void netif_used(PST_NETIF pstNetif)
+{
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        pstNetif->bUsedCount++;
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+}
+
+void netif_freed(PST_NETIF pstNetif)
 {
     os_thread_mutex_lock(l_hMtxNetif);
     {

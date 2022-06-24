@@ -28,5 +28,6 @@ BUF_LIST_EXT void buf_list_put_head(SHORT *psHead, SHORT sNode);
 BUF_LIST_EXT void buf_list_put_tail(SHORT sHead, SHORT sNode); 
 BUF_LIST_EXT void *buf_list_get_next_node(SHORT *psNextNode, USHORT *pusDataLen); 
 BUF_LIST_EXT UINT buf_list_get_len(SHORT sBufListHead); 
+BUF_LIST_EXT void buf_list_merge_packet(SHORT sBufListHead, UCHAR *pubPacket); 
 
 #endif

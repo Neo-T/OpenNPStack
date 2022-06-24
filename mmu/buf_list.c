@@ -168,3 +168,23 @@ UINT buf_list_get_len(SHORT sBufListHead)
 
     return unTotalLen; 
 }
+
+//* 将list保存地报文取出、合并后保存到参数pubPacket指向的缓冲区
+void buf_list_merge_packet(SHORT sBufListHead, UCHAR *pubPacket)
+{
+    SHORT sNextNode = sBufListHead; 
+    UCHAR *pubData;
+    USHORT usDataLen;
+    UINT unMergeBytes = 0; 
+
+__lblGetNextNode:
+    pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen);
+    if (NULL == pubData)
+        return; 
+
+    //* 搬运数据
+    memcpy(pubPacket + unMergeBytes, pubData, usDataLen);
+    unMergeBytes += (UINT)usDataLen; 
+
+    goto __lblGetNextNode;
+}

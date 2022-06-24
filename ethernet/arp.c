@@ -114,7 +114,7 @@ INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
     }
 
     //* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
-    if (arp_send_request(unIPAddr, penErr) < 0)
+    if (arp_send_request_ethii_ipv4(unIPAddr, penErr) < 0)
         return -1;
     return 1; 
 }

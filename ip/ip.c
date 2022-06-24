@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "mmu/buddy.h"
 #include "mmu/buf_list.h"
 #include "onps_utils.h"
 #include "netif/netif.h"
@@ -36,8 +37,23 @@ static const EN_IPPROTO lr_enaIPProto[] = {
 };
 static USHORT l_usIPIdentifier = 0; 
 
+/*
+1、设计一个结构体用于保存pstNetif及等待arp计数以及报文，用于定时器溢出函数
+2、完成wait_arp_timeout_handler(void *pvParam)函数，不单独增加发送完整ip报文的函数了，在这个函数理直接完成；
+3、完成ethernet_ii_send()函数；
+4、完成arp_send_request_ethii_ipv4()函数；
+*/
+
+//* 当通过ethernet网卡发送ip报文时，协议栈尚未保存目标ip地址对应的mac地址时，需要先发送一组arp查询报文获取mac地址后才能发送该报文，这个定时器溢出函数即处理此项业务
+static void wait_arp_timeout_handler(void *pvParam)
+{
+    netif_used(); 
+}
+
 static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unArpDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
+    INT nRtnVal; 
+
     os_critical_init();
 
     ST_IP_HDR stHdr;
@@ -67,8 +83,8 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IP_HDR), penErr);
     if (sHdrNode < 0)
     {
-        //* 使用计数减一，当前发送释放对网卡资源的占用
-        netif_used_count_decrement(pstNetif);
+        //* 使用计数减一，释放对网卡资源的占用
+        netif_freed(pstNetif);
         return -1;
     }
     buf_list_put_head(&sBufListHead, sHdrNode);
@@ -80,18 +96,44 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     if (NIF_ETHERNET == pstNetif->enType)
     {
         UCHAR ubaDstMac[6]; 
-        INT nRtnVal = arp_get_mac(unArpDstAddr, ubaDstMac, penErr); 
-        if (!nRtnVal)
+        nRtnVal = arp_get_mac(unArpDstAddr, ubaDstMac, penErr); 
+        if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
         {
-            
+            nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);
+        }
+        else 
+        {
+            //* 说明已经成功发送了arp报文，开启一个定时器等1秒后再发送一次试试
+            if (nRtnVal > 0)
+            {
+                UINT unIpPacketLen = buf_list_get_len(sBufListHead);            //* 获取报文长度
+                UCHAR *pubIpPacket = buddy_alloc(unIpPacketLen + 1, penErr);    //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文
+                if (pubIpPacket)
+                {
+                    //* 保存报文到刚申请的内存中，然后开启一个1秒定时器等待arp查询结果并在得到正确mac地址后发送ip报文
+                    buf_list_merge_packet(sBufListHead, pubIpPacket + 1); 
+                    pubIpPacket[0] = 0; //* 计数清零
+                    if (!one_shot_timer_new(wait_arp_timeout_handler, pubIpPacket, 1)) //* 启动一个1秒定时器，等待查询完毕
+                    {
+                        if (penErr)
+                            *penErr = ERRNOIDLETIMER;
+                        nRtnVal = -1; 
+                    }
+                }
+                else
+                    nRtnVal = -1; 
+            }            
+            else; //* arp查询失败，不作任何处理
         }
     }
-
-    //* 完成发送
-    INT nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, NULL, penErr);
+    else
+    {
+        //* 完成发送
+        nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, NULL, penErr);
+    }    
 
     //* 使用计数减一
-    netif_used_count_decrement(pstNetif);
+    netif_freed(pstNetif);
 
     //* 释放刚才申请的buf list节点
     buf_list_free(sHdrNode);
