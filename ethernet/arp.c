@@ -15,25 +15,50 @@
 #include "ethernet/arp.h"
 #undef SYMBOL_GLOBAL
 
-//* arp条目表
-typedef struct _ST_ENTRY_ETHIIIPV4_ {
-    UINT unUpdateTime;      //* arp条目更新（读取/缓存）时间
-    UINT unIPAddr;          //* IP地址
-    UCHAR ubaMacAddr[6];    //* 对应的ip地址    
-} ST_ENTRY_ETHIIIPV4, *PST_ENTRY_ETHIIIPV4;
-
 //* ethernet ii协议arp缓存表及最近读取使用的地址条目
-static ST_ENTRY_ETHIIIPV4 l_staEntryIPv4[ARPENTRY_NUM];
-static UCHAR l_ubLastEntryIPv4ToRead = 0; 
+static STCB_ETHARP l_stcbaEthArp[ETHERNET_NUM]; 
 
 //* arp初始化
 void arp_init(void)
 {
-    memset(l_staEntryIPv4, 0, sizeof(l_staEntryIPv4)); 
+    memset(l_stcbaEthArp, 0, sizeof(l_stcbaEthArp));
+}
+
+//* 获取一个新的arp控制块
+PSTCB_ETHARP arp_ctl_block_new(void)
+{
+    PSTCB_ETHARP pstcbArp = NULL;
+    os_critical_init();
+
+    //* 申请一个新的控制块    
+    os_enter_critical();
+    {
+        INT i; 
+        for (i = 0; i < ETHERNET_NUM; i++)
+        {
+            if (!l_stcbaEthArp[i].bIsUsed)
+            {
+                l_stcbaEthArp[i].bIsUsed = TRUE;
+                pstcbArp = &l_stcbaEthArp[i]; 
+                pstcbArp->bLastEntryIPv4ToRead = 0;                 
+                break; 
+            }
+        }
+    }
+    os_exit_critical();
+
+    return pstcbArp; 
+}
+
+//*  归还占用的arp控制块
+void arp_ctl_block_free(PSTCB_ETHARP pstcbArp)
+{
+    memset(pstcbArp, 0, sizeof(STCB_ETHARP));
+    pstcbArp->bIsUsed = FALSE; 
 }
 
 //* 添加arp条目
-void arp_add_ethii_ipv4(UINT unIPAddr, UCHAR ubaMacAddr[6])
+void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[6])
 {
     INT i; 
 
@@ -43,16 +68,16 @@ void arp_add_ethii_ipv4(UINT unIPAddr, UCHAR ubaMacAddr[6])
     for (i = 0; i < ARPENTRY_NUM; i++)
     {
         //* 尚未缓存任何条目，不必继续查找了，直接新增即可
-        if (!l_staEntryIPv4[i].unIPAddr)
+        if (!pstArpIPv4Tbl[i].unIPAddr)
             break;         
 
-        if (unIPAddr == l_staEntryIPv4[i].unIPAddr) //* 匹配
+        if (unIPAddr == pstArpIPv4Tbl[i].unIPAddr) //* 匹配
         {
             //* 更新mac地址
             os_enter_critical();
             {
-                memcpy(l_staEntryIPv4[i].ubaMacAddr, ubaMacAddr, 6); 
-                l_staEntryIPv4[i].unUpdateTime = os_get_system_secs(); 
+                memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, 6);
+                pstArpIPv4Tbl[i].unUpdateTime = os_get_system_secs();
             }
             os_exit_critical(); 
             return; 
@@ -65,7 +90,7 @@ void arp_add_ethii_ipv4(UINT unIPAddr, UCHAR ubaMacAddr[6])
         INT nFirstEntry = 0; 
         for (i = 1; i < ARPENTRY_NUM; i++)
         {
-            if (l_staEntryIPv4[nFirstEntry].unUpdateTime > l_staEntryIPv4[i].unUpdateTime)            
+            if (pstArpIPv4Tbl[nFirstEntry].unUpdateTime > pstArpIPv4Tbl[i].unUpdateTime)
                 nFirstEntry = i;             
         }
 
@@ -75,23 +100,25 @@ void arp_add_ethii_ipv4(UINT unIPAddr, UCHAR ubaMacAddr[6])
     //* 更新mac地址
     os_enter_critical();
     {        
-        memcpy(l_staEntryIPv4[i].ubaMacAddr, ubaMacAddr, sizeof(ubaMacAddr));
-        l_staEntryIPv4[i].unUpdateTime = os_get_system_secs();
-        l_staEntryIPv4[i].unIPAddr = unIPAddr;        
+        memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, sizeof(ubaMacAddr));
+        pstArpIPv4Tbl[i].unUpdateTime = os_get_system_secs();
+        pstArpIPv4Tbl[i].unIPAddr = unIPAddr;
     }
     os_exit_critical();
 }
 
-INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
+INT arp_get_mac(PST_NETIF pstNetif, UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
 {
+    PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
+
     os_critical_init(); 
 
     //* 是否命中最近刚读取过的条目
     os_enter_critical();
-    if (unIPAddr == l_staEntryIPv4[l_ubLastEntryIPv4ToRead].unIPAddr)
+    if (unIPAddr == pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].unIPAddr) 
     {        
-        memcpy(ubaMacAddr, l_staEntryIPv4[l_ubLastEntryIPv4ToRead].ubaMacAddr, 6); 
-        l_staEntryIPv4[l_ubLastEntryIPv4ToRead].unUpdateTime = os_get_system_secs();
+        memcpy(ubaMacAddr, pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].ubaMacAddr, 6);
+        pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].unUpdateTime = os_get_system_secs();
         os_exit_critical(); 
         return 0; 
     }
@@ -102,11 +129,11 @@ INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
     for (i = 0; i < ARPENTRY_NUM; i++)
     {
         os_enter_critical();
-        if (unIPAddr == l_staEntryIPv4[i].unIPAddr)
+        if (unIPAddr == pstcbArp->staEntryIPv4[i].unIPAddr)
         {
-            memcpy(ubaMacAddr, l_staEntryIPv4[i].ubaMacAddr, 6);
-            l_staEntryIPv4[i].unUpdateTime = os_get_system_secs();
-            l_ubLastEntryIPv4ToRead = i; 
+            memcpy(ubaMacAddr, pstcbArp->staEntryIPv4[i].ubaMacAddr, 6);
+            pstcbArp->staEntryIPv4[i].unUpdateTime = os_get_system_secs();
+            pstcbArp->bLastEntryIPv4ToRead = i;
             os_exit_critical();
             return 0;
         }
@@ -120,7 +147,7 @@ INT arp_get_mac(UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
 }
 
 //* 发送地址请求报文
-INT arp_send_request_ethii_ipv4(UINT unIPAddr, EN_ONPSERR *penErr)
+INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unIPAddr, EN_ONPSERR *penErr)
 {
     ST_ETHIIARP_IPV4 stArpRequest; 
 

@@ -57,6 +57,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRETHEXTRAEMPTY, "No eth additional info node available" }, 
     { ERRNETUNREACHABLE, "Network unreachable" }, 
     { ERRROUTEADDRMATCH, "Addressing result does not match" }, 
+    { ERRNEWARPCTLBLOCK, "arp control block is empty" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

@@ -68,11 +68,13 @@ typedef struct _ST_NETIF_ETH_IP_NODE_ {
 } ST_NETIF_ETH_IP_NODE, *PST_NETIF_ETH_IP_NODE; 
 
 //* ethernet网卡附加信息
+typedef struct _STCB_ETHARP_ STCB_ETHARP, *PSTCB_ETHARP; 
 typedef struct _ST_NETIFEXTRA_ETH_ { 
     CHAR bIsUsed; 
     CHAR bIsStaticAddr;     //* 静态地址？
     UCHAR ubaMacAddr[6];    //* mac地址   
     PST_NETIF_ETH_IP_NODE pstIPList; //* 绑定到该网卡的IP地址
+    PSTCB_ETHARP pstcbArp; 
     PFUN_EMAC_SEND pfunEmacSend; 
 } ST_NETIFEXTRA_ETH, *PST_NETIFEXTRA_ETH;
 #endif

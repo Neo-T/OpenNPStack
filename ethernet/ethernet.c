@@ -60,12 +60,23 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV
         return NULL;
     }
 
+    //* 申请一个arp控制块
+    PSTCB_ETHARP pstcbArp = arp_ctl_block_new(); 
+    if (!pstcbArp)
+    {
+        pstExtra->bIsUsed = FALSE; //* 归还
+        if (penErr)
+            *penErr = ERRNEWARPCTLBLOCK;
+        return NULL;
+    }
+
     PST_NETIF_NODE pstIfNode = netif_add(NIF_ETHERNET, pszIfName, pstIPv4, ethernet_ii_send, pstExtra, penErr);
     if (pstIfNode)
     {
         pstNetif = &pstIfNode->stIf;
 
         pstExtra->pstIPList = NULL;
+        pstExtra->pstcbArp = pstcbArp; 
         pstExtra->pfunEmacSend = pfunEmacSend; 
         memcpy(pstExtra->ubaMacAddr, ubaMacAddr, 6); 
         if (pstIPv4->unAddr) //* 地址不为0则为静态地址，需要将其添加到路由表中
@@ -79,6 +90,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV
                 pstNetif = NULL; 
 
                 //* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
+                arp_ctl_block_free(pstcbArp); 
                 pstExtra->bIsUsed = FALSE;
             }
         }
@@ -92,6 +104,12 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV
 //* 删除ethernet网卡
 void ethernet_del(PST_NETIF pstNetif)
 {
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+
+    //* 释放占用的arp控制块
+    arp_ctl_block_free(pstExtra->pstcbArp); 
+    pstExtra->bIsUsed = FALSE; 
+
     //* 先从路由表删除
     route_del_ext(pstNetif); 
 
