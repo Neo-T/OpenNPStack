@@ -59,6 +59,10 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)pvParam; 
     PST_NETIF pstNetif = pstcbArpWait->pstNetif; 
     EN_ONPSERR enErr; 
+    UCHAR *pubIpPacket; 
+    PST_IP_HDR pstIpHdr; 
+    UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
+    INT nRtnVal; 
 
     //* arp查询计数，如果超出限值，则不再查询直接丢弃该报文
     pstcbArpWait->ubCount++; 
@@ -77,10 +81,9 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     }
 
     //* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
-    UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT); 
-    PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubIpPacket; 
-    UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
-    INT nRtnVal = arp_get_mac(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp, pstIpHdr->unSrcIP, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
+    pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT); 
+    pstIpHdr = (PST_IP_HDR)pubIpPacket;     
+    nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
     if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
     {
         //* 申请一个buf list节点并将ip报文挂载到list上
@@ -191,7 +194,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     if (NIF_ETHERNET == pstNetif->enType)
     {
         UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
-        nRtnVal = arp_get_mac(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp, unSrcAddr, unArpDstAddr, ubaDstMac, penErr);
+        nRtnVal = arp_get_mac(pstNetif, unSrcAddr, unArpDstAddr, ubaDstMac, penErr);
         if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
         {
             nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);
@@ -201,8 +204,8 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
             //* 说明已经成功发送了arp报文，开启一个定时器等1秒后再发送一次试试
             if (nRtnVal > 0)
             {
-                UINT unIpPacketLen = buf_list_get_len(sBufListHead);            //* 获取报文长度
-                PSTCB_ETH_ARP_WAIT pstcbArpWait = buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr);    //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文                
+                UINT unIpPacketLen = buf_list_get_len(sBufListHead); //* 获取报文长度
+                PSTCB_ETH_ARP_WAIT pstcbArpWait = buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文                
                 if (pstcbArpWait)
                 {
                     UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);

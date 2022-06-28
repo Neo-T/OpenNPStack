@@ -177,7 +177,7 @@ void buf_list_merge_packet(SHORT sBufListHead, UCHAR *pubPacket)
     USHORT usDataLen;
     UINT unMergeBytes = 0; 
 
-__lblGetNextNode:
+__lblGetNextNode: 
     pubData = (UCHAR *)buf_list_get_next_node(&sNextNode, &usDataLen);
     if (NULL == pubData)
         return; 

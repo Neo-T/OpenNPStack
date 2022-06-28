@@ -68,6 +68,7 @@ typedef enum {
     ERRROUTEADDRMATCH,      //* 两次寻址结果不匹配
     ERRNEWARPCTLBLOCK,      //* arp控制快已空
     ERRUNSUPPETHIIPROTO,    //* 不被支持的ethernet ii上层协议
+    ERRPACKETTOOLARGE,      //* 报文太大
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

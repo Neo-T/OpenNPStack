@@ -180,20 +180,3 @@ void os_modem_reset(HTTY hTTY)
 	/* …… */
 }
 #endif
-
-#if SUPPORT_ETHERNET
-HETH os_open_eth(const CHAR *pszEthName)
-{
-    /* 完成底层网卡初始化 */
-}
-
-void os_close_eth(HETH hEth)
-{
-    /* 关闭网卡，其实就是去初始化，去初始化的操作必须确保ethernet接口能够再次被正确初始化 */
-}
-
-const UCHAR *os_get_eth_mac_addr(const CHAR *pszEthName)
-{
-    /* 根据指定的ethernet网卡名称返回其mac地址 */
-}
-#endif

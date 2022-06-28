@@ -41,11 +41,8 @@
     #define ETHERNET_NUM    0
 #endif
 
-//* 系统支持的网卡数量
-#define NETIF_NUM   (PPP_NETLINK_NUM + ETHERNET_NUM)
-
-//* 系统路由表数量
-#define ROUTE_ITEM_NUM  8
+#define NETIF_NUM   (PPP_NETLINK_NUM + ETHERNET_NUM)    //* 系统支持的网卡数量
+#define ROUTE_ITEM_NUM  8   //* 系统路由表数量
 
 #define SUPPORT_IPV6	0	//* 是否支持IPv6：1，支持；0，不支持
  //* ===============================================================================================

@@ -21,10 +21,13 @@ typedef struct _ST_ETHIIPROTOCOL_ {
     USHORT usType;
     void(*pfunUpper)(UCHAR *pubPacket, INT nPacketLen);
 } ST_ETHIIPROTOCOL, *PST_ETHIIPROTOCOL;
+
+/*
 static const ST_ETHIIPROTOCOL lr_staProtocol[] = { 
 }; 
+*/
 
-const ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM]; 
+static ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM]; 
 
 void ethernet_init(void)
 {
@@ -158,7 +161,9 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
     INT nRtnVal = pstExtra->pfunEmacSend(sBufListHead, penErr); 
 
     //* 释放刚才申请的buf list节点
-    buf_list_free(sHdrNode);
+    buf_list_free(sHdrNode); 
+
+    return nRtnVal; 
 }
 
 #endif
