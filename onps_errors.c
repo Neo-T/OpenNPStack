@@ -58,6 +58,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRNETUNREACHABLE, "Network unreachable" }, 
     { ERRROUTEADDRMATCH, "Addressing result does not match" }, 
     { ERRNEWARPCTLBLOCK, "arp control block is empty" }, 
+    { ERRUNSUPPETHIIPROTO, "unsupported ethernet ii upper layer protocol(only ipv4/arp/rarp/ipv6)" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

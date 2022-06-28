@@ -58,7 +58,7 @@ void arp_ctl_block_free(PSTCB_ETHARP pstcbArp)
 }
 
 //* 添加arp条目
-void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[6])
+void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
 {
     INT i; 
 
@@ -76,7 +76,7 @@ void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR 
             //* 更新mac地址
             os_enter_critical();
             {
-                memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, 6);
+                memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, ETH_MAC_ADDR_LEN);
                 pstArpIPv4Tbl[i].unUpdateTime = os_get_system_secs();
             }
             os_exit_critical(); 
@@ -107,7 +107,7 @@ void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR 
     os_exit_critical();
 }
 
-INT arp_get_mac(PST_NETIF pstNetif, UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr)
+INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
 {
     PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
 
@@ -115,9 +115,9 @@ INT arp_get_mac(PST_NETIF pstNetif, UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSE
 
     //* 是否命中最近刚读取过的条目
     os_enter_critical();
-    if (unIPAddr == pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].unIPAddr) 
+    if (unDstArpIPAddr == pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].unIPAddr) 
     {        
-        memcpy(ubaMacAddr, pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].ubaMacAddr, 6);
+        memcpy(ubaMacAddr, pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].ubaMacAddr, ETH_MAC_ADDR_LEN);
         pstcbArp->staEntryIPv4[pstcbArp->bLastEntryIPv4ToRead].unUpdateTime = os_get_system_secs();
         os_exit_critical(); 
         return 0; 
@@ -129,9 +129,9 @@ INT arp_get_mac(PST_NETIF pstNetif, UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSE
     for (i = 0; i < ARPENTRY_NUM; i++)
     {
         os_enter_critical();
-        if (unIPAddr == pstcbArp->staEntryIPv4[i].unIPAddr)
+        if (unDstArpIPAddr == pstcbArp->staEntryIPv4[i].unIPAddr)
         {
-            memcpy(ubaMacAddr, pstcbArp->staEntryIPv4[i].ubaMacAddr, 6);
+            memcpy(ubaMacAddr, pstcbArp->staEntryIPv4[i].ubaMacAddr, ETH_MAC_ADDR_LEN);
             pstcbArp->staEntryIPv4[i].unUpdateTime = os_get_system_secs();
             pstcbArp->bLastEntryIPv4ToRead = i;
             os_exit_critical();
@@ -141,30 +141,48 @@ INT arp_get_mac(PST_NETIF pstNetif, UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSE
     }
 
     //* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
-    if (arp_send_request_ethii_ipv4(unIPAddr, penErr) < 0)
+    if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
         return -1;
     return 1; 
 }
 
 //* 发送地址请求报文
-INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unIPAddr, EN_ONPSERR *penErr)
+INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, EN_ONPSERR *penErr)
 {
     ST_ETHIIARP_IPV4 stArpRequest; 
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
 
-    //* 首先确定这个需要走哪个ethernet网卡，如果为空，说明目标地址非法直接报错
-    PST_NETIF pstNetif = netif_get_by_genmask(unIPAddr); 
-    if (!pstNetif)
-    {
-        if (penErr)
-            *penErr = ERRNETUNREACHABLE;
-        return -1; 
-    }
-
+    //* 封装arp查询请求报文
     stArpRequest.stHdr.usHardwareType = htons(ARP_HARDWARE_ETH);
     stArpRequest.stHdr.usProtoType = htons(ARP_PROTO_IPv4); 
-    stArpRequest.stHdr.ubHardwareAddrLen = 6; 
+    stArpRequest.stHdr.ubHardwareAddrLen = ETH_MAC_ADDR_LEN;
     stArpRequest.stHdr.ubProtoAddrLen = 4; 
     stArpRequest.stHdr.usOptCode = ARPOPCODE_REQUEST; 
+    memcpy(stArpRequest.ubaSrcMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    stArpRequest.unSrcIPAddr = unSrcIPAddr; 
+    memset(stArpRequest.ubaDstMacAddr, 0, ETH_MAC_ADDR_LEN);  //* 填充全0
+    stArpRequest.unDstIPAddr = unDstArpIPAddr; 
+    stArpRequest.ubaPadding[0] = 'N';
+    stArpRequest.ubaPadding[1] = 'e';
+    stArpRequest.ubaPadding[2] = 'o';
+    stArpRequest.ubaPadding[3] = '-';
+    stArpRequest.ubaPadding[4] = 'T';
+    stArpRequest.ubaPadding[5] = 0;
+
+    //* 挂载用户数据
+    SHORT sBufListHead = -1;
+    SHORT sArpPacketNode = buf_list_get_ext((UCHAR *)&stArpRequest, (UINT)sizeof(stArpRequest), penErr);
+    if (sArpPacketNode < 0)
+        return -1;
+    buf_list_put_head(&sBufListHead, sArpPacketNode); 
+
+    //* 发送查询报文
+    INT nRtnVal = pstNetif->pfunSend(pstNetif, ARP, sBufListHead, "\xFF\xFF\xFF\xFF\xFF\xFF", penErr); 
+
+    //* 释放刚才申请的buf list节点
+    buf_list_free(sArpPacketNode); 
+
+    return nRtnVal; 
 }
 
 #endif

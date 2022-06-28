@@ -42,7 +42,7 @@ static USHORT l_usIPIdentifier = 0;
 1、设计一个结构体用于保存pstNetif及等待arp计数以及报文，用于定时器溢出函数------------已完成
 2、完成wait_arp_timeout_handler(void *pvParam)函数，不单独增加发送完整ip报文的函数了，在这个函数里直接完成； -------------------------已完成
 3、完成ethernet_ii_send()函数；
-4、完成arp_send_request_ethii_ipv4()函数；
+4、完成arp_send_request_ethii_ipv4()函数；----------------------已完成
 */
 
 //* 等待arp查询结束后重新发送ip报文的控制块
@@ -77,13 +77,15 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     }
 
     //* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
-    UCHAR ubaDstMac[6];
-    INT nRtnVal = arp_get_mac(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
+    UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT); 
+    PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubIpPacket; 
+    UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
+    INT nRtnVal = arp_get_mac(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp, pstIpHdr->unSrcIP, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
     if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
     {
         //* 申请一个buf list节点并将ip报文挂载到list上
         SHORT sBufListHead = -1;
-        SHORT sIpPacketNode = buf_list_get_ext(((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT), (UINT)pstcbArpWait->usIpPacketLen, &enErr);
+        SHORT sIpPacketNode = buf_list_get_ext(pubIpPacket/*((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT)*/, (UINT)pstcbArpWait->usIpPacketLen, &enErr);
         if (sIpPacketNode < 0)
         {
             buddy_free(pvParam);
@@ -188,8 +190,8 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     //* 看看选择的网卡是否是ethernet类型，如果是则首先需要在此获取目标mac地址
     if (NIF_ETHERNET == pstNetif->enType)
     {
-        UCHAR ubaDstMac[6]; 
-        nRtnVal = arp_get_mac(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp, unArpDstAddr, ubaDstMac, penErr);
+        UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
+        nRtnVal = arp_get_mac(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp, unSrcAddr, unArpDstAddr, ubaDstMac, penErr);
         if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
         {
             nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);

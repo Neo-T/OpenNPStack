@@ -19,7 +19,7 @@
 typedef struct _ST_ENTRY_ETHIIIPV4_ {
     UINT unUpdateTime;      //* arp条目更新（读取/缓存）时间
     UINT unIPAddr;          //* IP地址
-    UCHAR ubaMacAddr[6];    //* 对应的ip地址    
+    UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];    //* 对应的ip地址    
 } ST_ENTRY_ETHIIIPV4, *PST_ENTRY_ETHIIIPV4;
 
 //* arp条目控制块
@@ -32,8 +32,8 @@ typedef struct _STCB_ETHARP_ {
 ARP_EXT void arp_init(void); 
 ARP_EXT PSTCB_ETHARP arp_ctl_block_new(void);
 ARP_EXT void arp_ctl_block_free(PSTCB_ETHARP pstcbArp);
-ARP_EXT void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[6]);
-ARP_EXT INT arp_get_mac(PST_NETIF pstNetif, UINT unIPAddr, UCHAR ubaMacAddr[6], EN_ONPSERR *penErr);
-ARP_EXT INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unIPAddr, EN_ONPSERR *penErr);
+ARP_EXT void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]);
+ARP_EXT INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr);
+ARP_EXT INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, EN_ONPSERR *penErr);
 
 #endif

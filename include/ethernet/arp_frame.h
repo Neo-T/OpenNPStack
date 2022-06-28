@@ -40,11 +40,11 @@ PACKED_END
 PACKED_BEGIN
 typedef struct _ST_ETHIIARP_IPV4_ {
     ST_ARP_HDR stHdr; 
-    UCHAR ubaSrcMacAddr[6]; 
+    UCHAR ubaSrcMacAddr[ETH_MAC_ADDR_LEN];
     UINT unSrcIPAddr; 
-    UCHAR ubaDstMacAddr[6]; 
+    UCHAR ubaDstMacAddr[ETH_MAC_ADDR_LEN];
     UINT unDstIPAddr; 
-    //UCHAR ubaPadding[18];  //* 填充字符，以满足ethernet帧数据域最小长度为46字节的要求
+    UCHAR ubaPadding[18];  //* 填充字符，以满足ethernet帧数据域最小长度为46字节的要求
 } PACKED ST_ETHIIARP_IPV4, *PST_ETHIIARP_IPV4;
 PACKED_END
 

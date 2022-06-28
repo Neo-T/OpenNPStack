@@ -16,8 +16,8 @@
 #endif //* SYMBOL_GLOBALS
 
 ETHERNET_EXT void ethernet_init(void); 
-ETHERNET_EXT PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, EN_ONPSERR *penErr); 
+ETHERNET_EXT PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, EN_ONPSERR *penErr);
 ETHERNET_EXT void ethernet_del(PST_NETIF pstNetif); 
-ETHERNET_EXT INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr);
+ETHERNET_EXT INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr);
 
 #endif

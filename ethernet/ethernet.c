@@ -33,7 +33,7 @@ void ethernet_init(void)
 }
 
 //* 添加ethernet网卡
-PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, EN_ONPSERR *penErr)
+PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, EN_ONPSERR *penErr)
 {
     PST_NETIF pstNetif = NULL; 
     PST_NETIFEXTRA_ETH pstExtra = NULL; 
@@ -78,7 +78,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV
         pstExtra->pstIPList = NULL;
         pstExtra->pstcbArp = pstcbArp; 
         pstExtra->pfunEmacSend = pfunEmacSend; 
-        memcpy(pstExtra->ubaMacAddr, ubaMacAddr, 6); 
+        memcpy(pstExtra->ubaMacAddr, ubaMacAddr, ETH_MAC_ADDR_LEN);
         if (pstIPv4->unAddr) //* 地址不为0则为静态地址，需要将其添加到路由表中
         {
             pstExtra->bIsStaticAddr = TRUE;
@@ -88,10 +88,9 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[6], PST_IPV
             {
                 netif_del(pstIfNode);
                 pstNetif = NULL; 
-
-                //* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
-                arp_ctl_block_free(pstcbArp); 
-                pstExtra->bIsUsed = FALSE;
+                
+                arp_ctl_block_free(pstcbArp);   //* 释放arp控制块
+                pstExtra->bIsUsed = FALSE;      //* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
             }
         }
         else        
@@ -118,10 +117,48 @@ void ethernet_del(PST_NETIF pstNetif)
 }
 
 //* 通过ethernet网卡进行发送
-INT ethernet_ii_send(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr)
+INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr)
 {
-    //* 增加ethernet II协议层
-    
+    ST_ETHERNET_II_HDR stEthIIHdr; 
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+
+    //* 填充源与目标mac地址
+    memcpy(stEthIIHdr.ubaDstMacAddr, (const UCHAR *)pvExtraParam, ETH_MAC_ADDR_LEN); 
+    memcpy(stEthIIHdr.ubaSrcMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 
+
+    //* 转换成ethernte ii定义的协议类型值
+    switch((EN_NPSPROTOCOL)ubProtocol)
+    {
+    case IPV4: 
+        stEthIIHdr.usProtoType = htons(ETHII_IP);
+        break; 
+
+    case ARP: 
+        stEthIIHdr.usProtoType = htons(ETHII_ARP);
+        break; 
+
+    default: 
+        if (penErr)
+            *penErr = ERRUNSUPPETHIIPROTO; 
+        return -1; 
+    }
+
+    //* ethernet ii协议头挂载到链表头部
+    SHORT sHdrNode;
+    sHdrNode = buf_list_get_ext((UCHAR *)&stEthIIHdr, (USHORT)sizeof(ST_ETHERNET_II_HDR), penErr);
+    if (sHdrNode < 0)
+    {
+        //* 使用计数减一，释放对网卡资源的占用
+        netif_freed(pstNetif);
+        return -1;
+    }
+    buf_list_put_head(&sBufListHead, sHdrNode);
+
+    //* 发送数据
+    INT nRtnVal = pstExtra->pfunEmacSend(sBufListHead, penErr); 
+
+    //* 释放刚才申请的buf list节点
+    buf_list_free(sHdrNode);
 }
 
 #endif

@@ -28,6 +28,7 @@ typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
 typedef INT(* PFUN_NETIF_SEND)(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr); 
 
 #if SUPPORT_ETHERNET
+#define ETH_MAC_ADDR_LEN    6   //* ethernet网卡mac地址长度
 typedef INT(* PFUN_EMAC_SEND)(SHORT sBufListHead, UCHAR *pubErr); 
 #endif
 
@@ -71,9 +72,9 @@ typedef struct _ST_NETIF_ETH_IP_NODE_ {
 typedef struct _STCB_ETHARP_ STCB_ETHARP, *PSTCB_ETHARP; 
 typedef struct _ST_NETIFEXTRA_ETH_ { 
     CHAR bIsUsed; 
-    CHAR bIsStaticAddr;     //* 静态地址？
-    UCHAR ubaMacAddr[6];    //* mac地址   
-    PST_NETIF_ETH_IP_NODE pstIPList; //* 绑定到该网卡的IP地址
+    CHAR bIsStaticAddr;                     //* 静态地址？
+    UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];     //* mac地址   
+    PST_NETIF_ETH_IP_NODE pstIPList;        //* 绑定到该网卡的IP地址
     PSTCB_ETHARP pstcbArp; 
     PFUN_EMAC_SEND pfunEmacSend; 
 } ST_NETIFEXTRA_ETH, *PST_NETIFEXTRA_ETH;
