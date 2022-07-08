@@ -17,8 +17,11 @@ c0 a8 00 fc 2c fd a1 ae 27 3e c0 a8 00 03
 00 00 00 00
 */
 
-#define ARP_HARDWARE_ETH    0x0001  //* 硬件类型为ethernet
-#define ARP_PROTO_IPv4      0x0800  //* 协议类型为IPv4
+#define ARP_HARDWARE_ETH        0x0001  //* 硬件类型为ethernet
+#define ARP_HARDWARE_ADDR_LEN   6       //* 硬件地址长度
+
+#define ARP_PROTO_IPv4          0x0800  //* 协议类型为IPv4
+#define ARP_PROTO_IPv4_ADDR_LEN 4       //* IPv4协议的地址长度
 
 //* ARP操作码定义
 typedef enum {

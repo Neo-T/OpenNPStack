@@ -67,7 +67,7 @@ void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR 
     //* 先查找该条目是否已经存在，如果存在则直接更新，否则直接添加或替换最老条目
     for (i = 0; i < ARPENTRY_NUM; i++)
     {
-        //* 尚未缓存任何条目，不必继续查找了，直接新增即可
+        //* 至此，前面缓存的条目没有匹配的，不必继续查找了，直接新增即可
         if (!pstArpIPv4Tbl[i].unIPAddr)
             break;         
 
@@ -183,6 +183,86 @@ INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDst
     buf_list_free(sArpPacketNode); 
 
     return nRtnVal; 
+}
+
+static BOOL is_arp_broadcast_addr(const UCHAR *pubaMacAddr)
+{
+    INT i;
+    for (i = 0; i < ETH_MAC_ADDR_LEN; i++)
+    {
+        if (pubaMacAddr[i] != 0x00)
+            return FALSE;
+    }
+
+    return TRUE;
+}
+
+//* 解析并处理ethernet ii层收到的报文
+void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
+{
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+    PST_ARP_HDR pstHdr = (PST_ARP_HDR)pubPacket; 
+
+    //* arp报文携带的硬件类型是否被协议栈支持
+    if (ARP_HARDWARE_ETH != htons(pstHdr->usHardwareType) || ARP_HARDWARE_ADDR_LEN != pstHdr->ubHardwareAddrLen)
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("error: Unsupported arp hardware type (%04X) or mac address length (%d), the packet will be discarded\r\n", htons(pstHdr->usHardwareType), pstHdr->ubHardwareAddrLen); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return; 
+    }
+
+    //* arp报文携带的协议类型是否被协议栈支持
+    if (ARP_PROTO_IPv4 != htons(pstHdr->usProtoType) || ARP_PROTO_IPv4_ADDR_LEN != pstHdr->ubProtoAddrLen) 
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("error: Unsupported arp protocol type (%04X) or protocol address length (%d), the packet will be discarded\r\n", htons(pstHdr->usProtoType), pstHdr->ubProtoAddrLen); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return;
+    }
+
+    //* 本协议栈暂时只支持Ipv4版本的arp地址查询
+    PST_ETHIIARP_IPV4 pstArpIPv4 = (PST_ETHIIARP_IPV4)pubPacket; 
+
+    //* 既不是广播地址，也不匹配本ethernet网卡mac地址，则直接丢弃该报文
+    if (!is_mac_broadcast_addr(pstArpIPv4->ubaDstMacAddr) && !ethernet_mac_matched(pstArpIPv4->ubaDstMacAddr, pstExtra->ubaMacAddr))
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("error: The arp target mac address does not match, the packet will be discarded\r\n"); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return;
+    }
+
+    EN_ARPOPCODE enOpcode = (EN_ARPOPCODE)htons(pstHdr->usOptCode); 
+    switch (enOpcode)
+    {
+    case ARPOPCODE_REQUEST:
+        break; 
+
+    case ARPOPCODE_REPLY:
+        break; 
+
+    default:  // 不做任何处理
+        break; 
+    }
 }
 
 #endif

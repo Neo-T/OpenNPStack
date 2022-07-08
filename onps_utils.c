@@ -4,6 +4,7 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
+#include "netif/netif.h"
 #include "ip/ip_frame.h"
 
 #define SYMBOL_GLOBALS
@@ -399,5 +400,30 @@ const CHAR *get_ip_proto_name(UCHAR ubProto)
     default:
         return "unsupported";
     }
+}
+
+//* 判断mac地址是否匹配
+BOOL ethernet_mac_matched(const UCHAR *pubaMacAddr1, const UCHAR *pubaMacAddr2)
+{
+    INT i; 
+    for (i = 0; i < ETH_MAC_ADDR_LEN; i++)
+    {
+        if (pubaMacAddr1[i] != pubaMacAddr2[i])
+            return FALSE; 
+    }
+
+    return TRUE; 
+}
+
+BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr)
+{
+    INT i; 
+    for (i = 0; i < ETH_MAC_ADDR_LEN; i++)
+    {
+        if (pubaMacAddr[i] != 0xFF)
+            return FALSE;
+    }
+
+    return TRUE;
 }
 

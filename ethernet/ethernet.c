@@ -16,17 +16,7 @@
 #include "ethernet/ethernet.h"
 #undef SYMBOL_GLOBALS
 
-//* ethernet ii层协议支持的上层协议
-typedef struct _ST_ETHIIPROTOCOL_ {
-    USHORT usType;
-    void(*pfunUpper)(UCHAR *pubPacket, INT nPacketLen);
-} ST_ETHIIPROTOCOL, *PST_ETHIIPROTOCOL;
-
-/*
-static const ST_ETHIIPROTOCOL lr_staProtocol[] = { 
-}; 
-*/
-
+//* 保存ethernet网卡附加信息的静态存储时期变量，系统存在几个ethernet网卡，这里就会申请几个数组单元
 static ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM]; 
 
 void ethernet_init(void)
@@ -164,6 +154,51 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
     buf_list_free(sHdrNode); 
 
     return nRtnVal; 
+}
+
+//* 处理ethernet网卡收到的ethernet ii协议帧
+void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
+{
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+
+    if (nPacketLen < (INT)sizeof(ST_ETHERNET_II_HDR))
+        return;     
+
+    PST_ETHERNET_II_HDR pstHdr = (PST_ETHERNET_II_HDR)pubPacket; 
+
+    //* 既不是广播地址，也不匹配本ethernet网卡mac地址，则直接丢弃该报文
+    if (!is_mac_broadcast_addr(pstHdr->ubaDstMacAddr) && !ethernet_mac_matched(pstHdr->ubaDstMacAddr, pstExtra->ubaMacAddr))
+        return; 
+
+    //* 根据ethernet ii帧携带的协议类型分别处理之
+    USHORT usProtocolType = htons(pstHdr->usProtoType);
+    switch (usProtocolType)
+    {
+    case ETHII_IP: 
+        ip_recv(pubPacket, nPacketLen); 
+        break; 
+
+    case ETHII_ARP: 
+        arp_recv_from_ethii(pstNetif, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR)); 
+        break; 
+
+#if SUPPORT_IPV6
+    case ETHII_IPV6:
+        break; 
+#endif
+
+    default: 
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("error: Unsupported ethernet ii protocol type (%04X), the packet will be discarded\r\n", usProtocolType);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        break; 
+    }
 }
 
 #endif

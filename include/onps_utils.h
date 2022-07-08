@@ -63,4 +63,7 @@ ONPS_UTILS_EXT char *inet_ntoa_safe(struct in_addr stInAddr, char *pszAddr);
 
 ONPS_UTILS_EXT const CHAR *get_ip_proto_name(UCHAR ubProto); 
 
+ONPS_UTILS_EXT BOOL ethernet_mac_matched(const UCHAR *pubaMacAddr1, const UCHAR *pubaMacAddr2); 
+ONPS_UTILS_EXT BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr); 
+
 #endif
