@@ -158,7 +158,7 @@ INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDst
     stArpRequest.stHdr.usProtoType = htons(ARP_PROTO_IPv4); 
     stArpRequest.stHdr.ubHardwareAddrLen = ETH_MAC_ADDR_LEN;
     stArpRequest.stHdr.ubProtoAddrLen = 4; 
-    stArpRequest.stHdr.usOptCode = htpns(ARPOPCODE_REQUEST); 
+    stArpRequest.stHdr.usOptCode = htons(ARPOPCODE_REQUEST); 
     memcpy(stArpRequest.ubaSrcMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
     stArpRequest.unSrcIPAddr = unSrcIPAddr; 
     memset(stArpRequest.ubaDstMacAddr, 0, ETH_MAC_ADDR_LEN);  //* 填充全0
