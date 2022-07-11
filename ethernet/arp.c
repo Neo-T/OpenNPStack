@@ -318,14 +318,14 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     {
     case ARPOPCODE_REQUEST: 
         //* 如果目标ip地址匹配则回馈一个arp reply报文给发送者
-        if (ethernet_ipv4_addr_matched(pstNetif, htonl(pstArpIPv4->unDstIPAddr)))
+        if (ethernet_ipv4_addr_matched(pstNetif, pstArpIPv4->unDstIPAddr))
             arp_send_reply_ethii_ipv4(pstNetif, pstArpIPv4->unDstIPAddr, pstArpIPv4->ubaSrcMacAddr, pstArpIPv4->unSrcIPAddr);
         break; 
 
     case ARPOPCODE_REPLY:
         //* 确定目标ip地址与本网卡绑定的ip地址匹配，只有匹配才会将其加入arp缓存表
-        if (ethernet_ipv4_addr_matched(pstNetif, htonl(pstArpIPv4->unDstIPAddr)))
-            arp_add_ethii_ipv4(pstExtra->pstcbArp->staEntryIPv4, htonl(pstArpIPv4->unSrcIPAddr), pstArpIPv4->ubaSrcMacAddr); 
+        if (ethernet_ipv4_addr_matched(pstNetif, pstArpIPv4->unDstIPAddr))
+            arp_add_ethii_ipv4(pstExtra->pstcbArp->staEntryIPv4, pstArpIPv4->unSrcIPAddr, pstArpIPv4->ubaSrcMacAddr); 
         break; 
 
     default:  // 不做任何处理

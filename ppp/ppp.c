@@ -339,17 +339,15 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 	}	
 	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
 
-#if SUPPORT_PRINTF
-	#if DEBUG_LEVEL
-        #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
-        printf("sent %d bytes: \r\n", nRtnVal);
-	    printf_hex_ext(sBufListHead, 48); 
-        #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
+#if SUPPORT_PRINTF && DEBUG_LEVEL	
+	#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
+	printf("sent %d bytes: \r\n", nRtnVal);
+	printf_hex_ext(sBufListHead, 48); 
+	#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif	
 #endif
 
 	//* 释放缓冲区节点
@@ -636,7 +634,7 @@ void ppp_link_recreate(INT nPPPIdx)
 static void ppp_ip_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
     pstcbPPP = pstcbPPP;  //* 避免编译器警告
-    ip_recv(pubPacket, nPacketLen); 
+    ip_recv(NULL, NULL, pubPacket, nPacketLen); 
 }
 
 #endif

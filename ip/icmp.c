@@ -128,7 +128,7 @@ const CHAR *icmp_get_description(UCHAR ubType, UCHAR ubCode)
     }
 }
 
-static INT icmp_send(in_addr_t unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT icmp_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     //* 填充头部字段
     ST_ICMP_HDR stHdr; 
@@ -145,7 +145,7 @@ static INT icmp_send(in_addr_t unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHA
     stHdr.usChecksum = tcpip_checksum_ext(sBufListHead); 
 
     //* 完成发送
-    INT nRtnVal = ip_send(unDstAddr, ICMP, ubTTL, sBufListHead, penErr);
+    INT nRtnVal = ip_send(pstNetif, pubDstMacAddr, unSrcAddr, unDstAddr, ICMP, ubTTL, sBufListHead, penErr);
 
     //* 释放刚才申请的buf list节点
     buf_list_free(sHdrNode);
@@ -153,7 +153,7 @@ static INT icmp_send(in_addr_t unDstAddr, EN_ICMPTYPE enType, UCHAR ubCode, UCHA
     return nRtnVal; 
 }
 
-INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, UINT unDstAddr, UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr)
+INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, in_addr_t unDstAddr, UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr)
 {
     //* 申请一个buf list节点
     SHORT sBufListHead = -1;
@@ -175,7 +175,7 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     //* 记录echo identifier，以便区分echo应答报文
     INT nRtnVal;    
     if (onps_input_set(nInput, IOPT_SETICMPECHOID, &usIdentifier, penErr))    
-        nRtnVal = icmp_send(unDstAddr, ICMP_ECHOREQ, 0, ubTTL, sBufListHead, penErr);     
+        nRtnVal = icmp_send(NULL, NULL, 0, unDstAddr, ICMP_ECHOREQ, 0, ubTTL, sBufListHead, penErr);     
     else
     {
 #if SUPPORT_PRINTF
@@ -196,7 +196,7 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     return nRtnVal; 
 }
 
-static void icmp_send_echo_reply(UCHAR *pubPacket, INT nPacketLen)
+static void icmp_send_echo_reply(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
 {
     EN_ONPSERR enErr; 
     PST_IP_HDR pstReqIpHdr = (PST_IP_HDR)pubPacket;
@@ -208,7 +208,7 @@ static void icmp_send_echo_reply(UCHAR *pubPacket, INT nPacketLen)
     PST_ICMP_ECHO_HDR pstRepRchoHdr = (PST_ICMP_ECHO_HDR)ubData; 
     pstRepRchoHdr->usIdentifier = pstReqEchoHdr->usIdentifier; 
     pstRepRchoHdr->usSeqNum = pstReqEchoHdr->usSeqNum; 
-    USHORT usEchoDataLen = pstReqIpHdr->usPacketLen - usIpHdrLen - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR);
+    USHORT usEchoDataLen = htons(pstReqIpHdr->usPacketLen) - usIpHdrLen - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR);
     USHORT usCpyBytes = usEchoDataLen < sizeof(ubData) - sizeof(ST_ICMP_ECHO_HDR) ? usEchoDataLen : sizeof(ubData) - sizeof(ST_ICMP_ECHO_HDR); 
     memcpy(&ubData[sizeof(ST_ICMP_ECHO_HDR)], pubPacket + usIpHdrLen + sizeof(ST_ICMP_HDR) + sizeof(ST_ICMP_ECHO_HDR), usCpyBytes); 
 
@@ -232,7 +232,7 @@ static void icmp_send_echo_reply(UCHAR *pubPacket, INT nPacketLen)
     buf_list_put_head(&sBufListHead, sDataNode); 
 
     //* 发送数据
-    if (!icmp_send(htonl(pstReqIpHdr->unSrcIP), ICMP_ECHOREPLY, 0, IP_TTL_DEFAULT, sBufListHead, &enErr))
+    if (!icmp_send(pstNetif, pubDstMacAddr, pstReqIpHdr->unDstIP, htonl(pstReqIpHdr->unSrcIP), ICMP_ECHOREPLY, 0, IP_TTL_DEFAULT, sBufListHead, &enErr))
     {
 #if SUPPORT_PRINTF
     #if PRINTF_THREAD_MUTEX
@@ -319,7 +319,7 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
 #endif
 }
 
-void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
+void icmp_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
 {
     PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket; 
     UCHAR usIpHdrLen = pstIpHdr->bitHdrLen * 4;
@@ -352,7 +352,7 @@ void icmp_recv(UCHAR *pubPacket, INT nPacketLen)
         break; 
 
     case ICMP_ECHOREQ:
-        icmp_send_echo_reply(pubPacket, nPacketLen);
+        icmp_send_echo_reply(pstNetif, pubDstMacAddr, pubPacket, nPacketLen);
         break; 
 
     case ICMP_ROUTEADVERT:

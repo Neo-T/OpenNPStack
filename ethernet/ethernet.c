@@ -77,7 +77,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
             pstExtra->bIsStaticAddr = TRUE;
 
             //* 添加到路由表，使其成为缺省路由
-            if (!route_add(pstNetif, 0, 0, 0, penErr))
+            if (!route_add(pstNetif, 0, pstIPv4->unGateway, pstIPv4->unSubnetMask, penErr))
             {
                 netif_del(pstIfNode);
                 pstNetif = NULL; 
@@ -150,6 +150,17 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
     //* 发送数据
     INT nRtnVal = pstExtra->pfunEmacSend(sBufListHead, penErr); 
 
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+	#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+	printf("sent %d bytes: \r\n", nRtnVal);
+	printf_hex_ext(sBufListHead, 48);
+	#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+
     //* 释放刚才申请的buf list节点
     buf_list_free(sHdrNode); 
 
@@ -174,12 +185,12 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     USHORT usProtocolType = htons(pstHdr->usProtoType);
     switch (usProtocolType)
     {
-    case ETHII_IP: 
-        ip_recv(pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR));
+    case ETHII_IP: 		
+        ip_recv(pstNetif, pstHdr->ubaSrcMacAddr, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR));
         break; 
 
-    case ETHII_ARP: 
-        arp_recv_from_ethii(pstNetif, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR)); 
+    case ETHII_ARP: 		
+        arp_recv_from_ethii(pstNetif, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR)); 		
         break; 
 
 #if SUPPORT_IPV6

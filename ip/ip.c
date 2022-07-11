@@ -147,7 +147,7 @@ __lblEnd:
     buddy_free(pvParam);
 }
 
-static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unArpDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unArpDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
     INT nRtnVal; 
     BOOL blNetifFreedEn = TRUE; 
@@ -193,47 +193,54 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     //* 看看选择的网卡是否是ethernet类型，如果是则首先需要在此获取目标mac地址
     if (NIF_ETHERNET == pstNetif->enType)
     {
-        UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
-        nRtnVal = arp_get_mac(pstNetif, unSrcAddr, unArpDstAddr, ubaDstMac, penErr);
-        if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
-        {
-            nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);
-        }
-        else 
-        {
-            //* 说明已经成功发送了arp报文，开启一个定时器等1秒后再发送一次试试
-            if (nRtnVal > 0)
-            {
-                UINT unIpPacketLen = buf_list_get_len(sBufListHead); //* 获取报文长度
-                PSTCB_ETH_ARP_WAIT pstcbArpWait = buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文                
-                if (pstcbArpWait)
-                {
-                    UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
+		if (pubDstMacAddr)
+		{
+			nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, pubDstMacAddr, penErr);
+		}
+		else
+		{
+			UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
+			nRtnVal = arp_get_mac(pstNetif, unSrcAddr, unArpDstAddr, ubaDstMac, penErr);
+			if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
+			{
+				nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);
+			}
+			else
+			{
+				//* 说明已经成功发送了arp报文，开启一个定时器等1秒后再发送一次试试
+				if (nRtnVal > 0)
+				{
+					UINT unIpPacketLen = buf_list_get_len(sBufListHead); //* 获取报文长度
+					PSTCB_ETH_ARP_WAIT pstcbArpWait = buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文                
+					if (pstcbArpWait)
+					{
+						UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
 
-                    //* 保存报文到刚申请的内存中，然后开启一个1秒定时器等待arp查询结果并在得到正确mac地址后发送ip报文
-                    buf_list_merge_packet(sBufListHead, pubIpPacket);
+						//* 保存报文到刚申请的内存中，然后开启一个1秒定时器等待arp查询结果并在得到正确mac地址后发送ip报文
+						buf_list_merge_packet(sBufListHead, pubIpPacket);
 
-                    //* 计数器清零，并传递当前选择的netif
-                    pstcbArpWait->pstNetif = pstNetif; 
-                    pstcbArpWait->unArpDstAddr = unArpDstAddr; 
-                    pstcbArpWait->usIpPacketLen = (USHORT)unIpPacketLen;
-                    pstcbArpWait->ubCount = 0; 
+						//* 计数器清零，并传递当前选择的netif
+						pstcbArpWait->pstNetif = pstNetif;
+						pstcbArpWait->unArpDstAddr = unArpDstAddr;
+						pstcbArpWait->usIpPacketLen = (USHORT)unIpPacketLen;
+						pstcbArpWait->ubCount = 0;
 
-                    //* 启动一个1秒定时器，等待查询完毕
-                    if (one_shot_timer_new(eth_arp_wait_timeout_handler, pstcbArpWait, 1))
-                        blNetifFreedEn = FALSE; 
-                    else
-                    {
-                        if (penErr)
-                            *penErr = ERRNOIDLETIMER;
-                        nRtnVal = -2;
-                    }                        
-                }
-                else
-                    nRtnVal = -1; 
-            }            
-            else; //* arp查询失败，不作任何处理
-        }
+						//* 启动一个1秒定时器，等待查询完毕
+						if (one_shot_timer_new(eth_arp_wait_timeout_handler, pstcbArpWait, 1))
+							blNetifFreedEn = FALSE;
+						else
+						{
+							if (penErr)
+								*penErr = ERRNOIDLETIMER;
+							nRtnVal = -2;
+						}
+					}
+					else
+						nRtnVal = -1;
+				}
+				else; //* arp查询失败，不作任何处理
+			}
+		}        
     }
     else
     {
@@ -251,19 +258,25 @@ static INT netif_ip_send(PST_NETIF pstNetif, in_addr_t unSrcAddr, in_addr_t unDs
     return nRtnVal;
 }
 
-INT ip_send(in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
+INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    in_addr_t unSrcAddr, unArpDstAddr = unDstAddr;
-    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unSrcAddr, &unArpDstAddr);
-    if (NULL == pstNetif)
-    {
-        if (penErr)
-            *penErr = ERRADDRESSING; 
+	in_addr_t unSrcAddrUsed = unSrcAddr, unArpDstAddr = unDstAddr;
 
-        return -1;
-    }    
+	//* 如果未指定netif则通过路由表选择一个适合的netif
+	PST_NETIF pstNetifUsed = pstNetif; 
+	if (NULL == pstNetifUsed)
+	{		
+		pstNetifUsed = route_get_netif(unDstAddr, TRUE, &unSrcAddrUsed, &unArpDstAddr);
+		if (NULL == pstNetifUsed)
+		{
+			if (penErr)
+				*penErr = ERRADDRESSING;
 
-    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
+			return -1;
+		}
+	}        
+
+    return netif_ip_send(pstNetifUsed, pubDstMacAddr, unSrcAddrUsed, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
 
 INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
@@ -298,10 +311,10 @@ INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProto
     }
     */
 
-    return netif_ip_send(pstNetif, unSrcAddr, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
+    return netif_ip_send(pstNetif, NULL, unSrcAddr, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
 
-void ip_recv(UCHAR *pubPacket, INT nPacketLen)
+void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
 {
     PST_IP_HDR pstHdr = (PST_IP_HDR)pubPacket;
     UCHAR usHdrLen = pstHdr->bitHdrLen * 4;
@@ -329,7 +342,7 @@ void ip_recv(UCHAR *pubPacket, INT nPacketLen)
     switch (pstHdr->ubProto)
     {
     case IPPROTO_ICMP: 
-        icmp_recv(pubPacket, nPacketLen);
+        icmp_recv(pstNetif, pubDstMacAddr, pubPacket, nPacketLen);
         break; 
 
     case IPPROTO_TCP:
