@@ -20,5 +20,6 @@ ETHERNET_EXT PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAdd
 ETHERNET_EXT void ethernet_del(PST_NETIF pstNetif); 
 ETHERNET_EXT INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr);
 ETHERNET_EXT void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen);
+ETHERNET_EXT BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr);
 
 #endif

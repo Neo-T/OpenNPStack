@@ -201,4 +201,25 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     }
 }
 
+//* 参数unTargetIpAddr指定的ip地址是否与ethernet网卡的ip地址匹配
+BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
+{
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+
+    if (unTargetIpAddr == pstNetif->stIPv4.unAddr)
+        return TRUE; 
+
+    //* 看看附加ip地址列表有匹配的吗
+    PST_NETIF_ETH_IP_NODE pstNextIpNode = pstExtra->pstIPList; 
+    while (pstNextIpNode)
+    {
+        if (unTargetIpAddr == pstNextIpNode->unAddr)
+            return TRUE; 
+
+        pstNextIpNode = pstNextIpNode->pstNext; 
+    }
+
+    return FALSE; 
+}
+
 #endif

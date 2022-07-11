@@ -11,6 +11,7 @@
 
 #if SUPPORT_ETHERNET
 #include "ethernet/arp_frame.h"
+#include "ethernet/ethernet.h"
 #define SYMBOL_GLOBALS
 #include "ethernet/arp.h"
 #undef SYMBOL_GLOBAL
@@ -185,6 +186,66 @@ INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDst
     return nRtnVal; 
 }
 
+//* 回馈一个reply报文，告知发送者“我”的mac
+void arp_send_reply_ethii_ipv4(PST_NETIF pstNetif, UINT unReqIPAddr, UCHAR ubaDstMacAddr[ETH_MAC_ADDR_LEN], UINT unDstArpIPAddr)
+{
+    EN_ONPSERR enErr;
+    ST_ETHIIARP_IPV4 stArpReply;
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+
+    //* 封装arp查询请求报文
+    stArpReply.stHdr.usHardwareType = htons(ARP_HARDWARE_ETH);
+    stArpReply.stHdr.usProtoType = htons(ARP_PROTO_IPv4);
+    stArpReply.stHdr.ubHardwareAddrLen = ETH_MAC_ADDR_LEN;
+    stArpReply.stHdr.ubProtoAddrLen = 4;
+    stArpReply.stHdr.usOptCode = ARPOPCODE_REPLY;
+    memcpy(stArpReply.ubaSrcMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    stArpReply.unSrcIPAddr = unReqIPAddr;
+    memcpy(stArpReply.ubaDstMacAddr, ubaDstMacAddr, ETH_MAC_ADDR_LEN);
+    stArpReply.unDstIPAddr = unDstArpIPAddr;
+    stArpReply.ubaPadding[0] = 'N';
+    stArpReply.ubaPadding[1] = 'e';
+    stArpReply.ubaPadding[2] = 'o';
+    stArpReply.ubaPadding[3] = '-';
+    stArpReply.ubaPadding[4] = 'T';
+    stArpReply.ubaPadding[5] = 0;
+
+    //* 挂载用户数据    
+    SHORT sBufListHead = -1;
+    SHORT sArpPacketNode = buf_list_get_ext((UCHAR *)&stArpReply, (UINT)sizeof(stArpReply), &enErr);
+    if (sArpPacketNode < 0)
+    { 
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("error: arp_send_reply_ethii_ipv4() failed, %s\r\n", onps_error(enErr)); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return;
+    }        
+    buf_list_put_head(&sBufListHead, sArpPacketNode);
+
+    //* 发送响应报文
+    if (pstNetif->pfunSend(pstNetif, ARP, sBufListHead, ubaDstMacAddr, &enErr) < 0)
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("error: arp_send_reply_ethii_ipv4() failed, %s\r\n", onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+
+    //* 释放刚才申请的buf list节点
+    buf_list_free(sArpPacketNode);
+}
+
 static BOOL is_arp_broadcast_addr(const UCHAR *pubaMacAddr)
 {
     INT i;
@@ -237,7 +298,7 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     PST_ETHIIARP_IPV4 pstArpIPv4 = (PST_ETHIIARP_IPV4)pubPacket; 
 
     //* 既不是广播地址，也不匹配本ethernet网卡mac地址，则直接丢弃该报文
-    if (!is_mac_broadcast_addr(pstArpIPv4->ubaDstMacAddr) && !ethernet_mac_matched(pstArpIPv4->ubaDstMacAddr, pstExtra->ubaMacAddr))
+    if (!is_arp_broadcast_addr(pstArpIPv4->ubaDstMacAddr) && !ethernet_mac_matched(pstArpIPv4->ubaDstMacAddr, pstExtra->ubaMacAddr))
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
@@ -251,13 +312,20 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
         return;
     }
 
+    //* 进入arp requet和arp reply等业务逻辑
     EN_ARPOPCODE enOpcode = (EN_ARPOPCODE)htons(pstHdr->usOptCode); 
     switch (enOpcode)
     {
-    case ARPOPCODE_REQUEST:
+    case ARPOPCODE_REQUEST: 
+        //* 如果目标ip地址匹配则回馈一个arp reply报文给发送者
+        if (ethernet_ipv4_addr_matched(pstNetif, htonl(pstArpIPv4->unDstIPAddr)))
+            arp_send_reply_ethii_ipv4(pstNetif, pstArpIPv4->unDstIPAddr, pstArpIPv4->ubaSrcMacAddr, pstArpIPv4->unSrcIPAddr);
         break; 
 
     case ARPOPCODE_REPLY:
+        //* 确定目标ip地址与本网卡绑定的ip地址匹配，只有匹配才会将其加入arp缓存表
+        if (ethernet_ipv4_addr_matched(pstNetif, htonl(pstArpIPv4->unDstIPAddr)))
+            arp_add_ethii_ipv4(pstExtra->pstcbArp->staEntryIPv4, htonl(pstArpIPv4->unSrcIPAddr), pstArpIPv4->ubaSrcMacAddr); 
         break; 
 
     default:  // 不做任何处理
