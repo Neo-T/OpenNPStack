@@ -175,7 +175,7 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     switch (usProtocolType)
     {
     case ETHII_IP: 
-        ip_recv(pubPacket, nPacketLen); 
+        ip_recv(pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR));
         break; 
 
     case ETHII_ARP: 
