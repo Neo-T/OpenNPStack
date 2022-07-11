@@ -58,6 +58,7 @@ ONPS_UTILS_EXT void sllist_put_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST
 ONPS_UTILS_EXT void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode); //* 同上，只不过该函数是将该节点挂接到链表尾部
 
 ONPS_UTILS_EXT in_addr_t inet_addr(const char *pszIP);   //* 点分十进制IPv4地址转换为4字节无符号整型地址
+ONPS_UTILS_EXT in_addr_t inet_addr_small(const char *pszIP); 
 ONPS_UTILS_EXT char *inet_ntoa(struct in_addr stInAddr);
 ONPS_UTILS_EXT char *inet_ntoa_safe(struct in_addr stInAddr, char *pszAddr);
 

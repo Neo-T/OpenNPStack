@@ -363,6 +363,25 @@ in_addr_t inet_addr(const char *pszIP)
     return unAddr;
 }
 
+in_addr_t inet_addr_small(const char *pszIP)
+{
+    in_addr_t unAddr;
+    CHAR *pszStart = (CHAR *)pszIP, *pszDot;
+    UINT unLen = (UINT)strlen(pszIP);
+    pszDot = mem_char(pszStart, '.', unLen);
+    ((UCHAR *)&unAddr)[0] = (UCHAR)atoi(pszStart);
+    pszStart = pszDot + 1;
+    pszDot = mem_char(pszStart, '.', unLen - (pszStart - pszIP));
+    ((UCHAR *)&unAddr)[1] = (UCHAR)atoi(pszStart);
+    pszStart = pszDot + 1;
+    pszDot = mem_char(pszStart, '.', unLen - (pszStart - pszIP));
+    ((UCHAR *)&unAddr)[2] = (UCHAR)atoi(pszStart);
+    pszStart = pszDot + 1;
+    ((UCHAR *)&unAddr)[3] = (UCHAR)atoi(pszStart);
+
+    return unAddr;
+}
+
 char *inet_ntoa(struct in_addr stInAddr)
 {
     static char szAddr[20]; 
