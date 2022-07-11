@@ -158,7 +158,7 @@ INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDst
     stArpRequest.stHdr.usProtoType = htons(ARP_PROTO_IPv4); 
     stArpRequest.stHdr.ubHardwareAddrLen = ETH_MAC_ADDR_LEN;
     stArpRequest.stHdr.ubProtoAddrLen = 4; 
-    stArpRequest.stHdr.usOptCode = ARPOPCODE_REQUEST; 
+    stArpRequest.stHdr.usOptCode = htpns(ARPOPCODE_REQUEST); 
     memcpy(stArpRequest.ubaSrcMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
     stArpRequest.unSrcIPAddr = unSrcIPAddr; 
     memset(stArpRequest.ubaDstMacAddr, 0, ETH_MAC_ADDR_LEN);  //* 填充全0
@@ -198,7 +198,7 @@ void arp_send_reply_ethii_ipv4(PST_NETIF pstNetif, UINT unReqIPAddr, UCHAR ubaDs
     stArpReply.stHdr.usProtoType = htons(ARP_PROTO_IPv4);
     stArpReply.stHdr.ubHardwareAddrLen = ETH_MAC_ADDR_LEN;
     stArpReply.stHdr.ubProtoAddrLen = 4;
-    stArpReply.stHdr.usOptCode = ARPOPCODE_REPLY;
+    stArpReply.stHdr.usOptCode = htons(ARPOPCODE_REPLY);
     memcpy(stArpReply.ubaSrcMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
     stArpReply.unSrcIPAddr = unReqIPAddr;
     memcpy(stArpReply.ubaDstMacAddr, ubaDstMacAddr, ETH_MAC_ADDR_LEN);
