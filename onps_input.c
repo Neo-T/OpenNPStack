@@ -815,8 +815,10 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR
     //* 报文继续上报给上层调用者
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
     UCHAR usIpHdrLen = pstHdr->bitHdrLen * 4;
-    *punSrcAddr = pstHdr->unSrcIP;
-    *pubTTL = pstHdr->ubTTL; 
+    if(punSrcAddr)
+        *punSrcAddr = pstHdr->unSrcIP;
+    if(pubTTL)
+        *pubTTL = pstHdr->ubTTL; 
     *ppubPacket = l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen;
     return (INT)l_stcbaInput[nInput].unRcvedBytes - usIpHdrLen;
 }

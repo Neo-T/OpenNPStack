@@ -153,11 +153,11 @@ static INT icmp_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAd
     return nRtnVal; 
 }
 
-INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, in_addr_t unDstAddr, UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr)
+INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, in_addr_t unDstAddr, const UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr)
 {
     //* 申请一个buf list节点
     SHORT sBufListHead = -1;
-    SHORT sDataNode = buf_list_get_ext(pubData, (USHORT)unDataSize, penErr);
+    SHORT sDataNode = buf_list_get_ext((UCHAR *)pubData, (USHORT)unDataSize, penErr);
     if (sDataNode < 0)
         return -1;
     buf_list_put_head(&sBufListHead, sDataNode);

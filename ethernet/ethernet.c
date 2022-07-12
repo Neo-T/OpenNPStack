@@ -203,7 +203,7 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("error: Unsupported ethernet ii protocol type (%04X), the packet will be discarded\r\n", usProtocolType);
+        printf("error: Unsupported ethernet ii protocol type (%04X), the packet will be dropped\r\n", usProtocolType);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif

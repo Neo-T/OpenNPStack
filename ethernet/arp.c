@@ -271,7 +271,7 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("error: Unsupported arp hardware type (%04X) or mac address length (%d), the packet will be discarded\r\n", htons(pstHdr->usHardwareType), pstHdr->ubHardwareAddrLen); 
+        printf("error: Unsupported arp hardware type (%04X) or mac address length (%d), the packet will be dropped\r\n", htons(pstHdr->usHardwareType), pstHdr->ubHardwareAddrLen); 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
@@ -286,7 +286,7 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("error: Unsupported arp protocol type (%04X) or protocol address length (%d), the packet will be discarded\r\n", htons(pstHdr->usProtoType), pstHdr->ubProtoAddrLen); 
+        printf("error: Unsupported arp protocol type (%04X) or protocol address length (%d), the packet will be dropped\r\n", htons(pstHdr->usProtoType), pstHdr->ubProtoAddrLen); 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
@@ -304,7 +304,7 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("error: The arp target mac address does not match, the packet will be discarded\r\n"); 
+        printf("error: The arp target mac address does not match, the packet will be dropped\r\n"); 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif

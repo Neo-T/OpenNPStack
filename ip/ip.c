@@ -72,7 +72,7 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("The arp query times out and the packet will be discarded\r\n"); 
+        printf("The arp query times out and the packet will be dropped\r\n"); 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
