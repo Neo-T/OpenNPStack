@@ -325,6 +325,11 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
 {
     PST_IP_HDR pstHdr = (PST_IP_HDR)pubPacket;
     UCHAR usHdrLen = pstHdr->bitHdrLen * 4;
+	USHORT usIpPacketLen = htons(pstHdr->usPacketLen);
+	if (nPacketLen >= (INT)usIpPacketLen)
+		nPacketLen = (INT)usIpPacketLen;
+	else //* 指定的报文长度与实际收到的字节数不匹配，直接丢弃该报文
+		return; 
 
     //* 首先看看校验和是否正确
     USHORT usPktChecksum = pstHdr->usChecksum;

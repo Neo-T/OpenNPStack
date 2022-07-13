@@ -295,7 +295,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                             pstClient->tPrevActiveTime = time(NULL);  //* 记录最后一组报文到达时间，告知主线程这个客户端上报的最后一组报文是在什么时间
 
                             CHAR szPktTime[24] = { 0 }; 
-                            unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));
+                            unix_time_to_local((time_t)pstHdr->unTimestamp - 8 * 3600, szPktTime, sizeof(szPktTime));
 
                             //* 处理收到的报文，首先看看这是不是上传的数据报文
                             if (pstHdr->bCmd == 0)
