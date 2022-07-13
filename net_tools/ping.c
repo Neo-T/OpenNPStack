@@ -45,7 +45,7 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
             if (pusSeqNum)
                 *pusSeqNum = htons(pstEchoHdr->usSeqNum);
 
-            return nRcvedBytes;
+            return nCpyBytes;
         }
         else
         {
@@ -57,7 +57,24 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
     return nRcvedBytes; 
 }
 
-INT ping(INT nPing, in_addr_t unDstAddr, UINT(*pfunGetCurMSecs)(void), void(*pfunRcvHandler)(USHORT usIdentifier, in_addr_t unFromAddr, USHORT usSeqNum, UCHAR *pubEchoData, UCHAR ubEchoDataLen, UCHAR ubTTL, UCHAR ubElapsedMSecs), UCHAR ubWaitSecs)
+//* 实现ping操作
+INT ping(INT nPing, in_addr_t unDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfunGetCurMSecs)(void), void(*pfunRcvHandler)(USHORT usIdentifier, in_addr_t unFromAddr, USHORT usSeqNum, UCHAR *pubEchoData, UCHAR ubEchoDataLen, UCHAR ubTTL, UCHAR ubElapsedMSecs), UCHAR ubWaitSecs, EN_ONPSERR *penErr)
 {
+    UINT unStartMillisecs = pfunGetCurMSecs(); 
+    INT nRtnVal = ping_send(nPing, unDstAddr, usSeqNum, ubTTL, "I am morpheus, Neo. Welcome to zion.", sizeof("I am morpheus, Neo. Welcome to zion.") - 1, penErr); 
+    if (nRtnVal < 0)
+        return -1; 
 
+    in_addr_t unFromAddr; 
+    USHORT usReplySeqNum; 
+    UCHAR ubReplyTTL; 
+    UCHAR ubaEchoData[48]; 
+    INT nRcvedBytes = ping_recv(nPing, &unFromAddr, &usReplySeqNum, ubaEchoData, sizeof(ubaEchoData) - 1, &ubReplyTTL, ubWaitSecs, penErr);
+    if (nRcvedBytes > 0)
+    {
+        ubaEchoData[nRcvedBytes] = 0; 
+        pfunRcvHandler(nPing, unFromAddr, usReplySeqNum, ubaEchoData, (UCHAR)nRcvedBytes, ubReplyTTL, (UCHAR)(pfunGetCurMSecs() - unStartMillisecs)); 
+    }
+
+    return nRcvedBytes; 
 }
