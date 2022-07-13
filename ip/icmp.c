@@ -163,8 +163,8 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     buf_list_put_head(&sBufListHead, sDataNode);
 
     ST_ICMP_ECHO_HDR stEchoHdr; 
-    stEchoHdr.usIdentifier = usIdentifier; 
-    stEchoHdr.usSeqNum = usSeqNum; 
+    stEchoHdr.usIdentifier = htons(usIdentifier); 
+    stEchoHdr.usSeqNum = htons(usSeqNum); 
     //* 挂载到buf list头部
     SHORT sHdrNode;
     sHdrNode = buf_list_get_ext((UCHAR *)&stEchoHdr, (USHORT)sizeof(ST_ICMP_ECHO_HDR), penErr);

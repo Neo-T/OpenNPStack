@@ -36,14 +36,14 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
         PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));        
 
         //* 应答报文携带的identifier是否匹配，如果不匹配则直接返回错误，没必要继续等待，因为onps input模块收到的一定是当前ping链路到达的报文
-        if (nPing + 1 == (INT)pstEchoHdr->usIdentifier)
+        if (nPing + 1 == (INT)htons(pstEchoHdr->usIdentifier))
         {
             //* 复制echo数据到用户接收缓冲区
             INT nCpyBytes = (INT)ubDataBufSize > nRcvedBytes - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR) ? nRcvedBytes - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR) : (INT)ubDataBufSize;
             memcpy(pubDataBuf, pubPacket + sizeof(ST_ICMP_HDR) + sizeof(ST_ICMP_ECHO_HDR), nCpyBytes);
 
             if (pusSeqNum)
-                *pusSeqNum = pstEchoHdr->usSeqNum;
+                *pusSeqNum = htons(pstEchoHdr->usSeqNum);
 
             return nCpyBytes;
         }

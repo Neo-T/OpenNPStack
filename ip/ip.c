@@ -281,8 +281,9 @@ INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_ad
 
 INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    in_addr_t unRouteSrcAddr, unArpDstAddr = unDstAddr; 
-    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unRouteSrcAddr, &unArpDstAddr); 
+    in_addr_t unRouteSrcAddr, unArpDstAddr = htonl(unDstAddr);
+
+    PST_NETIF pstNetif = route_get_netif(unArpDstAddr/*unDstAddr*/, TRUE, &unRouteSrcAddr, &unArpDstAddr);
     if (NULL == pstNetif)
     {
         if (penErr)
@@ -292,7 +293,7 @@ INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProto
     }
 
     //* 再次寻址与上层协议寻址结果不一致，则直接放弃该报文
-    if (unSrcAddr != unArpDstAddr)
+    if (unSrcAddr != unRouteSrcAddr)
     {
         if (penErr)
             *penErr = ERRROUTEADDRMATCH;
