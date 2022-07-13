@@ -241,6 +241,7 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
                 return &pstNextNode->stIf; 
             }
 
+        #if SUPPORT_ETHERNET
             //* ethernet网卡，则需要看看附加地址链表是否有匹配的ip地址了
             if (NIF_ETHERNET == pstNextNode->stIf.enType)
             {
@@ -260,6 +261,7 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
                     pstNextIP = pstNextIP->pstNext;
                 }
             }
+        #endif
 
             pstNextNode = pstNextNode->pstNext;
         }
@@ -269,6 +271,7 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
     return NULL; 
 }
 
+#if SUPPORT_ETHERNET
 PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp)
 {
     PST_NETIF pstNetif = NULL;
@@ -315,6 +318,7 @@ PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp)
 
     return pstNetif; 
 }
+#endif
 
 UINT netif_get_first_ip(void)
 {
@@ -374,6 +378,7 @@ BOOL netif_is_ready(const CHAR *pszIfName)
 
 UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 {
+#if SUPPORT_ETHERNET
     if (NIF_ETHERNET == pstNetif->enType)
     {
         //* 先遍历附加地址链表，网段匹配则直接返回，否则直接使用网卡的主ip地址
@@ -388,6 +393,7 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
             pstNextIP = pstNextIP->pstNext;
         }
     }    
+#endif
 
     return pstNetif->stIPv4.unAddr;
 }

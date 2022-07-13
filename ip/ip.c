@@ -53,6 +53,7 @@ typedef struct _STCB_ETH_ARP_WAIT_ {
     UCHAR ubCount;
 } STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;
 
+#if SUPPORT_ETHERNET
 //* 当通过ethernet网卡发送ip报文时，协议栈尚未保存目标ip地址对应的mac地址时，需要先发送一组arp查询报文获取mac地址后才能发送该报文，这个定时器溢出函数即处理此项业务
 static void eth_arp_wait_timeout_handler(void *pvParam)
 {
@@ -146,6 +147,7 @@ __lblEnd:
     //* 释放内存
     buddy_free(pvParam);
 }
+#endif
 
 static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unArpDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
@@ -190,6 +192,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
     //* 计算校验和
     stHdr.usChecksum = tcpip_checksum((USHORT *)&stHdr, sizeof(ST_IP_HDR))/*tcpip_checksum_ext(sBufListHead)*/;
 
+#if SUPPORT_ETHERNET
     //* 看看选择的网卡是否是ethernet类型，如果是则首先需要在此获取目标mac地址
     if (NIF_ETHERNET == pstNetif->enType)
     {
@@ -244,9 +247,12 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
     }
     else
     {
+#endif
         //* 完成发送
         nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, NULL, penErr);
+#if SUPPORT_ETHERNET
     }    
+#endif
 
     //* 如果不需要等待arp查询结果，则立即释放对网卡的使用权
     if (blNetifFreedEn)

@@ -421,6 +421,7 @@ const CHAR *get_ip_proto_name(UCHAR ubProto)
     }
 }
 
+#if SUPPORT_ETHERNET
 //* 判断mac地址是否匹配
 BOOL ethernet_mac_matched(const UCHAR *pubaMacAddr1, const UCHAR *pubaMacAddr2)
 {
@@ -445,4 +446,5 @@ BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr)
 
     return TRUE;
 }
+#endif
 

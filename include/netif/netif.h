@@ -87,7 +87,9 @@ NETIF_EXT void netif_del(PST_NETIF_NODE pstNode);
 NETIF_EXT void netif_del_ext(PST_NETIF pstNetif);
 NETIF_EXT PST_NETIF netif_get_first(BOOL blIsForSending);
 NETIF_EXT PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending); 
+#if SUPPORT_ETHERNET
 NETIF_EXT PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp); 
+#endif
 NETIF_EXT UINT netif_get_first_ip(void);
 NETIF_EXT void netif_used(PST_NETIF pstNetif);
 NETIF_EXT void netif_freed(PST_NETIF pstNetif);

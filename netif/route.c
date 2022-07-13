@@ -224,11 +224,14 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *pu
 {
     PST_ROUTE pstRoute = NULL/*PST_NETIF pstNetif = NULL*/;
     PST_ROUTE pstDefaultRoute = NULL/*PST_NETIF pstDefaultNetif = NULL*/;
+    PST_NETIF pstNetif = NULL; 
 
+#if SUPPORT_ETHERNET
     //* 先查找ethernet网卡链表（PPP链路不需要，因为这个只能按照既定规则发到拨号网络的对端），看看本地网段是否就可以满足要求，而不是需要查找路由表
-    PST_NETIF pstNetif = netif_get_eth_by_genmask(unDestination, punSrcIp);
+    pstNetif = netif_get_eth_by_genmask(unDestination, punSrcIp);
     if (pstNetif)
         return pstNetif; 
+#endif
 
     //* 查找路由表
     os_thread_mutex_lock(l_hMtxRoute);
@@ -307,10 +310,12 @@ UINT route_get_netif_ip(UINT unDestination)
 {
     UINT unNetifIp = 0; 
 
+#if SUPPORT_ETHERNET
     //* 查找本地ethernet网卡链表，先看看是否目标地址在同一个网段
     PST_NETIF pstNetif = netif_get_eth_by_genmask(unDestination, &unNetifIp);
     if (pstNetif)    
         return unNetifIp;
+#endif
 
     //* 本地网段不匹配，只能走路由了
     os_thread_mutex_lock(l_hMtxRoute);
