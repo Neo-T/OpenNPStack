@@ -254,7 +254,7 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     PST_IP_HDR pstIpHdr = (PST_IP_HDR)pubPacket;
     UCHAR usIpHdrLen = pstIpHdr->bitHdrLen * 4;
     PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + usIpHdrLen + sizeof(ST_ICMP_HDR));
-    INT nInput = onps_input_get_icmp(pstEchoHdr->usIdentifier);
+    INT nInput = onps_input_get_icmp(htons(pstEchoHdr->usIdentifier));
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF

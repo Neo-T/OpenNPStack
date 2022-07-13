@@ -61,7 +61,7 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
 INT ping(INT nPing, in_addr_t unDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfunGetCurMSecs)(void), void(*pfunRcvHandler)(USHORT usIdentifier, in_addr_t unFromAddr, USHORT usSeqNum, UCHAR *pubEchoData, UCHAR ubEchoDataLen, UCHAR ubTTL, UCHAR ubElapsedMSecs), UCHAR ubWaitSecs, EN_ONPSERR *penErr)
 {
     UINT unStartMillisecs = pfunGetCurMSecs(); 
-    INT nRtnVal = ping_send(nPing, unDstAddr, usSeqNum, ubTTL, "I am morpheus, Neo. Welcome to zion.", sizeof("I am morpheus, Neo. Welcome to zion.") - 1, penErr); 
+    INT nRtnVal = ping_send(nPing, unDstAddr, usSeqNum, ubTTL, "I am Trinity, Neo. Welcome to zion.\x00", strlen("I am Trinity, Neo. Welcome to zion.\x00") + 1, penErr); 
     if (nRtnVal < 0)
         return -1; 
 

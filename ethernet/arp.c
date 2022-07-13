@@ -101,7 +101,7 @@ void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR 
     //* 更新mac地址
     os_enter_critical();
     {        
-        memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, sizeof(ubaMacAddr));
+        memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, ETH_MAC_ADDR_LEN);
         pstArpIPv4Tbl[i].unUpdateTime = os_get_system_secs();
         pstArpIPv4Tbl[i].unIPAddr = unIPAddr;
     }
