@@ -23,7 +23,7 @@ void ping_end(INT nPing)
 
 INT ping_send(INT nPing, in_addr_t unDstAddr, USHORT usSeqNum, UCHAR ubTTL, const UCHAR *pubEcho, UCHAR ubEchoLen, EN_ONPSERR *penErr)
 {    
-    return icmp_send_echo_reqest(nPing, (USHORT)nPing, usSeqNum, ubTTL, unDstAddr, pubEcho, (UINT)ubEchoLen, penErr); 
+    return icmp_send_echo_reqest(nPing, (USHORT)(nPing + 1), usSeqNum, ubTTL, unDstAddr, pubEcho, (UINT)ubEchoLen, penErr); 
 }
 
 INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDataBuf, UCHAR ubDataBufSize, UCHAR *pubTTL, UCHAR ubWaitSecs, EN_ONPSERR *penErr)
@@ -36,14 +36,14 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
         PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));        
 
         //* 应答报文携带的identifier是否匹配，如果不匹配则直接返回错误，没必要继续等待，因为onps input模块收到的一定是当前ping链路到达的报文
-        if (nPing == (INT)htons(pstEchoHdr->usIdentifier))
+        if (nPing + 1 == (INT)pstEchoHdr->usIdentifier)
         {
             //* 复制echo数据到用户接收缓冲区
             INT nCpyBytes = (INT)ubDataBufSize > nRcvedBytes - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR) ? nRcvedBytes - sizeof(ST_ICMP_HDR) - sizeof(ST_ICMP_ECHO_HDR) : (INT)ubDataBufSize;
             memcpy(pubDataBuf, pubPacket + sizeof(ST_ICMP_HDR) + sizeof(ST_ICMP_ECHO_HDR), nCpyBytes);
 
             if (pusSeqNum)
-                *pusSeqNum = htons(pstEchoHdr->usSeqNum);
+                *pusSeqNum = pstEchoHdr->usSeqNum;
 
             return nCpyBytes;
         }
@@ -73,7 +73,7 @@ INT ping(INT nPing, in_addr_t unDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfu
     if (nRcvedBytes > 0)
     {
         ubaEchoData[nRcvedBytes] = 0; 
-        pfunRcvHandler(nPing, unFromAddr, usReplySeqNum, ubaEchoData, (UCHAR)nRcvedBytes, ubReplyTTL, (UCHAR)(pfunGetCurMSecs() - unStartMillisecs)); 
+        pfunRcvHandler(nPing + 1, unFromAddr, usReplySeqNum, ubaEchoData, (UCHAR)nRcvedBytes, ubReplyTTL, (UCHAR)(pfunGetCurMSecs() - unStartMillisecs)); 
     }
 
     return nRcvedBytes; 
