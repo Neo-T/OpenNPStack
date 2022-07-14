@@ -16,7 +16,7 @@
 #endif //* SYMBOL_GLOBALS
 
 #if SUPPORT_ETHERNET
- //* arp条目表
+//* arp条目表
 typedef struct _ST_ENTRY_ETHIIIPV4_ {
     UINT unUpdateTime;      //* arp条目更新（读取/缓存）时间
     UINT unIPAddr;          //* IP地址
