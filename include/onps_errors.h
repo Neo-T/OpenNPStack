@@ -66,9 +66,10 @@ typedef enum {
     ERRETHEXTRAEMPTY,       //* 无可用的ethernet网卡附加信息节点
     ERRNETUNREACHABLE,      //* 网络不可达
     ERRROUTEADDRMATCH,      //* 两次寻址结果不匹配
-    ERRNEWARPCTLBLOCK,      //* arp控制快已空
+    ERRNEWARPCTLBLOCK,      //* arp控制块已空
     ERRUNSUPPETHIIPROTO,    //* 不被支持的ethernet ii上层协议
     ERRPACKETTOOLARGE,      //* 报文太大
+    ERRPORTEMPTY,           //* 端口为空
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

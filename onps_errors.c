@@ -60,6 +60,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRNEWARPCTLBLOCK, "arp control block is empty" }, 
     { ERRUNSUPPETHIIPROTO, "unsupported ethernet ii upper layer protocol(only ipv4/arp/rarp/ipv6)" }, 
     { ERRPACKETTOOLARGE, "packet too large" }, 
+    { ERRPORTEMPTY, "port number is empty" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

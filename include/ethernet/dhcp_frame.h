@@ -21,6 +21,12 @@ typedef enum {
     DHCPMSGTP_INFORM = 8,
 } EN_DHCPMSGTYPE;
 
+#define DHCP_OPT_REQUEST    1   //* dhcp操作码：请求
+#define DHCP_OPT_REPLY      2   //* dhcp操作码：应答
+
+#define DHCP_SRV_PORT       67  //* dhcp服务器端口
+#define DHCP_CLT_PORT       68  //* dhcp客户端端口
+
 #define DHCP_MAGIC_COOKIE   0x63825363  //* dhcp magic cookie字段值
 
 //* dhcp协议帧头部结构体
@@ -29,8 +35,8 @@ typedef struct _ST_DHCP_HDR_ {
     UCHAR ubOptCode;            //* 操作码，1: request; 2: reply
     UCHAR ubHardwareType;       //* 硬件地址类型，即mac地址类型，1代表这是这是常见
     UCHAR ubHardwareAddrLen;    //* 硬件地址长度
-    UCHAR ubHops;               //* 协议地址长度
-    UINT unXId;                 //* 唯一标识本次dhcp请求的标识符，注意，本次请求所有报文标识符均一致
+    UCHAR ubHops;               //* dhcp中继跳数,初始值为0，报文每经过一个dhcp中继，该字段值加1，未经过任何中继该值为0
+    UINT unTransId;             //* 唯一标识本次dhcp请求的标识符，注意，本次请求所有报文标识符均一致
     USHORT usElapsedSecs;       //* 从发起请求到获取到ip地址共花费了多少秒，目前尚未使用，固定为0
     USHORT usFlags;             //* 广播应答标识位（第0位，仅该位被使用），标识dhcp服务器应答报文是采用单薄还是广播方式发送，0表示采用单薄发送方式，1表示采用广播发送方式，
                                 //* 当该位置1，则客户端只接受服务器的广播应答报文，丢弃来自服务器的单播应答报文

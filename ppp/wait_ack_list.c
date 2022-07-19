@@ -154,7 +154,7 @@ BOOL wait_ack_list_add(PST_PPPWAITACKLIST pstWAList, USHORT usProtocol, UCHAR ub
 	pstNewNode->pstTimer = one_shot_timer_new(wait_ack_timeout_handler, pstNewNode, nTimerCount);
 	if (!pstNewNode->pstTimer)
 	{
-		buddy_free(pstNewNode);
+		//buddy_free(pstNewNode);
 
 		if (penErr)
 			*penErr = ERRNOIDLETIMER;

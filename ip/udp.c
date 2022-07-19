@@ -100,7 +100,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
         return -1; 
     }
 
-    //* 获取tcp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
+    //* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle;
     if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
     {
@@ -111,7 +111,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
     //* 尚未分配本地地址
     if (pstHandle->unNetifIp == 0 && pstHandle->usPort == 0)
     {
-        //* 寻址，看看使用哪个neiif
+        //* 寻址，看看使用哪个netif
         UINT unNetifIp = route_get_netif_ip(pstLink->stPeerAddr.unIp);
         if (!unNetifIp)
         {
@@ -127,14 +127,67 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
     if (nRtnVal > 0)
         return nDataLen;
     else
-        return nRtnVal; 
+    {
+        if (nRtnVal < 0)
+            onps_set_last_error(nInput, enErr);
+
+        return nRtnVal;
+    }
+}
+
+INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDstPort, in_addr_t unSrcIp, PST_NETIF pstNetif, EN_ONPSERR *penErr)
+{
+    //* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
+    PST_TCPUDP_HANDLE pstHandle;
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, penErr))            
+        return -1;
+    
+    //* 这个函数用于udp服务器发送，端口号在初始设置阶段就应该由用户分配才对，所以这里不应该为0
+    if (pstHandle->usPort == 0)
+    {
+        if (penErr)
+            *penErr = ERRPORTEMPTY;
+        return -1; 
+    }
+
+    //* 挂载udp报文头部数据
+    USHORT usDataLen = (USHORT)buf_list_get_len(sBufListHead); 
+    ST_UDP_HDR stHdr;
+    stHdr.usSrcPort = htons(pstHandle->usPort);
+    stHdr.usDstPort = htons(usDstPort);
+    stHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
+    stHdr.usChecksum = 0;
+
+    //* 挂载到链表头部
+    SHORT sHdrNode;
+    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
+    if (sHdrNode < 0)            
+        return -1;     
+    buf_list_put_head(&sBufListHead, sHdrNode); 
+
+    //* 填充用于校验和计算的tcp伪报头
+    ST_UDP_PSEUDOHDR stPseudoHdr;
+    stPseudoHdr.unSrcAddr = unSrcIp;
+    stPseudoHdr.unDestAddr = htonl(unDstIp);
+    stPseudoHdr.ubMustBeZero = 0;
+    stPseudoHdr.ubProto = IPPROTO_UDP;
+    stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
+    //* 挂载到链表头部
+    SHORT sPseudoHdrNode;
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_UDP_PSEUDOHDR), penErr);
+    if (sPseudoHdrNode < 0)
+    {        
+        buf_list_free(sHdrNode);
+        return -1;
+    }
+    buf_list_put_head(&sBufListHead, sPseudoHdrNode);
 }
 
 INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, INT nDataLen)
 {
     EN_ONPSERR enErr;
 
-    //* 获取tcp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
+    //* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle;
     if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
     {
@@ -161,7 +214,11 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
     if (nRtnVal > 0)
         return nDataLen;
     else
+    {
+        if(nRtnVal < 0)
+            onps_set_last_error(nInput, enErr); 
         return nRtnVal;
+    }
 }
 
 void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)

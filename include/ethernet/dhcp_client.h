@@ -16,7 +16,7 @@
 #endif //* SYMBOL_GLOBALS
 
 #if SUPPORT_ETHERNET
-
+DHCP_CLIENT_EXT BOOL dhcp_req_addr(PST_NETIF pstNetif);
 #endif
 
 #endif
