@@ -47,7 +47,7 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     //* 填充用于校验和计算的tcp伪报头
     ST_UDP_PSEUDOHDR stPseudoHdr;
     stPseudoHdr.unSrcAddr = unSrcAddr;
-    stPseudoHdr.unDestAddr = htonl(unDstAddr);
+    stPseudoHdr.unDstAddr = htonl(unDstAddr);
     stPseudoHdr.ubMustBeZero = 0;
     stPseudoHdr.ubProto = IPPROTO_UDP;
     stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + nDataLen);     
@@ -168,7 +168,7 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     //* 填充用于校验和计算的tcp伪报头
     ST_UDP_PSEUDOHDR stPseudoHdr;
     stPseudoHdr.unSrcAddr = unSrcIp;
-    stPseudoHdr.unDestAddr = htonl(unDstIp);
+    stPseudoHdr.unDstAddr = htonl(unDstIp);
     stPseudoHdr.ubMustBeZero = 0;
     stPseudoHdr.ubProto = IPPROTO_UDP;
     stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
@@ -180,7 +180,24 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
         buf_list_free(sHdrNode);
         return -1;
     }
-    buf_list_put_head(&sBufListHead, sPseudoHdrNode);
+    buf_list_put_head(&sBufListHead, sPseudoHdrNode); 
+
+    //* 计算校验和
+    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
+    //* 用不到了，释放伪报头
+    buf_list_free_head(&sBufListHead, sPseudoHdrNode);
+
+    //* 如果校验和为0，根据协议要求必须反转为0xFFFF
+    if (0 == stHdr.usChecksum)
+        stHdr.usChecksum = 0xFFFF;
+
+    //* 发送之    
+    INT nRtnVal = ip_send(pstNetif, NULL, unSrcIp, unDstIp, UDP, IP_TTL_DEFAULT, sBufListHead, penErr);
+
+    //* 释放刚才申请的buf list节点    
+    buf_list_free(sHdrNode);
+
+    return nRtnVal;
 }
 
 INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, INT nDataLen)
@@ -251,7 +268,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 填充用于校验和计算的udp伪报头
         ST_UDP_PSEUDOHDR stPseudoHdr;
         stPseudoHdr.unSrcAddr = unSrcAddr;
-        stPseudoHdr.unDestAddr = unDstAddr;
+        stPseudoHdr.unDstAddr = unDstAddr;
         stPseudoHdr.ubMustBeZero = 0;
         stPseudoHdr.ubProto = IPPROTO_UDP;
         stPseudoHdr.usPacketLen = htons((USHORT)nPacketLen);

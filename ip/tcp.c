@@ -154,7 +154,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     //* 填充用于校验和计算的tcp伪报头
     ST_TCP_PSEUDOHDR stPseudoHdr; 
     stPseudoHdr.unSrcAddr = unSrcAddr;
-    stPseudoHdr.unDestAddr = htonl(unDstAddr);
+    stPseudoHdr.unDstAddr = htonl(unDstAddr);
     stPseudoHdr.ubMustBeZero = 0; 
     stPseudoHdr.ubProto = IPPROTO_TCP; 
     stPseudoHdr.usPacketLen = htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes); 
@@ -429,7 +429,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     //* 填充用于校验和计算的tcp伪报头
     ST_TCP_PSEUDOHDR stPseudoHdr;
     stPseudoHdr.unSrcAddr = unSrcAddr;
-    stPseudoHdr.unDestAddr = unDstAddr;
+    stPseudoHdr.unDstAddr = unDstAddr;
     stPseudoHdr.ubMustBeZero = 0;
     stPseudoHdr.ubProto = IPPROTO_TCP;
     stPseudoHdr.usPacketLen = htons((USHORT)nPacketLen); 

@@ -112,6 +112,13 @@ INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR
 {
     PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
 
+    //* 如果ip地址为广播地址则填充目标mac地址也为广播地址
+    if (unDstArpIPAddr == 0xFFFFFFFF || (unDstArpIPAddr & 0x000000FF) == 0x000000FF)
+    {
+        memset(ubaMacAddr, 0xFF, ETH_MAC_ADDR_LEN); 
+        return 0; 
+    }
+
     os_critical_init(); 
 
     //* 是否命中最近刚读取过的条目

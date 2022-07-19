@@ -13,7 +13,7 @@
 PACKED_BEGIN
 typedef struct _ST_UDP_PSEUDOHDR_ {
     UINT unSrcAddr;
-    UINT unDestAddr;
+    UINT unDstAddr;
     UCHAR ubMustBeZero;
     UCHAR ubProto;
     USHORT usPacketLen;

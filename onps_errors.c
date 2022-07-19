@@ -61,6 +61,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRUNSUPPETHIIPROTO, "unsupported ethernet ii upper layer protocol(only ipv4/arp/rarp/ipv6)" }, 
     { ERRPACKETTOOLARGE, "packet too large" }, 
     { ERRPORTEMPTY, "port number is empty" }, 
+    { ERRWAITACKTIMEOUT, "Timeout waiting for the reply packet" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

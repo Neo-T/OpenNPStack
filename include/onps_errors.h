@@ -70,6 +70,7 @@ typedef enum {
     ERRUNSUPPETHIIPROTO,    //* 不被支持的ethernet ii上层协议
     ERRPACKETTOOLARGE,      //* 报文太大
     ERRPORTEMPTY,           //* 端口为空
+    ERRWAITACKTIMEOUT,      //* 等待应答超时
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

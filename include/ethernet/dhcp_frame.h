@@ -27,7 +27,8 @@ typedef enum {
 #define DHCP_SRV_PORT       67  //* dhcp服务器端口
 #define DHCP_CLT_PORT       68  //* dhcp客户端端口
 
-#define DHCP_MAGIC_COOKIE   0x63825363  //* dhcp magic cookie字段值
+#define DHCP_MAGIC_COOKIE       0x63825363  //* dhcp magic cookie字段值
+#define DHCP_OPTIONS_LEN_MIN    60          //* dhcp选项域最小长度，选项低于该长度需要填充字符至最小长度，超过则需要确保选项字段能够16位字对齐，填充字符为00
 
 //* dhcp协议帧头部结构体
 PACKED_BEGIN
@@ -56,13 +57,14 @@ PACKED_END
 //* =====================================================================================
 //* 协议栈支持的dhcp选项定义
 typedef enum {
-    DHCPOPT_SUBNETMASK = 1, 
-    DHCPOPT_ROUTER = 3, 
-    DHCPOPT_DNS = 6, 
+    DHCPOPT_SUBNETMASK = 1,
+    DHCPOPT_ROUTER = 3,
+    DHCPOPT_DNS = 6,
     DHCPOPT_REQIP = 50,
-    DHCPOPT_LEASETIME = 51, 
-    DHCPOPT_MSGTYPE = 53, 
-    DHCPOPT_SRVID = 54, 
+    DHCPOPT_LEASETIME = 51,
+    DHCPOPT_MSGTYPE = 53,
+    DHCPOPT_SRVID = 54,
+    DHCPOPT_REQLIST = 55, 
     DHCPOPT_RENEWALTIME = 58, 
     DHCPOPT_REBINDINGTIME = 59, 
     DHCPOPT_CLIENTID = 61,
