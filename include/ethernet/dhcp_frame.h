@@ -67,6 +67,7 @@ typedef enum {
     DHCPOPT_REQLIST = 55, 
     DHCPOPT_RENEWALTIME = 58, 
     DHCPOPT_REBINDINGTIME = 59, 
+    DHCPOPT_VENDORID = 60, 
     DHCPOPT_CLIENTID = 61,
     DHCPOPT_END = 255, 
 } EN_DHCPOPTION;
@@ -101,6 +102,55 @@ typedef struct _ST_DHCPOPT_SRVID_ {
     ST_DHCPOPT_HDR stHdr;
     UINT unSrvIp; 
 } PACKED ST_DHCPOPT_SRVID, *PST_DHCPOPT_SRVID;
+PACKED_END
+
+//* dhcp客户端请求的ip地址
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_REQIP_ {
+    ST_DHCPOPT_HDR stHdr;
+    UINT unVal;
+} PACKED ST_DHCPOPT_REQIP, *PST_DHCPOPT_REQIP;
+PACKED_END
+
+//* dhcp客户端提供者信息
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_VENDORID_ {
+    ST_DHCPOPT_HDR stHdr;
+    UCHAR ubaTag[8]; 
+} PACKED ST_DHCPOPT_VENDORID, *PST_DHCPOPT_VENDORID;
+PACKED_END
+
+//* dhcp服务器分配的ip地址对应的子网掩码
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_SUBNETMASK_ {
+    ST_DHCPOPT_HDR stHdr;
+    UINT unVal; 
+} PACKED ST_DHCPOPT_SUBNETMASK, *PST_DHCPOPT_SUBNETMASK;
+PACKED_END
+
+//* dhcp服务器指定的网关地址
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_ROUTER_ {
+    ST_DHCPOPT_HDR stHdr;
+    UINT unVal;
+} PACKED ST_DHCPOPT_ROUTER, *PST_DHCPOPT_ROUTER;
+PACKED_END
+
+//* dhcp服务器指定的dns服务器地址
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_DNS_ {
+    ST_DHCPOPT_HDR stHdr;
+    UINT unPrimary; 
+    UINT unSecondary; 
+} PACKED ST_DHCPOPT_DNS, *PST_DHCPOPT_DNS;
+PACKED_END
+
+//* dhcp分配的ip地址的租期信息
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_LEASETIME_ {
+    ST_DHCPOPT_HDR stHdr;
+    UINT unVal; 
+} PACKED ST_DHCPOPT_LEASETIME, *PST_DHCPOPT_LEASETIME;
 PACKED_END
 //* =====================================================================================
 

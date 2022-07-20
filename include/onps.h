@@ -31,6 +31,7 @@
 #endif
 #if SUPPORT_ETHERNET
 #include "ethernet/ethernet.h"
+#include "ethernet/dhcp_client.h"
 #endif
 #include "ip/icmp.h"
 #include "onps_input.h"

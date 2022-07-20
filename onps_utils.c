@@ -390,9 +390,24 @@ char *inet_ntoa(struct in_addr stInAddr)
     return szAddr; 
 }
 
+char *inet_ntoa_ext(in_addr_t unAddr)
+{
+    static char szAddr[20];
+    UCHAR *pubAddr = (UCHAR *)&unAddr; 
+    sprintf(szAddr, "%d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+    return szAddr;
+}
+
 char *inet_ntoa_safe(struct in_addr stInAddr, char *pszAddr)
 {
     UCHAR *pubAddr = (UCHAR *)&stInAddr.s_addr;
+    sprintf(pszAddr, "%d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+    return pszAddr;
+}
+
+char *inet_ntoa_safe_ext(in_addr_t unAddr, char *pszAddr)
+{
+    UCHAR *pubAddr = (UCHAR *)&unAddr;
     sprintf(pszAddr, "%d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
     return pszAddr;
 }

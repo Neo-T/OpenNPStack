@@ -60,7 +60,9 @@ ONPS_UTILS_EXT void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKE
 ONPS_UTILS_EXT in_addr_t inet_addr(const char *pszIP);   //* 点分十进制IPv4地址转换为4字节无符号整型地址
 ONPS_UTILS_EXT in_addr_t inet_addr_small(const char *pszIP); 
 ONPS_UTILS_EXT char *inet_ntoa(struct in_addr stInAddr);
+ONPS_UTILS_EXT char *inet_ntoa_ext(in_addr_t unAddr);
 ONPS_UTILS_EXT char *inet_ntoa_safe(struct in_addr stInAddr, char *pszAddr);
+ONPS_UTILS_EXT char *inet_ntoa_safe_ext(in_addr_t unAddr, char *pszAddr); 
 
 ONPS_UTILS_EXT const CHAR *get_ip_proto_name(UCHAR ubProto); 
 

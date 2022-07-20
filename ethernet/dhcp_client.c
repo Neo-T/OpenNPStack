@@ -130,6 +130,8 @@ static UCHAR *dhcp_get_option(UCHAR *pubOptions, USHORT usOptionsLen, UCHAR ubOp
         usParseBytes += (USHORT)pstOptHdr->ubLen + (USHORT)sizeof(ST_DHCPOPT_HDR); 
         pstOptHdr = (PST_DHCPOPT_HDR)(pubOptions + usParseBytes); 
     }
+
+    return NULL; 
 }
 
 //* dhcp客户端启动
@@ -169,6 +171,7 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
 {
     //* ethernet网卡的附加信息
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+    UINT unOptionsOffset = 0; 
 
     //* dhcp选项分配一块填充缓冲区并清零
     UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN]; 
@@ -184,16 +187,25 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
     pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE; 
     pstMsgType->stHdr.ubLen = 1;  
     pstMsgType->ubTpVal = DHCPMSGTP_DISCOVER; 
+    unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
 
     //* 填充发起申请的客户端id    
-    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[sizeof(ST_DHCPOPT_MSGTYPE)]; 
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
     pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID; 
     pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR); 
     pstCltId->ubHardwareType = 1; 
     memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+    //* 填充vendor标识信息
+    PST_DHCPOPT_VENDORID pstVendorId = (PST_DHCPOPT_VENDORID)&ubaOptions[unOptionsOffset];
+    pstVendorId->stHdr.ubOption = DHCPOPT_VENDORID;
+    pstVendorId->stHdr.ubLen = sizeof(ST_DHCPOPT_VENDORID) - sizeof(ST_DHCPOPT_HDR);
+    memcpy(pstVendorId->ubaTag, "RuBao;-)", sizeof("RuBao;-)") - 1); 
+    unOptionsOffset += sizeof(ST_DHCPOPT_VENDORID);
 
     //* 填充请求的参数列表
-    PST_DHCPOPT_HDR pstParamListHdr = (PST_DHCPOPT_HDR)&ubaOptions[sizeof(ST_DHCPOPT_MSGTYPE) + sizeof(ST_DHCPOPT_MSGTYPE)]; 
+    PST_DHCPOPT_HDR pstParamListHdr = (PST_DHCPOPT_HDR)&ubaOptions[unOptionsOffset];
     pstParamListHdr->ubOption = DHCPOPT_REQLIST; 
     pstParamListHdr->ubLen = 3; 
     UCHAR *pubParamItem = ((UCHAR *)pstParamListHdr) + sizeof(ST_DHCPOPT_HDR); 
@@ -224,16 +236,9 @@ __lblSend:
             UCHAR *pubOptions = pubRcvBuf + sizeof(ST_DHCP_HDR);
             USHORT usOptionsLen = (USHORT)(nRcvedBytes - sizeof(ST_DHCP_HDR));            
             PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
-            if (!pstMsgType) //* 认为超时，重新发送即可
+            if (!pstMsgType || DHCPMSGTP_OFFER != pstMsgType->ubTpVal) //* 必须携带dhcp报文类型并且一定是offer报文才可以,如果不是则认为超时，重新发送
             {
                 *penErr = ERRWAITACKTIMEOUT; 
-                break;
-            }
-
-            //* 一定是offer报文才可以,如果不是则认为超时，重新发送
-            if (DHCPMSGTP_OFFER != pstMsgType->ubTpVal)
-            {
-                *penErr = ERRWAITACKTIMEOUT;
                 break;
             }
 
@@ -276,9 +281,152 @@ __lblEnd:
     return blRtnVal;
 }
 
-static BOOL dhcp_request(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unOfferIp, in_addr_t unSrvIp, EN_ONPSERR *penErr)
+static BOOL dhcp_request(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unOfferIp, in_addr_t unSrvIp, PST_IPV4 pstIPv4, UINT *punLeaseTime, EN_ONPSERR *penErr)
 {
+    //* ethernet网卡的附加信息
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+    UINT unOptionsOffset = 0; 
 
+    //* dhcp选项分配一块填充缓冲区并清零
+    UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN];
+    memset(ubaOptions, 0, sizeof(ubaOptions));
+
+    //* 申请一个接收缓冲区
+    UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(512, penErr);
+    if (!pubRcvBuf)
+        return FALSE;
+
+    //* 填充消息类型
+    PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
+    pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
+    pstMsgType->stHdr.ubLen = 1;
+    pstMsgType->ubTpVal = DHCPMSGTP_REQUEST;
+    unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
+
+    //* 填充发起申请的客户端id    
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
+    pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID;
+    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR); 
+    pstCltId->ubHardwareType = 1;
+    memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+    //* 填充由服务器分配的ip地址
+    PST_DHCPOPT_REQIP pstReqIp = (PST_DHCPOPT_REQIP)&ubaOptions[unOptionsOffset];
+    pstReqIp->stHdr.ubOption = DHCPOPT_REQIP;
+    pstReqIp->stHdr.ubLen = sizeof(ST_DHCPOPT_REQIP) - sizeof(ST_DHCPOPT_HDR); 
+    pstReqIp->unVal = unOfferIp; 
+    unOptionsOffset += sizeof(ST_DHCPOPT_REQIP);
+
+    //* 填充dhcp服务器identifier
+    PST_DHCPOPT_SRVID pstSrvId = (PST_DHCPOPT_SRVID)&ubaOptions[unOptionsOffset];
+    pstSrvId->stHdr.ubOption = DHCPOPT_SRVID; 
+    pstSrvId->stHdr.ubLen = sizeof(ST_DHCPOPT_SRVID) - sizeof(ST_DHCPOPT_HDR); 
+    pstSrvId->unSrvIp = unSrvIp; 
+    unOptionsOffset += sizeof(ST_DHCPOPT_SRVID);
+
+    //* 填充vendor标识信息
+    PST_DHCPOPT_VENDORID pstVendorId = (PST_DHCPOPT_VENDORID)&ubaOptions[unOptionsOffset];
+    pstVendorId->stHdr.ubOption = DHCPOPT_VENDORID;
+    pstVendorId->stHdr.ubLen = sizeof(ST_DHCPOPT_VENDORID) - sizeof(ST_DHCPOPT_HDR);
+    memcpy(pstVendorId->ubaTag, "RuBao;-)", sizeof("RuBao;-)") - 1); 
+    unOptionsOffset += sizeof(ST_DHCPOPT_VENDORID);
+
+    //* 填充请求的参数列表
+    PST_DHCPOPT_HDR pstParamListHdr = (PST_DHCPOPT_HDR)&ubaOptions[unOptionsOffset];
+    pstParamListHdr->ubOption = DHCPOPT_REQLIST;
+    pstParamListHdr->ubLen = 3;
+    UCHAR *pubParamItem = ((UCHAR *)pstParamListHdr) + sizeof(ST_DHCPOPT_HDR);
+    pubParamItem[0] = DHCPOPT_SUBNETMASK;
+    pubParamItem[1] = DHCPOPT_ROUTER;
+    pubParamItem[2] = DHCPOPT_DNS;
+
+    //* 选项结束
+    pubParamItem[3] = DHCPOPT_END;
+
+    //* 发送并等待接收应答
+    //* ================================================================================================
+    BOOL blRtnVal = FALSE;    
+    CHAR bRetryNum = 0;
+    INT nRcvedBytes;
+
+__lblSend:
+    if (bRetryNum++ >= 4)
+        goto __lblEnd; 
+
+    nRcvedBytes = dhcp_send_and_wait_ack(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, 0, 0xFFFFFFFF, pubRcvBuf, 512, penErr);
+    if (nRcvedBytes > 0)
+    {
+        do {
+            //* 解析应答报文取出offer相关信息
+            PST_DHCP_HDR pstHdr = (PST_DHCP_HDR)pubRcvBuf;
+            UCHAR *pubOptions = pubRcvBuf + sizeof(ST_DHCP_HDR);
+            USHORT usOptionsLen = (USHORT)(nRcvedBytes - sizeof(ST_DHCP_HDR));
+            PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
+            if (!pstMsgType || DHCPMSGTP_ACK != pstMsgType->ubTpVal) //* 必须携带dhcp报文类型并且一定是ack报文才可以,如果不是则认为超时，重新发送
+            {
+                *penErr = ERRWAITACKTIMEOUT;
+                break;
+            }
+
+            pstIPv4->unAddr = pstHdr->unYourIp; 
+
+            //* 取出子网掩码
+            PST_DHCPOPT_SUBNETMASK pstNetmask = (PST_DHCPOPT_SUBNETMASK)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_SUBNETMASK);
+            if (!pstNetmask)
+            {
+                *penErr = ERRWAITACKTIMEOUT;
+                break;
+            }
+            pstIPv4->unSubnetMask = pstNetmask->unVal; 
+
+            //* 取出网关地址
+            PST_DHCPOPT_ROUTER pstRouter = (PST_DHCPOPT_ROUTER)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_ROUTER); 
+            if (!pstRouter)
+            {
+                *penErr = ERRWAITACKTIMEOUT;
+                break;
+            }
+            pstIPv4->unGateway = pstRouter->unVal; 
+
+            //* 取出dns服务器地址
+            PST_DHCPOPT_DNS pstDns = (PST_DHCPOPT_DNS)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_DNS); 
+            if (!pstDns)
+            {
+                *penErr = ERRWAITACKTIMEOUT;
+                break; 
+            }
+            pstIPv4->unPrimaryDNS = pstDns->unPrimary; 
+            pstIPv4->unSecondaryDNS = pstDns->unSecondary; 
+
+            //* 取出租约信息
+            PST_DHCPOPT_LEASETIME pstLeaseTime = (PST_DHCPOPT_LEASETIME)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_LEASETIME); 
+            if (!pstLeaseTime)
+            {
+                *penErr = ERRWAITACKTIMEOUT;
+                break; 
+            }
+            *punLeaseTime = pstLeaseTime->unVal; 
+
+            blRtnVal = TRUE;
+        } while (FALSE);
+    }
+
+    if (!blRtnVal)
+    {
+        if (ERRWAITACKTIMEOUT == *penErr)
+        {            
+            os_sleep_secs(1); 
+            goto __lblSend;
+        }
+    }
+    //* ================================================================================================
+
+__lblEnd:
+    //* 释放申请的缓冲区
+    buddy_free(pubRcvBuf);
+
+    return blRtnVal;
 }
 
 BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
@@ -300,8 +448,17 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             break; 
 
         //* 发送request请求报文
-        if (!dhcp_request(nInput, pstNetif, unTransId, unOfferIp, unSrvIp, &enErr)) 
+        ST_IPV4 stIPv4; 
+        UINT unLeaseTime;         
+        if (!dhcp_request(nInput, pstNetif, unTransId, unOfferIp, unSrvIp, &stIPv4, &unLeaseTime, &enErr))
             break; 
+                
+        printf("          ip addr %s\r\n", inet_ntoa_ext(stIPv4.unAddr)); 
+        printf("     sub net mask %s\r\n", inet_ntoa_ext(stIPv4.unSubnetMask)); 
+        printf("          gateway %s\r\n", inet_ntoa_ext(stIPv4.unGateway)); 
+
+        printf("  primary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unPrimaryDNS)); 
+        printf("secondary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unSecondaryDNS)); 
 
         //* 结束请求
         dhcp_client_stop(nInput);
@@ -309,7 +466,6 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
     } while (FALSE);         
     //* ==================================================================================
 
-__lblErr: 
     dhcp_client_stop(nInput);
 
     if (penErr)
