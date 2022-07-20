@@ -88,11 +88,19 @@ PACKED_END
 
 //* dhcp客户端标识，该选项携带客户端硬件地址类型及mac地址
 PACKED_BEGIN
-typedef struct _ST_DHCPOPT_CLIENTID_ {
+typedef struct _ST_DHCPOPT_CLTID_ {
     ST_DHCPOPT_HDR stHdr;
     UCHAR ubHardwareType; 
     UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];
-} PACKED ST_DHCPOPT_CLIENTID, *PST_DHCPOPT_CLIENTID;
+} PACKED ST_DHCPOPT_CLTID, *PST_DHCPOPT_CLTID;
+PACKED_END
+
+//* dhcp服务器标识，该选项携带dhcp服务器的ip地址
+PACKED_BEGIN
+typedef struct _ST_DHCPOPT_SRVID_ {
+    ST_DHCPOPT_HDR stHdr;
+    UINT unSrvIp; 
+} PACKED ST_DHCPOPT_SRVID, *PST_DHCPOPT_SRVID;
 PACKED_END
 //* =====================================================================================
 

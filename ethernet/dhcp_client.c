@@ -38,7 +38,7 @@ static INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCH
     pstDhcpHdr->ubHardwareType = 1;                     //* 以太网卡mac地址类型
     pstDhcpHdr->ubHardwareAddrLen = ETH_MAC_ADDR_LEN;   //* mac地址长度
     pstDhcpHdr->ubHops = 0;                             //* 中继跳数初始为0
-    pstDhcpHdr->unTransId = unTransId;                  //* 唯一标识当前一连串DHCP请求操作的事务id
+    pstDhcpHdr->unTransId = htonl(unTransId);           //* 唯一标识当前一连串DHCP请求操作的事务id
     pstDhcpHdr->usElapsedSecs = 0;                      //* 固定为0
     pstDhcpHdr->usFlags = 0;                            //* 固定单播
     pstDhcpHdr->unClientIp = (UINT)unClientIp;          //* 客户端ip地址
@@ -84,22 +84,52 @@ static INT dhcp_send_and_wait_ack(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCod
     
     //* 等待应答到来
     INT nRcvBytes = udp_recv_upper(nInput, pubRcvBuf, (UINT)usRcvBufSize, NULL, NULL, 3); 
-    if (nRcvBytes < 0)    
-        onps_get_last_error(nInput, penErr);            
-    else if (nRcvBytes == 0)
+    if (nRcvBytes > 0)
     {
-        if (penErr)
-            *penErr = ERRWAITACKTIMEOUT;        
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+        PST_DHCP_HDR pstHdr = (PST_DHCP_HDR)pubRcvBuf; 
+
+        //* 1）如果不是dhcp报文则判定为不是合法的应答报文；
+        //* 2）当前请求的事务id不匹配； 
+        //* 3）客户端mac地址也要匹配目前只支持ethernet网卡的mac地址类型
+        //* 满足以上情形之一即直接认定为应答超时
+        if (DHCP_MAGIC_COOKIE != htonl(pstHdr->unMagicCookie)
+            || unTransId != htonl(pstHdr->unTransId)
+            || pstHdr->ubHardwareAddrLen != ETH_MAC_ADDR_LEN
+            || !ethernet_mac_matched(pstExtra->ubaMacAddr, pstHdr->ubaClientMacAddr))
+        {
+            if (penErr)
+                *penErr = ERRWAITACKTIMEOUT;
+            nRcvBytes = 0;
+        }        
     }
-    else;
+    else
+    {
+        if(nRcvBytes < 0)
+            onps_get_last_error(nInput, penErr);
+        else
+        {
+            if (penErr)
+                *penErr = ERRWAITACKTIMEOUT;
+        }        
+    }
 
     return nRcvBytes; 
 }
 
 //* 分析dhcp选项，截取dhcp报文类型
-static UCHAR dhcp_get_msg_type(UCHAR *pubOptions, USHORT usOptionsLen)
+static UCHAR *dhcp_get_option(UCHAR *pubOptions, USHORT usOptionsLen, UCHAR ubOptionCode)
 {
     PST_DHCPOPT_HDR pstOptHdr = (PST_DHCPOPT_HDR)pubOptions; 
+    USHORT usParseBytes = 0; 
+    while (usParseBytes < usOptionsLen)
+    {
+        if (ubOptionCode == pstOptHdr->ubOption)
+            return (UCHAR *)pstOptHdr; 
+
+        usParseBytes += (USHORT)pstOptHdr->ubLen + (USHORT)sizeof(ST_DHCPOPT_HDR); 
+        pstOptHdr = (PST_DHCPOPT_HDR)(pubOptions + usParseBytes); 
+    }
 }
 
 //* dhcp客户端启动
@@ -129,19 +159,25 @@ __lblErr:
     return -1; 
 }
 
+static void dhcp_client_stop(INT nInput)
+{
+    onps_input_free(nInput); 
+}
+
 //* dhcp服务发现
 static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t *punOfferIp, in_addr_t *punSrvIp, EN_ONPSERR *penErr)
 {
+    //* ethernet网卡的附加信息
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+
+    //* dhcp选项分配一块填充缓冲区并清零
     UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN]; 
     memset(ubaOptions, 0, sizeof(ubaOptions));     
 
     //* 申请一个接收缓冲区
     UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(512, penErr);
-    if (!pubRcvBuf)
-    {
-        onps_input_free(nInput);
-        return FALSE;
-    }
+    if (!pubRcvBuf)            
+        return FALSE;     
 
     //* 填充消息类型
     PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions; 
@@ -149,11 +185,10 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
     pstMsgType->stHdr.ubLen = 1;  
     pstMsgType->ubTpVal = DHCPMSGTP_DISCOVER; 
 
-    //* 填充发起申请的客户端id
-    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-    PST_DHCPOPT_CLIENTID pstCltId = (PST_DHCPOPT_CLIENTID)&ubaOptions[sizeof(ST_DHCPOPT_MSGTYPE)]; 
+    //* 填充发起申请的客户端id    
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[sizeof(ST_DHCPOPT_MSGTYPE)]; 
     pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID; 
-    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLIENTID) - sizeof(ST_DHCPOPT_HDR); 
+    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR); 
     pstCltId->ubHardwareType = 1; 
     memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 
 
@@ -170,22 +205,80 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
     pubParamItem[3] = DHCPOPT_END; 
 
     //* 发送并等待接收应答
-    INT nRtnVal = dhcp_send_and_wait_ack(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, 0, 0xFFFFFFFF, pubRcvBuf, 512, penErr); 
-    if (nRtnVal > 0)
-    {
-        //* 解析应答报文取出offer相关信息
-        PST_DHCP_HDR pstHdr = (PST_DHCP_HDR)pubRcvBuf; 
-        PST_DHCPOPT_HDR pstOptHdr = (PST_DHCPOPT_HDR)(pubRcvBuf + sizeof(ST_DHCP_HDR)); 
+    //* ================================================================================================
+    BOOL blRtnVal = FALSE; 
+    UINT unDelaySecs = 1;
+    CHAR bRetryNum = 0;
+    INT nRcvedBytes; 
 
-        nRtnVal = TRUE; 
+__lblSend: 
+    if (bRetryNum++ >= 4)
+        goto __lblEnd; 
+
+    nRcvedBytes = dhcp_send_and_wait_ack(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, 0, 0xFFFFFFFF, pubRcvBuf, 512, penErr);
+    if (nRcvedBytes > 0)
+    {        
+        do {
+            //* 解析应答报文取出offer相关信息
+            PST_DHCP_HDR pstHdr = (PST_DHCP_HDR)pubRcvBuf;
+            UCHAR *pubOptions = pubRcvBuf + sizeof(ST_DHCP_HDR);
+            USHORT usOptionsLen = (USHORT)(nRcvedBytes - sizeof(ST_DHCP_HDR));            
+            PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
+            if (!pstMsgType) //* 认为超时，重新发送即可
+            {
+                *penErr = ERRWAITACKTIMEOUT; 
+                break;
+            }
+
+            //* 一定是offer报文才可以,如果不是则认为超时，重新发送
+            if (DHCPMSGTP_OFFER != pstMsgType->ubTpVal)
+            {
+                *penErr = ERRWAITACKTIMEOUT;
+                break;
+            }
+
+            //* 取出回馈offer报文的dhcp服务器identifier，如果无法取出dhcp服务器的identifier，给个超时认定以便重新发送
+            PST_DHCPOPT_SRVID pstSrvId = (PST_DHCPOPT_SRVID)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_SRVID); 
+            if (!pstSrvId)
+            {
+                *penErr = ERRWAITACKTIMEOUT; 
+                break;
+            }
+
+            //* 取出分配的ip地址及dhcp服务器的ip地址
+            *punOfferIp = pstHdr->unYourIp; 
+            *punSrvIp = pstSrvId->unSrvIp; 
+
+            blRtnVal = TRUE; 
+        } while (FALSE);         
     }
-    else
-        nRtnVal = FALSE; 
 
+    if (!blRtnVal)
+    {
+        if (ERRWAITACKTIMEOUT == *penErr)
+        {
+            //* 未发现dhcp服务器，重新发送报文
+            if (unDelaySecs >= 16)
+                unDelaySecs = 16;
+            else
+                unDelaySecs *= 2;
+            os_sleep_secs(unDelaySecs);
+
+            goto __lblSend;
+        }
+    }
+    //* ================================================================================================
+
+__lblEnd: 
     //* 释放申请的缓冲区
     buddy_free(pubRcvBuf);
 
-    return (BOOL)nRtnVal; 
+    return blRtnVal;
+}
+
+static BOOL dhcp_request(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unOfferIp, in_addr_t unSrvIp, EN_ONPSERR *penErr)
+{
+
 }
 
 BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
@@ -201,42 +294,23 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 
     //* 开启dhcp客户端申请分配一个合法ip地址的逻辑：discover->offer->request->ack
     //* ==================================================================================
-    in_addr_t unOfferIp, unSrvIp; 
-    UINT unDelaySecs = 1; 
-    CHAR bState = 0; 
-    CHAR bRetryNum = 0;
-    while (bRetryNum++ < 4)
-    {
-        switch (bState)
-        {
-        case 0:  //* 发送discover报文，以发现并通知本网段内的dhcp服务器给分配个ip地址
-            if (dhcp_discover(nInput, pstNetif, unTransId, &unOfferIp, &unSrvIp, &enErr))
-                bState = 1;
-            else
-            {
-                if (enErr == ERRWAITACKTIMEOUT)
-                {
-                    //* 未发现dhcp服务器，重新发送报文
-                    if (unDelaySecs >= 16)
-                        unDelaySecs = 16;
-                    else
-                        unDelaySecs *= 2;
-                    os_sleep_secs(unDelaySecs);
-                }                
-                else //* 如果不是超时，则直接返回，没必要重试了                
-                    goto __lblErr; 
-            }
-            break;
-
-        case 1: 
-
+    do {
+        in_addr_t unOfferIp, unSrvIp;
+        if (!dhcp_discover(nInput, pstNetif, unTransId, &unOfferIp, &unSrvIp, &enErr))
             break; 
-        }
-    }    
+
+        //* 发送request请求报文
+        if (!dhcp_request(nInput, pstNetif, unTransId, unOfferIp, unSrvIp, &enErr)) 
+            break; 
+
+        //* 结束请求
+        dhcp_client_stop(nInput);
+        return TRUE;
+    } while (FALSE);         
     //* ==================================================================================
 
 __lblErr: 
-    onps_input_free(nInput);     
+    dhcp_client_stop(nInput);
 
     if (penErr)
         *penErr = enErr;
