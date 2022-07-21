@@ -430,6 +430,52 @@ __lblEnd:
     return blRtnVal;
 }
 
+static void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unDeclineIp, in_addr_t unSrvIp)
+{
+    //* ethernet网卡的附加信息
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+    UINT unOptionsOffset = 0;
+
+    //* dhcp选项分配一块填充缓冲区并清零
+    UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN];
+    memset(ubaOptions, 0, sizeof(ubaOptions));
+
+    //* 填充消息类型
+    PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
+    pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
+    pstMsgType->stHdr.ubLen = 1;
+    pstMsgType->ubTpVal = DHCPMSGTP_REQUEST;
+    unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
+
+    //* 填充发起申请的客户端id    
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
+    pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID;
+    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR);
+    pstCltId->ubHardwareType = 1;
+    memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+    //* 填充由服务器分配的ip地址
+    PST_DHCPOPT_REQIP pstReqIp = (PST_DHCPOPT_REQIP)&ubaOptions[unOptionsOffset];
+    pstReqIp->stHdr.ubOption = DHCPOPT_REQIP;
+    pstReqIp->stHdr.ubLen = sizeof(ST_DHCPOPT_REQIP) - sizeof(ST_DHCPOPT_HDR);
+    pstReqIp->unVal = unDeclineIp;
+    unOptionsOffset += sizeof(ST_DHCPOPT_REQIP);
+
+    //* 填充dhcp服务器identifier
+    PST_DHCPOPT_SRVID pstSrvId = (PST_DHCPOPT_SRVID)&ubaOptions[unOptionsOffset];
+    pstSrvId->stHdr.ubOption = DHCPOPT_SRVID;
+    pstSrvId->stHdr.ubLen = sizeof(ST_DHCPOPT_SRVID) - sizeof(ST_DHCPOPT_HDR);
+    pstSrvId->unSrvIp = unSrvIp;
+    unOptionsOffset += sizeof(ST_DHCPOPT_SRVID); 
+
+    //* 选项结束
+    ubaOptions[unOptionsOffset] = DHCPOPT_END; 
+
+    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unDeclineIp, 0xFFFFFFFF, NULL);
+}
+
+//* 发送一个gratuitous arp request（免费arp请求），用于探测当前分配的ip地址是否已被使用
 BOOL dhcp_ip_conflict_detect(PST_NETIF pstNetif, UINT unDetectedIp)
 {
     UCHAR ubaDstMac[ETH_MAC_ADDR_LEN]; 
@@ -464,14 +510,15 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 
     //* 开启dhcp客户端申请分配一个合法ip地址的逻辑：discover->offer->request->ack
     //* ==================================================================================
-    do {
-        in_addr_t unOfferIp, unSrvIp;
+    in_addr_t unOfferIp, unSrvIp;
+    ST_IPV4 stIPv4; 
+    UINT unLeaseTime; 
+    do {        
+    __lblDiscover: 
         if (!dhcp_discover(nInput, pstNetif, unTransId, &unOfferIp, &unSrvIp, &enErr))
             break; 
 
-        //* 发送request请求报文
-        ST_IPV4 stIPv4; 
-        UINT unLeaseTime;         
+        //* 发送request请求报文        
         if (!dhcp_request(nInput, pstNetif, unTransId, unOfferIp, unSrvIp, &stIPv4, &unLeaseTime, &enErr))
             break; 
 
@@ -491,6 +538,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 
                 printf("  primary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unPrimaryDNS));
                 printf("secondary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unSecondaryDNS));
+                printf("       lease time %d\r\n", unLeaseTime); 
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_unlock(o_hMtxPrintf); 
             #endif
@@ -507,11 +555,14 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
                 os_thread_mutex_unlock(o_hMtxPrintf);
             #endif
         #endif
+                break; 
             }
         }
         else
         {
             //* 通知dhcp服务器当前ip地址冲突，需要重新分配一个
+            dhcp_decline(nInput, pstNetif, unTransId, stIPv4.unAddr, unSrvIp);
+            goto __lblDiscover; 
         }
 
         //* 结束请求
