@@ -15,6 +15,7 @@
 #if SUPPORT_ETHERNET
 #include "ethernet/dhcp_frame.h"
 #include "ethernet/ethernet.h"
+#include "ethernet/arp.h"
 #define SYMBOL_GLOBALS
 #include "ethernet/dhcp_client.h"
 #undef SYMBOL_GLOBAL
@@ -429,6 +430,27 @@ __lblEnd:
     return blRtnVal;
 }
 
+BOOL dhcp_ip_conflict_detect(PST_NETIF pstNetif, UINT unDetectedIp)
+{
+    UCHAR ubaDstMac[ETH_MAC_ADDR_LEN]; 
+    INT nRtnVal;
+    UCHAR ubRetryNum = 0; 
+
+__lblDetect: 
+    ubRetryNum++; 
+    if (ubRetryNum > 5)
+        return FALSE; //* 说明不存在
+
+    nRtnVal = arp_get_mac(pstNetif, unDetectedIp, unDetectedIp, ubaDstMac, NULL); 
+    if (!nRtnVal) //* 存在该条目，返回TRUE，通知客dhcp客户端存在ip冲突
+        return TRUE; 
+    else
+    {
+        os_sleep_secs(1); 
+        goto __lblDetect; 
+    }
+}
+
 BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
     EN_ONPSERR enErr; 
@@ -452,13 +474,45 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
         UINT unLeaseTime;         
         if (!dhcp_request(nInput, pstNetif, unTransId, unOfferIp, unSrvIp, &stIPv4, &unLeaseTime, &enErr))
             break; 
-                
-        printf("          ip addr %s\r\n", inet_ntoa_ext(stIPv4.unAddr)); 
-        printf("     sub net mask %s\r\n", inet_ntoa_ext(stIPv4.unSubnetMask)); 
-        printf("          gateway %s\r\n", inet_ntoa_ext(stIPv4.unGateway)); 
 
-        printf("  primary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unPrimaryDNS)); 
-        printf("secondary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unSecondaryDNS)); 
+        //* 确定ip地址可用，采用arp探测的方式
+        if (!dhcp_ip_conflict_detect(pstNetif, stIPv4.unAddr))
+        {            
+            pstNetif->stIPv4 = stIPv4; 
+            if (route_add(pstNetif, 0, stIPv4.unGateway, stIPv4.unSubnetMask, &enErr))
+            {
+        #if SUPPORT_PRINTF
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf); 
+            #endif
+                printf("          ip addr %s\r\n", inet_ntoa_ext(stIPv4.unAddr));
+                printf("     sub net mask %s\r\n", inet_ntoa_ext(stIPv4.unSubnetMask));
+                printf("          gateway %s\r\n", inet_ntoa_ext(stIPv4.unGateway));
+
+                printf("  primary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unPrimaryDNS));
+                printf("secondary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unSecondaryDNS));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf); 
+            #endif
+        #endif
+            }
+            else
+            {
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("route_add() failed, the NIC name is %s, \r\n", pstNetif->szName, onps_error(enErr)); 
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
+            }
+        }
+        else
+        {
+            //* 通知dhcp服务器当前ip地址冲突，需要重新分配一个
+        }
 
         //* 结束请求
         dhcp_client_stop(nInput);
@@ -472,5 +526,14 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
         *penErr = enErr;
     return FALSE; 
 }
+
+/*
+printf("          ip addr %s\r\n", inet_ntoa_ext(stIPv4.unAddr));
+printf("     sub net mask %s\r\n", inet_ntoa_ext(stIPv4.unSubnetMask));
+printf("          gateway %s\r\n", inet_ntoa_ext(stIPv4.unGateway));
+
+printf("  primary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unPrimaryDNS));
+printf("secondary dns srv %s\r\n", inet_ntoa_ext(stIPv4.unSecondaryDNS));
+*/
 
 #endif
