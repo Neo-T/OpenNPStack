@@ -451,7 +451,7 @@ static void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr
     PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
     pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
     pstMsgType->stHdr.ubLen = 1;
-    pstMsgType->ubTpVal = DHCPMSGTP_REQUEST;
+    pstMsgType->ubTpVal = DHCPMSGTP_DECLINE;
     unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
 
     //* 填充发起申请的客户端id    
@@ -479,7 +479,7 @@ static void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr
     //* 选项结束
     ubaOptions[unOptionsOffset] = DHCPOPT_END; 
 
-    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unDeclineIp, 0xFFFFFFFF, NULL);
+    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unDeclineIp, 0xFFFFFFFF, NULL);	
 }
 
 //* 发送一个gratuitous arp request（免费arp请求），用于探测当前分配的ip地址是否已被使用
@@ -531,8 +531,8 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             //* 收到nak则意味着ip地址冲突需要重新申请
             if (ERRIPCONFLICT != enErr)
                 break;
-            else
-                goto __lblDiscover; 
+			else							
+				goto __lblDiscover; 			
         }
 
         //* 确定ip地址可用，采用arp探测的方式
