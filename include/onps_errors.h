@@ -71,6 +71,7 @@ typedef enum {
     ERRPACKETTOOLARGE,      //* 报文太大
     ERRPORTEMPTY,           //* 端口为空
     ERRWAITACKTIMEOUT,      //* 等待应答超时
+    ERRIPCONFLICT,          //* ip地址冲突
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

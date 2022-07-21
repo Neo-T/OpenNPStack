@@ -62,6 +62,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRPACKETTOOLARGE, "packet too large" }, 
     { ERRPORTEMPTY, "port number is empty" }, 
     { ERRWAITACKTIMEOUT, "Timeout waiting for the reply packet" }, 
+    { ERRIPCONFLICT, "ip address conflict" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

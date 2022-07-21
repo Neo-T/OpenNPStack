@@ -364,10 +364,17 @@ __lblSend:
             UCHAR *pubOptions = pubRcvBuf + sizeof(ST_DHCP_HDR);
             USHORT usOptionsLen = (USHORT)(nRcvedBytes - sizeof(ST_DHCP_HDR));
             PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
-            if (!pstMsgType || DHCPMSGTP_ACK != pstMsgType->ubTpVal) //* 必须携带dhcp报文类型并且一定是ack报文才可以,如果不是则认为超时，重新发送
-            {
+            if (!pstMsgType || (DHCPMSGTP_ACK != pstMsgType->ubTpVal && DHCPMSGTP_NAK != pstMsgType->ubTpVal)) //* 必须携带dhcp报文类型并且一定是ack/nack报文才可以,如果不是则认为超时，重新发送
+            {                
                 *penErr = ERRWAITACKTIMEOUT;
                 break;
+            }
+
+            //* 说明地址冲突，需要重新请求
+            if (DHCPMSGTP_NAK == pstMsgType->ubTpVal)
+            {
+                *penErr = ERRIPCONFLICT; 
+                break; 
             }
 
             pstIPv4->unAddr = pstHdr->unYourIp; 
@@ -407,7 +414,7 @@ __lblSend:
                 *penErr = ERRWAITACKTIMEOUT;
                 break; 
             }
-            *punLeaseTime = pstLeaseTime->unVal; 
+            *punLeaseTime = htonl(pstLeaseTime->unVal); 
 
             blRtnVal = TRUE;
         } while (FALSE);
@@ -520,7 +527,13 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 
         //* 发送request请求报文        
         if (!dhcp_request(nInput, pstNetif, unTransId, unOfferIp, unSrvIp, &stIPv4, &unLeaseTime, &enErr))
-            break; 
+        {
+            //* 收到nak则意味着ip地址冲突需要重新申请
+            if (ERRIPCONFLICT != enErr)
+                break;
+            else
+                goto __lblDiscover; 
+        }
 
         //* 确定ip地址可用，采用arp探测的方式
         if (!dhcp_ip_conflict_detect(pstNetif, stIPv4.unAddr))
