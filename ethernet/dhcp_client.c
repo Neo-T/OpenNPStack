@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "one_shot_timer.h"
 #include "mmu/buddy.h"
 #include "mmu/buf_list.h"
 #include "onps_utils.h"
@@ -19,6 +20,15 @@
 #define SYMBOL_GLOBALS
 #include "ethernet/dhcp_client.h"
 #undef SYMBOL_GLOBAL
+
+//* 保存租约信息，注意这个设计意味着在同一台设备上协议栈仅支持单路dhcp客户端，如果设备存在双网卡，另一路网卡必须指定静态ip地址
+typedef struct _STCB_RENEWAL_INFO_ {
+    INT nInput; 
+    PST_NETIF pstNetif; 
+    UINT unLeaseTime; 
+    CHAR bState; 
+} STCB_RENEWAL_INFO, *PSTCB_RENEWAL_INFO;
+static STCB_RENEWAL_INFO l_stcbRenewalInfo; 
 
 static INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCHAR *pubOptions, UCHAR ubOptionsLen, UINT unTransId, in_addr_t unClientIp, in_addr_t unDstIP, EN_ONPSERR *penErr)
 {        
@@ -504,6 +514,12 @@ __lblDetect:
     }
 }
 
+//* 续租定时器
+static void dhcp_renewal_timeout_handler(void *pvParam)
+{
+    PSTCB_RENEWAL_INFO pstcbRenewalInfo = (PSTCB_RENEWAL_INFO)pvParam; 
+}
+
 BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
     EN_ONPSERR enErr; 
@@ -570,20 +586,41 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
         #endif
                 break; 
             }
+
+            //* 根据租约信息，启动一个续租定时器
+            l_stcbRenewalInfo.nInput = nInput;
+            l_stcbRenewalInfo.pstNetif = pstNetif;
+            l_stcbRenewalInfo.unLeaseTime = unLeaseTime; 
+            l_stcbRenewalInfo.bState = 0;  //* 初始阶段为发送续租报文
+            if (!one_shot_timer_new(dhcp_renewal_timeout_handler, &l_stcbRenewalInfo, unLeaseTime / 2)) //* 理论上不会失败，极端异常情况下失败，也不管它，至少现在拿到ip地址了，先带病运行再说
+            {
+                dhcp_client_stop(nInput); //* 这时停止就可以了，不再需要这个资源了
+
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("one_shot_timer_new() failed, the NIC name is %s, \r\n", pstNetif->szName, onps_error(ERRNOIDLETIMER)); 
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
+            }
         }
         else
         {
             //* 通知dhcp服务器当前ip地址冲突，需要重新分配一个
             dhcp_decline(nInput, pstNetif, unTransId, stIPv4.unAddr, unSrvIp);
+            os_sleep_secs(3); //* 休眠一小段时间，给dhcp服务器流出处理时间
             goto __lblDiscover; 
         }
-
-        //* 结束请求
-        dhcp_client_stop(nInput);
+        
+        //dhcp_client_stop(nInput);
         return TRUE;
     } while (FALSE);         
     //* ==================================================================================
 
+    //* 结束dhcp客户端
     dhcp_client_stop(nInput);
 
     if (penErr)
