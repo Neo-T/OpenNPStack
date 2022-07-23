@@ -25,8 +25,11 @@
 typedef struct _STCB_RENEWAL_INFO_ {
     INT nInput; 
     PST_NETIF pstNetif; 
+    UINT unDstIp; 
     UINT unLeaseTime; 
+    UINT unTransId; 
     CHAR bState; 
+    CHAR bWaitAckSecs; 
 } STCB_RENEWAL_INFO, *PSTCB_RENEWAL_INFO;
 static STCB_RENEWAL_INFO l_stcbRenewalInfo; 
 
@@ -518,6 +521,72 @@ __lblDetect:
 static void dhcp_renewal_timeout_handler(void *pvParam)
 {
     PSTCB_RENEWAL_INFO pstcbRenewalInfo = (PSTCB_RENEWAL_INFO)pvParam; 
+    if (pstcbRenewalInfo->bState) //* 等待应答到达
+    {
+        pstcbRenewalInfo->bWaitAckSecs++; 
+        if(pstcbRenewalInfo->bWaitAckSecs > 3) //* 等待超时，需要发送广播报文进行续租
+    }
+    else //* 发送续租报文，其实就是再次发送request类型的报文
+    {                
+        //* 重置事务id及等待应答开始时间
+        pstcbRenewalInfo->unTransId = (UINT)rand(); 
+        pstcbRenewalInfo->bWaitAckSecs = 0; 
+
+        //* 填充dhcp续租选项
+        //* ============================================================================================
+        //* ethernet网卡的附加信息
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstcbRenewalInfo->pstNetif->pvExtra;
+        UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN]; //* dhcp续租选项缓冲区
+        UINT unOptionsOffset = 0;
+
+        //* 清零dhcp续租选项缓冲区        
+        memset(ubaOptions, 0, sizeof(ubaOptions));
+
+        //* 填充消息类型
+        PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
+        pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
+        pstMsgType->stHdr.ubLen = 1;
+        pstMsgType->ubTpVal = DHCPMSGTP_REQUEST;
+        unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
+
+        //* 填充发起申请的客户端id    
+        PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
+        pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID;
+        pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR);
+        pstCltId->ubHardwareType = 1;
+        memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+        unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+        //* 填充vendor标识信息
+        PST_DHCPOPT_VENDORID pstVendorId = (PST_DHCPOPT_VENDORID)&ubaOptions[unOptionsOffset];
+        pstVendorId->stHdr.ubOption = DHCPOPT_VENDORID;
+        pstVendorId->stHdr.ubLen = sizeof(ST_DHCPOPT_VENDORID) - sizeof(ST_DHCPOPT_HDR);
+        memcpy(pstVendorId->ubaTag, "RuBao;-)", sizeof("RuBao;-)") - 1);
+        unOptionsOffset += sizeof(ST_DHCPOPT_VENDORID);
+
+        //* 填充请求的参数列表
+        PST_DHCPOPT_HDR pstParamListHdr = (PST_DHCPOPT_HDR)&ubaOptions[unOptionsOffset];
+        pstParamListHdr->ubOption = DHCPOPT_REQLIST;
+        pstParamListHdr->ubLen = 3;
+        UCHAR *pubParamItem = ((UCHAR *)pstParamListHdr) + sizeof(ST_DHCPOPT_HDR);
+        pubParamItem[0] = DHCPOPT_SUBNETMASK;
+        pubParamItem[1] = DHCPOPT_ROUTER;
+        pubParamItem[2] = DHCPOPT_DNS;
+
+        //* 选项结束
+        pubParamItem[3] = DHCPOPT_END;
+
+        //* 发送
+        if (dhcp_send_packet(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), pstcbRenewalInfo->unTransId, pstcbRenewalInfo->pstNetif->stIPv4.unAddr, pstcbRenewalInfo->unDstIp, NULL) > 0)
+        {            
+            if (!one_shot_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, 1)) //* 理论上不会失败，极端异常情况下失败，也不管它，至少现在拿到ip地址了，先带病运行再说
+            {
+                dhcp_client_stop(pstcbRenewalInfo->nInput); //* 这时停止就可以了，不再需要这个资源了
+                return; 
+            }
+            pstcbRenewalInfo->bState = 1; //* 进入等待状态
+        }
+    }
 }
 
 BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
@@ -527,17 +596,17 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
     //* 启动dhcp客户端（其实就是作为一个udp服务器启动）
     INT nInput = dhcp_client_start(penErr); 
     if (nInput < 0)
-        return FALSE;             
-
-    UINT unTransId = (UINT)rand(); 
+        return FALSE; 
 
     //* 开启dhcp客户端申请分配一个合法ip地址的逻辑：discover->offer->request->ack
     //* ==================================================================================
     in_addr_t unOfferIp, unSrvIp;
     ST_IPV4 stIPv4; 
     UINT unLeaseTime; 
+    UINT unTransId; 
     do {        
     __lblDiscover: 
+        unTransId = (UINT)rand();
         if (!dhcp_discover(nInput, pstNetif, unTransId, &unOfferIp, &unSrvIp, &enErr))
             break; 
 
@@ -547,7 +616,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             //* 收到nak则意味着ip地址冲突需要重新申请
             if (ERRIPCONFLICT != enErr)
                 break;
-			else							
+			else            
 				goto __lblDiscover; 			
         }
 
@@ -591,6 +660,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             l_stcbRenewalInfo.nInput = nInput;
             l_stcbRenewalInfo.pstNetif = pstNetif;
             l_stcbRenewalInfo.unLeaseTime = unLeaseTime; 
+            l_stcbRenewalInfo.unDstIp = unSrvIp; 
             l_stcbRenewalInfo.bState = 0;  //* 初始阶段为发送续租报文
             if (!one_shot_timer_new(dhcp_renewal_timeout_handler, &l_stcbRenewalInfo, unLeaseTime / 2)) //* 理论上不会失败，极端异常情况下失败，也不管它，至少现在拿到ip地址了，先带病运行再说
             {
