@@ -25,8 +25,9 @@
 typedef struct _STCB_RENEWAL_INFO_ {
     INT nInput; 
     PST_NETIF pstNetif; 
-    UINT unDstIp; 
+    UINT unDhcpSrvIp; 
     UINT unLeaseTime; 
+    UINT unLeaseStartTime; 
     UINT unTransId; 
     CHAR bState; 
     CHAR bWaitAckSecs; 
@@ -495,6 +496,44 @@ static void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr
     dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unDeclineIp, 0xFFFFFFFF, NULL);	
 }
 
+static void dhcp_release(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unReleasedIp, in_addr_t unSrvIp)
+{
+    //* ethernet网卡的附加信息
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+    UINT unOptionsOffset = 0;
+
+    //* dhcp选项分配一块填充缓冲区并清零
+    UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN];
+    memset(ubaOptions, 0, sizeof(ubaOptions)); 
+
+    //* 填充消息类型
+    PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
+    pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
+    pstMsgType->stHdr.ubLen = 1;
+    pstMsgType->ubTpVal = DHCPMSGTP_RELEASE;
+    unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE); 
+
+    //* 填充dhcp服务器identifier
+    PST_DHCPOPT_SRVID pstSrvId = (PST_DHCPOPT_SRVID)&ubaOptions[unOptionsOffset];
+    pstSrvId->stHdr.ubOption = DHCPOPT_SRVID;
+    pstSrvId->stHdr.ubLen = sizeof(ST_DHCPOPT_SRVID) - sizeof(ST_DHCPOPT_HDR);
+    pstSrvId->unSrvIp = unSrvIp;
+    unOptionsOffset += sizeof(ST_DHCPOPT_SRVID);
+
+    //* 填充发起申请的客户端id    
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
+    pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID;
+    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR);
+    pstCltId->ubHardwareType = 1;
+    memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+    //* 选项结束
+    ubaOptions[unOptionsOffset] = DHCPOPT_END; 
+
+    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unReleasedIp, unSrvIp, NULL);
+}
+
 //* 发送一个gratuitous arp request（免费arp请求），用于探测当前分配的ip地址是否已被使用
 BOOL dhcp_ip_conflict_detect(PST_NETIF pstNetif, UINT unDetectedIp)
 {
@@ -521,10 +560,55 @@ __lblDetect:
 static void dhcp_renewal_timeout_handler(void *pvParam)
 {
     PSTCB_RENEWAL_INFO pstcbRenewalInfo = (PSTCB_RENEWAL_INFO)pvParam; 
+    switch (pstcbRenewalInfo->bState)
+    {
+    case 0: //* 单播发送续租请求（1/2租期）
+        break;
+
+    case 1: //* 等待单播续租请求的应答报文
+        break;
+
+    case 2: //* 单播续租未成功，需要广播发送续租请求（7/8租期）
+        break;
+
+    case 3: //* 等待广播续租请求的应答报文
+        break;
+
+    case 4: //* 续租未成功，等待租期结束后释放当前ip地址并启动再次申请流程
+        break;
+    }
+
     if (pstcbRenewalInfo->bState) //* 等待应答到达
     {
         pstcbRenewalInfo->bWaitAckSecs++; 
-        if(pstcbRenewalInfo->bWaitAckSecs > 3) //* 等待超时，需要发送广播报文进行续租
+        if (pstcbRenewalInfo->bWaitAckSecs > 3) //* 等待超时，需要发送广播报文进行续租
+        {            
+            //* 已经到达租期则释放掉，重新申请
+            if (os_get_system_secs() - pstcbRenewalInfo->unLeaseStartTime >= pstcbRenewalInfo->unLeaseTime) 
+            {
+                //* 释放当前申请
+                dhcp_release(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, (UINT)rand(), pstcbRenewalInfo->pstNetif->stIPv4.unAddr, pstcbRenewalInfo->unDhcpSrvIp);
+                dhcp_client_stop(pstcbRenewalInfo->nInput); 
+
+                //* 重新开启申请流程（与初始申请不同的是这个处理是通过一系列的定时器完成的）
+                //* --------------------------------------------------------------------------------
+                //* 再次开启一个定时器，用于重新申请ip地址，原先那个没有续租成功
+                //* ……
+                //* ……
+                //* --------------------------------------------------------------------------------
+
+                return; 
+            }
+
+            pstcbRenewalInfo->bState = 0; 
+            pstcbRenewalInfo->unDstIp = 0xFFFFFFFF; //* 目标地址更换为广播地址
+
+            //* 再次启动定时器，根据dhcp协议此次启动时间应为租期的7/8，扣除已经消逝的4/8，则只需再等待3/8租期就该发送广播报文进行续租了
+            if (!one_shot_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, (pstcbRenewalInfo->unLeaseTime * 3) / 8))            
+                dhcp_client_stop(pstcbRenewalInfo->nInput); //* 定时器启动失败，这时停止dhcp客户端吧，不再需要这个资源了，当前这个网卡只能求毛主席保佑dhcp服务器别把这个ip地址分配给别人，让“我”能继续使用
+            
+            return; 
+        }
     }
     else //* 发送续租报文，其实就是再次发送request类型的报文
     {                
@@ -660,7 +744,8 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             l_stcbRenewalInfo.nInput = nInput;
             l_stcbRenewalInfo.pstNetif = pstNetif;
             l_stcbRenewalInfo.unLeaseTime = unLeaseTime; 
-            l_stcbRenewalInfo.unDstIp = unSrvIp; 
+            l_stcbRenewalInfo.unLeaseStartTime = os_get_system_secs();
+            l_stcbRenewalInfo.unDhcpSrvIp = unSrvIp; 
             l_stcbRenewalInfo.bState = 0;  //* 初始阶段为发送续租报文
             if (!one_shot_timer_new(dhcp_renewal_timeout_handler, &l_stcbRenewalInfo, unLeaseTime / 2)) //* 理论上不会失败，极端异常情况下失败，也不管它，至少现在拿到ip地址了，先带病运行再说
             {
