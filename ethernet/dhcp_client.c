@@ -556,17 +556,169 @@ __lblDetect:
     }
 }
 
+//* 发送续租报文
+static BOOL dhcp_send_renewal(PSTCB_RENEWAL_INFO pstcbRenewalInfo, in_addr_t unDstIp)
+{
+    //* 重置事务id
+    pstcbRenewalInfo->unTransId = (UINT)rand();    
+
+    //* 填充dhcp续租选项
+    //* ============================================================================================
+    //* ethernet网卡的附加信息
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstcbRenewalInfo->pstNetif->pvExtra;
+    UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN]; //* dhcp续租选项缓冲区
+    UINT unOptionsOffset = 0;
+
+    //* 清零dhcp续租选项缓冲区        
+    memset(ubaOptions, 0, sizeof(ubaOptions));
+
+    //* 填充消息类型
+    PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
+    pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
+    pstMsgType->stHdr.ubLen = 1;
+    pstMsgType->ubTpVal = DHCPMSGTP_REQUEST;
+    unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
+
+    //* 填充发起申请的客户端id    
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
+    pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID;
+    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR);
+    pstCltId->ubHardwareType = 1;
+    memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+    //* 填充vendor标识信息
+    PST_DHCPOPT_VENDORID pstVendorId = (PST_DHCPOPT_VENDORID)&ubaOptions[unOptionsOffset];
+    pstVendorId->stHdr.ubOption = DHCPOPT_VENDORID;
+    pstVendorId->stHdr.ubLen = sizeof(ST_DHCPOPT_VENDORID) - sizeof(ST_DHCPOPT_HDR);
+    memcpy(pstVendorId->ubaTag, "RuBao;-)", sizeof("RuBao;-)") - 1);
+    unOptionsOffset += sizeof(ST_DHCPOPT_VENDORID);
+
+    //* 填充请求的参数列表
+    PST_DHCPOPT_HDR pstParamListHdr = (PST_DHCPOPT_HDR)&ubaOptions[unOptionsOffset];
+    pstParamListHdr->ubOption = DHCPOPT_REQLIST;
+    pstParamListHdr->ubLen = 3;
+    UCHAR *pubParamItem = ((UCHAR *)pstParamListHdr) + sizeof(ST_DHCPOPT_HDR);
+    pubParamItem[0] = DHCPOPT_SUBNETMASK;
+    pubParamItem[1] = DHCPOPT_ROUTER;
+    pubParamItem[2] = DHCPOPT_DNS;
+
+    //* 选项结束
+    pubParamItem[3] = DHCPOPT_END; 
+    //* ============================================================================================
+
+    //* 发送
+    if (dhcp_send_packet(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), pstcbRenewalInfo->unTransId, pstcbRenewalInfo->pstNetif->stIPv4.unAddr, unDstIp, NULL) > 0)
+        return TRUE;
+    else
+        return FALSE; 
+}
+
+//* 等待接收dhcp服务器回馈的续租应答报文
+static BOOL dhcp_recv_renewal_ack(PSTCB_RENEWAL_INFO pstcbRenewalInfo)
+{
+    EN_ONPSERR enErr; 
+
+    pstcbRenewalInfo->bWaitAckSecs++; 
+    if (pstcbRenewalInfo->bWaitAckSecs > 3) //* 等待超时
+        return FALSE; 
+
+    //* 申请一个接收缓冲区，预先分配给mmu管理的内存资源一定要足够大，否则会使得dhcp客户端停止运行，无法确保网卡能够继续租用ip地址
+    UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(512, &enErr); 
+    if (!pubRcvBuf)
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("dhcp_recv_renewal_ack() failed, the NIC name is %s, %s\r\n", pstcbRenewalInfo->pstNetif->szName, onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return FALSE;
+    }
+
+    //* 读取应答数据，立即读取（超时时间为0），不阻塞
+    INT nRcvBytes = udp_recv_upper(pstcbRenewalInfo->nInput, pubRcvBuf, 512, NULL, NULL, 0);
+    if (nRcvBytes > 0)
+    {
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+        PST_DHCP_HDR pstHdr = (PST_DHCP_HDR)pubRcvBuf;
+
+        //* 1）如果不是dhcp报文则判定为不是合法的应答报文；
+        //* 2）当前请求的事务id不匹配； 
+        //* 3）客户端mac地址也要匹配目前只支持ethernet网卡的mac地址类型
+        //* 满足以上情形之一即直接认定为应答超时
+        if (DHCP_MAGIC_COOKIE != htonl(pstHdr->unMagicCookie)
+            || unTransId != htonl(pstHdr->unTransId)
+            || pstHdr->ubHardwareAddrLen != ETH_MAC_ADDR_LEN
+            || !ethernet_mac_matched(pstExtra->ubaMacAddr, pstHdr->ubaClientMacAddr))
+        {
+            if (penErr)
+                *penErr = ERRWAITACKTIMEOUT;
+            nRcvBytes = 0;
+        }
+    }
+    else
+    {
+        if (nRcvBytes < 0)
+            onps_get_last_error(nInput, penErr);
+        else
+        {
+            if (penErr)
+                *penErr = ERRWAITACKTIMEOUT;
+        }
+    }
+}
+
 //* 续租定时器
 static void dhcp_renewal_timeout_handler(void *pvParam)
 {
+    INT nTimeout; 
+
     PSTCB_RENEWAL_INFO pstcbRenewalInfo = (PSTCB_RENEWAL_INFO)pvParam; 
     switch (pstcbRenewalInfo->bState)
     {
-    case 0: //* 单播发送续租请求（1/2租期）
+    case 0: //* 单播发送续租请求（1/2租期）        
+        if (dhcp_send_renewal(pstcbRenewalInfo, pstcbRenewalInfo->unDhcpSrvIp))
+        {
+            nTimeout = 1;
+
+            //* 发送成功，等待应答的开始时间清零，并将状态机迁移到等待应答报文到达的阶段
+            pstcbRenewalInfo->bWaitAckSecs = 0;
+            pstcbRenewalInfo->bState = 1;
+        }
+        else 
+        {
+            //* 报文发送失败，这里就不再尝试重新发送了，直接进入下一个阶段——发送广播续租报文，根据dhcp协议广播续租报文的启动时间
+            //* 应为租期的7/8，扣除已经消逝的4/8，则只需再等待3/8租期就该发送广播报文进行续租了
+            nTimeout = (pstcbRenewalInfo->unLeaseTime * 3) / 8; 
+            pstcbRenewalInfo->bState = 2;  
+        }
+
+        //* 理论上不会失败，因为系统预先分配的定时器足够用，但世事无常，协议栈的目标应用环境极其复杂，一旦遇到系统预先分配的定时器资源耗尽的情形，dhcp客户端就无法完成正常的业务逻辑了
+        //* 此时只能停止当前dhcp客户端，不再进行续租工作，并且重新申请地址的工作也被迫中止，所以，必须确保定时器资源足够使用，否则将影响协议栈dhcp客户端的正常运行
+        if (!one_shot_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout))
+        {
+            dhcp_client_stop(pstcbRenewalInfo->nInput);
+
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
+            printf("dhcp_renewal_timeout_handler() failed, the NIC name is %s, %s\r\n", pstcbRenewalInfo->pstNetif->szName, onps_error(ERRNOIDLETIMER));
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
+        }
+
         break;
 
     case 1: //* 等待单播续租请求的应答报文
-        break;
+
+        break;    
 
     case 2: //* 单播续租未成功，需要广播发送续租请求（7/8租期）
         break;
