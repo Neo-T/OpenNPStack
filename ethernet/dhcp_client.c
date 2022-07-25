@@ -35,7 +35,7 @@ typedef struct _STCB_RENEWAL_INFO_ {
 static STCB_RENEWAL_INFO l_stcbRenewalInfo; 
 static void dhcp_renewal_timeout_handler(void *pvParam); 
 
-static INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCHAR *pubOptions, UCHAR ubOptionsLen, UINT unTransId, in_addr_t unClientIp, in_addr_t unDstIP, EN_ONPSERR *penErr)
+static INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCHAR *pubOptions, UCHAR ubOptionsLen, UINT unTransId, in_addr_t unClientIp, in_addr_t unDstIP, in_addr_t unSrcIp, EN_ONPSERR *penErr)
 {        
     PST_DHCP_HDR pstDhcpHdr = (PST_DHCP_HDR)buddy_alloc(sizeof(ST_DHCP_HDR), penErr); 
     if (!pstDhcpHdr)
@@ -79,7 +79,7 @@ static INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCH
     buf_list_put_head(&sBufListHead, sDhcpHdrNode); 
 
     //* 发送之，源地址固定为0
-    INT nRtnVal = udp_send_ext(nInput, sBufListHead, unDstIP, DHCP_SRV_PORT, 0, pstNetif, penErr); 
+    INT nRtnVal = udp_send_ext(nInput, sBufListHead, htonl(unDstIP), DHCP_SRV_PORT, htonl(unSrcIp), pstNetif, penErr);
 
     //* 回收相关资源    
     buf_list_free(sOptionsNode);    
@@ -94,7 +94,7 @@ static INT dhcp_send_and_wait_ack(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCod
                                 in_addr_t unClientIp, in_addr_t unDstIP, UCHAR *pubRcvBuf, USHORT usRcvBufSize, EN_ONPSERR *penErr)
 {
     //* 发送报文
-    INT nRtnVal = dhcp_send_packet(nInput, pstNetif, ubOptCode, pubOptions, ubOptionsLen, unTransId, unClientIp, unDstIP, penErr); 
+    INT nRtnVal = dhcp_send_packet(nInput, pstNetif, ubOptCode, pubOptions, ubOptionsLen, unTransId, unClientIp, unDstIP, 0, penErr); 
     if (nRtnVal <= 0)
         return nRtnVal; 
     
@@ -494,7 +494,7 @@ static void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr
     //* 选项结束
     ubaOptions[unOptionsOffset] = DHCPOPT_END; 
 
-    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unDeclineIp, 0xFFFFFFFF, NULL);	
+    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unDeclineIp, 0xFFFFFFFF, 0, NULL);	
 }
 
 static void dhcp_release(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unReleasedIp, in_addr_t unSrvIp)
@@ -532,7 +532,7 @@ static void dhcp_release(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr
     //* 选项结束
     ubaOptions[unOptionsOffset] = DHCPOPT_END; 
 
-    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unReleasedIp, unSrvIp, NULL);
+    dhcp_send_packet(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, unReleasedIp, unSrvIp, unReleasedIp, NULL);
 }
 
 //* 发送一个gratuitous arp request（免费arp请求），用于探测当前分配的ip地址是否已被使用
@@ -609,7 +609,7 @@ static BOOL dhcp_send_renewal(PSTCB_RENEWAL_INFO pstcbRenewalInfo, in_addr_t unD
     //* ============================================================================================
 
     //* 发送
-    if (dhcp_send_packet(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), pstcbRenewalInfo->unTransId, pstcbRenewalInfo->pstNetif->stIPv4.unAddr, unDstIp, NULL) > 0)
+    if (dhcp_send_packet(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), pstcbRenewalInfo->unTransId, pstcbRenewalInfo->pstNetif->stIPv4.unAddr, unDstIp, pstcbRenewalInfo->pstNetif->stIPv4.unAddr, NULL) > 0)
         return TRUE;
     else
         return FALSE; 
