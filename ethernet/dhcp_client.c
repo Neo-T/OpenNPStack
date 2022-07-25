@@ -79,7 +79,7 @@ static INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCH
     buf_list_put_head(&sBufListHead, sDhcpHdrNode); 
 
     //* 发送之，源地址固定为0
-    INT nRtnVal = udp_send_ext(nInput, sBufListHead, htonl(unDstIP), DHCP_SRV_PORT, htonl(unSrcIp), pstNetif, penErr);
+    INT nRtnVal = udp_send_ext(nInput, sBufListHead, htonl(unDstIP), DHCP_SRV_PORT, unSrcIp, pstNetif, penErr);
 
     //* 回收相关资源    
     buf_list_free(sOptionsNode);    
