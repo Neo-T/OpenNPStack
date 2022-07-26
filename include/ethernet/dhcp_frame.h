@@ -154,4 +154,18 @@ typedef struct _ST_DHCPOPT_LEASETIME_ {
 PACKED_END
 //* =====================================================================================
 
+//* 租约信息控制块
+typedef struct _STCB_RENEWAL_INFO_ {
+    INT nInput;
+    PST_NETIF pstNetif;
+    UINT unDhcpSrvIp;
+    UINT unLeaseTime;
+    UINT unTransId;
+    CHAR bState;
+    CHAR bWaitAckSecs;
+    struct {
+        UINT unOfferIp;         
+    } stReqAddr;
+} STCB_RENEWAL_INFO, *PSTCB_RENEWAL_INFO;
+
 #endif
