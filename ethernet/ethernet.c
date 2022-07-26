@@ -150,7 +150,7 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
     //* 发送数据
     INT nRtnVal = pstExtra->pfunEmacSend(sBufListHead, penErr); 
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL
+#if SUPPORT_PRINTF && DEBUG_LEVEL == 1
 	#if PRINTF_THREAD_MUTEX
 	os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
@@ -180,6 +180,11 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     //* 既不是广播地址，也不匹配本ethernet网卡mac地址，则直接丢弃该报文
     if (!is_mac_broadcast_addr(pstHdr->ubaDstMacAddr) && !ethernet_mac_matched(pstHdr->ubaDstMacAddr, pstExtra->ubaMacAddr))
         return; 
+
+#if SUPPORT_PRINTF && DEBUG_LEVEL == 2	        	        
+		printf("recv %d bytes: \r\n", nPacketLen);
+		printf_hex(pubPacket, nPacketLen, 48);	
+#endif
 
     //* 根据ethernet ii帧携带的协议类型分别处理之
     USHORT usProtocolType = htons(pstHdr->usProtoType);
