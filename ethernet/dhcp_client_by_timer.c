@@ -376,12 +376,13 @@ void dhcp_req_addr_timeout_handler(void *pvParam)
         
         break; 
 
-    case 4: //* gratuitous arp request
+    case 4: //* gratuitous arp request		
         if (pstcbRenewalInfo->stReqAddr.bSndNum++ > 4) //* 不存在，可以使用这个地址了
-        {            
+        {            			
             EN_ONPSERR enErr; 
             pstcbRenewalInfo->pstNetif->stIPv4 = pstcbRenewalInfo->stReqAddr.stIPv4; 
             route_add(pstcbRenewalInfo->pstNetif, 0, pstcbRenewalInfo->pstNetif->stIPv4.unGateway, pstcbRenewalInfo->pstNetif->stIPv4.unSubnetMask, &enErr);
+
     #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);

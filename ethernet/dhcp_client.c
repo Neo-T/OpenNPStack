@@ -785,7 +785,7 @@ void dhcp_renewal_timeout_handler(void *pvParam)
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-            printf("<0> The ip address %s of the NIC %s has been successfully leased, The lease period is %d seconds.\r\n", inet_ntoa_safe_ext(pstcbRenewalInfo->pstNetif->stIPv4.unAddr, szAddr), pstcbRenewalInfo->pstNetif->szName, pstcbRenewalInfo->unLeaseTime);
+            printf("<0> The ip address %s of the NIC %s has been successfully renewed, The lease period is %d seconds.\r\n", inet_ntoa_safe_ext(pstcbRenewalInfo->pstNetif->stIPv4.unAddr, szAddr), pstcbRenewalInfo->pstNetif->szName, pstcbRenewalInfo->unLeaseTime);
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
@@ -845,7 +845,7 @@ void dhcp_renewal_timeout_handler(void *pvParam)
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-            printf("<1> The ip address %s of the NIC %s has been successfully leased, The lease period is %d seconds.\r\n", inet_ntoa_safe_ext(pstcbRenewalInfo->pstNetif->stIPv4.unAddr, szAddr), pstcbRenewalInfo->pstNetif->szName, pstcbRenewalInfo->unLeaseTime); 
+            printf("<1> The ip address %s of the NIC %s has been successfully renewed, The lease period is %d seconds.\r\n", inet_ntoa_safe_ext(pstcbRenewalInfo->pstNetif->stIPv4.unAddr, szAddr), pstcbRenewalInfo->pstNetif->szName, pstcbRenewalInfo->unLeaseTime); 
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
