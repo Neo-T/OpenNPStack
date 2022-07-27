@@ -252,7 +252,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         sUdpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
         if (sUdpPacketNode < 0)
         {
-#if SUPPORT_PRINTF        
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -277,7 +277,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_UDP_PSEUDOHDR), &enErr);
         if (sPseudoHdrNode < 0)
         {
-    #if SUPPORT_PRINTF        
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -303,7 +303,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             usChecksum = 0xFFFF; 
         if (usPktChecksum != usChecksum)
         {
-    #if SUPPORT_PRINTF
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
             pstHdr->usChecksum = usPktChecksum;
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
@@ -325,7 +325,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink); 
     if (nInput < 0)
     {
-#if SUPPORT_PRINTF        
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
         UCHAR *pubAddr = (UCHAR *)&unDstAddr;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
@@ -344,7 +344,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     {
         if (pstLink->stPeerAddr.unIp != unFromIP || pstLink->stPeerAddr.usPort != usSrcPort)
         {
-    #if SUPPORT_PRINTF        
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
             UCHAR *pubFromAddr = (UCHAR *)&unSrcAddr;
             UCHAR *pubSrvAddr = (UCHAR *)&pstLink->stPeerAddr.unIp;
         #if PRINTF_THREAD_MUTEX
@@ -366,7 +366,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 将数据搬运到input层
         if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, unFromIP, usSrcPort, &enErr))
         {
-    #if SUPPORT_PRINTF
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif

@@ -339,7 +339,7 @@ INT ppp_send(HTTY hTTY, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSER
 	}	
 	os_thread_mutex_unlock(l_haMtxTTY[nPPPIdx]);
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL	
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 2
 	#if PRINTF_THREAD_MUTEX
 	os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
@@ -377,7 +377,7 @@ static BOOL netif_add_ppp(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 
     CHAR szNetIfName[NETIF_NAME_LEN]; 
     snprintf(szNetIfName, sizeof(szNetIfName), "ppp%d", nPPPIdx); 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     printf("Connect: %s <--> %s\r\n", szNetIfName, or_pszaTTY[nPPPIdx]);
 #endif
     l_pstaNetif[nPPPIdx] = netif_add(NIF_PPP, szNetIfName, &stIPv4, netif_send, &pstcbPPP->hTTY, penErr); 
@@ -405,7 +405,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		//* 已经连续多次未收到对端应答，则断开PPP链路
 		if (pstcbPPP->stWaitAckList.ubTimeoutCount > WAIT_ACK_TIMEOUT_NUM)
 		{
-	#if SUPPORT_PRINTF	
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -429,7 +429,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
         {
             if (nPacketLen < 0)
             {
-        #if SUPPORT_PRINTF	
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf);
             #endif
@@ -477,7 +477,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 			}
 			else
 			{
-		#if SUPPORT_PRINTF		
+		#if SUPPORT_PRINTF && DEBUG_LEVEL
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf);
             #endif
@@ -508,7 +508,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 				pstcbPPP->enState = WAITTERMACK;
 			else
 			{
-		#if SUPPORT_PRINTF	
+		#if SUPPORT_PRINTF && DEBUG_LEVEL
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf);
             #endif
@@ -536,7 +536,7 @@ static void ppp_fsm(INT nPPPIdx, PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 
 		case STACKFAULT:
 		default:
-	#if SUPPORT_PRINTF	
+	#if SUPPORT_PRINTF
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -589,7 +589,7 @@ void thread_ppp_handler(void *pvParam)
 
 		if (tty_ready(pstcbPPP->hTTY, &enErr))
 		{
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
             printf("modem dial succeeded\r\n");
 #endif
 			pstcbPPP->enState = STARTNEGOTIATION;
@@ -600,7 +600,7 @@ void thread_ppp_handler(void *pvParam)
 		}
 		else
 		{
-	#if SUPPORT_PRINTF
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
 			printf("tty_ready() failed, %s\r\n", onps_error(enErr));
 	#endif
 			os_sleep_secs(nTimeout);

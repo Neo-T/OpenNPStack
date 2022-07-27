@@ -20,7 +20,7 @@ static void send_response(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	PST_CHAP_DATA pstData = (PST_CHAP_DATA)(pubPacket + sizeof(ST_LNCP_HDR));
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;	
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	snprintf_hex(pstData->ubaChallenge, (USHORT)pstData->ubChallengeLen, szData, sizeof(szData) - 1, FALSE);
 	printf(", Challenge = <%s>", szData);
 	UINT unCpyBytes = nPacketLen - sizeof(ST_LNCP_HDR) - sizeof(ST_CHAP_DATA);
@@ -54,7 +54,7 @@ static void send_response(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	memcpy(&szData[sizeof(ST_LNCP_HDR) + sizeof(ST_CHAP_DATA)], pszUser, unUserLen);
 	usDataLen += unUserLen;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	CHAR szChallenge[CHAP_CHALLENGE_LEN * 2 + 1]; 
 	snprintf_hex(pstRespData->ubaChallenge, CHAP_CHALLENGE_LEN, szChallenge, sizeof(szChallenge) - 1, FALSE);
 	printf("sent [Protocol CHAP, Id = %02X, Code = 'Response', Challenge = <%s>, name = \"%s\"]\r\n", pstHdr->ubIdentifier, szChallenge, pszUser); 
@@ -69,7 +69,7 @@ void chap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("recv [Protocol CHAP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_chap_code_name((EN_CHAPCODE)pstHdr->ubCode));
 #endif
 
@@ -83,7 +83,7 @@ void chap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	case SUCCEEDED:
 		//* 收到应答则清除等待队列节点
 		wait_ack_list_del(&pstcbPPP->stWaitAckList, CHAP, pstHdr->ubIdentifier);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 		printf("]\r\nCHAP authentication succeeded. \r\n"); 
 #endif 
 		pstcbPPP->enState = SENDIPCPCONFREQ;
@@ -92,14 +92,14 @@ void chap_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	case FAILURE:
 		//* 收到应答则清除等待队列节点
 		wait_ack_list_del(&pstcbPPP->stWaitAckList, CHAP, pstHdr->ubIdentifier);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 		printf("]\r\nCHAP authentication failed.\r\n");
 #endif
 		pstcbPPP->enState = AUTHENFAILED;
 		break; 
 
 	case RESPONSE:
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 		printf("]\r\nCHAP authentication failed, unsupported response type.\r\n");
 #endif
 		pstcbPPP->enState = AUTHENFAILED;

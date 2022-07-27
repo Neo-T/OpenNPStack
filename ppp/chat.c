@@ -125,7 +125,7 @@ static BOOL sim_inserted(HTTY hTTY, EN_ONPSERR *penErr)
 	const CHAR szMatchedStr[] = "+SIMTEST:";
 
 	blRtnVal = exec_at_cmd(hTTY, ATSIMTEST, sizeof(ATSIMTEST) - 1, ATSIMTEST_OK, sizeof(ATSIMTEST_OK) - 1, ATSIMTEST_ERROR, sizeof(ATSIMTEST_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, penErr);	
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
 #endif
@@ -177,7 +177,7 @@ static BOOL reg_mobile_net(HTTY hTTY, const CHAR *pszATCmd, const CHAR *pszMatch
 	UINT i, n, unReadBytes;
 		
 	blRtnVal = exec_at_cmd(hTTY, pszATCmd, strlen(pszATCmd), ATREG_OK, sizeof(ATREG_OK) - 1, ATREG_ERROR, sizeof(ATREG_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, penErr);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
 #endif
@@ -244,14 +244,14 @@ __lblExecAT:
         if (penErr)
             *penErr = enErr; 
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <%s> failed, %s\r\n", AT, onps_error(enErr));
 #endif
 		return FALSE;
 	}
 
 	blRtnVal = exec_at_cmd(hTTY, AT, sizeof(AT) - 1, AT_OK, sizeof(AT_OK) - 1, AT_ERROR, sizeof(AT_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErr);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
 #endif
@@ -273,14 +273,14 @@ __lblExecATE:
         if (penErr)
             *penErr = enErr;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <%s> failed, %s\r\n", ATE0, onps_error(enErr));
 #endif
 		return FALSE;
 	}
 
 	blRtnVal = exec_at_cmd(hTTY, ATE0, sizeof(ATE0) - 1, ATE_OK, sizeof(ATE_OK) - 1, ATE_ERROR, sizeof(ATE_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErr);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szRcvBuf))
 		printf("%s", szRcvBuf);
 #endif
@@ -304,7 +304,7 @@ __lblSIMTest:
 
         if (penErr)
             *penErr = enErr;
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <%s> failed, %s\r\n", ATSIMTEST, onps_error(enErr));
 #endif
 		return FALSE;
@@ -330,7 +330,7 @@ __lblRegMobileNet:
 
         if (penErr)
             *penErr = enErr;
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <%s> failed, %s\r\n", ATREG, onps_error(enErr));
 #endif
 		return FALSE; 
@@ -377,7 +377,7 @@ __lblExecAT:
 	ubRetryNum++;
 	if (ubRetryNum > 3)
 	{
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <");
 		printf(ATAPN, pszAPN);
 		printf("> failed, %s\r\n", onps_error(enErr)); 
@@ -387,7 +387,7 @@ __lblExecAT:
 
 	snprintf(szBuf, sizeof(szBuf), ATAPN, pszAPN); 
 	blRtnVal = exec_at_cmd(hTTY, szBuf, strlen(szBuf), ATAPN_OK, sizeof(ATAPN_OK) - 1, ATAPN_ERROR, sizeof(ATAPN_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErr);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szBuf))
 		printf("%s", szBuf);
 #endif
@@ -401,13 +401,15 @@ __lblExecAT:
 
 	//* 拨号
 	blRtnVal = exec_at_cmd(hTTY, ATDIAL, sizeof(ATDIAL) - 1, ATDIAL_OK, sizeof(ATDIAL_OK) - 1, ATDIAL_ERROR, sizeof(ATDIAL_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErr);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szBuf))
 		printf("%s", szBuf);
 #endif
 	if (!blRtnVal)
 	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <%s> failed, %s\r\n", ATDIAL, onps_error(enErr));
+#endif
 		return FALSE;
 	}
 

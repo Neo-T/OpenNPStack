@@ -14,17 +14,16 @@
 #include "onps_input.h"
 
 #if SUPPORT_ETHERNET
-#include "ethernet/dhcp_frame.h"
 #include "ethernet/ethernet.h"
 #include "ethernet/arp.h"
 #include "ethernet/dhcp_client_by_timer.h"
 #define SYMBOL_GLOBALS
 #include "ethernet/dhcp_client.h"
 #undef SYMBOL_GLOBAL
+#include "ethernet/dhcp_frame.h"
 
 //* 保存租约信息，注意这个设计意味着在同一台设备上协议栈仅支持单路dhcp客户端，如果设备存在双网卡，另一路网卡必须指定静态ip地址
 static STCB_RENEWAL_INFO l_stcbRenewalInfo; 
-static void dhcp_renewal_timeout_handler(void *pvParam); 
 
 INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCHAR *pubOptions, UCHAR ubOptionsLen, UINT unTransId, in_addr_t unClientIp, in_addr_t unDstIP, in_addr_t unSrcIp, EN_ONPSERR *penErr)
 {        
@@ -69,7 +68,7 @@ INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCHAR *pub
     }
     buf_list_put_head(&sBufListHead, sDhcpHdrNode); 
 
-    //* 发送之，源地址固定为0
+    //* 发送
     INT nRtnVal = udp_send_ext(nInput, sBufListHead, htonl(unDstIP), DHCP_SRV_PORT, unSrcIp, pstNetif, penErr);
 
     //* 回收相关资源    
@@ -132,7 +131,7 @@ __lblRecv:
 }
 
 //* 分析dhcp选项，截取dhcp报文类型
-static UCHAR *dhcp_get_option(UCHAR *pubOptions, USHORT usOptionsLen, UCHAR ubOptionCode)
+UCHAR *dhcp_get_option(UCHAR *pubOptions, USHORT usOptionsLen, UCHAR ubOptionCode)
 {
     PST_DHCPOPT_HDR pstOptHdr = (PST_DHCPOPT_HDR)pubOptions; 
     USHORT usParseBytes = 0; 
@@ -450,7 +449,7 @@ __lblEnd:
     return blRtnVal;
 }
 
-static void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unDeclineIp, in_addr_t unSrvIp)
+void dhcp_decline(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_addr_t unDeclineIp, in_addr_t unSrvIp)
 {
     //* ethernet网卡的附加信息
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
@@ -699,10 +698,30 @@ __lblEnd:
     return nRtnVal; 
 }
 
-static void renewal_timer_new(PSTCB_RENEWAL_INFO pstcbRenewalInfo, INT nTimeout)
+void dhcp_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, PSTCB_RENEWAL_INFO pstcbRenewalInfo, INT nTimeout)
 {
-    //* 理论上不会失败，因为系统预先分配的定时器足够用，但世事无常，协议栈的目标应用环境极其复杂，一旦遇到系统预先分配的定时器资源耗尽的情形，dhcp客户端就无法完成正常的业务逻辑了
-    //* 此时只能停止当前dhcp客户端，不再进行续租工作，并且重新申请地址的工作也被迫中止，所以，必须确保定时器资源足够使用，否则将影响协议栈dhcp客户端的正常运行
+    //* 失败的唯一原因就是定时器资源不够用，所以必须确保定时器资源足够使用，否则将影响协议栈dhcp客户端的正常运行
+    if (!one_shot_timer_new(pfunTimeoutHandler, pstcbRenewalInfo, nTimeout))
+    {
+        dhcp_client_stop(pstcbRenewalInfo->nInput); //* 停止dhcp客户端，定时器资源一旦耗尽，客户端将无法继续正常运行，所以在这里直接停止
+
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("dhcp_timer_new() failed, the NIC name is %s, %s\r\n", pstcbRenewalInfo->pstNetif->szName, onps_error(ERRNOIDLETIMER));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+}
+
+/*
+static void renewal_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, PSTCB_RENEWAL_INFO pstcbRenewalInfo, INT nTimeout)
+{
+    // 理论上不会失败，因为系统预先分配的定时器足够用，但世事无常，协议栈的目标应用环境极其复杂，一旦遇到系统预先分配的定时器资源耗尽的情形，dhcp客户端就无法完成正常的业务逻辑了
+    // 此时只能停止当前dhcp客户端，不再进行续租工作，并且重新申请地址的工作也被迫中止，所以，必须确保定时器资源足够使用，否则将影响协议栈dhcp客户端的正常运行
     if (!one_shot_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout))
     {
         dhcp_client_stop(pstcbRenewalInfo->nInput);
@@ -718,13 +737,14 @@ static void renewal_timer_new(PSTCB_RENEWAL_INFO pstcbRenewalInfo, INT nTimeout)
 #endif
     }
 }
+*/
 
 //* 续租定时器
-static void dhcp_renewal_timeout_handler(void *pvParam)
+void dhcp_renewal_timeout_handler(void *pvParam)
 {
     INT nTimeout, nRtnVal; 
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     CHAR szAddr[20];
 #endif
 
@@ -747,7 +767,7 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
             nTimeout = (pstcbRenewalInfo->unLeaseTime * 3) / 8; 
             pstcbRenewalInfo->bState = 2;  
         }        
-        renewal_timer_new(pstcbRenewalInfo, nTimeout);     
+        dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
 
         break;
 
@@ -761,7 +781,7 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
 			pstcbRenewalInfo->bState = 2;
 
 #else
-    #if SUPPORT_PRINTF                     
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -789,7 +809,7 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
 			}            
         }
         //* 重启续租定时器
-        renewal_timer_new(pstcbRenewalInfo, nTimeout);
+        dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
         break;    
 
     case 2: //* 单播续租未成功，需要广播发送续租请求（7/8租期）
@@ -808,7 +828,7 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
             pstcbRenewalInfo->bState = 4;
         }  
         //* 重启续租定时器
-        renewal_timer_new(pstcbRenewalInfo, nTimeout);
+        dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
         break;
 
     case 3: //* 等待广播续租请求的应答报文
@@ -821,7 +841,7 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
 			pstcbRenewalInfo->bState = 4; 
 
 #else
-    #if SUPPORT_PRINTF       
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1     
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -849,14 +869,13 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
 			}            
         }
         //* 重启续租定时器
-        renewal_timer_new(pstcbRenewalInfo, nTimeout);
+        dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
         break;
 
     case 4: //* 续租未成功，等待租期结束后释放当前ip地址并启动再次申请流程
-        dhcp_release(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, (UINT)rand(), pstcbRenewalInfo->pstNetif->stIPv4.unAddr, pstcbRenewalInfo->unDhcpSrvIp);
-        pstcbRenewalInfo->bState = 5; 
+        dhcp_release(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, (UINT)rand(), pstcbRenewalInfo->pstNetif->stIPv4.unAddr, pstcbRenewalInfo->unDhcpSrvIp);        
 
-#if SUPPORT_PRINTF                     
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -866,28 +885,11 @@ static void dhcp_renewal_timeout_handler(void *pvParam)
     #endif
 #endif
 
-        //* 重启续租定时器，延时一小段时间后开启新的ip地址申请流程
-        renewal_timer_new(pstcbRenewalInfo, 2); 
-        break;
-
-    case 5: //* 释放
-        dhcp_client_stop(pstcbRenewalInfo->nInput);
-
         //* 重新开启ip地址申请流程
-        pstcbRenewalInfo->bState = 0;
-        if (!one_shot_timer_new(dhcp_req_addr_timeout_handler, pstcbRenewalInfo, 1))
-        {            
-    #if SUPPORT_PRINTF && DEBUG_LEVEL
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
-            printf("dhcp_renewal_timeout_handler() failed, the NIC name is %s, %s\r\n", pstcbRenewalInfo->pstNetif->szName, onps_error(ERRNOIDLETIMER));
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-    #endif
-        }
-        break; 
+        pstcbRenewalInfo->bState = 0; 
+        dhcp_timer_new(dhcp_req_addr_timeout_handler, pstcbRenewalInfo, 3);         
+       
+        break;     
     }
 }
 
@@ -928,7 +930,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             pstNetif->stIPv4 = stIPv4; 
             if (route_add(pstNetif, 0, stIPv4.unGateway, stIPv4.unSubnetMask, &enErr))
             {
-        #if SUPPORT_PRINTF
+        #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf); 
             #endif
@@ -964,9 +966,11 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             l_stcbRenewalInfo.unLeaseTime = unLeaseTime;             
             l_stcbRenewalInfo.unDhcpSrvIp = unSrvIp; 
             l_stcbRenewalInfo.bState = 0;  //* 初始阶段为发送续租报文
-            if (!one_shot_timer_new(dhcp_renewal_timeout_handler, &l_stcbRenewalInfo, unLeaseTime / 2)) //* 理论上不会失败，极端异常情况下失败，也不管它，至少现在拿到ip地址了，先带病运行再说
+            dhcp_timer_new(dhcp_renewal_timeout_handler, &l_stcbRenewalInfo, unLeaseTime / 2); 
+            /*
+            if (!one_shot_timer_new(dhcp_renewal_timeout_handler, &l_stcbRenewalInfo, unLeaseTime / 2))
             {
-                dhcp_client_stop(nInput); //* 这时停止就可以了，不再需要这个资源了
+                dhcp_client_stop(nInput); // 这时停止就可以了，不再需要这个资源了
 
         #if SUPPORT_PRINTF && DEBUG_LEVEL
             #if PRINTF_THREAD_MUTEX
@@ -978,6 +982,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
             #endif
         #endif
             }
+            */
         }
         else
         {

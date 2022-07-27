@@ -63,7 +63,7 @@ static PSTCB_TTYIO get_io_control_block(HTTY hTTY, EN_ONPSERR *penErr)
 	if (penErr)
 		*penErr = ERRTTYHANDLE;
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL	
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -116,7 +116,7 @@ INT tty_recv(INT nPPPIdx, HTTY hTTY, UCHAR *pubRecvBuf, INT nRecvBufLen, void(*p
     INT nRcvBytes = os_tty_recv(hTTY, pubRecvBuf + pstcbIO->stRecv.nWriteIdx, (nRecvBufLen - pstcbIO->stRecv.nWriteIdx), nWaitSecs);
     if (nRcvBytes > 0)
     {
-#if SUPPORT_PRINTF && DEBUG_LEVEL	        
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 2
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif        
@@ -295,16 +295,14 @@ __lblSend:
 		if (penErr)
 			*penErr = ERROSADAPTER;
 
-#if SUPPORT_PRINTF	
-	#if DEBUG_LEVEL
-        #if PRINTF_THREAD_MUTEX
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
+    #endif
 		printf("<%d> os_tty_send() failed, %s\r\n", hTTY, onps_error(ERROSADAPTER));
-        #if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-	#endif
+    #endif	
 #endif
 		return -1;
 	}
@@ -379,16 +377,14 @@ __lblEscape:
 		if (penErr)
 			*penErr = ERROSADAPTER;
 
-#if SUPPORT_PRINTF	
-	#if DEBUG_LEVEL
-        #if PRINTF_THREAD_MUTEX
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
+    #endif
 		printf("<%d> os_tty_send() failed, %s\r\n", hTTY, onps_error(ERROSADAPTER));
-        #if PRINTF_THREAD_MUTEX
+    #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-	#endif
+    #endif	
 #endif
 		return -1;
 	}  

@@ -120,7 +120,7 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv
     }
     os_thread_mutex_unlock(l_hMtxNetif); 
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     UCHAR *pubAddr = (UCHAR *)&pstNode->stIf.stIPv4.unAddr;
 #if PRINTF_THREAD_MUTEX
     os_thread_mutex_lock(o_hMtxPrintf);

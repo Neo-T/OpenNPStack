@@ -150,7 +150,7 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
     //* 发送数据
     INT nRtnVal = pstExtra->pfunEmacSend(sBufListHead, penErr); 
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL == 1
+#if SUPPORT_PRINTF && DEBUG_LEVEL == 3
 	#if PRINTF_THREAD_MUTEX
 	os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
@@ -181,7 +181,7 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     if (!is_mac_broadcast_addr(pstHdr->ubaDstMacAddr) && !ethernet_mac_matched(pstHdr->ubaDstMacAddr, pstExtra->ubaMacAddr))
         return; 
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL == 2	        	        
+#if SUPPORT_PRINTF && DEBUG_LEVEL == 4	        	        
 		printf("recv %d bytes: \r\n", nPacketLen);
 		printf_hex(pubPacket, nPacketLen, 48);	
 #endif

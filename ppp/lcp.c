@@ -72,7 +72,7 @@ static INT put_mru(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR) + sizeof(pstReq->usMRU);
 
 	USHORT usMRU = ENDIAN_CONVERTER_USHORT((USHORT)PPP_MRU);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", MRU = %d Bytes", PPP_MRU);
 #endif
 	memcpy((UCHAR *)&pstReq->usMRU, (UCHAR *)&usMRU, sizeof(USHORT));
@@ -88,7 +88,7 @@ static INT put_async_map(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR) + 4;
 
 	UINT unACCM = ENDIAN_CONVERTER_UINT((UINT)ACCM_INIT);
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", ACCM = %08X", unACCM);
 #endif
 	memcpy((UCHAR *)&pstReq->unMap, (UCHAR *)&unACCM, 4);
@@ -114,7 +114,7 @@ static INT put_pcompression(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	pstReq->stHdr.ubType = (UCHAR)PCOMPRESSION;
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR);
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", Protocol Field Compression");
 #endif
 
@@ -129,7 +129,7 @@ static INT put_accompression(UCHAR *pubFilled, PST_PPPNEGORESULT pstNegoResult)
 	pstReq->stHdr.ubType = (UCHAR)ACCOMPRESSION;
 	pstReq->stHdr.ubLen = sizeof(ST_LNCP_CONFREQ_HDR);
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", Address/Control Field Compression");
 #endif
 
@@ -144,7 +144,7 @@ static INT get_mru(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNegoResul
 		memcpy(pubVal, (UCHAR *)&usVal, sizeof(pstItem->usMRU));
 	pstNegoResult->stLCP.usMRU = usVal;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", MRU = %d", usVal);
 #endif
 
@@ -159,7 +159,7 @@ static INT get_async_map(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNeg
 		memcpy(pubVal, (UCHAR *)&unVal, sizeof(pstItem->unMap));
 	pstNegoResult->stLCP.unACCM = unVal;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", ACCM = %08X", unVal);
 #endif
 
@@ -178,7 +178,7 @@ static INT get_auth_type(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pstNeg
 	pstNegoResult->stLCP.stAuth.usType = usVal;
 	memcpy(pstNegoResult->stLCP.stAuth.ubaData, pubItem + sizeof(ST_LCP_CONFREQ_AUTHTYPE_HDR), (size_t)pstItem->stHdr.ubLen - sizeof(ST_LCP_CONFREQ_AUTHTYPE_HDR));
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", Authentication type = '%s'", get_protocol_name(usVal));
 #endif
 
@@ -203,7 +203,7 @@ static INT get_pcompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT pst
 	pstNegoResult->stLCP.blIsProtoComp = TRUE;
 	pstNegoResult->stLCP.blIsNegoValOfProtoComp = TRUE;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", Protocol Field Compression");
 #endif
 
@@ -216,7 +216,7 @@ static INT get_accompression(UCHAR *pubItem, UCHAR *pubVal, PST_PPPNEGORESULT ps
 	pstNegoResult->stLCP.blIsAddrCtlComp = TRUE;
 	pstNegoResult->stLCP.blIsNegoValOfAddrCtlComp = TRUE;
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", Address/Control Field Compression");
 #endif
 
@@ -243,7 +243,7 @@ static void conf_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 			}
 		}
 	}
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if(blIsFound)
 		printf("]\r\nsent [Protocol LCP, Id = %02X, Code = 'Configure Ack']\r\n", pstHdr->ubIdentifier);
 	else
@@ -259,7 +259,7 @@ static void conf_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 	//* 收到应答则清除等待队列节点
 	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier); 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("]\r\nuse %s authentication, magic number <%08X>\r\n", get_protocol_name(pstcbPPP->pstNegoResult->stLCP.stAuth.usType), pstcbPPP->pstNegoResult->stLCP.unMagicNum); 
 #endif
 	
@@ -306,7 +306,7 @@ static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 			{
 				nReadIdx += (INT)pubPacket[nReadIdx + 1]; 
 
-		#if SUPPORT_PRINTF
+		#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 				printf(", %s", l_staConfReqItem[i].pszName); 
 		#endif
 				l_staConfReqItem[i].blIsNegoRequired = FALSE;  //* 从协商配置请求中删除
@@ -314,7 +314,7 @@ static void conf_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 		}
 	}
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("]\r\n");
 #endif
 
@@ -327,7 +327,7 @@ static void terminate_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketL
 	CHAR szBuf[24];
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	UINT unCpyBytes = (size_t)pstHdr->usLen - sizeof(ST_LNCP_HDR); 
 	unCpyBytes = (unCpyBytes < sizeof(szBuf) - 1) ? unCpyBytes : sizeof(szBuf) - 1;
 	memcpy(szBuf, pubPacket + sizeof(ST_LNCP_HDR), unCpyBytes);
@@ -348,7 +348,7 @@ static void terminate_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	//* 收到应答则清除等待队列节点
 	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier);
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("]\r\nLink terminated.\r\nppp0 <-/-> %s\r\n", get_ppp_port_name(pstcbPPP->hTTY));
 #endif
 
@@ -357,13 +357,13 @@ static void terminate_ack(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 static void code_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {
-	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
-	UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)]; 
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;	
 
 	//* 无论何种情形，收到应答都应该先清除等待队列节点
 	wait_ack_list_del(&pstcbPPP->stWaitAckList, PPP_LCP, pstHdr->ubIdentifier);
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+    UCHAR ubRejCode = pubPacket[sizeof(ST_LNCP_HDR)];
 	printf(", Reject Code = \"%s\", hex val = %02X]\r\nerror: lcp code value not recognized by the peer.\r\n", get_cpcode_name((EN_CPCODE)ubRejCode), ubRejCode); 
 #endif
 
@@ -381,7 +381,7 @@ static void protocol_reject(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen
 	((UCHAR *)&usRejProtocol)[0] = pubPacket[sizeof(ST_LNCP_HDR) + 1]; 
 	((UCHAR *)&usRejProtocol)[1] = pubPacket[sizeof(ST_LNCP_HDR)];
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf(", Reject Protocol %s, hex val = %04X]\r\nerror: ppp protocol value not recognized by the peer.\r\n", get_protocol_name(usRejProtocol), usRejProtocol);
 #endif
 
@@ -393,9 +393,9 @@ static void echo_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 	CHAR szData[80];
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
 	PST_LCP_ECHO_REQ_HDR pstReqHdr = (PST_LCP_ECHO_REQ_HDR)(pubPacket + sizeof(ST_LNCP_HDR)); 
+    UINT unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR);
 
-#if SUPPORT_PRINTF	
-	UINT unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR); 
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1	
 	unCpyBytes = unCpyBytes < sizeof(szData) - 1 ? unCpyBytes : sizeof(szData) - 1; 
 	memcpy(szData, pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR), unCpyBytes); 
 	szData[unCpyBytes] = 0; 
@@ -403,26 +403,28 @@ static void echo_request(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 #endif
 
 	//* 发送应答报文
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Echo Reply', Remote Magic = <%08X>, Local Magic = <%08X>, Data = \"%s\"]", pstHdr->ubIdentifier, pstReqHdr->unLocalMagicNum, pstcbPPP->pstNegoResult->stLCP.unMagicNum, szData);
+#endif
+
 	PST_LCP_ECHO_REPLY_HDR pstReplyHdr = (PST_LCP_ECHO_REPLY_HDR)&szData[sizeof(ST_LNCP_HDR)]; 
 	pstReplyHdr->unLocalMagicNum = pstReqHdr->unLocalMagicNum; 
-	pstReplyHdr->unRemoteMagicNum = pstcbPPP->pstNegoResult->stLCP.unMagicNum; 
-	unCpyBytes = pstHdr->usLen - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REQ_HDR);
+	pstReplyHdr->unRemoteMagicNum = pstcbPPP->pstNegoResult->stLCP.unMagicNum;     
 	unCpyBytes = unCpyBytes < sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR) ? unCpyBytes : sizeof(szData) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR); 
 	memcpy(&szData[sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR)], pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REQ_HDR), unCpyBytes);
 	send_nego_packet(pstcbPPP, LCP, (UCHAR)ECHOREP, pstHdr->ubIdentifier, (UCHAR *)szData, sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR) + unCpyBytes, FALSE, NULL);
 }
 
 static void echo_reply(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
-{
-	CHAR szData[64];
-	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;
-	PST_LCP_ECHO_REPLY_HDR pstReplyHdr = (PST_LCP_ECHO_REPLY_HDR)(pubPacket + sizeof(ST_LNCP_HDR)); 
+{	
+	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket;	
 
 	//* 收到应答则清除等待队列节点
 	wait_ack_list_del(&pstcbPPP->stWaitAckList, LCP, pstHdr->ubIdentifier); 
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+    PST_LCP_ECHO_REPLY_HDR pstReplyHdr = (PST_LCP_ECHO_REPLY_HDR)(pubPacket + sizeof(ST_LNCP_HDR)); 
+    CHAR szData[64];
 	UINT unCpyBytes = ENDIAN_CONVERTER_USHORT(pstHdr->usLen) - sizeof(ST_LNCP_HDR) - sizeof(ST_LCP_ECHO_REPLY_HDR);
 	unCpyBytes = unCpyBytes < sizeof(szData) - 1 ? unCpyBytes : sizeof(szData) - 1; 
 	memcpy(szData, pubPacket + sizeof(ST_LNCP_HDR) + sizeof(ST_LCP_ECHO_REPLY_HDR), unCpyBytes);
@@ -439,7 +441,7 @@ static void echo_reply(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 
 static void discard_req(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("]\r\n");
 #endif
 }
@@ -447,7 +449,7 @@ static void discard_req(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 {
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Configure Request'", ubIdentifier);
 #endif
 
@@ -486,7 +488,7 @@ BOOL lcp_send_terminate_req(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 	UCHAR ubDataLen = sizeof(TERM_REQ_STRING) - 1; 
 	memcpy(&ubaPacket[sizeof(ST_LNCP_HDR)], TERM_REQ_STRING, (size_t)ubDataLen);
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("sent [Protocol LCP, Id = %02X, Code = 'Terminate Request', Data = \"%s\"]\r\n", ubIdentifier, TERM_REQ_STRING);
 #endif
 	return send_nego_packet(pstcbPPP, LCP, (UCHAR)TERMREQ, ubIdentifier, ubaPacket, (USHORT)(sizeof(ST_LNCP_HDR) + (size_t)ubDataLen), TRUE, penErr);
@@ -500,7 +502,7 @@ BOOL lcp_send_echo_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 
 	UCHAR ubIdentifier = pstcbPPP->pstNegoResult->ubIdentifier++;	
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     #if PRINTF_THREAD_MUTEX
     os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -524,7 +526,7 @@ void lcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 {	
 	PST_LNCP_HDR pstHdr = (PST_LNCP_HDR)pubPacket; 
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     if(ECHOREP != pstHdr->ubCode)
 	    printf("recv [Protocol LCP, Id = %02X, Code = '%s'", pstHdr->ubIdentifier, get_cpcode_name((EN_CPCODE)pstHdr->ubCode)); 
 #endif
@@ -538,7 +540,7 @@ void lcp_recv(PSTCB_PPP pstcbPPP, UCHAR *pubPacket, INT nPacketLen)
 				return; 
 			}				
 	}
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     if (ECHOREP != pstHdr->ubCode)
 	    printf("]\r\n");
 #endif

@@ -73,7 +73,7 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
 {
     PST_ROUTE_NODE pstNode; 
 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     UCHAR *pubAddr;
 #endif
 
@@ -126,7 +126,7 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
     pstNode->stRoute.pstNetif->bUsedCount = 0;
 
 __lblEnd: 
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     pubAddr = (UCHAR *)&pstNode->stRoute.unDestination;
 #if PRINTF_THREAD_MUTEX
     os_thread_mutex_lock(o_hMtxPrintf);

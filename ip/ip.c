@@ -69,7 +69,7 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     pstcbArpWait->ubCount++; 
     if (pstcbArpWait->ubCount > 5)
     {
-#if SUPPORT_PRINTF            
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -94,7 +94,7 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
         {
             buddy_free(pvParam);
 
-    #if SUPPORT_PRINTF            
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -109,7 +109,7 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
         nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, &enErr); //* 完成实际地发送   
         if (nRtnVal < 0)
         {
-    #if SUPPORT_PRINTF            
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -128,7 +128,7 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
             return;         
         else
         {
-    #if SUPPORT_PRINTF            
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
@@ -337,7 +337,7 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
     USHORT usChecksum = tcpip_checksum((USHORT *)pubPacket, usHdrLen);
     if (usPktChecksum != usChecksum)
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
         pstHdr->usChecksum = usPktChecksum;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
@@ -366,7 +366,7 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
         break;
 
     default:
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif

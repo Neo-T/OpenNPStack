@@ -178,7 +178,7 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
         nRtnVal = icmp_send(NULL, NULL, 0, unDstAddr, ICMP_ECHOREQ, 0, ubTTL, sBufListHead, penErr);     
     else
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -217,7 +217,7 @@ static void icmp_send_echo_reply(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR
     SHORT sDataNode = buf_list_get_ext(ubData, (USHORT)(usCpyBytes + sizeof(ST_ICMP_ECHO_HDR)), &enErr);
     if (sDataNode < 0)
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -234,7 +234,7 @@ static void icmp_send_echo_reply(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR
     //* 发送数据
     if (!icmp_send(pstNetif, pubDstMacAddr, pstReqIpHdr->unDstIP, htonl(pstReqIpHdr->unSrcIP), ICMP_ECHOREPLY, 0, IP_TTL_DEFAULT, sBufListHead, &enErr))
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -257,7 +257,7 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     INT nInput = onps_input_get_icmp(htons(pstEchoHdr->usIdentifier));
     if (nInput < 0)
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -273,7 +273,7 @@ static void icmp_rcv_handler_echoreply(UCHAR *pubPacket, INT nPacketLen)
     EN_ONPSERR enErr; 
     if (!onps_input_recv(nInput, (const UCHAR *)pubPacket, nPacketLen, 0, 0, &enErr))
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -290,8 +290,7 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
     PST_IP_HDR pstReqIpHdr = (PST_IP_HDR)pubPacket; 
     UCHAR usReqIpHdrLen = pstReqIpHdr->bitHdrLen * 4;
     PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(pubPacket + usReqIpHdrLen);
-    PST_IP_HDR pstErrIpHdr = (PST_IP_HDR)(pubPacket + usReqIpHdrLen + sizeof(ST_ICMP_HDR) + 4);  //* icmp通知报文携带的ip首部
-    struct in_addr stSrcAddr, stDstAddr; 
+    PST_IP_HDR pstErrIpHdr = (PST_IP_HDR)(pubPacket + usReqIpHdrLen + sizeof(ST_ICMP_HDR) + 4);  //* icmp通知报文携带的ip首部    
 
     os_critical_init();
     os_enter_critical();
@@ -304,7 +303,8 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
     }
     os_exit_critical();
 
-#if SUPPORT_PRINTF    
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
+    struct in_addr stSrcAddr, stDstAddr;
     stSrcAddr.s_addr = pstErrIpHdr->unSrcIP;
     stDstAddr.s_addr = pstErrIpHdr->unDstIP;
     #if PRINTF_THREAD_MUTEX
@@ -331,7 +331,7 @@ void icmp_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
     USHORT usChecksum = tcpip_checksum((USHORT *)pstIcmpHdr, nPacketLen - sizeof(ST_IP_HDR));
     if (usPktChecksum != usChecksum)
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
         pstIcmpHdr->usChecksum = usPktChecksum;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
@@ -357,7 +357,7 @@ void icmp_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 
     case ICMP_ROUTEADVERT:
     case ICMP_ROUTESOLIC:
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -378,7 +378,7 @@ void icmp_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
         break; 
 
     default:
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif

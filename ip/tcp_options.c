@@ -140,7 +140,7 @@ void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
 
         if (blIsNotFound)
         {
-    #if SUPPORT_PRINTF        
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif            

@@ -413,7 +413,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     sTcpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
     if (sTcpPacketNode < 0)
     {
-#if SUPPORT_PRINTF        
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -438,7 +438,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_TCP_PSEUDOHDR), &enErr);
     if (sPseudoHdrNode < 0)
     {        
-#if SUPPORT_PRINTF        
+#if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
@@ -462,7 +462,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     buf_list_free(sPseudoHdrNode);
     if (usPktChecksum != usChecksum)
     {
-#if SUPPORT_PRINTF
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
         pstHdr->usChecksum = usPktChecksum;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
@@ -482,7 +482,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink);        
     if (nInput < 0)
     {
-#if SUPPORT_PRINTF        
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
         UCHAR *pubAddr = (UCHAR *)&unDstAddr;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
@@ -644,7 +644,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                             pstLink->stLocal.unAckNum = unPeerSeqNum;
                         else
                         {
-                    #if SUPPORT_PRINTF
+                    #if SUPPORT_PRINTF && DEBUG_LEVEL
                         #if PRINTF_THREAD_MUTEX
                             os_thread_mutex_lock(o_hMtxPrintf);
                         #endif
