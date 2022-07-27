@@ -163,8 +163,11 @@ typedef struct _STCB_RENEWAL_INFO_ {
     UINT unTransId;
     CHAR bState;
     CHAR bWaitAckSecs;
-    struct {
-        UINT unOfferIp;         
+
+    struct { //* 续租不成功时，启用定时器序列重新请求ip地址时保存服务器新分配地址的结构体
+        UINT unOfferIp; 
+        ST_IPV4 stIPv4; 
+        CHAR bSndNum; 
     } stReqAddr;
 } STCB_RENEWAL_INFO, *PSTCB_RENEWAL_INFO;
 

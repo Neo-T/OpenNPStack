@@ -149,9 +149,117 @@ static INT dhcp_discover_ack_handler(PSTCB_RENEWAL_INFO pstcbRenewalInfo, UCHAR 
     return 0;
 }
 
+//* 发送request请求报文
 static BOOL dhcp_send_request(PSTCB_RENEWAL_INFO pstcbRenewalInfo)
 {
+    EN_ONPSERR enErr;
+    pstcbRenewalInfo->stReqAddr.bSndNum++;     
 
+    //* ethernet网卡的附加信息
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstcbRenewalInfo->pstNetif->pvExtra;
+    UINT unOptionsOffset = 0; 
+
+    //* dhcp选项分配一块填充缓冲区并清零
+    UCHAR ubaOptions[DHCP_OPTIONS_LEN_MIN];
+    memset(ubaOptions, 0, sizeof(ubaOptions)); 
+
+    //* 填充消息类型
+    PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)ubaOptions;
+    pstMsgType->stHdr.ubOption = DHCPOPT_MSGTYPE;
+    pstMsgType->stHdr.ubLen = 1;
+    pstMsgType->ubTpVal = DHCPMSGTP_REQUEST;
+    unOptionsOffset += sizeof(ST_DHCPOPT_MSGTYPE);
+
+    //* 填充发起申请的客户端id    
+    PST_DHCPOPT_CLTID pstCltId = (PST_DHCPOPT_CLTID)&ubaOptions[unOptionsOffset];
+    pstCltId->stHdr.ubOption = DHCPOPT_CLIENTID;
+    pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR);
+    pstCltId->ubHardwareType = 1;
+    memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+
+    //* 填充由服务器分配的ip地址
+    PST_DHCPOPT_REQIP pstReqIp = (PST_DHCPOPT_REQIP)&ubaOptions[unOptionsOffset];
+    pstReqIp->stHdr.ubOption = DHCPOPT_REQIP;
+    pstReqIp->stHdr.ubLen = sizeof(ST_DHCPOPT_REQIP) - sizeof(ST_DHCPOPT_HDR);
+    pstReqIp->unVal = pstcbRenewalInfo->stReqAddr.unOfferIp;
+    unOptionsOffset += sizeof(ST_DHCPOPT_REQIP);
+
+    //* 填充dhcp服务器identifier
+    PST_DHCPOPT_SRVID pstSrvId = (PST_DHCPOPT_SRVID)&ubaOptions[unOptionsOffset];
+    pstSrvId->stHdr.ubOption = DHCPOPT_SRVID;
+    pstSrvId->stHdr.ubLen = sizeof(ST_DHCPOPT_SRVID) - sizeof(ST_DHCPOPT_HDR);
+    pstSrvId->unSrvIp = pstcbRenewalInfo->unDhcpSrvIp;
+    unOptionsOffset += sizeof(ST_DHCPOPT_SRVID);
+
+    //* 填充vendor标识信息
+    PST_DHCPOPT_VENDORID pstVendorId = (PST_DHCPOPT_VENDORID)&ubaOptions[unOptionsOffset];
+    pstVendorId->stHdr.ubOption = DHCPOPT_VENDORID;
+    pstVendorId->stHdr.ubLen = sizeof(ST_DHCPOPT_VENDORID) - sizeof(ST_DHCPOPT_HDR);
+    memcpy(pstVendorId->ubaTag, "RuBao;-)", sizeof("RuBao;-)") - 1);
+    unOptionsOffset += sizeof(ST_DHCPOPT_VENDORID);
+
+    //* 填充请求的参数列表
+    PST_DHCPOPT_HDR pstParamListHdr = (PST_DHCPOPT_HDR)&ubaOptions[unOptionsOffset];
+    pstParamListHdr->ubOption = DHCPOPT_REQLIST;
+    pstParamListHdr->ubLen = 3;
+    UCHAR *pubParamItem = ((UCHAR *)pstParamListHdr) + sizeof(ST_DHCPOPT_HDR);
+    pubParamItem[0] = DHCPOPT_SUBNETMASK;
+    pubParamItem[1] = DHCPOPT_ROUTER;
+    pubParamItem[2] = DHCPOPT_DNS;
+
+    //* 选项结束
+    pubParamItem[3] = DHCPOPT_END;
+
+    //* 发送
+    if (dhcp_send_packet(pstcbRenewalInfo->nInput, pstcbRenewalInfo->pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), pstcbRenewalInfo->unTransId, 0, 0xFFFFFFFF, 0, NULL) > 0)
+        return TRUE;
+    else
+        return FALSE;
+}
+
+static INT dhcp_request_ack_handler(PSTCB_RENEWAL_INFO pstcbRenewalInfo, UCHAR *pubAckPacket, INT nAckPacketLen)
+{         
+    //* 解析应答报文取出具体的选项相关信息
+    PST_DHCP_HDR pstHdr = (PST_DHCP_HDR)pubAckPacket;
+    UCHAR *pubOptions = pubAckPacket + sizeof(ST_DHCP_HDR);
+    USHORT usOptionsLen = (USHORT)(nAckPacketLen - sizeof(ST_DHCP_HDR));
+    PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
+    if (!pstMsgType || (DHCPMSGTP_ACK != pstMsgType->ubTpVal && DHCPMSGTP_NAK != pstMsgType->ubTpVal)) //* 必须携带dhcp报文类型并且一定是ack/nack报文才可以，如果不是则认为超时，重新发送
+        return -1; 
+
+    //* 说明地址冲突，需要回到discover阶段
+    if (DHCPMSGTP_NAK == pstMsgType->ubTpVal)
+        return 2; 
+
+    pstcbRenewalInfo->stReqAddr.stIPv4.unAddr = pstHdr->unYourIp;
+
+    //* 取出子网掩码
+    PST_DHCPOPT_SUBNETMASK pstNetmask = (PST_DHCPOPT_SUBNETMASK)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_SUBNETMASK);
+    if (!pstNetmask)
+        return -1; 
+    pstcbRenewalInfo->stReqAddr.stIPv4.unSubnetMask = pstNetmask->unVal;
+
+    //* 取出网关地址
+    PST_DHCPOPT_ROUTER pstRouter = (PST_DHCPOPT_ROUTER)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_ROUTER);
+    if (!pstRouter)
+        return -1; 
+    pstcbRenewalInfo->stReqAddr.stIPv4.unGateway = pstRouter->unVal;
+
+    //* 取出dns服务器地址
+    PST_DHCPOPT_DNS pstDns = (PST_DHCPOPT_DNS)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_DNS);
+    if (!pstDns)
+        return -1; 
+    pstcbRenewalInfo->stReqAddr.stIPv4.unPrimaryDNS = pstDns->unPrimary; 
+    pstcbRenewalInfo->stReqAddr.stIPv4.unSecondaryDNS = pstDns->unSecondary; 
+
+    //* 取出租约信息
+    PST_DHCPOPT_LEASETIME pstLeaseTime = (PST_DHCPOPT_LEASETIME)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_LEASETIME);
+    if (!pstLeaseTime)
+        return -1; 
+    pstcbRenewalInfo->unLeaseTime = htonl(pstLeaseTime->unVal); 
+
+    return 0; 
 }
 
 static void dhcp_req_addr_timer_new(PSTCB_RENEWAL_INFO pstcbRenewalInfo, INT nTimeout)
@@ -176,6 +284,7 @@ void dhcp_req_addr_timeout_handler(void *pvParam)
 {
     INT nTimeout, nRtnVal;
     PSTCB_RENEWAL_INFO pstcbRenewalInfo = (PSTCB_RENEWAL_INFO)pvParam; 
+    UCHAR ubaDstMac[ETH_MAC_ADDR_LEN]; 
     
     //* dhcp客户端地址请求状态机
     switch (pstcbRenewalInfo->bState)
@@ -192,7 +301,7 @@ void dhcp_req_addr_timeout_handler(void *pvParam)
         else //* 发送失败的可能性理论上是存在的（给协议栈分配的资源不够），所以需要处理这种情况
         {
             //* 延时一小段时间后再次重新发送
-            nTimeout = 30;             
+            nTimeout = 15;             
         }
         dhcp_req_addr_timer_new(pstcbRenewalInfo, nTimeout);
 
@@ -201,19 +310,10 @@ void dhcp_req_addr_timeout_handler(void *pvParam)
     case 1: //* discover ack
         nRtnVal = dhcp_recv_ack(pstcbRenewalInfo, dhcp_discover_ack_handler); 
         if (0 == nRtnVal) //* 收到应答
-        {                  
-            //* 发送request
-            if (dhcp_send_request(pstcbRenewalInfo))
-            {
-                nTimeout = 1;                
-                pstcbRenewalInfo->bWaitAckSecs = 0;
-                pstcbRenewalInfo->bState = 2; //* 进入request ack阶段
-            } 
-            else //* 理论上存在的发送失败
-            {
-                nTimeout = 30;                  //* 延时更长一段时间
-                pstcbRenewalInfo->bState = 0;   //* 再次回到discover阶段而不是重新开启request阶段
-            }
+        {                              
+            nTimeout = 1; 
+            pstcbRenewalInfo->stReqAddr.bSndNum = 0; 
+            pstcbRenewalInfo->bState = 2;   //* 进入request阶段
         }
         else 
         {
@@ -223,7 +323,7 @@ void dhcp_req_addr_timeout_handler(void *pvParam)
             else
             {
                 
-                nTimeout = 8;                  //* 直接使用协议栈要求的中间延时时长，而不是2/4/8/16渐次延长
+                nTimeout = 8;                   //* 直接使用协议栈要求的中间延时时长，而不是2/4/8/16渐次延长
                 pstcbRenewalInfo->bState = 0;   //* 回到discover阶段
             }
         }        
@@ -231,7 +331,63 @@ void dhcp_req_addr_timeout_handler(void *pvParam)
 
         break; 
 
-    case 2: //* request ack
+    case 2: //* request        
+        if (dhcp_send_request(pstcbRenewalInfo))
+        {
+            nTimeout = 1;
+            pstcbRenewalInfo->bWaitAckSecs = 0;
+            pstcbRenewalInfo->bState = 3;   //* 进入request ack阶段
+        }
+        else //* 处理理论上存在的发送失败
+        {
+            //* 与之前的处理手段相同，延时稍长的一小段时间确保需要的资源可用了
+            nTimeout = 15; 
+
+            //* 是否已经超出了重试次数，超出则回到discover阶段
+            if (pstcbRenewalInfo->stReqAddr.bSndNum > 2) 
+                pstcbRenewalInfo->bState = 0;
+        }
+        dhcp_req_addr_timer_new(pstcbRenewalInfo, nTimeout); 
+
+        break; 
+
+    case 3: //* request ack
+        nRtnVal = dhcp_recv_ack(pstcbRenewalInfo, dhcp_request_ack_handler); 
+        if (0 == nRtnVal)
+        {
+            pstcbRenewalInfo->stReqAddr.bSndNum = 0; 
+            pstcbRenewalInfo->bState = 4;   //* 进入arp探测阶段
+        }
+        else
+        {
+            //* 超时了并且到达重试次数的上限或新分配的地址冲突
+            if (2 == nRtnVal || pstcbRenewalInfo->stReqAddr.bSndNum > 2)                            
+                pstcbRenewalInfo->bState = 0; //* 回到discover阶段重新请求分配ip地址
+            else if(nRtnVal < 0)
+                pstcbRenewalInfo->bState = 2; //* 接收超时，则回到request阶段
+            else; 
+        }
+        dhcp_req_addr_timer_new(pstcbRenewalInfo, 1); 
+        
+        break; 
+
+    case 4: //* gratuitous arp request
+        if (pstcbRenewalInfo->stReqAddr.bSndNum++ > 4) //* 不存在，可以使用这个地址了
+        {
+
+        }
+        else
+        {
+            nRtnVal = arp_get_mac(pstcbRenewalInfo->pstNetif, pstcbRenewalInfo->stReqAddr.stIPv4.unAddr, pstcbRenewalInfo->stReqAddr.stIPv4.unAddr, ubaDstMac, NULL);
+            if (nRtnVal)
+            {
+
+            }
+            else //* 存在该条目，则确定新分配的地址存在ip冲突，需要重新申请                         
+                pstcbRenewalInfo->bState = 5; //* 进入decline阶段
+            dhcp_req_addr_timer_new(pstcbRenewalInfo, 1);
+        }        
+
         break; 
     }
 }

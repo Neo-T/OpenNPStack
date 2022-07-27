@@ -377,7 +377,7 @@ __lblSend:
             UCHAR *pubOptions = pubRcvBuf + sizeof(ST_DHCP_HDR);
             USHORT usOptionsLen = (USHORT)(nRcvedBytes - sizeof(ST_DHCP_HDR));
             PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
-            if (!pstMsgType || (DHCPMSGTP_ACK != pstMsgType->ubTpVal && DHCPMSGTP_NAK != pstMsgType->ubTpVal)) //* 必须携带dhcp报文类型并且一定是ack/nack报文才可以,如果不是则认为超时，重新发送
+            if (!pstMsgType || (DHCPMSGTP_ACK != pstMsgType->ubTpVal && DHCPMSGTP_NAK != pstMsgType->ubTpVal)) //* 必须携带dhcp报文类型并且一定是ack/nack报文才可以，如果不是则认为超时，重新发送
             {                
                 *penErr = ERRWAITACKTIMEOUT;
                 break;
@@ -546,7 +546,7 @@ __lblDetect:
         return FALSE; //* 说明不存在
 
     nRtnVal = arp_get_mac(pstNetif, unDetectedIp, unDetectedIp, ubaDstMac, NULL); 
-    if (!nRtnVal) //* 存在该条目，返回TRUE，通知客dhcp客户端存在ip冲突
+    if (!nRtnVal) //* 存在该条目，返回TRUE，通知dhcp客户端存在ip冲突
         return TRUE; 
     else
     {
