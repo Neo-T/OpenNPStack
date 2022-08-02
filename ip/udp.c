@@ -39,7 +39,8 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
     if (sHdrNode < 0)
     {
-        buf_list_free(sDataNode);         
+        if (sDataNode >= 0)
+            buf_list_free(sDataNode);
         return -1;
     }
     buf_list_put_head(&sBufListHead, sHdrNode);
@@ -56,7 +57,8 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_UDP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {
-        buf_list_free(sDataNode);        
+        if (sDataNode >= 0)
+            buf_list_free(sDataNode); 
         buf_list_free(sHdrNode);
         return -1;
     }
@@ -75,7 +77,8 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, UDP, IP_TTL_DEFAULT, sBufListHead, penErr);
 
     //* 释放刚才申请的buf list节点
-    buf_list_free(sDataNode);    
+    if (sDataNode >= 0)
+        buf_list_free(sDataNode);    
     buf_list_free(sHdrNode);
 
     return nRtnVal;

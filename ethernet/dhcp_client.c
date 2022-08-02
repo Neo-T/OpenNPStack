@@ -35,7 +35,10 @@ INT dhcp_send_packet(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCode, UCHAR *pub
     SHORT sBufListHead = -1;
     SHORT sOptionsNode = buf_list_get_ext(pubOptions, (UINT)ubOptionsLen, penErr);
     if (sOptionsNode < 0)
+    {
+        buddy_free(pstDhcpHdr); 
         return -1;
+    }
     buf_list_put_head(&sBufListHead, sOptionsNode);
 
     //* 填充dhcp报文头

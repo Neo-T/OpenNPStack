@@ -13,7 +13,7 @@ static void *l_pvaBufNode[BUF_LIST_NUM];
 static USHORT l_usaBufSize[BUF_LIST_NUM];
 static SHORT l_saFreeBufNode[BUF_LIST_NUM];
 static SHORT l_sFreeBufList = -1; 
-static HMUTEX l_hMtxMMUBufList = INVALID_HMUTEX;
+//static HMUTEX l_hMtxMMUBufList = INVALID_HMUTEX;
 
 //* 协议栈初始加载时别忘了要先调用这个初始设置函数
 BOOL buf_list_init(EN_ONPSERR *penErr)
@@ -29,6 +29,7 @@ BOOL buf_list_init(EN_ONPSERR *penErr)
 	l_saFreeBufNode[BUF_LIST_NUM - 1] = -1; 
 	l_sFreeBufList = 0;
 
+#if 0
 	l_hMtxMMUBufList = os_thread_mutex_init();
 	if (INVALID_HMUTEX != l_hMtxMMUBufList)
 		return TRUE;
@@ -36,22 +37,30 @@ BOOL buf_list_init(EN_ONPSERR *penErr)
 	if(penErr)
 		*penErr = ERRMUTEXINITFAILED;
 	return FALSE; 
+#else
+    return TRUE; 
+#endif
 }
 
 void buf_list_uninit(void)
 {
-    if (INVALID_HMUTEX != l_hMtxMMUBufList)
-        os_thread_mutex_uninit(l_hMtxMMUBufList);
+    //if (INVALID_HMUTEX != l_hMtxMMUBufList)
+    //    os_thread_mutex_uninit(l_hMtxMMUBufList);
 }
 
 SHORT buf_list_get(EN_ONPSERR *penErr)
 {
-	SHORT sRtnNode; 
-	os_thread_mutex_lock(l_hMtxMMUBufList);
+	SHORT sRtnNode;
+
+    os_critical_init(); 
+
+	//os_thread_mutex_lock(l_hMtxMMUBufList);
+    os_enter_critical(); 
 	{
 		if (l_sFreeBufList < 0)
 		{
-			os_thread_mutex_unlock(l_hMtxMMUBufList);
+            os_exit_critical(); 
+			//os_thread_mutex_unlock(l_hMtxMMUBufList);
 
 			if (penErr)
 				*penErr = ERRNOBUFLISTNODE;
@@ -62,7 +71,8 @@ SHORT buf_list_get(EN_ONPSERR *penErr)
 		sRtnNode = l_sFreeBufList; 
 		l_sFreeBufList = l_saFreeBufNode[l_sFreeBufList]; 
 	}
-	os_thread_mutex_unlock(l_hMtxMMUBufList);
+	//os_thread_mutex_unlock(l_hMtxMMUBufList);
+    os_exit_critical(); 
 
 	return sRtnNode; 
 }
@@ -70,11 +80,16 @@ SHORT buf_list_get(EN_ONPSERR *penErr)
 SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ONPSERR *penErr)
 {
 	SHORT sRtnNode;
-	os_thread_mutex_lock(l_hMtxMMUBufList);
+
+    os_critical_init();
+
+	//os_thread_mutex_lock(l_hMtxMMUBufList);
+    os_enter_critical();
 	{
 		if (l_sFreeBufList < 0)
 		{
-			os_thread_mutex_unlock(l_hMtxMMUBufList);
+			//os_thread_mutex_unlock(l_hMtxMMUBufList);
+            os_exit_critical();
 
 			if (penErr)
 				*penErr = ERRNOBUFLISTNODE;
@@ -85,7 +100,8 @@ SHORT buf_list_get_ext(void *pvData, UINT unDataSize, EN_ONPSERR *penErr)
 		sRtnNode = l_sFreeBufList;
 		l_sFreeBufList = l_saFreeBufNode[l_sFreeBufList];
 	}
-	os_thread_mutex_unlock(l_hMtxMMUBufList);
+    os_exit_critical();
+	//os_thread_mutex_unlock(l_hMtxMMUBufList);
 
 	l_pvaBufNode[sRtnNode] = pvData; 
 	l_usaBufSize[sRtnNode] = (USHORT)unDataSize; 
@@ -103,14 +119,18 @@ void buf_list_free(SHORT sNode)
     if (sNode < 0)
         return; 
 
-	os_thread_mutex_lock(l_hMtxMMUBufList);
+    os_critical_init();
+
+	//os_thread_mutex_lock(l_hMtxMMUBufList);
+    os_enter_critical();
 	{
 		l_pvaBufNode[sNode]    = NULL;
 		l_usaBufSize[sNode]    = 0; 
 		l_saFreeBufNode[sNode] = l_sFreeBufList; 
 		l_sFreeBufList         = sNode;
 	}
-	os_thread_mutex_unlock(l_hMtxMMUBufList);
+	//os_thread_mutex_unlock(l_hMtxMMUBufList);
+    os_exit_critical();
 }
 
 void buf_list_free_head(SHORT *psHead, SHORT sNode)

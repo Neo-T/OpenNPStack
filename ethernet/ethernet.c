@@ -142,7 +142,7 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
     if (sHdrNode < 0)
     {
         //* 使用计数减一，释放对网卡资源的占用
-        netif_freed(pstNetif);
+        //netif_freed(pstNetif);
         return -1;
     }
     buf_list_put_head(&sBufListHead, sHdrNode);

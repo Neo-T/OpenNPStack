@@ -92,7 +92,7 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
         SHORT sIpPacketNode = buf_list_get_ext(pubIpPacket/*((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT)*/, (UINT)pstcbArpWait->usIpPacketLen, &enErr);
         if (sIpPacketNode < 0)
         {
-            buddy_free(pvParam);
+            //buddy_free(pvParam);
 
     #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
@@ -233,6 +233,9 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
 							blNetifFreedEn = FALSE;
 						else
 						{
+                            //* 定时器未启动，这里就要释放刚才申请的内存
+                            buddy_free(pstcbArpWait);
+
 							if (penErr)
 								*penErr = ERRNOIDLETIMER;
 							nRtnVal = -2;
@@ -270,17 +273,19 @@ INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_ad
 
 	//* 如果未指定netif则通过路由表选择一个适合的netif
 	PST_NETIF pstNetifUsed = pstNetif; 
-	if (NULL == pstNetifUsed)
-	{		
-		pstNetifUsed = route_get_netif(unArpDstAddr/*unDstAddr*/, TRUE, &unSrcAddrUsed, &unArpDstAddr);
-		if (NULL == pstNetifUsed)
-		{
-			if (penErr)
-				*penErr = ERRADDRESSING;
+    if (NULL == pstNetifUsed)
+    {
+        pstNetifUsed = route_get_netif(unArpDstAddr/*unDstAddr*/, TRUE, &unSrcAddrUsed, &unArpDstAddr);
+        if (NULL == pstNetifUsed)
+        {
+            if (penErr)
+                *penErr = ERRADDRESSING;
 
-			return -1;
-		}
-	}        
+            return -1;
+        }
+    }
+    else
+        netif_used(pstNetifUsed); 
 
     return netif_ip_send(pstNetifUsed, pubDstMacAddr, unSrcAddrUsed, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
@@ -301,6 +306,8 @@ INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProto
     //* 再次寻址与上层协议寻址结果不一致，则直接放弃该报文
     if (unSrcAddr != unRouteSrcAddr)
     {
+        netif_freed(pstNetif); 
+
         if (penErr)
             *penErr = ERRROUTEADDRMATCH;
 

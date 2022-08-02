@@ -169,7 +169,10 @@ INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHA
     SHORT sHdrNode;
     sHdrNode = buf_list_get_ext((UCHAR *)&stEchoHdr, (USHORT)sizeof(ST_ICMP_ECHO_HDR), penErr);
     if (sHdrNode < 0)
+    {
+        buf_list_free(sDataNode);
         return -1;
+    }
     buf_list_put_head(&sBufListHead, sHdrNode);    
 
     //* 记录echo identifier，以便区分echo应答报文

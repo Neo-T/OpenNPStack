@@ -15,8 +15,8 @@ typedef struct _ST_ONESHOTTIMER_ { //* 定时器
     INT nTimeoutCount;	//* 溢出值，单位：秒	
 } ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 
-static HMUTEX l_hMtxFreeOneShotTimer;	//* 可用定时器链表同步锁
-static HMUTEX l_hMtxOneShotTimer;		//* 正在计时的定时器链表同步锁
+//static HMUTEX l_hMtxFreeOneShotTimer;	//* 可用定时器链表同步锁
+//static HMUTEX l_hMtxOneShotTimer;		//* 正在计时的定时器链表同步锁
 static ST_ONESHOTTIMER l_staOneShotTimerNode[ONE_SHOT_TIMER_NUM];
 static PST_ONESHOTTIMER l_pstFreeOneShotTimerLink;
 static PST_ONESHOTTIMER l_pstOneShotTimerLink = NULL;
@@ -35,6 +35,7 @@ BOOL one_shot_timer_init(EN_ONPSERR *penErr)
 	l_pstFreeOneShotTimerLink = &l_staOneShotTimerNode[0];		  //* 接入链表头，形成真正的链表
 
 	do {
+    #if 0
 		//* 建立可用定时器队列同步锁
 		l_hMtxFreeOneShotTimer = os_thread_mutex_init();
 		if (INVALID_HMUTEX == l_hMtxFreeOneShotTimer)
@@ -50,12 +51,13 @@ BOOL one_shot_timer_init(EN_ONPSERR *penErr)
 			*penErr = ERRMUTEXINITFAILED;
 			break;
 		}		
+    #endif
 
 		return TRUE; 
 	} while (FALSE); 	
 
-	if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
-		os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);	
+	//if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
+	//	os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);	
 	
 	return FALSE; 
 }
@@ -68,11 +70,11 @@ void one_shot_timer_uninit(void)
     while (!l_ubThreadExitFlag)
         os_sleep_secs(1);     
 
-    if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
-        os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);
+    //if (INVALID_HMUTEX != l_hMtxFreeOneShotTimer)
+    //    os_thread_mutex_uninit(l_hMtxFreeOneShotTimer);
 
-    if (INVALID_HMUTEX != l_hMtxOneShotTimer)
-        os_thread_mutex_uninit(l_hMtxOneShotTimer);    
+    //if (INVALID_HMUTEX != l_hMtxOneShotTimer)
+    //    os_thread_mutex_uninit(l_hMtxOneShotTimer);    
 }
 
 //* 结束两个定时器线程，并释放所有工作队列，并归还给系统
@@ -86,10 +88,13 @@ void thread_one_shot_timer_count(void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer, pstPrevTimer, pstNextTimer; 
 
+    os_critical_init();
+
     l_ubThreadExitFlag = FALSE;
 	while (l_blIsRunning)
 	{
-		os_thread_mutex_lock(l_hMtxOneShotTimer);
+		//os_thread_mutex_lock(l_hMtxOneShotTimer);
+        os_enter_critical();
 		{
 			pstNextTimer = l_pstOneShotTimerLink;
 			pstPrevTimer = NULL;
@@ -113,7 +118,8 @@ void thread_one_shot_timer_count(void *pvParam)
 				}
 			}
 		}
-		os_thread_mutex_unlock(l_hMtxOneShotTimer);		
+		//os_thread_mutex_unlock(l_hMtxOneShotTimer); 
+        os_exit_critical();
 
         //* 如果存在溢出节点则开始执行溢出操作
         if (pstTimer)
@@ -136,7 +142,8 @@ void thread_one_shot_timer_count(void *pvParam)
 	}
 
 	//* 回收资源
-	os_thread_mutex_lock(l_hMtxOneShotTimer);
+	//os_thread_mutex_lock(l_hMtxOneShotTimer);
+    os_enter_critical();
 	{
 		pstNextTimer = l_pstOneShotTimerLink;
 		while (pstNextTimer)
@@ -149,7 +156,8 @@ void thread_one_shot_timer_count(void *pvParam)
 			one_shot_timer_free(pstTimer);
 		}
 	}
-	os_thread_mutex_unlock(l_hMtxOneShotTimer);
+	//os_thread_mutex_unlock(l_hMtxOneShotTimer);
+    os_exit_critical();
 
     l_ubThreadExitFlag = TRUE;
 }
@@ -159,14 +167,18 @@ PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandl
 {
 	PST_ONESHOTTIMER pstTimer = NULL;
 
+    os_critical_init();
+
 	//* 从可用队列中摘取一个空闲节点
-	os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+	//os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+    os_enter_critical();
 	{
 		pstTimer = l_pstFreeOneShotTimerLink;
 		if (l_pstFreeOneShotTimerLink)
 			l_pstFreeOneShotTimerLink = l_pstFreeOneShotTimerLink->pstNext;
 	}
-	os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+	//os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+    os_exit_critical();
 
 	//* 存在空闲节点则赋值并挂接到计时队列中
 	if (pstTimer)
@@ -177,7 +189,8 @@ PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandl
 		pstTimer->nTimeoutCount = nTimeoutCount;
 
 		//* 挂接到计时队列中，开始计数
-		os_thread_mutex_lock(l_hMtxOneShotTimer);
+		//os_thread_mutex_lock(l_hMtxOneShotTimer);
+        os_enter_critical();
 		{
             //* 按照降序挂载到链表
             PST_ONESHOTTIMER pstNextTimer = l_pstOneShotTimerLink; 
@@ -203,7 +216,8 @@ PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandl
                 l_pstOneShotTimerLink = pstTimer;
             }			
 		}
-		os_thread_mutex_unlock(l_hMtxOneShotTimer);
+		//os_thread_mutex_unlock(l_hMtxOneShotTimer);
+        os_exit_critical();
 	}
 
 	return pstTimer; 
@@ -217,8 +231,11 @@ void one_shot_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount)
 	if (nTimeoutCount <= 0)
 		return; 
 
+    os_critical_init();
+
 	//*	确保计时队列中还存在这个节点，否则没必要重计数了
-	os_thread_mutex_lock(l_hMtxOneShotTimer);
+	//os_thread_mutex_lock(l_hMtxOneShotTimer);
+    os_enter_critical();
 	{
         PST_ONESHOTTIMER pstPrevTimer = NULL;
 		pstNextTimer = l_pstOneShotTimerLink;        
@@ -267,7 +284,8 @@ void one_shot_timer_recount(PST_ONESHOTTIMER pstTimer, INT nTimeoutCount)
             }
         }
 	}
-	os_thread_mutex_unlock(l_hMtxOneShotTimer); 
+	//os_thread_mutex_unlock(l_hMtxOneShotTimer); 
+    os_exit_critical();
 }
 
 //* 这个函数的目的是安全停止计时器并将其归还给系统，不再占用，与one_shot_timer_free()函数不同
@@ -277,8 +295,11 @@ void one_shot_timer_safe_free(PST_ONESHOTTIMER pstTimer)
 	PST_ONESHOTTIMER pstNextTimer, pstPrevTimer;
 	BOOL blIsExist = FALSE; 
 
+    os_critical_init();
+
 	//*	确保计时队列中还存在这个节点，否则不做任何处理
-	os_thread_mutex_lock(l_hMtxOneShotTimer);
+	//os_thread_mutex_lock(l_hMtxOneShotTimer);
+    os_enter_critical();
 	{
 		pstNextTimer = l_pstOneShotTimerLink;
 		pstPrevTimer = NULL; 
@@ -300,29 +321,36 @@ void one_shot_timer_safe_free(PST_ONESHOTTIMER pstTimer)
 			pstNextTimer = pstNextTimer->pstNext;
 		}
 	}
-	os_thread_mutex_unlock(l_hMtxOneShotTimer);
+	//os_thread_mutex_unlock(l_hMtxOneShotTimer);
+    os_exit_critical();
 
 	//* 存在则归还给系统（这里未使用函数调用的方式以减少入栈出栈带来的内存及性能损耗）
 	if (blIsExist)
 	{
-		os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+		//os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+        os_enter_critical();
 		{
 			pstTimer->pstNext = l_pstFreeOneShotTimerLink;
 			l_pstFreeOneShotTimerLink = pstTimer;
 		}
-		os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+		//os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+        os_exit_critical();
 	}
 }
 
 //* 释放占用的定时器资源，不做任何判断直接释放并归还给系统
 void one_shot_timer_free(PST_ONESHOTTIMER pstTimer)
 {
-	os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+    os_critical_init();
+
+	//os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
+    os_enter_critical();
 	{				
 		pstTimer->pstNext = l_pstFreeOneShotTimerLink; 					
 		l_pstFreeOneShotTimerLink = pstTimer;
 	}
-	os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+	//os_thread_mutex_unlock(l_hMtxFreeOneShotTimer);
+    os_exit_critical(); 
 }
 
 

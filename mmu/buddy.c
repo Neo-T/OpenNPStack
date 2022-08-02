@@ -14,7 +14,7 @@ static ST_BUDDY_AREA l_staArea[BUDDY_ARER_COUNT];
 static const UINT lr_unPageCount = BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1;
 static ST_BUDDY_PAGE l_staPage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
 static STCB_BUDDY_PAGE_NODE l_stcbaFreePage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
-static HMUTEX l_hMtxMMUBuddy = INVALID_HMUTEX;
+//static HMUTEX l_hMtxMMUBuddy = INVALID_HMUTEX;
 
 static PST_BUDDY_PAGE GetPageNode(EN_ONPSERR *penErr)
 {
@@ -83,18 +83,22 @@ BOOL buddy_init(EN_ONPSERR *penErr)
 		l_staArea[i].unPageSize = unPageSize;
 	}
 
+#if 0
 	l_hMtxMMUBuddy = os_thread_mutex_init();
 	if (INVALID_HMUTEX != l_hMtxMMUBuddy)	
 		return TRUE; 
 	
 	*penErr = ERRMUTEXINITFAILED; 
 	return FALSE; 
+#else
+    return TRUE; 
+#endif
 }
 
 void buddy_uninit(void)
 {
-    if (INVALID_HMUTEX != l_hMtxMMUBuddy)
-        os_thread_mutex_uninit(l_hMtxMMUBuddy);
+    //if (INVALID_HMUTEX != l_hMtxMMUBuddy)
+    //    os_thread_mutex_uninit(l_hMtxMMUBuddy);
 }
 
 void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
@@ -123,8 +127,11 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 		unPageSize *= 2;
 	}
 	
+    os_critical_init(); 
+
 	//* 查找可用且大小适合的页面分配给用户
-	os_thread_mutex_lock(l_hMtxMMUBuddy);
+	//os_thread_mutex_lock(l_hMtxMMUBuddy);
+    os_enter_critical();
 	{
 		//* 存在有效页面则直接返回
 		pstPage = l_staArea[i].pstNext;
@@ -133,7 +140,8 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 			if (!pstPage->blIsUsed)
 			{
 				pstPage->blIsUsed = TRUE;
-				os_thread_mutex_unlock(l_hMtxMMUBuddy);                
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy);                
+                os_exit_critical();
 
 				return pstPage->pubStart;
 			}
@@ -156,7 +164,8 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 				pstPage = pstPage->pstNext;
 			}
 		}
-		os_thread_mutex_unlock(l_hMtxMMUBuddy);
+		//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+        os_exit_critical(); 
 
 		*penErr = ERRNOFREEMEM; //* 没有空余页块，无法分配内存给用户了
 
@@ -176,13 +185,15 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 			pstFreePage1 = GetPageNode(penErr);
 			if (!pstFreePage1) //* 这属于程序BUG，理论上不应该申请不到
 			{
-				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+                os_exit_critical();
 				return (void *)0;
 			}
 			pstFreePage2 = GetPageNode(penErr);
 			if (!pstFreePage2) //* 同上
 			{
-				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+                os_exit_critical();
 				return (void *)0;
 			}
 			pstFreePage1->pubStart = pstPage->pubStart;
@@ -219,13 +230,15 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 			{
 				//* 申请容量大于页块容量的一半，不需要继续分裂了，直接返回给用户即可
 				pstPage->blIsUsed = TRUE;
-				os_thread_mutex_unlock(l_hMtxMMUBuddy);                
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy); 
+                os_exit_critical();
 
 				return (void *)pstPage->pubStart;
 			}
 		}
 	}
-	os_thread_mutex_unlock(l_hMtxMMUBuddy);
+	//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+    os_exit_critical();
 
 	*penErr = ERRNOFREEMEM; //* 理论上这里是执行不到的
 
@@ -250,7 +263,10 @@ BOOL buddy_free(void *pvStart)
 	PST_BUDDY_PAGE pstNextPage, pstPrevPage1, pstPrevPage2, pstFreedPage;
 	UCHAR *pubBuddyAddr;    
 
-	os_thread_mutex_lock(l_hMtxMMUBuddy);
+    os_critical_init();
+
+	//os_thread_mutex_lock(l_hMtxMMUBuddy);
+    os_enter_critical();
 	{
 		for (i = 0; i < BUDDY_ARER_COUNT; i++)
 		{
@@ -269,7 +285,8 @@ BOOL buddy_free(void *pvStart)
 				pstNextPage = pstNextPage->pstNext;
 			}
 		}
-		os_thread_mutex_unlock(l_hMtxMMUBuddy);
+		//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+        os_exit_critical();
 
 		//* 如果上层调用者擅自修改了分配的起始地址，那么释放就会失败,所以只要释放失败就是这个问题
 		return FALSE; 
@@ -313,7 +330,8 @@ BOOL buddy_free(void *pvStart)
 			pstPrevPage2 = pstNextPage;
 			pstNextPage = pstNextPage->pstNext;
 		}        
-		os_thread_mutex_unlock(l_hMtxMMUBuddy);
+		//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+        os_exit_critical();
 
 		return TRUE; //* 没有合并节点则结束执行
 
@@ -328,7 +346,8 @@ BOOL buddy_free(void *pvStart)
 				pstArea->pstNext = pstFreedPage;
 				pstFreedPage->pstNext = NULL;
                 
-				os_thread_mutex_unlock(l_hMtxMMUBuddy);
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+                os_exit_critical();
 
 				return TRUE;
 			}
@@ -364,7 +383,8 @@ BOOL buddy_free(void *pvStart)
 			}
 		}
 	}    
-	os_thread_mutex_unlock(l_hMtxMMUBuddy);
+	//os_thread_mutex_unlock(l_hMtxMMUBuddy);
+    os_exit_critical();
 
 	return TRUE; 
 }
