@@ -4,12 +4,11 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
-#include "netif/netif.h"
 #include "ip/ip_frame.h"
-
 #define SYMBOL_GLOBALS
 #include "onps_utils.h"
 #undef SYMBOL_GLOBALS
+#include "netif/netif.h"
 
 CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize)
 {

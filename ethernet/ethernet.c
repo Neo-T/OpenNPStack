@@ -26,7 +26,7 @@ void ethernet_init(void)
 }
 
 //* 添加ethernet网卡
-PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, EN_ONPSERR *penErr)
+PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, void(*pfunStartTHEmacRecv)(void *pvParam), PST_NETIF *ppstNetif, EN_ONPSERR *penErr)
 {
     PST_NETIF pstNetif = NULL; 
     PST_NETIFEXTRA_ETH pstExtra = NULL; 
@@ -39,6 +39,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
             if (!l_staExtraOfEth[i].bIsUsed)
             {
                 pstExtra = &l_staExtraOfEth[i]; 
+                pstExtra->pstRcvedPacketList = NULL; 
                 pstExtra->bIsUsed = TRUE;                  
                 break; 
             }
@@ -53,10 +54,22 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
         return NULL;
     }
 
+    //* 建立信号量
+    pstExtra->hSem = os_thread_sem_init(0, 10000); 
+    if (INVALID_HSEM == pstExtra->hSem)
+    {
+        pstExtra->bIsUsed = FALSE; //* 归还
+
+        if (penErr)
+            *penErr = ERRSEMINITFAILED;
+        return NULL;
+    }
+
     //* 申请一个arp控制块
     PSTCB_ETHARP pstcbArp = arp_ctl_block_new(); 
     if (!pstcbArp)
     {
+        os_thread_sem_uninit(pstExtra->hSem);
         pstExtra->bIsUsed = FALSE; //* 归还
         if (penErr)
             *penErr = ERRNEWARPCTLBLOCK;
@@ -77,11 +90,18 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
             pstExtra->bIsStaticAddr = TRUE;
 
             //* 添加到路由表，使其成为缺省路由
-            if (!route_add(pstNetif, 0, pstIPv4->unGateway, pstIPv4->unSubnetMask, penErr))
+            if (route_add(pstNetif, 0, pstIPv4->unGateway, pstIPv4->unSubnetMask, penErr))
+            {
+                //* 启动接收任务
+                *ppstNetif = pstNetif; 
+                pfunStartTHEmacRecv(ppstNetif);
+            }
+            else
             {
                 netif_del(pstIfNode);
                 pstNetif = NULL; 
                 
+                os_thread_sem_uninit(pstExtra->hSem);
                 arp_ctl_block_free(pstcbArp);   //* 释放arp控制块
                 pstExtra->bIsUsed = FALSE;      //* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
             }
@@ -89,24 +109,32 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
         else        
             pstExtra->bIsStaticAddr = FALSE;         
     }
+    else
+    {
+        os_thread_sem_uninit(pstExtra->hSem); 
+        arp_ctl_block_free(pstcbArp);   //* 释放arp控制块
+        pstExtra->bIsUsed = FALSE;      //* 归还
+    }
 
     return pstNetif;
 }
 
 //* 删除ethernet网卡
-void ethernet_del(PST_NETIF pstNetif)
+void ethernet_del(PST_NETIF *ppstNetif)
 {
-    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)(*ppstNetif)->pvExtra; 
 
-    //* 释放占用的arp控制块
+    os_thread_sem_uninit(pstExtra->hSem);    
     arp_ctl_block_free(pstExtra->pstcbArp); 
     pstExtra->bIsUsed = FALSE; 
 
     //* 先从路由表删除
-    route_del_ext(pstNetif); 
+    route_del_ext(*ppstNetif); 
 
     //* 再从网卡链表删除
-    netif_del_ext(pstNetif); 
+    netif_del_ext(*ppstNetif); 
+
+    *ppstNetif = NULL; 
 }
 
 //* 通过ethernet网卡进行发送
@@ -236,6 +264,42 @@ BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
     }
 
     return FALSE; 
+}
+
+void thread_ethernet_ii_recv(void *pvParam)
+{
+    PST_NETIF *ppstNetif = (PST_NETIF *)pvParam; 
+
+    while (TRUE)
+    {
+        if (NULL == *ppstNetif)
+        {
+            os_sleep_secs(1);
+            continue; 
+        }
+
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)(*ppstNetif)->pvExtra;
+        INT nRtnVal = os_thread_sem_pend(pstExtra->hSem, 1);
+        if (nRtnVal)
+        {
+            if (nRtnVal < 0)
+            {
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("os_thread_sem_pend() failed, the NIC name is %s, %s\r\n", (*ppstNetif)->szName, onps_error(ERRINVALIDSEM));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
+                os_sleep_secs(1);
+            }
+            continue;
+        }
+
+        //* 取出数据
+    }
 }
 
 #endif

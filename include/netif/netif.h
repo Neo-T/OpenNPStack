@@ -70,13 +70,15 @@ typedef struct _ST_NETIF_ETH_IP_NODE_ {
 
 //* ethernet网卡附加信息
 typedef struct _STCB_ETHARP_ STCB_ETHARP, *PSTCB_ETHARP; 
-typedef struct _ST_NETIFEXTRA_ETH_ { 
-    CHAR bIsUsed; 
+typedef struct _ST_NETIFEXTRA_ETH_ {     
+    CHAR bIsUsed;                           //* 是否已被使用
     CHAR bIsStaticAddr;                     //* 静态地址？
     UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];     //* mac地址   
     PST_NETIF_ETH_IP_NODE pstIPList;        //* 绑定到该网卡的IP地址
     PSTCB_ETHARP pstcbArp; 
     PFUN_EMAC_SEND pfunEmacSend; 
+    PST_SLINKEDLIST pstRcvedPacketList;
+    HSEM hSem;
 } ST_NETIFEXTRA_ETH, *PST_NETIFEXTRA_ETH;
 #endif
 
