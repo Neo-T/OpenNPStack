@@ -769,6 +769,10 @@ void dhcp_renewal_timeout_handler(void *pvParam)
             //* 应为租期的7/8，扣除已经消逝的4/8，则只需再等待3/8租期就该发送广播报文进行续租了
             nTimeout = (pstcbRenewalInfo->unLeaseTime * 3) / 8; 
             pstcbRenewalInfo->bState = 2;  
+
+			os_thread_mutex_lock(o_hMtxPrintf);
+			printf("<0> dhcp_send_renewal() failed\r\n");
+			os_thread_mutex_unlock(o_hMtxPrintf);
         }        
         dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
 
@@ -809,6 +813,10 @@ void dhcp_renewal_timeout_handler(void *pvParam)
 				//* 未收到续租应答，那就再过一段时间（7/8租期）发送广播续租报文            
 				nTimeout = (INT)((pstcbRenewalInfo->unLeaseTime * 3) / 8);
 				pstcbRenewalInfo->bState = 2;
+
+				os_thread_mutex_lock(o_hMtxPrintf);
+				printf("<1> dhcp_recv_renewal_ack() failed\r\n"); 
+				os_thread_mutex_unlock(o_hMtxPrintf);
 			}            
         }
         //* 重启续租定时器
@@ -829,6 +837,10 @@ void dhcp_renewal_timeout_handler(void *pvParam)
             //* 报文发送失败，这里就不再尝试重新发送了，直接进入下一个阶段——等待租期到达释放当前ip地址并开启新的ip地址租用流程
             nTimeout = (pstcbRenewalInfo->unLeaseTime * 1) / 8;
             pstcbRenewalInfo->bState = 4;
+
+			os_thread_mutex_lock(o_hMtxPrintf);
+			printf("<2> dhcp_send_renewal() failed\r\n");
+			os_thread_mutex_unlock(o_hMtxPrintf);
         }  
         //* 重启续租定时器
         dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
@@ -869,6 +881,10 @@ void dhcp_renewal_timeout_handler(void *pvParam)
 				//* 未收到续租应答，只好进入下一个阶段——等待租期到达释放当前ip地址并开启新的ip地址租用流程
 				nTimeout = (pstcbRenewalInfo->unLeaseTime * 1) / 8;
 				pstcbRenewalInfo->bState = 4;
+
+				os_thread_mutex_lock(o_hMtxPrintf);
+				printf("<3> dhcp_recv_renewal_ack() failed\r\n");
+				os_thread_mutex_unlock(o_hMtxPrintf);
 			}            
         }
         //* 重启续租定时器

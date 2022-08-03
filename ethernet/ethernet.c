@@ -107,8 +107,14 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
                 pstExtra->bIsUsed = FALSE;      //* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
             }
         }
-        else        
-            pstExtra->bIsStaticAddr = FALSE;         
+		else
+		{
+			pstExtra->bIsStaticAddr = FALSE;
+
+			//* 启动接收任务
+			*ppstNetif = pstNetif;
+			pfunStartTHEmacRecv(ppstNetif);
+		}
     }
     else
     {
@@ -330,6 +336,7 @@ void ethernet_put_packet(PST_NETIF pstNetif, PST_SLINKEDLIST_NODE pstNode)
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
 
     sllist_put_tail_node(&pstExtra->pstRcvedPacketList, pstNode); 
+	os_thread_sem_post(pstExtra->hSem); 
 }
 
 #endif

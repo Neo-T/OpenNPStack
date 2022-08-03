@@ -616,10 +616,17 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }            
 
             //* 已经发送了数据，看看是不是对应的ack报文            
+			os_thread_mutex_lock(o_hMtxPrintf);
+			printf("<%d> acked num: %08X %08X\r\n", pstLink->stLocal.bDataSendState, unSrcAckNum, unPeerSeqNum);
+			os_thread_mutex_unlock(o_hMtxPrintf);
             if (TDSSENDING == (EN_TCPDATASNDSTATE)pstLink->stLocal.bDataSendState && unSrcAckNum == pstLink->stLocal.unSeqNum + (UINT)pstLink->stcbWaitAck.usSendDataBytes)
             {                
                 //* 收到应答，更新当前数据发送序号            
                 pstLink->stLocal.unSeqNum = unSrcAckNum;
+
+				//os_thread_mutex_lock(o_hMtxPrintf);
+				//printf("acked num: %d\r\n", pstLink->stLocal.unSeqNum); 
+				//os_thread_mutex_unlock(o_hMtxPrintf);
 
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                 
@@ -698,10 +705,9 @@ INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
     //* 等待后
     if (bRcvTimeout)
     {
-        CHAR bWaitSecs; 
+        CHAR bWaitSecs = bRcvTimeout;
         
-__lblWaitRecv: 
-        bWaitSecs = bRcvTimeout; 
+__lblWaitRecv:         
         if (bRcvTimeout > 0)
         {
             if (onps_input_sem_pend(nInput, 1, &enErr) < 0)            
