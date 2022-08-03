@@ -46,7 +46,8 @@ typedef struct _ST_SLINKEDLIST_NODE_ {
     union {
         void *pvAddr; 
         INT nIndex; 
-    } uniData;    
+        UINT unParam; 
+    } uniData;  
 } ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE;
 
 //* 单向链表相关操作函数

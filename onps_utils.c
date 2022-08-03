@@ -191,9 +191,8 @@ PST_SLINKEDLIST_NODE sllist_get_node(PST_SLINKEDLIST *ppstSLList)
     if (NULL == *ppstSLList)
         return NULL; 
 
-    PST_SLINKEDLIST_NODE pstNode = *ppstSLList;
-    if (*ppstSLList)
-        *ppstSLList = (*ppstSLList)->pstNext; 
+    PST_SLINKEDLIST_NODE pstNode = *ppstSLList;    
+    *ppstSLList = (*ppstSLList)->pstNext; 
 
     pstNode->pstNext = NULL;
     return pstNode; 

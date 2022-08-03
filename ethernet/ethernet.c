@@ -4,6 +4,7 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buf_list.h"
+#include "mmu/buddy.h"
 #include "onps_utils.h"
 #include "netif/netif.h"
 #include "netif/route.h"
@@ -269,6 +270,12 @@ BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
 void thread_ethernet_ii_recv(void *pvParam)
 {
     PST_NETIF *ppstNetif = (PST_NETIF *)pvParam; 
+    PST_NETIF pstNetif; 
+    PST_NETIFEXTRA_ETH pstExtra; 
+    PST_SLINKEDLIST_NODE pstNode; 
+    INT nRtnVal; 
+
+    os_critical_init(); 
 
     while (TRUE)
     {
@@ -278,8 +285,9 @@ void thread_ethernet_ii_recv(void *pvParam)
             continue; 
         }
 
-        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)(*ppstNetif)->pvExtra;
-        INT nRtnVal = os_thread_sem_pend(pstExtra->hSem, 1);
+        pstNetif = *ppstNetif; 
+        pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+        nRtnVal = os_thread_sem_pend(pstExtra->hSem, 1);
         if (nRtnVal)
         {
             if (nRtnVal < 0)
@@ -298,8 +306,30 @@ void thread_ethernet_ii_recv(void *pvParam)
             continue;
         }
 
-        //* 取出数据
+__lblGetPacket:
+        //* 取出数据，需要先关中断
+        os_enter_critical();         
+        pstNode = sllist_get_node(&pstExtra->pstRcvedPacketList);         
+        os_exit_critical(); 
+
+        if (pstNode)
+        {
+            //* 向上传递
+            ethernet_ii_recv(pstNetif, ((UCHAR *)pstNode) + sizeof(ST_SLINKEDLIST_NODE), (INT)pstNode->uniData.unParam); 
+            //* 释放该节点
+            buddy_free(pstNode); 
+
+            goto __lblGetPacket; 
+        }   
     }
+}
+
+//* 这个函数在ethernet网卡接收中断中使用，所以不需要加临界保护，相反，读取函数一定要加关中断，避免读写冲突
+void ethernet_put_packet(PST_NETIF pstNetif, PST_SLINKEDLIST_NODE pstNode)
+{
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+
+    sllist_put_tail_node(&pstExtra->pstRcvedPacketList, pstNode); 
 }
 
 #endif
