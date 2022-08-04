@@ -318,12 +318,15 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     uniFlag.stb16.push = 1;
 
     //* 发送链路结束报文
+    pstLink->stcbWaitAck.bIsAcked = FALSE;                      //* 提前赋值，因为存在发送即接收到的情况
+    pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
+    pstLink->stLocal.bDataSendState = TDSSENDING;
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
                                     pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, &enErr); 
     if (nRtnVal > 0)
     {        
         //* 加入定时器队列
-        pstLink->stcbWaitAck.bIsAcked = FALSE;
+        //pstLink->stcbWaitAck.bIsAcked = FALSE;
         pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
         if (!pstLink->stcbWaitAck.pstTimer)
         {
@@ -332,8 +335,8 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
         }
         
         //* 记录当前实际发送的字节数
-        pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen;
-        pstLink->stLocal.bDataSendState = TDSSENDING;
+        //pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; 
+        //pstLink->stLocal.bDataSendState = TDSSENDING; 
         return nSndDataLen; 
     }
     else
