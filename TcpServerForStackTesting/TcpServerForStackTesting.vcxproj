@@ -144,6 +144,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalOptions> %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <PostBuildEvent>
+      <Command>copy $(Platform)\$(Configuration)\$(ProjectName).exe $(SolutionDir)$(Configuration)\$(ProjectName).exe</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />

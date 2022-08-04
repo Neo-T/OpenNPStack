@@ -260,7 +260,7 @@ __lblWaitAck:
     {
         onps_set_last_error((INT)socket, ERRINVALIDSEM); 
         return -1; 
-    }
+    }	
     
     //* 信号量到达，根据实际处理结果返回不同值
     EN_ONPSERR enErr;

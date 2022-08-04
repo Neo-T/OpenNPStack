@@ -118,12 +118,13 @@ void ClearClient(PST_TCPCLIENT pstClient, fd_set *pfdsRead, fd_set *pfdsExceptio
     closesocket(hClient);    
 }
 
-static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataLen)
+static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataLen, UINT unSeqNum)
 {
     PST_COMMUPKT_HDR pstHdr = (PST_COMMUPKT_HDR)pubPacket;
     pstHdr->bFlag = (CHAR)PKT_FLAG; 
     pstHdr->bCmd = 0x01; 
     pstHdr->bLinkIdx = pstClient->bLinkIdx;
+	pstHdr->unSeqNum = unSeqNum; 
     pstHdr->unTimestamp = (UINT)time(NULL); 
     pstHdr->usDataLen = usDataLen; 
     pstHdr->usChechsum = 0; 
@@ -210,6 +211,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
 
     //* 开始随机下发数据，模拟服务器下发控制指令的操作
     PST_TCPCLIENT pstClient = &iter->second; 
+	UINT unSeqNum = 0;
     time_t tInterval;
     time_t tLastSendSecs = 0;    
     while (l_blIsRunning && pstClient->blTHIsRunning)
@@ -218,7 +220,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
         tInterval = 120 - (time_t)rand() % 31; 
         if (time(NULL) - tLastSendSecs > tInterval)
         {
-            if (SendCtlCmd(pstClient, (UCHAR *)szPacket, nHasCpyBytes - sizeof(ST_COMMUPKT_HDR)))
+            if (SendCtlCmd(pstClient, (UCHAR *)szPacket, nHasCpyBytes - sizeof(ST_COMMUPKT_HDR), unSeqNum++))
                 tLastSendSecs = time(NULL); 
             else
                 break; 
@@ -313,7 +315,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
                                 pstClient->bClientIdx = pstHdr->bLinkIdx; 
-                                printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, the data length is %d bytes\r\n", pstHdr->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->usDataLen);
+                                printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, SeqNum = %d, the data length is %d bytes\r\n", pstHdr->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->unSeqNum, pstHdr->usDataLen);
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
                             else if (pstHdr->bCmd == 1) //* 这是控制指令的应答报文

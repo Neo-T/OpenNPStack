@@ -32,8 +32,8 @@ static void tcp_ack_timeout_handler(void *pvParam)
         else
             pstLink->bState = TLSACKTIMEOUT; 
         
-        if (pstLink->stcbWaitAck.bRcvTimeout)                    
-            onps_input_sem_post(pstLink->stcbWaitAck.nInput);
+		if (pstLink->stcbWaitAck.bRcvTimeout)					
+			onps_input_sem_post(pstLink->stcbWaitAck.nInput); 		
     }
 }
 
@@ -223,8 +223,8 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
             onps_set_last_error(nInput, ERRSENDZEROBYTES);
     }    
 
-    if (pstLink->stcbWaitAck.bRcvTimeout)
-        onps_input_sem_post(pstLink->stcbWaitAck.nInput);
+	if (pstLink->stcbWaitAck.bRcvTimeout)			
+		onps_input_sem_post(pstLink->stcbWaitAck.nInput);	
 }
 
 INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTimeout)
@@ -554,7 +554,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->stLocal.bDataSendState = TDSLINKRESET; 
 
             //if (INVALID_HSEM != pstLink->stcbWaitAck.hSem)
-            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem); 
+            //    os_thread_sem_post(pstLink->stcbWaitAck.hSem); 			
             onps_input_sem_post(nInput);
         }
         else if (uniFlag.stb16.fin)
@@ -563,8 +563,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             {
                 pstLink->stLocal.bDataSendState = TDSLINKCLOSED;                                 
 
-                if (pstLink->stcbWaitAck.bRcvTimeout)
-                    onps_input_sem_post(pstLink->stcbWaitAck.nInput);
+				if (pstLink->stcbWaitAck.bRcvTimeout)									
+					onps_input_sem_post(pstLink->stcbWaitAck.nInput);				
             }            
 
             //* 发送ack
@@ -618,27 +618,26 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     onps_input_recv(nInput, NULL, 0, 0, 0, NULL);                 
             }            
 
-            //* 已经发送了数据，看看是不是对应的ack报文            
-			os_thread_mutex_lock(o_hMtxPrintf);
-			printf("<%d> acked num: %08X %08X\r\n", pstLink->stLocal.bDataSendState, unSrcAckNum, unPeerSeqNum);
-			os_thread_mutex_unlock(o_hMtxPrintf);
+            //* 已经发送了数据，看看是不是对应的ack报文            			
             if (TDSSENDING == (EN_TCPDATASNDSTATE)pstLink->stLocal.bDataSendState && unSrcAckNum == pstLink->stLocal.unSeqNum + (UINT)pstLink->stcbWaitAck.usSendDataBytes)
             {                
                 //* 收到应答，更新当前数据发送序号            
-                pstLink->stLocal.unSeqNum = unSrcAckNum;
-
-				//os_thread_mutex_lock(o_hMtxPrintf);
-				//printf("acked num: %d\r\n", pstLink->stLocal.unSeqNum); 
-				//os_thread_mutex_unlock(o_hMtxPrintf);
+                pstLink->stLocal.unSeqNum = unSrcAckNum;				
 
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                 
 
                 //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
                 pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED;                 
-                if (pstLink->stcbWaitAck.bRcvTimeout)
-                    onps_input_sem_post(pstLink->stcbWaitAck.nInput);
+				if (pstLink->stcbWaitAck.bRcvTimeout)									
+					onps_input_sem_post(pstLink->stcbWaitAck.nInput); 				
             }
+			else
+			{
+				os_thread_mutex_lock(o_hMtxPrintf);
+				printf("<%d> %08X %d %d %d\r\n", pstLink->stLocal.bDataSendState, unSrcAckNum, unSrcAckNum, pstLink->stLocal.unSeqNum, (UINT)pstLink->stcbWaitAck.usSendDataBytes);
+				os_thread_mutex_unlock(o_hMtxPrintf);
+			}
             
             //* 有数据则处理之
             if (nDataLen)
@@ -697,8 +696,8 @@ INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
 
     //* 读取数据
     nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
-    if (nRcvedBytes > 0)
-        return nRcvedBytes; 
+	if (nRcvedBytes > 0)	
+		return nRcvedBytes; 	
     else
     {
         if(nRcvedBytes < 0)
@@ -712,24 +711,24 @@ INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
         
 __lblWaitRecv:         
         if (bRcvTimeout > 0)
-        {
+        {			
             if (onps_input_sem_pend(nInput, 1, &enErr) < 0)            
                 goto __lblErr;            
 
-            bWaitSecs--; 
+            bWaitSecs--; 			
         }
         else
         {
             if (onps_input_sem_pend(nInput, 0, &enErr) < 0)            
                 goto __lblErr;             
         }
-
+				
         //* 读取数据
-        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
+        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);		
         if (nRcvedBytes > 0)
             return nRcvedBytes;
         else
-        {
+        {			
             if (nRcvedBytes < 0)
                 goto __lblErr;
 

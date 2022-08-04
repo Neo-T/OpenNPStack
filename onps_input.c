@@ -631,7 +631,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
             //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了；
             unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
             memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes); 
-            l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 
+            l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 			
 
             //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小        
             ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
@@ -685,8 +685,8 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     //* 搬运成功则投递信号给上层用户，告知对端数据已到达
     if (blIsOK)
     {       
-        if (l_stcbaInput[nInput].bRcvTimeout)
-            os_thread_sem_post(l_stcbaInput[nInput].hSem);
+		if (l_stcbaInput[nInput].bRcvTimeout)					
+			os_thread_sem_post(l_stcbaInput[nInput].hSem);		
     }    
 
     return blIsOK; 

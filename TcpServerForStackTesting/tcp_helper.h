@@ -25,6 +25,7 @@ typedef struct _ST_COMMUPKT_HDR_ {
     CHAR bFlag;
     CHAR bCmd;
     CHAR bLinkIdx; 
+	UINT unSeqNum;
     UINT unTimestamp;
     USHORT usDataLen;
     USHORT usChechsum;
