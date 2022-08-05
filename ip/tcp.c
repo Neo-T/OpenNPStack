@@ -20,21 +20,23 @@ static void tcp_send_fin(PST_TCPLINK pstLink);
 
 static void tcp_ack_timeout_handler(void *pvParam)
 {        
-    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;     
+    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;     	
 
     if (!pstLink->stcbWaitAck.bIsAcked)
     {
         if (TLSCONNECTED == pstLink->bState)
         {
-            if (TDSSENDING == pstLink->stLocal.bDataSendState)
-                pstLink->stLocal.bDataSendState = (CHAR)TDSTIMEOUT; 
+			if (TDSSENDING == pstLink->stLocal.bDataSendState)
+				pstLink->stLocal.bDataSendState = (CHAR)TDSTIMEOUT;			
         }
         else
-            pstLink->bState = TLSACKTIMEOUT; 
-        
+            pstLink->bState = TLSACKTIMEOUT;       		
+
 		if (pstLink->stcbWaitAck.bRcvTimeout)					
-			onps_input_sem_post(pstLink->stcbWaitAck.nInput); 		
+			onps_input_sem_post(pstLink->stcbWaitAck.nInput);
     }
+
+	pstLink->stcbWaitAck.pstTimer = NULL; 
 }
 
 static void tcp_close_timeout_handler(void *pvParam)
@@ -317,8 +319,14 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     uniFlag.stb16.ack = 1;
     uniFlag.stb16.push = 1;
 
-    //* 发送链路结束报文
-    pstLink->stcbWaitAck.bIsAcked = FALSE;                      //* 提前赋值，因为存在发送即接收到的情况
+	//* 提前赋值，因为存在发送即接收到的情况（常见于本地以太网）
+	pstLink->stcbWaitAck.bIsAcked = FALSE;                      
+	pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
+	if (!pstLink->stcbWaitAck.pstTimer)
+	{
+		onps_set_last_error(nInput, ERRNOIDLETIMER);
+		return -1;
+	}    
     pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
     pstLink->stLocal.bDataSendState = TDSSENDING;
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
@@ -327,12 +335,12 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     {        
         //* 加入定时器队列
         //pstLink->stcbWaitAck.bIsAcked = FALSE;
-        pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
-        if (!pstLink->stcbWaitAck.pstTimer)
-        {
-            onps_set_last_error(nInput, ERRNOIDLETIMER);
-            return -1;
-        }
+        //pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
+        //if (!pstLink->stcbWaitAck.pstTimer)
+        //{
+        //    onps_set_last_error(nInput, ERRNOIDLETIMER);
+        //    return -1;
+        //}
         
         //* 记录当前实际发送的字节数
         //pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; 
@@ -341,6 +349,8 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     }
     else
     {
+		one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+
         if (nRtnVal < 0)
             onps_set_last_error(nInput, enErr);
         else
@@ -564,7 +574,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->stLocal.bDataSendState = TDSLINKCLOSED;                                 
 
 				if (pstLink->stcbWaitAck.bRcvTimeout)									
-					onps_input_sem_post(pstLink->stcbWaitAck.nInput);				
+					onps_input_sem_post(pstLink->stcbWaitAck.nInput);
             }            
 
             //* 发送ack
@@ -624,20 +634,22 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 //* 收到应答，更新当前数据发送序号            
                 pstLink->stLocal.unSeqNum = unSrcAckNum;				
 
-                pstLink->stcbWaitAck.bIsAcked = TRUE; 
-                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                 
+                pstLink->stcbWaitAck.bIsAcked = TRUE; 				
+                one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                 				
 
                 //* 数据发送状态迁移至已收到ACK报文状态，并通知发送者当前数据已发送成功
                 pstLink->stLocal.bDataSendState = (CHAR)TDSACKRCVED;                 
 				if (pstLink->stcbWaitAck.bRcvTimeout)									
-					onps_input_sem_post(pstLink->stcbWaitAck.nInput); 				
+					onps_input_sem_post(pstLink->stcbWaitAck.nInput);
             }
+			/*
 			else
 			{
 				os_thread_mutex_lock(o_hMtxPrintf);
-				printf("<%d> %08X %d %d %d\r\n", pstLink->stLocal.bDataSendState, unSrcAckNum, unSrcAckNum, pstLink->stLocal.unSeqNum, (UINT)pstLink->stcbWaitAck.usSendDataBytes);
+				printf("<%d> %08X %d %d %d data: %d\r\n", pstLink->stLocal.bDataSendState, unPeerSeqNum, unSrcAckNum, pstLink->stLocal.unSeqNum, (UINT)pstLink->stcbWaitAck.usSendDataBytes, nDataLen);
 				os_thread_mutex_unlock(o_hMtxPrintf);
 			}
+			*/
             
             //* 有数据则处理之
             if (nDataLen)
@@ -696,8 +708,12 @@ INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvT
 
     //* 读取数据
     nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, NULL, NULL, &enErr);
-	if (nRcvedBytes > 0)	
-		return nRcvedBytes; 	
+	if (nRcvedBytes > 0)
+	{    		
+		if (bRcvTimeout > 0)
+			onps_input_sem_pend(nInput, 1, NULL); //* 因为收到数据了，所以一定存在这个信号，所以这里主动消除该信号，确保用户端的延时准确
+		return nRcvedBytes;
+	}
     else
     {
         if(nRcvedBytes < 0)

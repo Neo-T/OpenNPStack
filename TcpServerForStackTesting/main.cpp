@@ -307,6 +307,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 pstAck->stHdr.bFlag = (CHAR)PKT_FLAG;
                                 pstAck->stHdr.bCmd = 0x00; 
                                 pstAck->stHdr.bLinkIdx = pstClient->bLinkIdx;
+								pstAck->stHdr.unSeqNum = pstHdr->unSeqNum; 
                                 pstAck->stHdr.unTimestamp = (UINT)time(NULL); 
                                 pstAck->stHdr.usDataLen = sizeof(UINT) + sizeof(CHAR); 
                                 pstAck->stHdr.usChechsum = 0; 

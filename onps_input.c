@@ -429,9 +429,8 @@ void onps_input_sem_post(INT nInput)
 {
     if (nInput > SOCKET_NUM_MAX - 1)
         return; 
-
-    //* 只有bRecvTimeout不为0才需要等待报文到达信号，不为0意味着这是一个阻塞型input
-    if (INVALID_HSEM != l_stcbaInput[nInput].hSem && l_stcbaInput[nInput].bRcvTimeout)
+    
+    if (INVALID_HSEM != l_stcbaInput[nInput].hSem/* && l_stcbaInput[nInput].bRcvTimeout*/)
         os_thread_sem_post(l_stcbaInput[nInput].hSem); 
 }
 
@@ -684,8 +683,8 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
 
     //* 搬运成功则投递信号给上层用户，告知对端数据已到达
     if (blIsOK)
-    {       
-		if (l_stcbaInput[nInput].bRcvTimeout)					
+    {       		
+		if (l_stcbaInput[nInput].bRcvTimeout)				 
 			os_thread_sem_post(l_stcbaInput[nInput].hSem);		
     }    
 

@@ -32,9 +32,6 @@ ONE_SHOT_TIMER_EXT void one_shot_timer_stop(void);
 //* one-shot定时器计数线程
 ONE_SHOT_TIMER_EXT void thread_one_shot_timer_count(void *pvParam);
 
-//* 计时移除后该线程负责调用用户自定义的溢出函数并自动销毁定时器资源，用户无需再执行销毁操作
-ONE_SHOT_TIMER_EXT void thread_one_shot_timeout_handler(void *pvParam);
-
 //* 创建一个新的定时器，参数pfunTimeoutHandler指定用户自定义的溢出处理函数，pvParam为传递给溢出处理函数的参数，nTimeoutCount指定计数值
 ONE_SHOT_TIMER_EXT PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, void *pvParam, INT nTimeoutCount); 
 

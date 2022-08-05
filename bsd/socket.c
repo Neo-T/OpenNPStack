@@ -249,7 +249,7 @@ INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port)
 
 static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 {    
-    //* 发送数据
+    //* 发送数据	
     INT nRtnVal = tcp_send_data((INT)socket, pubData, nDataLen, nWaitAckTimeout);
     if (nRtnVal < 0)    
         return -1;    
@@ -279,7 +279,7 @@ __lblWaitAck:
     case TDSACKRCVED:
         return nRtnVal; 
 
-    case TDSTIMEOUT:
+    case TDSTIMEOUT:		
         onps_set_last_error((INT)socket, ERRTCPACKTIMEOUT);
         return -1; 
 

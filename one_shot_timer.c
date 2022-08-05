@@ -295,6 +295,9 @@ void one_shot_timer_safe_free(PST_ONESHOTTIMER pstTimer)
 	PST_ONESHOTTIMER pstNextTimer, pstPrevTimer;
 	BOOL blIsExist = FALSE; 
 
+	if (NULL == pstTimer)
+		return; 
+
     //os_critical_init();
 
 	//*	确保计时队列中还存在这个节点，否则不做任何处理
@@ -342,6 +345,9 @@ void one_shot_timer_safe_free(PST_ONESHOTTIMER pstTimer)
 void one_shot_timer_free(PST_ONESHOTTIMER pstTimer)
 {
     //os_critical_init();
+
+	if (NULL == pstTimer)
+		return;
 
 	os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
     //os_enter_critical();
