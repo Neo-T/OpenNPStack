@@ -171,6 +171,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
             pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
         else
         {
+            pstcbInput->uniHandle.stAddr.bIsSrv = FALSE; 
             pstcbInput->uniHandle.stAddr.unNetifIp = 0;
             pstcbInput->uniHandle.stAddr.usPort = 0;            
             pstcbInput->pvAttach = NULL;

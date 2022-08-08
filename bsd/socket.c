@@ -563,16 +563,59 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
     }
 
     //* 设置地址
-    ST_TCPUDP_HANDLE stHandle; 
-    if (pszNetifIp)    
+    ST_TCPUDP_HANDLE stHandle;     
+    if (pszNetifIp) 
         stHandle.unNetifIp = (UINT)inet_addr(pszNetifIp);
     else
         stHandle.unNetifIp = 0; 
     stHandle.usPort = usPort;  
+    stHandle.bIsSrv = TRUE; //* 只要绑定地址和端口，那么当前socket就一定是服务器
     if (onps_input_set((INT)socket, IOPT_SETTCPUDPADDR, &stHandle, &enErr))
         return TRUE; 
 
 __lblErr:
     onps_set_last_error((INT)socket, enErr);
     return -1;      
+}
+
+INT listen(SOCKET socket, INT backlog)
+{
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        return;     
+
+    //* 只有tcp服务器才能调用这个函数，其它都不可以
+    if (enProto == IPPROTO_TCP)
+    {
+        PST_TCPUDP_HANDLE pstHandle;
+        if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+            goto __lblErr; 
+
+        //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
+        if (!pstHandle->bIsSrv)
+        {
+            enErr = ERRNOTBINDADDR; 
+            goto __lblErr; 
+        }
+
+        //* 
+        EN_TCPLINKSTATE enLinkState;
+        if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+            goto __lblErr;
+
+        //* 尚未进入监听状态
+        if (TLSINVALID == enLinkState)
+        {
+
+        }
+    }
+    else
+        goto __lblErr; 
+
+    return 0; 
+
+__lblErr: 
+    onps_set_last_error((INT)socket, enErr);
+    return -1;
 }

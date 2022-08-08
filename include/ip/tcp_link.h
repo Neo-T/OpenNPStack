@@ -20,7 +20,7 @@ typedef enum {
     TLSINIT,        //* TCP链路初始状态
     TLSACKTIMEOUT,  //* 等待接收ACK报文超时
 
-    //* 以下为Socket被用于TCP Client时的状态定义
+    //* 以下为TCP Client的状态定义
     TLSSYNSENT,             //* SYN请求已发送
     TLSRCVEDSYNACK,         //* 收到SYN ACK    
     TLSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
@@ -87,6 +87,23 @@ typedef struct _ST_TCPLINK_ {
     CHAR bIdx;
     CHAR bNext;
 } ST_TCPLINK, *PST_TCPLINK;
+
+//* 记录到达的tcp服务器连接请求信息的结构体
+typedef struct _ST_TCPBACKLOG_NODE__ {
+    struct {
+        USHORT usPort;
+        UINT unNetifIp;
+    } stAdrr; 
+
+    /* 保留 */
+} ST_TCPBACKLOG_NODE, *PST_TCPBACKLOG_NODE; 
+
+//* 用于tcp服务器的input附加数据
+typedef struct _ST_INPUTATTACH_TCPSRV_ {
+    CHAR bIsUsed; 
+    PST_SLINKEDLIST pstRcvedPacketList; 
+    PST_TCPLINK pstClients; 
+} ST_INPUTATTACH_TCPSRV, *PST_INPUTATTACH_TCPSRV;
 
 TCP_LINK_EXT BOOL tcp_link_init(EN_ONPSERR *penErr); 
 TCP_LINK_EXT void tcp_link_uninit(void); 

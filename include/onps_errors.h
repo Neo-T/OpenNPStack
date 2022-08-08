@@ -72,6 +72,7 @@ typedef enum {
     ERRPORTEMPTY,           //* 端口为空
     ERRWAITACKTIMEOUT,      //* 等待应答超时
     ERRIPCONFLICT,          //* ip地址冲突
+    ERRNOTBINDADDR,         //* 套接字没有绑定地址
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

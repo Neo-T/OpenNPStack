@@ -3,14 +3,21 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "onps_utils.h"
 #include "one_shot_timer.h"
 #define SYMBOL_GLOBALS
 #include "ip/tcp_link.h"
 #undef SYMBOL_GLOBALS
 
+//* tcp链路
 static ST_TCPLINK l_staTcpLinkNode[TCP_LINK_NUM_MAX]; 
-static PST_TCPLINK l_pstFreeTcpLinkList = NULL;
-static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX;
+static PST_TCPLINK l_pstFreeTcpLinkList = NULL; 
+static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX; 
+
+//* 与tcp服务器业务逻辑相关的静态存储时期的变量
+static ST_INPUTATTACH_TCPSRV l_staTcpSrv[TCPSRV_NUM_MAX]; 
+static ST_TCPBACKLOG_NODE l_staTcpBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
+static ST_SLINKEDLIST_NODE l_staTcpBacklogList[TCPSRV_BACKLOG_NUM_MAX]; 
 
 BOOL tcp_link_init(EN_ONPSERR *penErr)
 {

@@ -42,7 +42,7 @@
 #define SUPPORT_ETHERNET    1   //* 是否支持ethernet：1，支持；0，不支持
 #if SUPPORT_ETHERNET
     #define ETHERNET_NUM    1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
-    #define ARPENTRY_NUM    32  //* 要添加
+    #define ARPENTRY_NUM    32  //* arp条目缓存表的大小，只要不小于局域网内目标通讯节点的个数即可确保arp寻址次数为1，否则就会出现频繁寻址的可能，当然这也不会妨碍正常通讯逻辑，只不过这会降低通讯效率    
 #else
     #define ETHERNET_NUM    0
 #endif
@@ -76,7 +76,9 @@
 #define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
 #define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
 #define TCP_MSL                 15      //* 指定TCP链路TIMEWAIT态的最大关闭时长：2 * TCP_MSL，单位：秒
-#define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（TCP客户端 + TCP服务器最大并发连接数）
+#define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（涵盖所有TCP客户端 + TCP服务器的并发连接数），超过这个数量将无法建立新的tcp链路
+#define TCPSRV_BACKLOG_NUM_MAX  10      //* tcp服务器支持的最大请求队列数量，任意时刻所有已开启的tcp服务器的请求连接队列数量之和应小于该值，否则将会出现拒绝连接的情况
+#define TCPSRV_NUM_MAX          2       //* 系统能够同时建立的tcp服务器数量
 #define UDP_LINK_NUM_MAX        4       //* 调用connect()函数连接对端udp服务器的最大数量（一旦调用connect()函数，收到的非服务器报文将被直接丢弃）
 #define SUPPORT_SACK            0       //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
 //* ===============================================================================================

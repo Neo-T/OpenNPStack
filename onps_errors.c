@@ -63,6 +63,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRPORTEMPTY, "port number is empty" }, 
     { ERRWAITACKTIMEOUT, "Timeout waiting for the reply packet" }, 
     { ERRIPCONFLICT, "ip address conflict" }, 
+    { ERRNOTBINDADDR, "The socket does not bind the address" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

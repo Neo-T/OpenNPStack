@@ -770,9 +770,9 @@ void dhcp_renewal_timeout_handler(void *pvParam)
             nTimeout = (pstcbRenewalInfo->unLeaseTime * 3) / 8; 
             pstcbRenewalInfo->bState = 2;  
 
-			os_thread_mutex_lock(o_hMtxPrintf);
-			printf("<0> dhcp_send_renewal() failed\r\n");
-			os_thread_mutex_unlock(o_hMtxPrintf);
+			//os_thread_mutex_lock(o_hMtxPrintf);
+			//printf("<0> dhcp_send_renewal() failed\r\n");
+			//os_thread_mutex_unlock(o_hMtxPrintf);
         }        
         dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
 
@@ -814,9 +814,9 @@ void dhcp_renewal_timeout_handler(void *pvParam)
 				nTimeout = (INT)((pstcbRenewalInfo->unLeaseTime * 3) / 8);
 				pstcbRenewalInfo->bState = 2;
 
-				os_thread_mutex_lock(o_hMtxPrintf);
-				printf("<1> dhcp_recv_renewal_ack() failed\r\n"); 
-				os_thread_mutex_unlock(o_hMtxPrintf);
+				//os_thread_mutex_lock(o_hMtxPrintf);
+				//printf("<1> dhcp_recv_renewal_ack() failed\r\n"); 
+				//os_thread_mutex_unlock(o_hMtxPrintf);
 			}            
         }
         //* 重启续租定时器
@@ -838,9 +838,9 @@ void dhcp_renewal_timeout_handler(void *pvParam)
             nTimeout = (pstcbRenewalInfo->unLeaseTime * 1) / 8;
             pstcbRenewalInfo->bState = 4;
 
-			os_thread_mutex_lock(o_hMtxPrintf);
-			printf("<2> dhcp_send_renewal() failed\r\n");
-			os_thread_mutex_unlock(o_hMtxPrintf);
+			//os_thread_mutex_lock(o_hMtxPrintf);
+			//printf("<2> dhcp_send_renewal() failed\r\n");
+			//os_thread_mutex_unlock(o_hMtxPrintf);
         }  
         //* 重启续租定时器
         dhcp_timer_new(dhcp_renewal_timeout_handler, pstcbRenewalInfo, nTimeout);
@@ -882,9 +882,9 @@ void dhcp_renewal_timeout_handler(void *pvParam)
 				nTimeout = (pstcbRenewalInfo->unLeaseTime * 1) / 8;
 				pstcbRenewalInfo->bState = 4;
 
-				os_thread_mutex_lock(o_hMtxPrintf);
-				printf("<3> dhcp_recv_renewal_ack() failed\r\n");
-				os_thread_mutex_unlock(o_hMtxPrintf);
+				//os_thread_mutex_lock(o_hMtxPrintf);
+				//printf("<3> dhcp_recv_renewal_ack() failed\r\n");
+				//os_thread_mutex_unlock(o_hMtxPrintf);
 			}            
         }
         //* 重启续租定时器

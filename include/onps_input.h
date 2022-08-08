@@ -34,8 +34,9 @@ typedef enum {
 } ONPSIOPT;
 
 typedef struct _ST_TCPUDP_HANDLE_ {
-    UINT unNetifIp;
-    USHORT usPort;    
+    CHAR bIsSrv;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）
+    USHORT usPort;
+    UINT unNetifIp;         
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 
 //* 输入控制块初始化
