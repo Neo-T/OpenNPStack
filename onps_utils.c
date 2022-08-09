@@ -253,7 +253,7 @@ void sllist_del_node_ext(PST_SLINKEDLIST *ppstSLList, void *pvData)
     while (pstNextNode)
     {
         //* 节点携带的数据地址相等则意味着找到了要删除的节点在链表中的链接位置
-        if (pstNextNode->uniData.pvAddr == pvData)
+        if (pstNextNode->uniData.pvData == pvData)
         {
             if (pstPrevNode)
                 pstPrevNode->pstNext = pstNextNode->pstNext;

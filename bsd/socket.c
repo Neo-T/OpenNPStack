@@ -583,7 +583,7 @@ INT listen(SOCKET socket, INT backlog)
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-        return;     
+        return -1;     
 
     //* 只有tcp服务器才能调用这个函数，其它都不可以
     if (enProto == IPPROTO_TCP)
@@ -599,19 +599,32 @@ INT listen(SOCKET socket, INT backlog)
             goto __lblErr; 
         }
 
-        //* 
-        EN_TCPLINKSTATE enLinkState;
-        if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-            goto __lblErr;
+        //* 获取附加段数据，看看监听是否已启动
+        PST_INPUTATTACH_TCPSRV pstAttach;
+        if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, &enErr))                    
+            goto __lblErr; 
 
-        //* 尚未进入监听状态
-        if (TLSINVALID == enLinkState)
+        //* 为空则意味着当前服务尚未进入监听阶段
+        if (!pstAttach)
         {
-
+            pstAttach = tcpsrv_input_attach_get(&enErr);
+            if (pstAttach)
+            {
+                if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstAttach, &enErr))
+                {
+                    tcpsrv_input_attach_free(pstAttach); 
+                    goto __lblErr;
+                }
+            }
+            else
+                goto __lblErr; 
         }
     }
     else
-        goto __lblErr; 
+    {
+        enErr = ERRTCPONLY;
+        goto __lblErr;
+    }
 
     return 0; 
 

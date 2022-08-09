@@ -64,6 +64,8 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRWAITACKTIMEOUT, "Timeout waiting for the reply packet" }, 
     { ERRIPCONFLICT, "ip address conflict" }, 
     { ERRNOTBINDADDR, "The socket does not bind the address" }, 
+    { ERRTCPONLY, "Only supports tcp protocol" }, 
+    { ERRTCPSRVEMPTY, "tcp server resource is empty"}, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

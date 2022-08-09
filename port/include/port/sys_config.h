@@ -9,8 +9,8 @@
 #ifndef SYS_CONFIG_H
 #define SYS_CONFIG_H
 
-#define SOCKET_NUM_MAX          10      //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响）
-#define IP_TTL_DEFAULT          64      //* 缺省TTL值
+#define SOCKET_NUM_MAX  16  //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响），其值应大于等于TCP_LINK_NUM_MAX值
+#define IP_TTL_DEFAULT  64  //* 缺省TTL值
 
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================

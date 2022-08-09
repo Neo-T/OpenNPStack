@@ -44,7 +44,7 @@ typedef struct _ST_SLINKEDLIST_NODE_ ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE,
 typedef struct _ST_SLINKEDLIST_NODE_ {
     PST_SLINKEDLIST_NODE pstNext;
     union {
-        void *pvAddr; 
+        void *pvData; 
         INT nIndex; 
         UINT unParam; 
     } uniData;  

@@ -282,11 +282,14 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         pstcbInput->pvAttach = pvVal; 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
-            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
-            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.bIsZeroWnd = FALSE;
-            ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr; 
-            ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = pstcbInput->bRcvTimeout; 
-            ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.nInput = nInput; 
+            if (!pstcbInput->uniHandle.stAddr.bIsSrv)
+            {
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.bIsZeroWnd = FALSE;
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr;
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = pstcbInput->bRcvTimeout;
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.nInput = nInput; 
+            }            
         }
         else if (IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
@@ -371,6 +374,23 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             *((UINT *)pvVal) = (UINT)pstcbInput->pvAttach;
         else
             *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
+        break; 
+
+    case IOPT_GETTCPUDPLINK: 
+        if (sizeof(pvVal) == 4)
+        {
+            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && pstcbInput->uniHandle.stAddr.bIsSrv)
+                *((UINT *)pvVal) = 0/*(UINT)((PST_INPUTATTACH_TCPSRV)pstcbInput->pvAttach)->pstClients*/;
+            else
+                *((UINT *)pvVal) = (UINT)pstcbInput->pvAttach;
+        }
+        else
+        {
+            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && pstcbInput->uniHandle.stAddr.bIsSrv)
+                *((ULONGLONG *)pvVal) = 0/*(ULONGLONG)((PST_INPUTATTACH_TCPSRV)pstcbInput->pvAttach)->pstClients*/; 
+            else
+                *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
+        }
         break; 
 
     case IOPT_GETTCPDATASNDSTATE:

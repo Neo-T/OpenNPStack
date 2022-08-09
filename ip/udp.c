@@ -90,7 +90,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
     
     //* 获取链路信息存储节点
     PST_UDPLINK pstLink;
-    if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPLINK, &pstLink, &enErr))
     {
         onps_set_last_error(nInput, enErr);
         return -1;

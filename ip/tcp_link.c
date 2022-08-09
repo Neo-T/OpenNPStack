@@ -15,9 +15,9 @@ static PST_TCPLINK l_pstFreeTcpLinkList = NULL;
 static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX; 
 
 //* 与tcp服务器业务逻辑相关的静态存储时期的变量
-static ST_INPUTATTACH_TCPSRV l_staTcpSrv[TCPSRV_NUM_MAX]; 
-static ST_TCPBACKLOG_NODE l_staTcpBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
-static ST_SLINKEDLIST_NODE l_staTcpBacklogList[TCPSRV_BACKLOG_NUM_MAX]; 
+static ST_INPUTATTACH_TCPSRV l_staIAttachSrv[TCPSRV_NUM_MAX]; 
+static ST_TCPBACKLOG l_staBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
+static ST_SLINKEDLIST_NODE l_staSListBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
 
 BOOL tcp_link_init(EN_ONPSERR *penErr)
 {
@@ -31,6 +31,18 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
     l_staTcpLinkNode[i].bIdx = i; 
     l_staTcpLinkNode[i].bNext = -1; 
     l_pstFreeTcpLinkList = &l_staTcpLinkNode[0]; 
+
+    //* 组成backlog链
+    INT i;
+    for (i = 0; i < TCPSRV_BACKLOG_NUM_MAX - 1; i++)
+    {
+        l_staSListBacklog[i].pstNext = &l_staSListBacklog[i + 1]; 
+        l_staSListBacklog[i].uniData.pvData = &l_staBacklog[i]; 
+    }
+    l_staSListBacklog[i].pstNext = NULL;
+    l_staSListBacklog[i].uniData.pvData = &l_staBacklog[i]; 
+
+    memset(&l_staIAttachSrv[0], 0, sizeof(l_staIAttachSrv)); 
 
     l_hMtxTcpLinkList = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxTcpLinkList)
@@ -92,3 +104,53 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
     }
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 }
+
+
+PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
+{
+    PST_INPUTATTACH_TCPSRV pstAttach = NULL; 
+
+    os_critical_init(); 
+
+    INT i; 
+    os_enter_critical();
+    {
+        for (i = 0; i < TCPSRV_NUM_MAX; i++)
+        {
+            if (!l_staIAttachSrv[i].bIsUsed)
+            {
+                pstAttach = &l_staIAttachSrv[i]; 
+                pstAttach->bIsUsed = TRUE; 
+                break; 
+            }
+        }
+    }
+    os_exit_critical(); 
+
+    if (pstAttach)
+    {        
+        pstAttach->pstSListBacklog = NULL; 
+
+        pstAttach->hSemAccept = os_thread_sem_init(0, TCPSRV_BACKLOG_NUM_MAX); 
+        if (INVALID_HSEM == pstAttach->hSemAccept) 
+        {
+            if (penErr)
+                *penErr = ERRSEMINITFAILED;
+            pstAttach->bIsUsed = FALSE; 
+            pstAttach = NULL; 
+        }
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRTCPSRVEMPTY;
+    }
+
+    return pstAttach; 
+}
+
+void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
+{
+    pstAttach->bIsUsed = FALSE; 
+}
+

@@ -73,6 +73,8 @@ typedef enum {
     ERRWAITACKTIMEOUT,      //* 等待应答超时
     ERRIPCONFLICT,          //* ip地址冲突
     ERRNOTBINDADDR,         //* 套接字没有绑定地址
+    ERRTCPONLY,             //* 仅支持tco协议
+    ERRTCPSRVEMPTY,         //* tcp服务器资源为空
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

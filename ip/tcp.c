@@ -235,7 +235,7 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
 
     //* 获取链路信息存储节点
     PST_TCPLINK pstLink; 
-    if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPLINK, &pstLink, &enErr))
     {
         onps_set_last_error(nInput, enErr); 
         return -1; 
@@ -301,7 +301,7 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 
     //* 获取链路信息存储节点
     PST_TCPLINK pstLink;
-    if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPLINK, &pstLink, &enErr))
     {
         onps_set_last_error(nInput, enErr);
         return -1;
@@ -378,7 +378,7 @@ void tcp_disconnect(INT nInput)
 
     //* 获取链路信息存储节点
     PST_TCPLINK pstLink;
-    if (!onps_input_get(nInput, IOPT_GETATTACH, &pstLink, &enErr))
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPLINK, &pstLink, &enErr))
     {
         onps_set_last_error(nInput, enErr);
         return;
@@ -527,6 +527,17 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
         UINT unSrcAckNum = htonl(pstHdr->unAckNum);
         UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
+
+
+        /*
+        如果是服务器input，这里需要遍历input链表确保到达数据的客户端都时合法客户端即可，同时取出其对应的pstLink，但input还是保留服务器的，客户端的只是在收到数据时使用
+        ……
+        ……
+        ……
+        ……
+         */
+
+
 
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)

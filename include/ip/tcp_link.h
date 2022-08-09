@@ -89,25 +89,28 @@ typedef struct _ST_TCPLINK_ {
 } ST_TCPLINK, *PST_TCPLINK;
 
 //* 记录到达的tcp服务器连接请求信息的结构体
-typedef struct _ST_TCPBACKLOG_NODE__ {
+typedef struct _ST_TCPBACKLOG__ {
     struct {
         USHORT usPort;
         UINT unNetifIp;
     } stAdrr; 
 
     /* 保留 */
-} ST_TCPBACKLOG_NODE, *PST_TCPBACKLOG_NODE; 
+} ST_TCPBACKLOG, *PST_TCPBACKLOG; 
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
     CHAR bIsUsed; 
-    PST_SLINKEDLIST pstRcvedPacketList; 
-    PST_TCPLINK pstClients; 
+    HSEM hSemAccept; 
+    PST_SLINKEDLIST pstSListBacklog;     
 } ST_INPUTATTACH_TCPSRV, *PST_INPUTATTACH_TCPSRV;
 
 TCP_LINK_EXT BOOL tcp_link_init(EN_ONPSERR *penErr); 
 TCP_LINK_EXT void tcp_link_uninit(void); 
 TCP_LINK_EXT PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr);
-TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink);
+TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink); 
+
+TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
+TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach);
 
 #endif
