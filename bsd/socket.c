@@ -4,6 +4,7 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"
+#include "one_shot_timer.h" 
 #include "onps_utils.h"
 #define SYMBOL_GLOBALS
 #include "bsd/socket.h"
@@ -569,7 +570,12 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
     else
         stHandle.unNetifIp = 0; 
     stHandle.usPort = usPort;  
-    stHandle.bIsSrv = TRUE; //* 只要绑定地址和端口，那么当前socket就一定是服务器
+
+    //* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
+    if(IPPROTO_TCP == enProto)
+        stHandle.bType = TCP_TYPE_SERVER;
+    
+    //* 更新句柄
     if (onps_input_set((INT)socket, IOPT_SETTCPUDPADDR, &stHandle, &enErr))
         return TRUE; 
 
@@ -583,7 +589,7 @@ INT listen(SOCKET socket, INT backlog)
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-        return -1;     
+        goto __lblErr; 
 
     //* 只有tcp服务器才能调用这个函数，其它都不可以
     if (enProto == IPPROTO_TCP)
@@ -593,7 +599,7 @@ INT listen(SOCKET socket, INT backlog)
             goto __lblErr; 
 
         //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
-        if (!pstHandle->bIsSrv)
+        if (TCP_TYPE_SERVER != pstHandle->bType)
         {
             enErr = ERRNOTBINDADDR; 
             goto __lblErr; 
@@ -631,4 +637,95 @@ INT listen(SOCKET socket, INT backlog)
 __lblErr: 
     onps_set_last_error((INT)socket, enErr);
     return -1;
+}
+
+SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWaitSecs) 
+{
+    INT nInputClient; 
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr; 
+
+    //* 只有tcp服务器才能调用这个函数，其它都不可以
+    if (enProto == IPPROTO_TCP)
+    {
+        PST_TCPUDP_HANDLE pstHandle;
+        if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+            goto __lblErr;
+
+        //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
+        if (TCP_TYPE_SERVER != pstHandle->bType)
+        {
+            enErr = ERRNOTBINDADDR;
+            goto __lblErr;
+        }
+
+        //* 获取附加段数据，看看监听是否已启动
+        PST_INPUTATTACH_TCPSRV pstAttach;
+        if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, &enErr))
+            goto __lblErr;
+
+        //* 为空则意味着当前服务尚未进入监听阶段，不能调用这个函数
+        if (!pstAttach)
+        {
+            enErr = ERRTCPNOLISTEN; 
+            goto __lblErr; 
+        }
+
+        //* 查询连接是否已经到达
+        if (nWaitSecs)
+        {
+            if (nWaitSecs < 0)
+                nWaitSecs = 0; 
+
+            INT nRtnVal = os_thread_sem_pend(pstAttach->hSemAccept, nWaitSecs); 
+            if (nRtnVal < 0) //* 等待期间发生错误
+            {
+                enErr = ERRINVALIDSEM; 
+                goto __lblErr;
+            }
+
+            if (nRtnVal) //* 超时，未收到信号
+            {
+                enErr = ERRACCEPTTIMEOUT;
+                goto __lblErr; 
+            }
+        }
+        
+        //* 取出一个连接请求
+        PST_TCPBACKLOG pstBacklog = tcp_backlog_get(&pstAttach->pstSListBacklog); 
+        if (pstBacklog)
+        {
+            //* 保存到达的客户端的ip地址和端口，并释放占用的backlog资源
+            USHORT usCltPort = pstBacklog->stAdrr.usPort; 
+            UINT unCltIp = pstBacklog->stAdrr.unIp; 
+            tcp_backlog_free(pstBacklog); 
+
+            HSEM hSem = INVALID_HSEM;
+            if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))            
+                goto __lblErr;
+            if (INVALID_HSEM == hSem)
+            {                
+                enErr = ERRINVALIDSEM;
+                goto __lblErr;
+            }
+
+            //* 为新到达的客户端申请一个input资源
+            nInputClient = onps_input_new_tcp_remote_client(hSem, pstHandle->usPort, pstHandle->unNetifIp, usCltPort, unCltIp, &enErr); 
+            if(nInputClient < 0) 
+                goto __lblErr;            
+            
+            //* 启动一个定时器等待对端的ack到达，只有收到ack才能真正建立tcp双向链路，否则只能算是半开链路（或称作半连接链路，客户端只能发送无法接收）
+            PST_ONESHOTTIMER pstTimer = one_shot_timer_new(tcpsrv_syn_recv_timeout_handler, (void *)nInputClient, 3); 
+
+            return (SOCKET)nInputClient;
+        }
+    }
+    else     
+        enErr = ERRTCPONLY;    
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return INVALID_SOCKET; 
 }

@@ -325,7 +325,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     USHORT usSrcPort = htons(pstHdr->usSrcPort); 
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_UDPLINK pstLink;
-    INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink); 
+    INT nInput = onps_input_get_handle_ext(IPPROTO_UDP, unDstAddr, usDstPort, &pstLink);
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3

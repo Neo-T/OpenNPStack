@@ -18,6 +18,10 @@
 
 static void tcp_send_fin(PST_TCPLINK pstLink); 
 
+void tcpsrv_syn_recv_timeout_handler(void *pvParam)
+{
+}
+
 static void tcp_ack_timeout_handler(void *pvParam)
 {        
     PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;     	
@@ -492,7 +496,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     //* 先查找当前链路是否存在
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_TCPLINK pstLink;     
-    INT nInput = onps_input_get_handle_ext(unDstAddr, usDstPort, &pstLink);        
+    INT nInput = onps_input_get_handle_ext(IPPROTO_TCP, unDstAddr, usDstPort, &pstLink);
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3

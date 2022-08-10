@@ -166,6 +166,7 @@ PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
 
 void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
 {
+    os_thread_sem_uninit(pstAttach->hSemAccept); 
     pstAttach->bIsUsed = FALSE; 
 }
 

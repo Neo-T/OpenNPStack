@@ -56,7 +56,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
     }
 
     //* 建立信号量
-    pstExtra->hSem = os_thread_sem_init(0, 10000); 
+    pstExtra->hSem = os_thread_sem_init(0, 100000); 
     if (INVALID_HSEM == pstExtra->hSem)
     {
         pstExtra->bIsUsed = FALSE; //* 归还

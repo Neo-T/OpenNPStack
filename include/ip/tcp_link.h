@@ -25,6 +25,11 @@ typedef enum {
     TLSRCVEDSYNACK,         //* 收到SYN ACK    
     TLSSYNACKACKSENTFAILED, //* 给服务器发送SYN ACK的ACK报文失败
     TLSCONNECTED,           //* 已连接
+
+    //* 以下为连接本地tcp服务器的远端tcp客户端相关链路状态定义
+    TLSRCVEDSYN,            //* 收到客户端发送的syn连接请求报文
+    TLSSYNACKSENT,          //* 服务器已发送syn ack报文给客户端
+    TLSSYNACKACKTIMEOUT,    //* 等待客户端回馈的syn ack报文的ack报文超时
     
     TLSRESET,               //* 连接被重置    
 

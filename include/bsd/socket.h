@@ -65,4 +65,10 @@ SOCKET_EXT INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort);
 //* tcp服务器进入被动监听状态，入口参数与函数功能与伯克利sockets完全相同
 SOCKET_EXT INT listen(SOCKET socket, INT backlog); 
 
+//* 接受一个到达的tcp连接请求，参数punFromIP及pusFromPort为发起连接请求的客户端的ip地址及端口，参数nWaitSecs指定等待时长（单位秒）：
+//*     0: 不等待，立即返回
+//* 大于0: 等待指定时间直至超时或收到一个到达的连接请求
+//* 小于0: 一直等待，直至收到一个到达的连接请求
+SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWaitSecs);
+
 #endif

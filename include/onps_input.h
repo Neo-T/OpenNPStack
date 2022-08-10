@@ -34,8 +34,11 @@ typedef enum {
     IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度    
 } ONPSIOPT;
 
+#define TCP_TYPE_LCLIENT 0  //* 连接远端服务器的tcp客户端
+#define TCP_TYPE_RCLIENT 1  //* 连接本地服务器的tcp客户端
+#define TCP_TYPE_SERVER  2  //* 本地tcp服务器
 typedef struct _ST_TCPUDP_HANDLE_ {
-    CHAR bIsSrv;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）    
+    CHAR bType;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器、连接本地服务器的客户端、连接远端服务器的客户端（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）    
     USHORT usPort;
     UINT unNetifIp;         
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
@@ -48,6 +51,7 @@ ONPSINPUT_EXT void onps_input_uninit(void);
 
 //* 建立一个新的输入控制块
 ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr); 
+ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, EN_ONPSERR *penErr); 
 
 //* 释放一个输入控制块
 ONPSINPUT_EXT void onps_input_free(INT nInput); 
@@ -59,6 +63,7 @@ ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 //* 投递一个数据到达或链路异常的信号
 ONPSINPUT_EXT void onps_input_sem_post(INT nInput); 
 ONPSINPUT_EXT INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
 
 //* 对tcp链路关闭状态进行迁移
 ONPSINPUT_EXT BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState); 
@@ -88,8 +93,8 @@ ONPSINPUT_EXT BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort);
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 
 //* 根据ip地址和端口号获取input句柄
-ONPSINPUT_EXT INT onps_input_get_handle(UINT unNetifIp, USHORT usPort); 
-ONPSINPUT_EXT INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach);
+ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort);
+ONPSINPUT_EXT INT onps_input_get_handle_ext(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach);
 
 //* 设置/获取最近一次发生的错误
 ONPSINPUT_EXT const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr);
