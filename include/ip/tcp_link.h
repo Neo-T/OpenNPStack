@@ -92,18 +92,22 @@ typedef struct _ST_TCPLINK_ {
 typedef struct _ST_TCPBACKLOG__ {
     struct {
         USHORT usPort;
-        UINT unNetifIp;
+        UINT unIp;
     } stAdrr; 
 
-    /* 保留 */
+    PST_SLINKEDLIST_NODE pstNode; 
 } ST_TCPBACKLOG, *PST_TCPBACKLOG; 
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
     CHAR bIsUsed; 
     HSEM hSemAccept; 
-    PST_SLINKEDLIST pstSListBacklog;     
+    PST_SLINKEDLIST pstSListBacklog; 
+    PST_SLINKEDLIST pstSListRcvQueue; 
 } ST_INPUTATTACH_TCPSRV, *PST_INPUTATTACH_TCPSRV;
+
+//* tcp服务器数据接收队列节点定义
+typedef ST_SLINKEDLIST_NODE ST_TCPSRV_RCVQUEUE_NODE, *PST_TCPSRV_RCVQUEUE_NODE; 
 
 TCP_LINK_EXT BOOL tcp_link_init(EN_ONPSERR *penErr); 
 TCP_LINK_EXT void tcp_link_uninit(void); 
@@ -111,6 +115,13 @@ TCP_LINK_EXT PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink); 
 
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
-TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach);
+TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach); 
+TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog); 
+TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, USHORT usPort, UINT unIp); 
+TCP_LINK_EXT void tcp_backlog_free(PST_TCPBACKLOG pstBacklog);
+
+TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue);
+TCP_LINK_EXT void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, INT nInput); 
+TCP_LINK_EXT void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode); 
 
 #endif

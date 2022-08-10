@@ -69,13 +69,13 @@ BOOL onps_input_init(EN_ONPSERR *penErr)
 
     //* 生成单向链表
     INT i;     
-    l_staNodes[0].uniData.nIndex = 0;
+    l_staNodes[0].uniData.nVal = 0;
     l_stcbaInput[0].hSem = INVALID_HSEM; 
     for (i = 1; i < SOCKET_NUM_MAX; i++)
     {
         l_staNodes[i - 1].pstNext = &l_staNodes[i];        
         l_stcbaInput[i].hSem = INVALID_HSEM;
-        l_staNodes[i].uniData.nIndex = i; 
+        l_staNodes[i].uniData.nVal = i;
     }
 
     l_pstFreedSLList = &l_staNodes[0];
@@ -159,7 +159,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     os_thread_mutex_lock(l_hMtxInput); 
     {
         pstNode = sllist_get_node(&l_pstFreedSLList);
-        pstcbInput = &l_stcbaInput[pstNode->uniData.nIndex];
+        pstcbInput = &l_stcbaInput[pstNode->uniData.nVal];
         pstcbInput->hSem = hSem; 
         pstcbInput->bRcvTimeout = -1; 
         pstcbInput->ubIPProto = (UCHAR)enProtocol; 
@@ -181,7 +181,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     }
     os_thread_mutex_unlock(l_hMtxInput);
 
-    return pstNode->uniData.nIndex;
+    return pstNode->uniData.nVal;
 }
 
 void onps_input_free(INT nInput)
@@ -206,7 +206,7 @@ void onps_input_free(INT nInput)
         PST_SLINKEDLIST_NODE pstNextNode = l_pstInputSLList; 
         while (pstNextNode)
         {
-            if (pstNextNode->uniData.nIndex == nInput)
+            if (pstNextNode->uniData.nVal == nInput)
             {
                 PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
 
@@ -590,10 +590,10 @@ INT onps_input_get_icmp(USHORT usIdentifier)
         PSTCB_ONPS_INPUT pstcbInput;
         while (pstNextNode)
         {
-            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
             if ((EN_IPPROTO)pstcbInput->ubIPProto == IPPROTO_ICMP && usIdentifier == pstcbInput->uniHandle.stIcmp.usIdentifier)
             {
-                nInput = pstNextNode->uniData.nIndex; 
+                nInput = pstNextNode->uniData.nVal;
                 break;
             }
 
@@ -900,7 +900,7 @@ BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
         PSTCB_ONPS_INPUT pstcbInput;
         while (pstNextNode)
         {
-            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
             if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stAddr.usPort)
             {
                 blIsUsed = TRUE;
@@ -938,12 +938,12 @@ INT onps_input_get_handle(UINT unNetifIp, USHORT usPort)
         PSTCB_ONPS_INPUT pstcbInput;
         while (pstNextNode)
         {
-            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
             if (pstcbInput->ubIPProto == IPPROTO_TCP && pstcbInput->ubIPProto == IPPROTO_UDP)
             {
                 if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
                 {
-                    nInput = pstNextNode->uniData.nIndex;
+                    nInput = pstNextNode->uniData.nVal;
                     break; 
                 }                
             }
@@ -965,7 +965,7 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
         PSTCB_ONPS_INPUT pstcbInput;
         while (pstNextNode)
         {
-            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nIndex];
+            pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
             if (pstcbInput->ubIPProto == IPPROTO_TCP || pstcbInput->ubIPProto == IPPROTO_UDP)
             {                
                 //* 端口必须匹配，地址则根据不同情况另说
@@ -974,7 +974,7 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
                     //* 未指定地址（地址为0，则当前绑定所有网络接口，此为对外提供服务端口）；指定地址则必须完全匹配
                     if (pstcbInput->uniHandle.stAddr.unNetifIp == 0 || unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp)
                     {
-                        nInput = pstNextNode->uniData.nIndex;
+                        nInput = pstNextNode->uniData.nVal;
                         if (sizeof(pvAttach) == 4)
                             *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
                         else
@@ -986,7 +986,7 @@ INT onps_input_get_handle_ext(UINT unNetifIp, USHORT usPort, void *pvAttach)
                 /*
                 if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
                 {
-                    nInput = pstNextNode->uniData.nIndex;
+                    nInput = pstNextNode->uniData.nVal;
                     if (sizeof(pvAttach) == 4)
                         *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
                     else

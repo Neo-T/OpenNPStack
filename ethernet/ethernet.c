@@ -321,7 +321,7 @@ __lblGetPacket:
         if (pstNode)
         {
             //* 向上传递
-            ethernet_ii_recv(pstNetif, ((UCHAR *)pstNode) + sizeof(ST_SLINKEDLIST_NODE), (INT)pstNode->uniData.unParam); 
+            ethernet_ii_recv(pstNetif, ((UCHAR *)pstNode) + sizeof(ST_SLINKEDLIST_NODE), (INT)pstNode->uniData.unVal); 
             //* 释放该节点
             buddy_free(pstNode); 
 

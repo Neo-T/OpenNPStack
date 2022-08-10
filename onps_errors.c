@@ -66,6 +66,8 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRNOTBINDADDR, "The socket does not bind the address" }, 
     { ERRTCPONLY, "Only supports tcp protocol" }, 
     { ERRTCPSRVEMPTY, "tcp server resource is empty"}, 
+    { ERRTCPBACKLOGEMPTY, "backlog resource for tcp server is empty" }, 
+    { ERRTCPRCVQUEUEEMPTY, "recv queue resource for tcp server is empty" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

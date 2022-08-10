@@ -15,9 +15,18 @@ static PST_TCPLINK l_pstFreeTcpLinkList = NULL;
 static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX; 
 
 //* 与tcp服务器业务逻辑相关的静态存储时期的变量
+//* =========================================================================
 static ST_INPUTATTACH_TCPSRV l_staIAttachSrv[TCPSRV_NUM_MAX]; 
+
+//* 连接请求队列
 static ST_TCPBACKLOG l_staBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
 static ST_SLINKEDLIST_NODE l_staSListBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
+static PST_SLINKEDLIST l_pstSListBacklogFreed; 
+
+//* 数据接收队列
+static ST_SLINKEDLIST_NODE l_staSListRcvQueue[TCPSRV_RECV_QUEUE_NUM]; 
+static PST_SLINKEDLIST l_pstSListRcvQueueFreed; 
+//* =========================================================================
 
 BOOL tcp_link_init(EN_ONPSERR *penErr)
 {
@@ -32,17 +41,24 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
     l_staTcpLinkNode[i].bNext = -1; 
     l_pstFreeTcpLinkList = &l_staTcpLinkNode[0]; 
 
-    //* 组成backlog链
-    INT i;
+    //* 组成backlog资源链（用于tcp服务器）    
     for (i = 0; i < TCPSRV_BACKLOG_NUM_MAX - 1; i++)
     {
         l_staSListBacklog[i].pstNext = &l_staSListBacklog[i + 1]; 
-        l_staSListBacklog[i].uniData.pvData = &l_staBacklog[i]; 
+        l_staSListBacklog[i].uniData.ptr = &l_staBacklog[i]; 
     }
     l_staSListBacklog[i].pstNext = NULL;
-    l_staSListBacklog[i].uniData.pvData = &l_staBacklog[i]; 
+    l_staSListBacklog[i].uniData.ptr = &l_staBacklog[i]; 
+    l_pstSListBacklogFreed = &l_staSListBacklog[0]; 
 
+    //* 清零tcp服务器的附加数据段资源
     memset(&l_staIAttachSrv[0], 0, sizeof(l_staIAttachSrv)); 
+
+    //* 组成数据接收队列链资源（用于tcp服务器）
+    for (i = 0; i < TCPSRV_RECV_QUEUE_NUM - 1; i++)
+        l_staSListRcvQueue[i].pstNext = &l_staSListRcvQueue[i + 1]; 
+    l_staSListRcvQueue[i].pstNext = NULL; 
+    l_pstSListRcvQueueFreed = &l_staSListRcvQueue[0]; 
 
     l_hMtxTcpLinkList = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxTcpLinkList)
@@ -108,13 +124,12 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
 
 PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
 {
-    PST_INPUTATTACH_TCPSRV pstAttach = NULL; 
-
-    os_critical_init(); 
-
-    INT i; 
+    PST_INPUTATTACH_TCPSRV pstAttach = NULL;     
+    
+    os_critical_init();
     os_enter_critical();
     {
+        INT i;
         for (i = 0; i < TCPSRV_NUM_MAX; i++)
         {
             if (!l_staIAttachSrv[i].bIsUsed)
@@ -154,3 +169,116 @@ void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
     pstAttach->bIsUsed = FALSE; 
 }
 
+PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog)
+{
+    PST_TCPBACKLOG pstBacklog = NULL; 
+
+    os_critical_init(); 
+    os_enter_critical();
+    {
+        PST_SLINKEDLIST_NODE pstNode = sllist_get_node(ppstSListBacklog); 
+        if (pstNode)
+        {
+            pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
+            pstBacklog->pstNode = pstNode; 
+        }
+    }
+    os_exit_critical(); 
+
+    return pstBacklog; 
+}
+
+void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, USHORT usPort, UINT unIp)
+{
+    PST_SLINKEDLIST_NODE pstNode = NULL; 
+
+    os_critical_init();
+    os_enter_critical(); 
+    {
+        pstNode = sllist_get_node(&l_pstSListBacklogFreed); 
+        if (pstNode)
+        {
+            ((PST_TCPBACKLOG)pstNode->uniData.ptr)->stAdrr.unIp = unIp;
+            ((PST_TCPBACKLOG)pstNode->uniData.ptr)->stAdrr.usPort = usPort; 
+            sllist_put_tail_node(ppstSListBacklog, pstNode); 
+        }        
+    }
+    os_exit_critical();
+
+    if (!pstNode)
+    {
+#if SUPPORT_PRINTF 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif        
+        printf("%s\r\n", onps_error(ERRTCPBACKLOGEMPTY)); 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+}
+
+void tcp_backlog_free(PST_TCPBACKLOG pstBacklog)
+{
+    os_critical_init();
+    os_enter_critical();
+    {
+        sllist_put_node(&l_pstSListBacklogFreed, pstBacklog->pstNode);
+    }
+    os_exit_critical();
+}
+
+PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue)
+{
+    PST_TCPSRV_RCVQUEUE_NODE pstNode = NULL;
+
+    os_critical_init();
+    os_enter_critical();
+    {
+        pstNode = sllist_get_node(ppstSListRcvQueue);
+    }
+    os_exit_critical();
+
+    return pstNode; 
+}
+
+void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, INT nInput)
+{
+    PST_SLINKEDLIST_NODE pstNode = NULL;
+
+    os_critical_init(); 
+    os_enter_critical(); 
+    {
+        pstNode = sllist_get_node(&l_pstSListRcvQueueFreed);
+        if (pstNode)
+        {
+            pstNode->uniData.nVal = nInput; 
+            sllist_put_tail_node(ppstSListRcvQueue, pstNode); 
+        }
+    }
+    os_exit_critical();
+
+    if (!pstNode)
+    {
+#if SUPPORT_PRINTF 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif        
+        printf("%s\r\n", onps_error(ERRTCPRCVQUEUEEMPTY));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+}
+
+void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode)
+{
+    os_critical_init();
+    os_enter_critical();
+    {
+        sllist_put_node(&l_pstSListRcvQueueFreed, pstNode);
+    }
+    os_exit_critical();
+}
