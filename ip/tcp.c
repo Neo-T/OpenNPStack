@@ -419,6 +419,22 @@ static void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcP
     tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, NULL);    
 }
 
+static INT tcp_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
+{
+    //* 标志字段ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.syn = 1; 
+    uniFlag.stb16.ack = 1;
+
+    //* 填充tcp头部选项数据
+    UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX];
+    INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
+
+    //* 完成实际的发送
+    return tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr); 
+}
+
 void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
 {
     PST_TCP_HDR pstHdr = (PST_TCP_HDR)pubPacket; 
@@ -496,7 +512,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     //* 先查找当前链路是否存在
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_TCPLINK pstLink;     
-    INT nInput = onps_input_get_handle_ext(IPPROTO_TCP, unDstAddr, usDstPort, &pstLink);
+    INT nInput = onps_input_get_handle(IPPROTO_TCP, unDstAddr, usDstPort, &pstLink);
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
@@ -525,14 +541,12 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
     //* 依据报文头部标志字段确定下一步的处理逻辑
     UNI_TCP_FLAG uniFlag; 
+    INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
+    UINT unSrcAckNum = htonl(pstHdr->unAckNum);
+    UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
     uniFlag.usVal = pstHdr->usFlag;
     if (uniFlag.stb16.ack)
-    {
-        INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
-        UINT unSrcAckNum = htonl(pstHdr->unAckNum);
-        UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
-
-
+    {             
         /*
         如果是服务器input，这里需要遍历input链表确保到达数据的客户端都时合法客户端即可，同时取出其对应的pstLink，但input还是保留服务器的，客户端的只是在收到数据时使用
         ……
@@ -712,6 +726,88 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     tcp_send_ack(pstLink, unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort));
                 }
             }            
+        }
+    }
+    //* 只有tcp syn连接请求报文才没有ack标志
+    else
+    {
+        UINT unCltIp = htonl(unSrcAddr);
+        USHORT usCltPort = htons(pstHdr->usSrcPort); 
+
+        //* 首先看看是否已针对当前请求申请了input
+        INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
+        if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个
+        {
+            HSEM hSem = INVALID_HSEM;
+            if (!onps_input_get(nInput, IOPT_GETSEM, &hSem, &enErr))
+            {
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
+                CHAR szAddr[20];
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("Can't get semaphore for tcp server (%s:%d), %s\r\n", inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, onps_error(enErr));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
+                return; 
+            }
+            if (INVALID_HSEM == hSem)
+            {
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
+                CHAR szAddr[20];
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("Can't get semaphore for tcp server (%s:%d), %s\r\n", inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, onps_error(ERRINVALIDSEM)); 
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
+                return; 
+            }            
+
+            nRmtCltInput = onps_input_new_tcp_remote_client(hSem, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);
+            if (nRmtCltInput < 0)
+            {
+        #if SUPPORT_PRINTF && DEBUG_LEVEL                
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("%s\r\n", onps_error(ERRINVALIDSEM));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
+                return; 
+            }
+        }
+
+        //* 截取tcp头部选项字段
+        tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
+
+        //* 发送syn ack报文给对端
+        pstLink->stPeer.unSeqNum = unPeerSeqNum + 1; 
+        INT nRtnVal = tcp_send_syn_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort, &enErr);
+        if (nRtnVal > 0)
+        {     
+            //* 启动一个定时器
+        }
+        else
+        {
+            onps_input_free(nRmtCltInput); 
+
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+            CHAR szAddr[20], szAddrClt[20];
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
+            printf("tcp_send_syn_ack() failed (server %s:%d, client: %s:%d), %s\r\n", inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, inet_ntoa_safe_ext(unCltIp, szAddr), usCltPort, onps_error(ERRINVALIDSEM));
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
         }
     }
 }

@@ -673,7 +673,7 @@ SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWai
             goto __lblErr; 
         }
 
-        //* 查询连接是否已经到达
+        //* 是否需要等待指定时间直至信号到达或超时
         if (nWaitSecs)
         {
             if (nWaitSecs < 0)

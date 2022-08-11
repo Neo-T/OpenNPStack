@@ -100,6 +100,8 @@ typedef struct _ST_TCPBACKLOG__ {
         UINT unIp;
     } stAdrr; 
 
+    INT nInput; 
+
     PST_SLINKEDLIST_NODE pstNode; 
 } ST_TCPBACKLOG, *PST_TCPBACKLOG; 
 

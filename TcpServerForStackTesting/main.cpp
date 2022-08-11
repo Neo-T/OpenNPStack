@@ -239,7 +239,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
     UINT unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx;
     INT nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
     if (nRcvBytes > 0)
-    {
+    {        
         PST_COMMUPKT_HDR pstHdr;
         pstClient->stcbRcv.unWriteIdx += (UINT)nRcvBytes; 
         for (; pstClient->stcbRcv.unReadIdx < pstClient->stcbRcv.unWriteIdx; )

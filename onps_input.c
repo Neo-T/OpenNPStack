@@ -184,7 +184,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     return pstNode->uniData.nVal;
 }
 
-INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, EN_ONPSERR *penErr)
+INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
 {
     PST_TCPLINK pstLink = tcp_link_get(penErr);
     if (!pstLink)
@@ -215,13 +215,15 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
         pstcbInput->uniHandle.stAddr.unNetifIp = unSrvIp;
         pstcbInput->uniHandle.stAddr.usPort = usSrvPort;
         pstcbInput->pvAttach = pstLink;
-        pstLink->bState = TLSRCVEDSYN;
+        pstLink->bState = TLSRCVEDSYN;        
         pstLink->stPeer.stAddr.unIp = unCltIp; 
         pstLink->stPeer.stAddr.usPort = usCltPort; 
 
         sllist_put_node(&l_pstInputSLList, pstNode);
     }
     os_thread_mutex_unlock(l_hMtxInput);
+
+    *ppstTcpLink = pstLink; 
 
     return pstNode->uniData.nVal;
 }
@@ -1012,7 +1014,7 @@ __lblPortNew:
         return usPort;
 }
 
-INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort)
+INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT unCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink)
 {
     INT nInput = -1;
     os_thread_mutex_lock(l_hMtxInput);
@@ -1022,10 +1024,15 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort)
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
-            if (enIpProto == pstcbInput->ubIPProto/* == IPPROTO_TCP && pstcbInput->ubIPProto == IPPROTO_UDP*/)
-            {
-                if (unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp && usPort == pstcbInput->uniHandle.stAddr.usPort)
+            if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT == pstcbInput->uniHandle.stAddr.bType && pstcbInput->pvAttach)
+            {                
+                PST_TCPLINK pstLink = (PST_TCPLINK)pstcbInput->pvAttach; 
+                if (unSrvIp == pstcbInput->uniHandle.stAddr.unNetifIp 
+                    && usSrvPort == pstcbInput->uniHandle.stAddr.usPort 
+                    && unCltIp == pstLink->stPeer.stAddr.unIp
+                    && usCltPort == pstLink->stPeer.stAddr.usPort)
                 {
+                    *ppstTcpLink = pstLink; 
                     nInput = pstNextNode->uniData.nVal;
                     break; 
                 }                
@@ -1039,7 +1046,7 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort)
     return nInput;
 }
 
-INT onps_input_get_handle_ext(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach)
+INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach)
 {
     INT nInput = -1;
     os_thread_mutex_lock(l_hMtxInput);
