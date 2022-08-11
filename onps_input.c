@@ -215,9 +215,18 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
         pstcbInput->uniHandle.stAddr.unNetifIp = unSrvIp;
         pstcbInput->uniHandle.stAddr.usPort = usSrvPort;
         pstcbInput->pvAttach = pstLink;
-        pstLink->bState = TLSRCVEDSYN;        
+
+        pstLink->bState = TLSRCVEDSYN;
+
+        pstLink->stLocal.usWndSize = pstcbInput->unRcvBufSize;
+        pstLink->stLocal.bIsZeroWnd = FALSE;
+        pstLink->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr;        
+                
         pstLink->stPeer.stAddr.unIp = unCltIp; 
-        pstLink->stPeer.stAddr.usPort = usCltPort; 
+        pstLink->stPeer.stAddr.usPort = usCltPort;      
+
+        pstLink->stcbWaitAck.nInput = pstNode->uniData.nVal; 
+        pstLink->stcbWaitAck.bRcvTimeout = 1;
 
         sllist_put_node(&l_pstInputSLList, pstNode);
     }
@@ -349,7 +358,7 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.bIsZeroWnd = FALSE;
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr;
-                ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = pstcbInput->bRcvTimeout;
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = -1/*pstcbInput->bRcvTimeout*/; //* 缺省所有发送操作都需要等待对端的应答
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.nInput = nInput; 
             }            
         }
@@ -363,6 +372,12 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
     case IOPT_SETRCVTIMEOUT:
         pstcbInput->bRcvTimeout = *((CHAR *)pvVal); 
+        /*
+        if (IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto || (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER != pstcbInput->uniHandle.stAddr.bType))
+        {
+            ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = pstcbInput->bRcvTimeout;
+        }
+        */
         break; 
 
     default:
@@ -1067,11 +1082,22 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, v
                         //* 仅找出本地tcp客户端和tcp服务器（TCP_TYPE_SERVER、TCP_TYPE_LCLIENT）类型的input节点
                         if (IPPROTO_UDP == pstcbInput->ubIPProto || (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT != pstcbInput->uniHandle.stAddr.bType))
                         {
-                            nInput = pstNextNode->uniData.nVal;
+                            nInput = pstNextNode->uniData.nVal;                            
+
                             if (sizeof(pvAttach) == 4)
-                                *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
+                            {
+                                if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+                                    *((UINT *)pvAttach) = (UINT)0; 
+                                else
+                                    *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
+                            }
                             else
-                                *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
+                            {
+                                if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+                                    *((ULONGLONG *)pvAttach) = (ULONGLONG)0; 
+                                else
+                                    *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;
+                            }
                             break;
                         }                        
                     }

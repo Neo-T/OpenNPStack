@@ -20,6 +20,32 @@ static void tcp_send_fin(PST_TCPLINK pstLink);
 
 void tcpsrv_syn_recv_timeout_handler(void *pvParam)
 {
+    PST_TCPLINK pstLink = (PST_TCPLINK)pvParam;
+
+    //* 是否在溢出的时候收到应答
+    if (!pstLink->stcbWaitAck.bIsAcked)
+    {
+        if (pstLink->stcbWaitAck.bRcvTimeout < 32)
+        {
+            pstLink->stcbWaitAck.bRcvTimeout *= 2; 
+            tcp_send_syn_ack_with_start_timer(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort); 
+        }
+        else
+        {
+            onps_input_free(pstLink->stcbWaitAck.nInput); 
+
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+            CHAR szAddr[20], szAddrClt[20];
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
+            printf("The tcp server@%s:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@%s:%d)\r\n", inet_ntoa_safe_ext(unSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort);
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+#endif
+        }
+    }
 }
 
 static void tcp_ack_timeout_handler(void *pvParam)
@@ -273,11 +299,23 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
     UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX]; 
     INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));    
 
+    //* 加入定时器队列
+    pstLink->stcbWaitAck.bRcvTimeout = nConnTimeout; 
+    pstLink->stcbWaitAck.bIsAcked = FALSE;
+    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT);
+    if (!pstLink->stcbWaitAck.pstTimer)
+    {
+        onps_set_last_error(nInput, ERRNOIDLETIMER);
+        return -1;
+    }
+
     //* 完成实际的发送
+    pstLink->bState = TLSSYNSENT;
     INT nRtnVal = tcp_send_packet(pstLink, pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr); 
     if (nRtnVal > 0)
     {
         //* 加入定时器队列
+        /*
         pstLink->stcbWaitAck.bIsAcked = FALSE; 
         pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT); 
         if (!pstLink->stcbWaitAck.pstTimer)
@@ -287,9 +325,13 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
         }        
 
         pstLink->bState = TLSSYNSENT; //* 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配        
+        */
     }
     else
     {
+        pstLink->bState = TLSINIT; 
+        one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+
         if(nRtnVal < 0)
             onps_set_last_error(nInput, enErr);
         else
@@ -324,6 +366,7 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     uniFlag.stb16.push = 1;
 
 	//* 提前赋值，因为存在发送即接收到的情况（常见于本地以太网）
+    pstLink->stcbWaitAck.bRcvTimeout = nWaitAckTimeout; //* 必须更新这个值，因为send_nb()函数不等待semaphore信号，所以需要显式地告知接收逻辑收到数据发送ack时不再投递semaphore
 	pstLink->stcbWaitAck.bIsAcked = FALSE;                      
 	pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
 	if (!pstLink->stcbWaitAck.pstTimer)
@@ -419,7 +462,7 @@ static void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcP
     tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, NULL);    
 }
 
-static INT tcp_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
+static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
 {
     //* 标志字段ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
@@ -433,6 +476,48 @@ static INT tcp_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usS
 
     //* 完成实际的发送
     return tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr); 
+}
+
+static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort)
+{
+    EN_ONPSERR enErr; 
+
+    //* 启动一个定时器等待对端的ack到达，只有收到ack才能真正建立tcp双向链路，否则只能算是半开链路（或称作半连接链路，客户端只能发送无法接收）            
+    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcpsrv_syn_recv_timeout_handler, pstLink, pstLink->stcbWaitAck.bRcvTimeout);
+    if (pstLink->stcbWaitAck.pstTimer)
+    {
+        //* 发送syn ack报文给对端        
+        if (tcpsrv_send_syn_ack(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, &enErr) < 0)
+        {
+            one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+            onps_input_free(pstLink->stcbWaitAck.nInput); 
+
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+            CHAR szAddr[20], szAddrClt[20];
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
+            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client: %s:%d), %s\r\n", inet_ntoa_safe_ext(unSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, onps_error(enErr));
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
+        }
+    }
+    else
+    {
+        onps_input_free(pstLink->stcbWaitAck.nInput); 
+
+#if SUPPORT_PRINTF            
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("%s\r\n", onps_error(ERRNOIDLETIMER));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
 }
 
 void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
@@ -546,7 +631,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
     uniFlag.usVal = pstHdr->usFlag;
     if (uniFlag.stb16.ack)
-    {             
+    {                
         /*
         如果是服务器input，这里需要遍历input链表确保到达数据的客户端都时合法客户端即可，同时取出其对应的pstLink，但input还是保留服务器的，客户端的只是在收到数据时使用
         ……
@@ -771,44 +856,34 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             nRmtCltInput = onps_input_new_tcp_remote_client(hSem, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);
             if (nRmtCltInput < 0)
             {
-        #if SUPPORT_PRINTF && DEBUG_LEVEL                
+        #if SUPPORT_PRINTF                
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf);
             #endif
-                printf("%s\r\n", onps_error(ERRINVALIDSEM));
+                printf("%s\r\n", onps_error(enErr));
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_unlock(o_hMtxPrintf);
             #endif
         #endif
                 return; 
             }
-        }
 
-        //* 截取tcp头部选项字段
-        tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
+            //* 截取tcp头部选项字段
+            tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
 
-        //* 发送syn ack报文给对端
-        pstLink->stPeer.unSeqNum = unPeerSeqNum + 1; 
-        INT nRtnVal = tcp_send_syn_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort, &enErr);
-        if (nRtnVal > 0)
-        {     
-            //* 启动一个定时器
+            //* 发送syn ack报文给对端
+            pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
+            tcpsrv_send_syn_ack_with_start_timer(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort);
         }
-        else
+        else //* 已经申请，说明对端没收到syn ack，我们已经通过定时器在重复发送syn ack报文，所以这里直接发送一个应答但不开启定时器
         {
-            onps_input_free(nRmtCltInput); 
+            //* 截取tcp头部选项字段
+            tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR)); 
 
-    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-            CHAR szAddr[20], szAddrClt[20];
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
-            printf("tcp_send_syn_ack() failed (server %s:%d, client: %s:%d), %s\r\n", inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, inet_ntoa_safe_ext(unCltIp, szAddr), usCltPort, onps_error(ERRINVALIDSEM));
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-    #endif
-        }
+            //* 发送syn ack报文给对端
+            pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
+            tcpsrv_send_syn_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort, &enErr);             
+        }                
     }
 }
 
