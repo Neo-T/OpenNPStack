@@ -52,7 +52,19 @@ typedef enum {
     TDSTIMEOUT, 
     TDSLINKRESET, 
     TDSLINKCLOSED
-} EN_TCPDATASNDSTATE;
+} EN_TCPDATASNDSTATE; 
+
+//* 记录到达的tcp服务器连接请求信息的结构体
+typedef struct _ST_TCPBACKLOG__ {
+    struct {
+        USHORT usPort;
+        UINT unIp;
+    } stAdrr;
+
+    INT nInput;
+
+    PST_SLINKEDLIST_NODE pstNode;
+} ST_TCPBACKLOG, *PST_TCPBACKLOG;
 
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
@@ -86,24 +98,14 @@ typedef struct _ST_TCPLINK_ {
         UINT unSeqNum;      //* 当前序号
     } stPeer;
 
+    PST_TCPBACKLOG pstBacklog; 
+
     CHAR bState;        //* 当前链路状态
     CHAR bIsPassiveFin; //* 是被动FIN操作    
 
     CHAR bIdx;
     CHAR bNext;
 } ST_TCPLINK, *PST_TCPLINK;
-
-//* 记录到达的tcp服务器连接请求信息的结构体
-typedef struct _ST_TCPBACKLOG__ {
-    struct {
-        USHORT usPort;
-        UINT unIp;
-    } stAdrr; 
-
-    INT nInput; 
-
-    PST_SLINKEDLIST_NODE pstNode; 
-} ST_TCPBACKLOG, *PST_TCPBACKLOG; 
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
@@ -123,8 +125,9 @@ TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink);
 
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach); 
+TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_freed_get(void); 
 TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog); 
-TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, USHORT usPort, UINT unIp); 
+TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog);
 TCP_LINK_EXT void tcp_backlog_free(PST_TCPBACKLOG pstBacklog);
 
 TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue);

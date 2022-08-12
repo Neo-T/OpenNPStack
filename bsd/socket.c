@@ -697,30 +697,18 @@ SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWai
         PST_TCPBACKLOG pstBacklog = tcp_backlog_get(&pstAttach->pstSListBacklog); 
         if (pstBacklog)
         {
-            //* 保存到达的客户端的ip地址和端口，并释放占用的backlog资源
-            USHORT usCltPort = pstBacklog->stAdrr.usPort; 
-            UINT unCltIp = pstBacklog->stAdrr.unIp; 
-            tcp_backlog_free(pstBacklog); 
+            //* 只要是正常完成三次握手的连接请求，协议栈底层就会投递一个semaphore，所以如果用户选择了不等待（即参数nWaitSecs为0），这里就必须pend一次以消除这个到达的semaphore
+            if (0 == nWaitSecs)
+                os_thread_sem_pend(pstAttach->hSemAccept, 1);
 
-            HSEM hSem = INVALID_HSEM;
-            if (!onps_input_get((INT)socket, IOPT_GETSEM, &hSem, &enErr))            
-                goto __lblErr;
-            if (INVALID_HSEM == hSem)
-            {                
-                enErr = ERRINVALIDSEM;
-                goto __lblErr;
-            }
-
-            //* 为新到达的客户端申请一个input资源
-            nInputClient = onps_input_new_tcp_remote_client(hSem, pstHandle->usPort, pstHandle->unNetifIp, usCltPort, unCltIp, &enErr); 
-            if(nInputClient < 0) 
-                goto __lblErr;            
-            
-            //* 启动一个定时器等待对端的ack到达，只有收到ack才能真正建立tcp双向链路，否则只能算是半开链路（或称作半连接链路，客户端只能发送无法接收）
-            PST_ONESHOTTIMER pstTimer = one_shot_timer_new(tcpsrv_syn_recv_timeout_handler, (void *)nInputClient, 3); 
+            //* 取出input节点句柄，然后释放当前占用的backlog节点资源
+            nInputClient = pstBacklog->nInput;
+            tcp_backlog_free(pstBacklog);
 
             return (SOCKET)nInputClient;
         }
+        else
+            enErr = ERRNO; 
     }
     else     
         enErr = ERRTCPONLY;    

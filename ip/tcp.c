@@ -596,6 +596,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
     //* 先查找当前链路是否存在
     USHORT usDstPort = htons(pstHdr->usDstPort);
+    UINT unCltIp = htonl(unSrcAddr);
+    USHORT usCltPort = htons(pstHdr->usSrcPort);
     PST_TCPLINK pstLink;     
     INT nInput = onps_input_get_handle(IPPROTO_TCP, unDstAddr, usDstPort, &pstLink);
     if (nInput < 0)
@@ -611,18 +613,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     #endif
 #endif
         return; 
-    } 
-
-    //* #####################################################################################################
-    //* 这个地方要先判断pstLink->bState是否为TLSSRVSTARTED态，如果是，需要根据收到报文的源IP地址和端口查找对端是否已成功连接到本地服务器，其它态则认为当前TCP链路为一个连接远端服务器的客户端
-    /*
-     ……
-     ……
-     ……
-     ……
-     ……
-     */
-    //* #####################################################################################################
+    }
 
     //* 依据报文头部标志字段确定下一步的处理逻辑
     UNI_TCP_FLAG uniFlag; 
@@ -631,16 +622,34 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
     uniFlag.usVal = pstHdr->usFlag;
     if (uniFlag.stb16.ack)
-    {                
-        /*
-        如果是服务器input，这里需要遍历input链表确保到达数据的客户端都时合法客户端即可，同时取出其对应的pstLink，但input还是保留服务器的，客户端的只是在收到数据时使用
-        ……
-        ……
-        ……
-        ……
-         */
+    { 
+        INT nRmtCltInput; 
 
+        //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
+        if(!pstLink) 
+        { 
+            nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
+            if (nRmtCltInput < 0) //* 尚未收到任何syn连接请求报文，这里就直接丢弃该报文
+                return; 
 
+            //* 说明尚未收到过ACK报文，这里就需要先等待这个报文
+            if (TLSRCVEDSYN == pstLink->bState)
+            {
+                //* 序号完全相等才意味着这是一个合法的syn ack's ack报文
+                if (unSrcAckNum == pstLink->stLocal.unSeqNum + 1 && unPeerSeqNum == pstLink->stPeer.unSeqNum)
+                {
+                    pstLink->stcbWaitAck.bIsAcked = TRUE;
+                    one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer); 
+
+                    //* 状态迁移到“已连接”
+                    pstLink->stLocal.unSeqNum = unSrcAckNum; 
+                    pstLink->bState = TLSCONNECTED;                     
+
+                    //* 投递信号给accept()函数
+                    onps_input_sem_post_tcpsrv_accept(nInput, nRmtCltInput); 
+                }
+            }
+        }
 
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
@@ -654,8 +663,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 //* 记录当前链路信息
                 pstLink->stPeer.unSeqNum = unPeerSeqNum;
                 pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize); 
-                pstLink->stPeer.stAddr.unIp = htonl(unSrcAddr);
-                pstLink->stPeer.stAddr.usPort = htons(pstHdr->usSrcPort); 
+                pstLink->stPeer.stAddr.unIp = unCltIp/*htonl(unSrcAddr)*/;
+                pstLink->stPeer.stAddr.usPort = usCltPort/*htons(pstHdr->usSrcPort)*/;
 
                 //* 截取tcp头部选项字段
                 tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
@@ -693,7 +702,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             //* 发送ack
             pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
-            tcp_send_ack(pstLink, unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort));
+            tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
             //* 迁移到相关状态
             if (TLSCONNECTED == (EN_TCPLINKSTATE)pstLink->bState)
             {                       
@@ -803,22 +812,19 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     if (usWndSize)                    
                         pstLink->stLocal.bIsZeroWnd = FALSE; 
                     pstLink->stPeer.unSeqNum = unPeerSeqNum;
-                    tcp_send_ack(pstLink, unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort));
+                    tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
                 }
                 else
                 {
                     pstLink->stPeer.unSeqNum = unPeerSeqNum + nDataLen;
-                    tcp_send_ack(pstLink, unDstAddr, usDstPort, htonl(unSrcAddr), htons(pstHdr->usSrcPort));
+                    tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
                 }
             }            
         }
     }
     //* 只有tcp syn连接请求报文才没有ack标志
     else
-    {
-        UINT unCltIp = htonl(unSrcAddr);
-        USHORT usCltPort = htons(pstHdr->usSrcPort); 
-
+    {       
         //* 首先看看是否已针对当前请求申请了input
         INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
         if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个

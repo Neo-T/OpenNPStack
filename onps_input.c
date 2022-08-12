@@ -188,13 +188,23 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
 {
     PST_TCPLINK pstLink = tcp_link_get(penErr);
     if (!pstLink)
+        return -1;     
+
+    PST_TCPBACKLOG pstBacklog = tcp_backlog_freed_get(); 
+    if (!pstBacklog)
+    {
+        tcp_link_free(pstLink);
+
         return -1; 
+    }
 
     UINT unSize = TCPRCVBUF_SIZE_DEFAULT;
     UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
     if (NULL == pubRcvBuf)
     {
-        tcp_link_free(pstLink);
+        tcp_link_free(pstLink); 
+        tcp_backlog_free(pstBacklog); 
+
         return -1;
     }
 
@@ -226,7 +236,12 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
         pstLink->stPeer.stAddr.usPort = usCltPort;      
 
         pstLink->stcbWaitAck.nInput = pstNode->uniData.nVal; 
-        pstLink->stcbWaitAck.bRcvTimeout = 1;
+        pstLink->stcbWaitAck.bRcvTimeout = 1; 
+
+        pstBacklog->nInput = pstNode->uniData.nVal; 
+        pstBacklog->stAdrr.unIp = unCltIp; 
+        pstBacklog->stAdrr.usPort = usCltPort; 
+        pstLink->pstBacklog = pstBacklog; 
 
         sllist_put_node(&l_pstInputSLList, pstNode);
     }
@@ -239,7 +254,7 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
 
 void onps_input_free(INT nInput)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
 #if SUPPORT_PRINTF
     #if PRINTF_THREAD_MUTEX
@@ -301,7 +316,7 @@ void onps_input_free(INT nInput)
 
 BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
@@ -396,7 +411,7 @@ __lblIpProtoNotMatched:
 
 BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
@@ -525,7 +540,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
 void onps_input_sem_post(INT nInput)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
         return; 
     
     if (INVALID_HSEM != l_stcbaInput[nInput].hSem/* && l_stcbaInput[nInput].bRcvTimeout*/)
@@ -534,7 +549,7 @@ void onps_input_sem_post(INT nInput)
 
 INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
@@ -557,7 +572,7 @@ INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
 
 INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
@@ -576,6 +591,25 @@ INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
     }
 
     return 0;
+}
+
+void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput)
+{
+    if (nSrvInput < 0 || nSrvInput > SOCKET_NUM_MAX - 1 || nCltInput < 0 || nCltInput > SOCKET_NUM_MAX - 1)
+        return;
+
+    //* 如果不是tcp协议或者并不是tcp服务器链路则不投递tcp链路已建立信号量
+    if (IPPROTO_TCP != (EN_IPPROTO)l_stcbaInput[nSrvInput].ubIPProto || TCP_TYPE_SERVER != l_stcbaInput[nSrvInput].uniHandle.stAddr.bType)
+        return; 
+
+    //* 取出已经准备好的backlog，加入请求队列然后投递给accept()用户
+    PST_INPUTATTACH_TCPSRV pstAttach = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nSrvInput].pvAttach;
+    PST_TCPLINK pstLink = (PST_TCPLINK)l_stcbaInput[nCltInput].pvAttach;
+    if (pstAttach && pstLink)
+    {
+        tcp_backlog_put(&pstAttach->pstSListBacklog, pstLink->pstBacklog); 
+        os_thread_sem_post(pstAttach->hSemAccept);
+    }
 }
 
 BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState)
@@ -707,7 +741,7 @@ INT onps_input_get_icmp(USHORT usIdentifier)
 
 BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t unFromIP, USHORT usFromPort, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
@@ -814,7 +848,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
 
 INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
@@ -897,7 +931,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
 
 INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
 #if SUPPORT_PRINTF
     #if PRINTF_THREAD_MUTEX
@@ -945,7 +979,7 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR
 
 const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
         if (penErr)
             *penErr = ERRINPUTOVERFLOW; 
@@ -967,9 +1001,27 @@ const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr)
     return onps_error(enLastErr);
 }
 
+EN_ONPSERR onps_get_last_error_code(INT nInput)
+{
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)    
+        return ERRINPUTOVERFLOW;
+
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
+
+    EN_ONPSERR enLastErr;
+    os_critical_init();
+    os_enter_critical();
+    {
+        enLastErr = (EN_ONPSERR)pstcbInput->ubLastErr; 
+    }    
+    os_exit_critical(); 
+
+    return enLastErr; 
+}
+
 void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
 {
-    if (nInput > SOCKET_NUM_MAX - 1)
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
 #if SUPPORT_PRINTF
     #if PRINTF_THREAD_MUTEX

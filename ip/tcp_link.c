@@ -170,6 +170,38 @@ void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
     pstAttach->bIsUsed = FALSE; 
 }
 
+PST_TCPBACKLOG tcp_backlog_freed_get(void)
+{
+    PST_TCPBACKLOG pstBacklog = NULL;
+
+    os_critical_init();
+    os_enter_critical();
+    {
+        PST_SLINKEDLIST_NODE pstNode = sllist_get_node(&l_pstSListBacklogFreed);
+        if (pstNode)
+        {
+            pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
+            pstBacklog->pstNode = pstNode; 
+        }
+    }
+    os_exit_critical();
+
+    if (!pstBacklog)
+    {
+#if SUPPORT_PRINTF 
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif        
+        printf("%s\r\n", onps_error(ERRTCPBACKLOGEMPTY));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+
+    return pstBacklog; 
+}
+
 PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog)
 {
     PST_TCPBACKLOG pstBacklog = NULL; 
@@ -178,46 +210,22 @@ PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog)
     os_enter_critical();
     {
         PST_SLINKEDLIST_NODE pstNode = sllist_get_node(ppstSListBacklog); 
-        if (pstNode)
-        {
-            pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
-            pstBacklog->pstNode = pstNode; 
-        }
+        if (pstNode)        
+            pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;        
     }
     os_exit_critical(); 
 
     return pstBacklog; 
 }
 
-void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, USHORT usPort, UINT unIp)
+void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog)
 {
-    PST_SLINKEDLIST_NODE pstNode = NULL; 
-
     os_critical_init();
     os_enter_critical(); 
     {
-        pstNode = sllist_get_node(&l_pstSListBacklogFreed); 
-        if (pstNode)
-        {
-            ((PST_TCPBACKLOG)pstNode->uniData.ptr)->stAdrr.unIp = unIp;
-            ((PST_TCPBACKLOG)pstNode->uniData.ptr)->stAdrr.usPort = usPort; 
-            sllist_put_tail_node(ppstSListBacklog, pstNode); 
-        }        
+        sllist_put_tail_node(ppstSListBacklog, pstBacklog->pstNode);
     }
     os_exit_critical();
-
-    if (!pstNode)
-    {
-#if SUPPORT_PRINTF 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif        
-        printf("%s\r\n", onps_error(ERRTCPBACKLOGEMPTY)); 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-    }
 }
 
 void tcp_backlog_free(PST_TCPBACKLOG pstBacklog)
