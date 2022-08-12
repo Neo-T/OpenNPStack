@@ -43,6 +43,8 @@ typedef struct _ST_TCPUDP_HANDLE_ {
     UINT unNetifIp;         
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 
+typedef struct _ST_TCPLINK_ ST_TCPLINK, *PST_TCPLINK; 
+
 //* 输入控制块初始化
 ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr); 
 

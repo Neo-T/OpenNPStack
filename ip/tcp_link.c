@@ -267,8 +267,6 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueu
 
 void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput)
 {
-    PST_SLINKEDLIST_NODE pstNode = NULL;
-
     os_critical_init(); 
     os_enter_critical(); 
     {

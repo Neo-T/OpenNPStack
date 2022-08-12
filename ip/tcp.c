@@ -17,6 +17,7 @@
 #undef SYMBOL_GLOBALS
 
 static void tcp_send_fin(PST_TCPLINK pstLink); 
+static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort); 
 
 void tcpsrv_syn_recv_timeout_handler(void *pvParam)
 {
@@ -28,7 +29,7 @@ void tcpsrv_syn_recv_timeout_handler(void *pvParam)
         if (pstLink->stcbWaitAck.bRcvTimeout < 32)
         {
             pstLink->stcbWaitAck.bRcvTimeout *= 2; 
-            tcp_send_syn_ack_with_start_timer(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort); 
+            tcpsrv_send_syn_ack_with_start_timer(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort);
         }
         else
         {
@@ -39,7 +40,8 @@ void tcpsrv_syn_recv_timeout_handler(void *pvParam)
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-            printf("The tcp server@%s:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@%s:%d)\r\n", inet_ntoa_safe_ext(unSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort);
+            printf("The tcp server@%s:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@%s:%d)\r\n", 
+                        inet_ntoa_safe_ext(pstLink->stLocal.pstAddr->unNetifIp, szAddr), pstLink->stLocal.pstAddr->usPort, inet_ntoa_safe_ext(pstLink->stPeer.stAddr.unIp, szAddrClt), pstLink->stPeer.stAddr.usPort);
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
@@ -324,7 +326,7 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
             return -1;             
         }        
 
-        pstLink->bState = TLSSYNSENT; //* 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配        
+        pstLink->bState = TLSSYNSENT; // 只有定时器申请成功了才会将链路状态迁移到syn报文已发送状态，以确保收到syn ack时能够进行正确匹配        
         */
     }
     else
@@ -500,7 +502,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client: %s:%d), %s\r\n", inet_ntoa_safe_ext(unSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, onps_error(enErr));
+            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client: %s:%d), %s\r\n", inet_ntoa_safe_ext(unSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(unDstAddr, szAddrClt), usDstPort, onps_error(enErr));
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif

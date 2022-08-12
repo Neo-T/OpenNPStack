@@ -652,6 +652,8 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
     //* 只有tcp服务器才能调用这个函数，其它都不可以
     if (enProto == IPPROTO_TCP)
     {
+        PST_INPUTATTACH_TCPSRV pstAttach;
+        PST_TCPBACKLOG pstBacklog; 
         PST_TCPUDP_HANDLE pstHandle;
         if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
             goto __lblErr;
@@ -664,8 +666,7 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
             goto __lblErr;
         }
 
-        //* 获取附加段数据，看看监听是否已启动
-        PST_INPUTATTACH_TCPSRV pstAttach;
+        //* 获取附加段数据，看看监听是否已启动        
         if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, penErr))
             goto __lblErr;
 
@@ -696,7 +697,7 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
         }
         
         //* 取出一个连接请求
-        PST_TCPBACKLOG pstBacklog = tcp_backlog_get(&pstAttach->pstSListBacklog); 
+        pstBacklog = tcp_backlog_get(&pstAttach->pstSListBacklog); 
         if (pstBacklog)
         {
             //* 只要是正常完成三次握手的连接请求，协议栈底层就会投递一个semaphore，所以如果用户选择了不等待（即参数nWaitSecs为0），这里就必须pend一次以消除这个到达的semaphore
@@ -729,6 +730,10 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
     if (penErr)
         *penErr = ERRNO;
 
+    PST_TCPUDP_HANDLE pstHandle;
+    PST_INPUTATTACH_TCPSRV pstAttach;
+    PST_TCPSRV_RCVQUEUE_NODE pstNode; 
+
     EN_IPPROTO enProto;
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, penErr))
         goto __lblErr;
@@ -740,27 +745,27 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
             *penErr = ERRTCPONLY;
         goto __lblErr;
     }
-    
-    PST_TCPUDP_HANDLE pstHandle;
+        
     if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
         goto __lblErr;
 
     //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
     if (TCP_TYPE_SERVER != pstHandle->bType)
     {
-        penErr = ERRNOTBINDADDR;
+        if (penErr)
+            *penErr = ERRNOTBINDADDR;
         goto __lblErr;
     }
 
-    //* 获取附加段数据，看看监听是否已启动
-    PST_INPUTATTACH_TCPSRV pstAttach;
+    //* 获取附加段数据，看看监听是否已启动    
     if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, penErr))
         goto __lblErr;
 
     //* 为空则意味着当前服务尚未进入监听阶段，不能调用这个函数
     if (!pstAttach)
     {
-        penErr = ERRTCPNOLISTEN;
+        if (penErr)
+            *penErr = ERRTCPNOLISTEN;
         goto __lblErr;
     }
 
@@ -769,6 +774,7 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
     {
         if (nWaitSecs < 0)
             nWaitSecs = 0; 
+
         INT nRtnVal = onps_input_sem_pend_uncond((INT)socket, nWaitSecs, penErr); 
         if (nRtnVal < 0)
             goto __lblErr; 
@@ -778,7 +784,7 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
     }
 
     //* 获取接收队列
-    PST_TCPSRV_RCVQUEUE_NODE pstNode = tcpsrv_recv_queue_get(&pstAttach->pstSListRcvQueue); 
+    pstNode = tcpsrv_recv_queue_get(&pstAttach->pstSListRcvQueue); 
     if (pstNode)
     {
         INT nClientInput = pstNode->uniData.nVal; 
