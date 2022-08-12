@@ -77,8 +77,7 @@ typedef enum {
     ERRTCPSRVEMPTY,         //* tcp服务器资源为空
     ERRTCPBACKLOGEMPTY,     //* tcp服务器的backlog资源为空
     ERRTCPRCVQUEUEEMPTY,    //* tcp服务器的接收队列资源为空
-    ERRTCPNOLISTEN,         //* tcp服务器未进入listen阶段
-    ERRACCEPTTIMEOUT,       //* accept等待超时
+    ERRTCPNOLISTEN,         //* tcp服务器未进入listen阶段    
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

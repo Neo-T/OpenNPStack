@@ -69,9 +69,13 @@ SOCKET_EXT INT listen(SOCKET socket, INT backlog);
 //*     0: 不等待，立即返回
 //* 大于0: 等待指定时间直至超时或收到一个到达的连接请求
 //* 小于0: 一直等待，直至收到一个到达的连接请求
-SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWaitSecs); 
+SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitSecs, EN_ONPSERR *penErr);
 
-//* 
-SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs); 
+//* 轮询等待tcp服务器数据到达，入口参数hSocketSrv为tcp服务器的socket，不是客户端的socket，nWaitSecs指定等待的秒数：
+//*     0: 不等待，立即返回
+//* 大于0: 等待指定时间直至超时或某个客户端链路收到数据
+//* 小于0: 一直等待，直至某个或多个客户端链路收到数据
+//* 返回值为收到数据的客户端socket
+SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET hSocketSrv, INT nWaitSecs, EN_ONPSERR *penErr);
 
 #endif

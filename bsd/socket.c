@@ -639,37 +639,41 @@ __lblErr:
     return -1;
 }
 
-SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWaitSecs) 
+SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitSecs, EN_ONPSERR *penErr)
 {
-    INT nInputClient; 
-    EN_ONPSERR enErr;
+    if (penErr)
+        *penErr = ERRNO; 
+
+    INT nInputClient;     
     EN_IPPROTO enProto;
-    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, penErr))
         goto __lblErr; 
 
     //* 只有tcp服务器才能调用这个函数，其它都不可以
     if (enProto == IPPROTO_TCP)
     {
         PST_TCPUDP_HANDLE pstHandle;
-        if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+        if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
             goto __lblErr;
 
         //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
         if (TCP_TYPE_SERVER != pstHandle->bType)
         {
-            enErr = ERRNOTBINDADDR;
+            if (penErr)
+                *penErr = ERRNOTBINDADDR;
             goto __lblErr;
         }
 
         //* 获取附加段数据，看看监听是否已启动
         PST_INPUTATTACH_TCPSRV pstAttach;
-        if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, &enErr))
+        if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, penErr))
             goto __lblErr;
 
         //* 为空则意味着当前服务尚未进入监听阶段，不能调用这个函数
         if (!pstAttach)
         {
-            enErr = ERRTCPNOLISTEN; 
+            if (penErr)
+                *penErr = ERRTCPNOLISTEN;
             goto __lblErr; 
         }
 
@@ -682,15 +686,13 @@ SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWai
             INT nRtnVal = os_thread_sem_pend(pstAttach->hSemAccept, nWaitSecs); 
             if (nRtnVal < 0) //* 等待期间发生错误
             {
-                enErr = ERRINVALIDSEM; 
+                if (penErr)
+                    *penErr = ERRINVALIDSEM;
                 goto __lblErr;
             }
 
-            if (nRtnVal) //* 超时，未收到信号
-            {
-                enErr = ERRACCEPTTIMEOUT;
-                goto __lblErr; 
-            }
+            if (nRtnVal) //* 超时，未收到信号                            
+                goto __lblErr;             
         }
         
         //* 取出一个连接请求
@@ -703,17 +705,87 @@ SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWai
 
             //* 取出input节点句柄，然后释放当前占用的backlog节点资源
             nInputClient = pstBacklog->nInput;
+            if (punCltIP)
+                *punCltIP = pstBacklog->stAdrr.unIp; 
+            if (pusCltPort)
+                *pusCltPort = pstBacklog->stAdrr.usPort; 
             tcp_backlog_free(pstBacklog);
 
             return (SOCKET)nInputClient;
         }
-        else
-            enErr = ERRNO; 
     }
-    else     
-        enErr = ERRTCPONLY;    
+    else
+    {
+        if (penErr)
+            *penErr = ERRTCPONLY;
+    }
 
-__lblErr:
-    onps_set_last_error((INT)socket, enErr);
+__lblErr:    
+    return INVALID_SOCKET; 
+}
+
+SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
+{    
+    if (penErr)
+        *penErr = ERRNO;
+
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, penErr))
+        goto __lblErr;
+
+    //* 只有tcp服务器才能调用这个函数，其它都不可以
+    if (enProto != IPPROTO_TCP)
+    {
+        if (penErr)
+            *penErr = ERRTCPONLY;
+        goto __lblErr;
+    }
+    
+    PST_TCPUDP_HANDLE pstHandle;
+    if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
+        goto __lblErr;
+
+    //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
+    if (TCP_TYPE_SERVER != pstHandle->bType)
+    {
+        penErr = ERRNOTBINDADDR;
+        goto __lblErr;
+    }
+
+    //* 获取附加段数据，看看监听是否已启动
+    PST_INPUTATTACH_TCPSRV pstAttach;
+    if (!onps_input_get((INT)socket, IOPT_GETATTACH, &pstAttach, penErr))
+        goto __lblErr;
+
+    //* 为空则意味着当前服务尚未进入监听阶段，不能调用这个函数
+    if (!pstAttach)
+    {
+        penErr = ERRTCPNOLISTEN;
+        goto __lblErr;
+    }
+
+    //* 需要等待一小段时间或直至数据到达
+    if (nWaitSecs)
+    {
+        if (nWaitSecs < 0)
+            nWaitSecs = 0; 
+        INT nRtnVal = onps_input_sem_pend_uncond((INT)socket, nWaitSecs, penErr); 
+        if (nRtnVal < 0)
+            goto __lblErr; 
+
+        if (nRtnVal) //* 超时，未收到信号
+            goto __lblErr; 
+    }
+
+    //* 获取接收队列
+    PST_TCPSRV_RCVQUEUE_NODE pstNode = tcpsrv_recv_queue_get(&pstAttach->pstSListRcvQueue); 
+    if (pstNode)
+    {
+        INT nClientInput = pstNode->uniData.nVal; 
+        tcpsrv_recv_queue_free(pstNode); 
+        return (SOCKET)nClientInput; 
+    }
+
+__lblErr: 
     return INVALID_SOCKET; 
 }

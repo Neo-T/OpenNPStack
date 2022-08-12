@@ -223,7 +223,7 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstNode = sllist_get_node(&l_pstFreedSLList);
         pstcbInput = &l_stcbaInput[pstNode->uniData.nVal];
         pstcbInput->hSem = l_stcbaInput[nInputSrv].hSem; 
-        pstcbInput->bRcvTimeout = -1;
+        pstcbInput->bRcvTimeout = 0; //* 实际的数据读取函数recv()不再等待，因为客户一旦调用recv()函数，说明已经确定收到数据了（由tcp服务器提供的poll函数来通知用户数据已到达）
         pstcbInput->ubIPProto = (UCHAR)IPPROTO_TCP;
         pstcbInput->pubRcvBuf = pubRcvBuf;
         pstcbInput->unRcvBufSize = unSize;
@@ -789,9 +789,15 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     {
         if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {
-            //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
-            PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr); 
-            if (pstRcvQueueNode)
+            PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = NULL; 
+            if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
+            {
+                //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
+                if(NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
+                    blIsOK = FALSE; 
+            }
+            
+            if (blIsOK)
             {
                 UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
                 //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
@@ -805,13 +811,14 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
                 if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
                     ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;
 
-                //* 投递这个到达的数据到服务器接收队列
-                INT nInputSrv = ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->nInputSrv; 
-                PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach; 
-                tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput); 
-            } 
-            else
-                blIsOK = FALSE; 
+                //* 如果接收队列不为NULL，则需要投递这个到达的数据到服务器接收队列
+                if (pstRcvQueueNode)
+                {
+                    INT nInputSrv = ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->nInputSrv;
+                    PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach;
+                    tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput);
+                }                
+            }
         }
         else if (IPPROTO_UDP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {
@@ -860,7 +867,8 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     //* 搬运成功则投递信号给上层用户，告知对端数据已到达
     if (blIsOK)
     {       		
-		if (l_stcbaInput[nInput].bRcvTimeout)				 
+        //* 在这里，除了本地客户端显式地指定需要等待数据到达semaphore之外，tcp远端客户端也会投递一个semaphore用于标准的poll操作
+		if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
 			os_thread_sem_post(l_stcbaInput[nInput].hSem);		
     }    
 

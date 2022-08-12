@@ -68,8 +68,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPSRVEMPTY, "tcp server resource is empty"}, 
     { ERRTCPBACKLOGEMPTY, "backlog resource for tcp server is empty" }, 
     { ERRTCPRCVQUEUEEMPTY, "recv queue resource for tcp server is empty" }, 
-    { ERRTCPNOLISTEN, "tcp server does not enter the listen stage" }, 
-    { ERRACCEPTTIMEOUT, "timeout waiting for connect request signal" }, 
+    { ERRTCPNOLISTEN, "tcp server does not enter the listen stage" },     
     { ERRUNKNOWN, "unknown error" }
 }; 
 
