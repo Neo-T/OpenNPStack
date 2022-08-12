@@ -51,7 +51,7 @@ ONPSINPUT_EXT void onps_input_uninit(void);
 
 //* 建立一个新的输入控制块
 ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr); 
-ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
 
 //* 释放一个输入控制块
 ONPSINPUT_EXT void onps_input_free(INT nInput); 

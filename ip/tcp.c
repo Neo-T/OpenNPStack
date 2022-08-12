@@ -396,6 +396,7 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     }
     else
     {
+        pstLink->stLocal.bDataSendState = TDSSENDRDY;
 		one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
 
         if (nRtnVal < 0)
@@ -486,9 +487,11 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
     pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcpsrv_syn_recv_timeout_handler, pstLink, pstLink->stcbWaitAck.bRcvTimeout);
     if (pstLink->stcbWaitAck.pstTimer)
     {
-        //* 发送syn ack报文给对端        
+        //* 发送syn ack报文给对端
+        pstLink->bState = TLSSYNACKSENT; 
         if (tcpsrv_send_syn_ack(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, &enErr) < 0)
         {
+            pstLink->bState = TLSRCVEDSYN;
             one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
             onps_input_free(pstLink->stcbWaitAck.nInput); 
 
@@ -622,18 +625,16 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
     uniFlag.usVal = pstHdr->usFlag;
     if (uniFlag.stb16.ack)
-    { 
-        INT nRmtCltInput; 
-
+    {         
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
         if(!pstLink) 
         { 
-            nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
+            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
             if (nRmtCltInput < 0) //* 尚未收到任何syn连接请求报文，这里就直接丢弃该报文
                 return; 
 
             //* 说明尚未收到过ACK报文，这里就需要先等待这个报文
-            if (TLSRCVEDSYN == pstLink->bState)
+            if (TLSSYNACKSENT == pstLink->bState)
             {
                 //* 序号完全相等才意味着这是一个合法的syn ack's ack报文
                 if (unSrcAckNum == pstLink->stLocal.unSeqNum + 1 && unPeerSeqNum == pstLink->stPeer.unSeqNum)
@@ -649,6 +650,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     onps_input_sem_post_tcpsrv_accept(nInput, nRmtCltInput); 
                 }
             }
+
+            nInput = nRmtCltInput; 
         }
 
         //* 连接请求的应答报文
@@ -828,38 +831,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 首先看看是否已针对当前请求申请了input
         INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
         if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个
-        {
-            HSEM hSem = INVALID_HSEM;
-            if (!onps_input_get(nInput, IOPT_GETSEM, &hSem, &enErr))
-            {
-        #if SUPPORT_PRINTF && DEBUG_LEVEL
-                CHAR szAddr[20];
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_lock(o_hMtxPrintf);
-            #endif
-                printf("Can't get semaphore for tcp server (%s:%d), %s\r\n", inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, onps_error(enErr));
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_unlock(o_hMtxPrintf);
-            #endif
-        #endif
-                return; 
-            }
-            if (INVALID_HSEM == hSem)
-            {
-        #if SUPPORT_PRINTF && DEBUG_LEVEL
-                CHAR szAddr[20];
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_lock(o_hMtxPrintf);
-            #endif
-                printf("Can't get semaphore for tcp server (%s:%d), %s\r\n", inet_ntoa_safe_ext(unDstAddr, szAddr), usDstPort, onps_error(ERRINVALIDSEM)); 
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_unlock(o_hMtxPrintf);
-            #endif
-        #endif
-                return; 
-            }            
-
-            nRmtCltInput = onps_input_new_tcp_remote_client(hSem, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);
+        {                        
+            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);
             if (nRmtCltInput < 0)
             {
         #if SUPPORT_PRINTF                

@@ -29,7 +29,7 @@ typedef enum {
     //* 以下为连接本地tcp服务器的远端tcp客户端相关链路状态定义
     TLSRCVEDSYN,            //* 收到客户端发送的syn连接请求报文
     TLSSYNACKSENT,          //* 服务器已发送syn ack报文给客户端
-    TLSSYNACKACKTIMEOUT,    //* 等待客户端回馈的syn ack报文的ack报文超时
+    //TLSSYNACKACKTIMEOUT,    //* 等待客户端回馈的syn ack报文的ack报文超时
     
     TLSRESET,               //* 连接被重置    
 
@@ -41,8 +41,8 @@ typedef enum {
     TLSCLOSED,              //* 彻底关闭
 
     //* 以下为Socket被用于TCP Server时的状态定义
-    TLSSRVSTARTED,  //* TCP Server已启动
-    TLSSRVDOWN,     //* TCP Server已关闭
+    //TLSSRVSTARTED,  //* TCP Server已启动
+    //TLSSRVDOWN,     //* TCP Server已关闭
 } EN_TCPLINKSTATE;
 
 typedef enum {
@@ -98,7 +98,9 @@ typedef struct _ST_TCPLINK_ {
         UINT unSeqNum;      //* 当前序号
     } stPeer;
 
+    //* 用于TCP_TYPE_RCLIENT类型的tcp链路
     PST_TCPBACKLOG pstBacklog; 
+    INT nInputSrv; 
 
     CHAR bState;        //* 当前链路状态
     CHAR bIsPassiveFin; //* 是被动FIN操作    
@@ -125,13 +127,14 @@ TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink);
 
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach); 
-TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_freed_get(void); 
+TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog); 
 TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog);
 TCP_LINK_EXT void tcp_backlog_free(PST_TCPBACKLOG pstBacklog);
 
+TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue);
-TCP_LINK_EXT void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, INT nInput); 
+TCP_LINK_EXT void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput);
 TCP_LINK_EXT void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode); 
 
 #endif

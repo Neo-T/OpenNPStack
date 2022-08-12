@@ -170,7 +170,7 @@ void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
     pstAttach->bIsUsed = FALSE; 
 }
 
-PST_TCPBACKLOG tcp_backlog_freed_get(void)
+PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
 {
     PST_TCPBACKLOG pstBacklog = NULL;
 
@@ -188,15 +188,8 @@ PST_TCPBACKLOG tcp_backlog_freed_get(void)
 
     if (!pstBacklog)
     {
-#if SUPPORT_PRINTF 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif        
-        printf("%s\r\n", onps_error(ERRTCPBACKLOGEMPTY));
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
+        if (penErr)
+            *penErr = ERRTCPBACKLOGEMPTY; 
     }
 
     return pstBacklog; 
@@ -238,6 +231,26 @@ void tcp_backlog_free(PST_TCPBACKLOG pstBacklog)
     os_exit_critical();
 }
 
+PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr)
+{
+    PST_TCPSRV_RCVQUEUE_NODE pstNode = NULL; 
+
+    os_critical_init();
+    os_enter_critical();
+    {
+        pstNode = sllist_get_node(&l_pstSListRcvQueueFreed);        
+    }
+    os_exit_critical(); 
+
+    if (!pstNode)
+    {
+        if (penErr)
+            *penErr = ERRTCPRCVQUEUEEMPTY;
+    }
+
+    return pstNode; 
+}
+
 PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue)
 {
     PST_TCPSRV_RCVQUEUE_NODE pstNode = NULL;
@@ -252,34 +265,17 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueu
     return pstNode; 
 }
 
-void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, INT nInput)
+void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput)
 {
     PST_SLINKEDLIST_NODE pstNode = NULL;
 
     os_critical_init(); 
     os_enter_critical(); 
     {
-        pstNode = sllist_get_node(&l_pstSListRcvQueueFreed);
-        if (pstNode)
-        {
-            pstNode->uniData.nVal = nInput; 
-            sllist_put_tail_node(ppstSListRcvQueue, pstNode); 
-        }
+        pstNode->uniData.nVal = nInput;
+        sllist_put_tail_node(ppstSListRcvQueue, pstNode); 
     }
     os_exit_critical();
-
-    if (!pstNode)
-    {
-#if SUPPORT_PRINTF 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif        
-        printf("%s\r\n", onps_error(ERRTCPRCVQUEUEEMPTY));
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-    }
 }
 
 void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode)

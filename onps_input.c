@@ -184,13 +184,20 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     return pstNode->uniData.nVal;
 }
 
-INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
+INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
 {
+    if (nInputSrv < 0 || nInputSrv > SOCKET_NUM_MAX - 1)
+    {
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+        return -1;
+    }
+
     PST_TCPLINK pstLink = tcp_link_get(penErr);
     if (!pstLink)
         return -1;     
 
-    PST_TCPBACKLOG pstBacklog = tcp_backlog_freed_get(); 
+    PST_TCPBACKLOG pstBacklog = tcp_backlog_freed_get(penErr); 
     if (!pstBacklog)
     {
         tcp_link_free(pstLink);
@@ -215,7 +222,7 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
     {
         pstNode = sllist_get_node(&l_pstFreedSLList);
         pstcbInput = &l_stcbaInput[pstNode->uniData.nVal];
-        pstcbInput->hSem = hSem;
+        pstcbInput->hSem = l_stcbaInput[nInputSrv].hSem; 
         pstcbInput->bRcvTimeout = -1;
         pstcbInput->ubIPProto = (UCHAR)IPPROTO_TCP;
         pstcbInput->pubRcvBuf = pubRcvBuf;
@@ -241,7 +248,9 @@ INT onps_input_new_tcp_remote_client(HSEM hSem, USHORT usSrvPort, in_addr_t unSr
         pstBacklog->nInput = pstNode->uniData.nVal; 
         pstBacklog->stAdrr.unIp = unCltIp; 
         pstBacklog->stAdrr.usPort = usCltPort; 
-        pstLink->pstBacklog = pstBacklog; 
+        pstLink->pstBacklog = pstBacklog;
+
+        pstLink->nInputSrv = nInputSrv; 
 
         sllist_put_node(&l_pstInputSLList, pstNode);
     }
@@ -780,17 +789,29 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     {
         if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {
-            UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes; 
-            //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
-            //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了；
-            unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
-            memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes); 
-            l_stcbaInput[nInput].unRcvedBytes += unCpyBytes; 			
+            //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
+            PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr); 
+            if (pstRcvQueueNode)
+            {
+                UINT unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
+                //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes；
+                //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了
+                unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
+                memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes);
+                l_stcbaInput[nInput].unRcvedBytes += unCpyBytes;
 
-            //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小        
-            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
-            if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
-                ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;             
+                //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小        
+                ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
+                if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
+                    ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;
+
+                //* 投递这个到达的数据到服务器接收队列
+                INT nInputSrv = ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->nInputSrv; 
+                PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach; 
+                tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput); 
+            } 
+            else
+                blIsOK = FALSE; 
         }
         else if (IPPROTO_UDP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {

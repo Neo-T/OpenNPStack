@@ -69,6 +69,9 @@ SOCKET_EXT INT listen(SOCKET socket, INT backlog);
 //*     0: 不等待，立即返回
 //* 大于0: 等待指定时间直至超时或收到一个到达的连接请求
 //* 小于0: 一直等待，直至收到一个到达的连接请求
-SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWaitSecs);
+SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punFromIP, USHORT *pusFromPort, INT nWaitSecs); 
+
+//* 
+SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs); 
 
 #endif
