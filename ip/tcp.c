@@ -621,11 +621,11 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }
 
     //* 依据报文头部标志字段确定下一步的处理逻辑
-    UNI_TCP_FLAG uniFlag; 
-    INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
+    UNI_TCP_FLAG uniFlag;     
     UINT unSrcAckNum = htonl(pstHdr->unAckNum);
     UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
     uniFlag.usVal = pstHdr->usFlag;
+	INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
     if (uniFlag.stb16.ack)
     {         
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
