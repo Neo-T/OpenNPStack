@@ -577,7 +577,7 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
     
     //* 更新句柄
     if (onps_input_set((INT)socket, IOPT_SETTCPUDPADDR, &stHandle, &enErr))
-        return TRUE; 
+        return 0; 
 
 __lblErr:
     onps_set_last_error((INT)socket, enErr);

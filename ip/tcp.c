@@ -620,10 +620,10 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         return; 
     }
 
-    //* 依据报文头部标志字段确定下一步的处理逻辑
-    UNI_TCP_FLAG uniFlag;     
+    //* 依据报文头部标志字段确定下一步的处理逻辑        
     UINT unSrcAckNum = htonl(pstHdr->unAckNum);
-    UINT unPeerSeqNum = htonl(pstHdr->unSeqNum);
+    UINT unPeerSeqNum = htonl(pstHdr->unSeqNum); 
+    UNI_TCP_FLAG uniFlag; 
     uniFlag.usVal = pstHdr->usFlag;
 	INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
     if (uniFlag.stb16.ack)
