@@ -38,16 +38,16 @@ typedef struct _STCB_ETHARP_ {
 typedef struct _STCB_ETH_ARP_WAIT_ {
     PST_ONESHOTTIMER pstTimer; 
     PST_NETIF pstNetif;
+    PST_SLINKEDLIST_NODE pstNode; 
     UINT unArpDstAddr;
     USHORT usIpPacketLen;
-    UCHAR ubCount;
-    UCHAR ubIsSend; 
+    UCHAR ubCount;    
 } STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;
 
 ARP_EXT void arp_init(void); 
 ARP_EXT PSTCB_ETHARP arp_ctl_block_new(void);
 ARP_EXT void arp_ctl_block_free(PSTCB_ETHARP pstcbArp);
-ARP_EXT void arp_add_ethii_ipv4(PSTCB_ETHARP pstcbEthArp/*PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl*/, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]);
+ARP_EXT void arp_add_ethii_ipv4(PST_NETIF pstNetif/*PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl*/, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]);
 ARP_EXT INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr);
 ARP_EXT INT arp_get_mac_ext(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr);
 ARP_EXT INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, EN_ONPSERR *penErr);

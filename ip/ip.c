@@ -74,8 +74,22 @@ void eth_arp_wait_timeout_handler(void *pvParam)
     nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
     if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
     {
-        if(pstcbArpWait->ubIsSend) //* 已经发送过，那就不再发送了
-            goto __lblEnd; 
+        os_enter_critical(); 
+        {
+            //* 尚未发送，则首先摘除这个节点
+            if (pstcbArpWait->pstNode)
+            {
+                PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;                
+                sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
+                sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列
+            }            
+            else //* 已经发送，则没必要重复发送
+            {
+                os_exit_critical(); 
+                goto __lblEnd; 
+            }
+        }
+        os_exit_critical();         
 
         //* 申请一个buf list节点并将ip报文挂载到list上
         SHORT sBufListHead = -1;
@@ -136,6 +150,14 @@ __lblEnd:
 
     os_enter_critical();
     {
+        //* 尚未发送，则首先摘除这个节点
+        if (pstcbArpWait->pstNode)
+        {
+            PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;
+            sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
+            sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列            
+        }
+
         //* 释放内存
         buddy_free(pvParam);
     }

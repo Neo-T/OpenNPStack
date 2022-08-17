@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "one_shot_timer.h"
 #include "mmu/buf_list.h"
 #include "mmu/buddy.h"
 #include "onps_utils.h"
