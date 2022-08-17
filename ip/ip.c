@@ -38,24 +38,9 @@ static const EN_IPPROTO lr_enaIPProto[] = {
 };
 static USHORT l_usIPIdentifier = 0; 
 
-/*
-1、设计一个结构体用于保存pstNetif及等待arp计数以及报文，用于定时器溢出函数------------已完成
-2、完成wait_arp_timeout_handler(void *pvParam)函数，不单独增加发送完整ip报文的函数了，在这个函数里直接完成； -------------------------已完成
-3、完成ethernet_ii_send()函数；
-4、完成arp_send_request_ethii_ipv4()函数；----------------------已完成
-*/
-
-//* 等待arp查询结束后重新发送ip报文的控制块
-typedef struct _STCB_ETH_ARP_WAIT_ {
-    PST_NETIF pstNetif;
-    UINT unArpDstAddr; 
-    USHORT usIpPacketLen; 
-    UCHAR ubCount;
-} STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;
-
 #if SUPPORT_ETHERNET
 //* 当通过ethernet网卡发送ip报文时，协议栈尚未保存目标ip地址对应的mac地址时，需要先发送一组arp查询报文获取mac地址后才能发送该报文，这个定时器溢出函数即处理此项业务
-static void eth_arp_wait_timeout_handler(void *pvParam)
+void eth_arp_wait_timeout_handler(void *pvParam)
 {
     PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)pvParam; 
     PST_NETIF pstNetif = pstcbArpWait->pstNetif; 
@@ -64,6 +49,8 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     PST_IP_HDR pstIpHdr; 
     UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
     INT nRtnVal; 
+
+    os_critical_init();
 
     //* arp查询计数，如果超出限值，则不再查询直接丢弃该报文
     pstcbArpWait->ubCount++; 
@@ -87,6 +74,9 @@ static void eth_arp_wait_timeout_handler(void *pvParam)
     nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
     if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
     {
+        if(pstcbArpWait->ubIsSend) //* 已经发送过，那就不再发送了
+            goto __lblEnd; 
+
         //* 申请一个buf list节点并将ip报文挂载到list上
         SHORT sBufListHead = -1;
         SHORT sIpPacketNode = buf_list_get_ext(pubIpPacket/*((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT)*/, (UINT)pstcbArpWait->usIpPacketLen, &enErr);
@@ -144,8 +134,12 @@ __lblEnd:
     //* 不再占用网卡
     netif_freed(pstNetif);
 
-    //* 释放内存
-    buddy_free(pvParam);
+    os_enter_critical();
+    {
+        //* 释放内存
+        buddy_free(pvParam);
+    }
+    os_exit_critical();    
 }
 #endif
 
@@ -199,41 +193,42 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
 		if (pubDstMacAddr)
 		{
 			nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, pubDstMacAddr, penErr);
-		}
+		}        
 		else
 		{
-			UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
-			nRtnVal = arp_get_mac(pstNetif, unSrcAddr, unArpDstAddr, ubaDstMac, penErr);
+			UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];            
+			nRtnVal = arp_get_mac_ext(pstNetif, unSrcAddr, unArpDstAddr, ubaDstMac, sBufListHead, &blNetifFreedEn, penErr); 
 			if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
 			{
 				nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);
-			}
+			}  
+            /*
 			else
 			{
-				//* 说明已经成功发送了arp报文，开启一个定时器等1秒后再发送一次试试
+				// 说明已经成功发送了arp报文，开启一个定时器等1秒后再发送一次试试
 				if (nRtnVal > 0)
 				{
-					UINT unIpPacketLen = buf_list_get_len(sBufListHead); //* 获取报文长度
-					PSTCB_ETH_ARP_WAIT pstcbArpWait = buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文                
+					UINT unIpPacketLen = buf_list_get_len(sBufListHead); // 获取报文长度
+					PSTCB_ETH_ARP_WAIT pstcbArpWait = buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); // 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文                
 					if (pstcbArpWait)
 					{
 						UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
 
-						//* 保存报文到刚申请的内存中，然后开启一个1秒定时器等待arp查询结果并在得到正确mac地址后发送ip报文
+						// 保存报文到刚申请的内存中，然后开启一个1秒定时器等待arp查询结果并在得到正确mac地址后发送ip报文
 						buf_list_merge_packet(sBufListHead, pubIpPacket);
 
-						//* 计数器清零，并传递当前选择的netif
+						// 计数器清零，并传递当前选择的netif
 						pstcbArpWait->pstNetif = pstNetif;
 						pstcbArpWait->unArpDstAddr = unArpDstAddr;
 						pstcbArpWait->usIpPacketLen = (USHORT)unIpPacketLen;
 						pstcbArpWait->ubCount = 0;
 
-						//* 启动一个1秒定时器，等待查询完毕
+						// 启动一个1秒定时器，等待查询完毕
 						if (one_shot_timer_new(eth_arp_wait_timeout_handler, pstcbArpWait, 1))
 							blNetifFreedEn = FALSE;
 						else
 						{
-                            //* 定时器未启动，这里就要释放刚才申请的内存
+                            // 定时器未启动，这里就要释放刚才申请的内存
                             buddy_free(pstcbArpWait);
 
 							if (penErr)
@@ -243,9 +238,10 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
 					}
 					else
 						nRtnVal = -1;
-				}
-				else; //* arp查询失败，不作任何处理
-			}
+				}                
+				else; // arp查询失败，不作任何处理
+			} 
+            */
 		}        
     }
     else

@@ -28,13 +28,28 @@ typedef struct _STCB_ETHARP_ {
     CHAR bIsUsed;
     CHAR bLastEntryIPv4ToRead; //* 最近读取的arp条目
     ST_ENTRY_ETHIIIPV4 staEntryIPv4[ARPENTRY_NUM]; //* arp条目缓存表
+
+    ST_SLINKEDLIST_NODE staSListWaitQueue[12]; //* 等待arp查询结果的待发送报文队列
+    PST_SLINKEDLIST pstSListWaitQueueFreed; 
+    PST_SLINKEDLIST pstSListWaitQueue; 
 } STCB_ETHARP, *PSTCB_ETHARP;
+
+//* 等待arp查询结束后重新发送ip报文的控制块
+typedef struct _STCB_ETH_ARP_WAIT_ {
+    PST_ONESHOTTIMER pstTimer; 
+    PST_NETIF pstNetif;
+    UINT unArpDstAddr;
+    USHORT usIpPacketLen;
+    UCHAR ubCount;
+    UCHAR ubIsSend; 
+} STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;
 
 ARP_EXT void arp_init(void); 
 ARP_EXT PSTCB_ETHARP arp_ctl_block_new(void);
 ARP_EXT void arp_ctl_block_free(PSTCB_ETHARP pstcbArp);
-ARP_EXT void arp_add_ethii_ipv4(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]);
+ARP_EXT void arp_add_ethii_ipv4(PSTCB_ETHARP pstcbEthArp/*PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl*/, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]);
 ARP_EXT INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr);
+ARP_EXT INT arp_get_mac_ext(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr);
 ARP_EXT INT arp_send_request_ethii_ipv4(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, EN_ONPSERR *penErr);
 ARP_EXT void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen);
 #endif
