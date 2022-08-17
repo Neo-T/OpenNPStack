@@ -712,7 +712,7 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
             //* 取出input节点句柄，然后释放当前占用的backlog节点资源
             nInputClient = pstBacklog->nInput;
             if (punCltIP)
-                *punCltIP = pstBacklog->stAdrr.unIp; 
+                *punCltIP = htonl(pstBacklog->stAdrr.unIp); 
             if (pusCltPort)
                 *pusCltPort = pstBacklog->stAdrr.usPort; 
             tcp_backlog_free(pstBacklog);

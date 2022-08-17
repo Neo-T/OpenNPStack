@@ -490,7 +490,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
     if (pstLink->stcbWaitAck.pstTimer)
     {
         //* 发送syn ack报文给对端
-        pstLink->bState = TLSSYNACKSENT; 
+        pstLink->bState = TLSSYNACKSENT;         
         if (tcpsrv_send_syn_ack(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, &enErr) < 0)
         {
             pstLink->bState = TLSRCVEDSYN;
@@ -507,7 +507,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
     #endif
-        }
+        }        
     }
     else
     {
@@ -826,8 +826,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 首先看看是否已针对当前请求申请了input
         INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
         if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个
-        {                        
-            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);
+        {                 
+            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);             
             if (nRmtCltInput < 0)
             {
         #if SUPPORT_PRINTF                
