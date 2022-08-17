@@ -66,7 +66,7 @@ ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 ONPSINPUT_EXT void onps_input_sem_post(INT nInput); 
 ONPSINPUT_EXT INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
-ONPSINPUT_EXT void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput); 
+ONPSINPUT_EXT void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput, UINT unLocalSeqNum); 
 
 //* 对tcp链路关闭状态进行迁移
 ONPSINPUT_EXT BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState); 

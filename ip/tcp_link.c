@@ -181,7 +181,7 @@ PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
         if (pstNode)
         {
             pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
-            pstBacklog->pstNode = pstNode; 
+            pstBacklog->pstNode = pstNode;             
         }
     }
     os_exit_critical();
@@ -195,7 +195,7 @@ PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
     return pstBacklog; 
 }
 
-PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog)
+PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog, USHORT *pusBacklogCnt)
 {
     PST_TCPBACKLOG pstBacklog = NULL; 
 
@@ -203,19 +203,23 @@ PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog)
     os_enter_critical();
     {
         PST_SLINKEDLIST_NODE pstNode = sllist_get_node(ppstSListBacklog); 
-        if (pstNode)        
-            pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;        
+        if (pstNode)
+        {
+            pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
+            (*pusBacklogCnt)--; 
+        }
     }
     os_exit_critical(); 
 
     return pstBacklog; 
 }
 
-void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog)
+void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog, USHORT *pusBacklogCnt)
 {
     os_critical_init();
     os_enter_critical(); 
     {
+        (*pusBacklogCnt)++; 
         sllist_put_tail_node(ppstSListBacklog, pstBacklog->pstNode);
     }
     os_exit_critical();

@@ -640,16 +640,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             {
                 //* 序号完全相等才意味着这是一个合法的syn ack's ack报文
                 if (unSrcAckNum == pstLink->stLocal.unSeqNum + 1 && unPeerSeqNum == pstLink->stPeer.unSeqNum)
-                {
-                    pstLink->stcbWaitAck.bIsAcked = TRUE;
-                    one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer); 
-
-                    //* 状态迁移到“已连接”
-                    pstLink->stLocal.unSeqNum = unSrcAckNum; 
-                    pstLink->bState = TLSCONNECTED;                     
-
+                {                                        
                     //* 投递信号给accept()函数
-                    onps_input_sem_post_tcpsrv_accept(nInput, nRmtCltInput); 
+                    onps_input_sem_post_tcpsrv_accept(nInput, nRmtCltInput, unSrcAckNum); 
                 }
             }
 

@@ -3,6 +3,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "one_shot_timer.h"
 #include "mmu/buddy.h"
 #include "onps_utils.h"
 #define SYMBOL_GLOBALS
@@ -191,6 +192,24 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         if (penErr)
             *penErr = ERRINPUTOVERFLOW;
         return -1;
+    }
+
+    //* 判断backlog队列是否已满
+    PST_INPUTATTACH_TCPSRV pstAttach = l_stcbaInput[nInputSrv].pvAttach; 
+    if (pstAttach)
+    {
+        if (pstAttach->usBacklogCnt >= pstAttach->usBacklogNum)
+        {
+            if (penErr)
+                *penErr = ERRTCPBACKLOGFULL; 
+            return -1;  
+        }
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRTCPNOLISTEN;
+        return -1; 
     }
 
     PST_TCPLINK pstLink = tcp_link_get(penErr);
@@ -602,23 +621,38 @@ INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
     return 0;
 }
 
-void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput)
+void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput, UINT unLocalSeqNum)
 {
+    PST_INPUTATTACH_TCPSRV pstAttach; 
+    PST_TCPLINK pstLink; 
+
     if (nSrvInput < 0 || nSrvInput > SOCKET_NUM_MAX - 1 || nCltInput < 0 || nCltInput > SOCKET_NUM_MAX - 1)
-        return;
+        goto __lblErr; 
 
     //* 如果不是tcp协议或者并不是tcp服务器链路则不投递tcp链路已建立信号量
     if (IPPROTO_TCP != (EN_IPPROTO)l_stcbaInput[nSrvInput].ubIPProto || TCP_TYPE_SERVER != l_stcbaInput[nSrvInput].uniHandle.stAddr.bType)
-        return; 
+        goto __lblErr;
 
     //* 取出已经准备好的backlog，加入请求队列然后投递给accept()用户
-    PST_INPUTATTACH_TCPSRV pstAttach = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nSrvInput].pvAttach;
-    PST_TCPLINK pstLink = (PST_TCPLINK)l_stcbaInput[nCltInput].pvAttach;
+    pstAttach = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nSrvInput].pvAttach;
+    pstLink = (PST_TCPLINK)l_stcbaInput[nCltInput].pvAttach;
     if (pstAttach && pstLink)
     {
-        tcp_backlog_put(&pstAttach->pstSListBacklog, pstLink->pstBacklog); 
+        pstLink->stcbWaitAck.bIsAcked = TRUE;
+        one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
+
+        //* 状态迁移到“已连接”
+        pstLink->stLocal.unSeqNum = unLocalSeqNum; 
+        pstLink->bState = TLSCONNECTED;
+
+        tcp_backlog_put(&pstAttach->pstSListBacklog, pstLink->pstBacklog, &pstAttach->usBacklogCnt); 
         os_thread_sem_post(pstAttach->hSemAccept);
-    }
+
+        return; 
+    }    
+
+__lblErr: 
+    onps_input_free(nCltInput); 
 }
 
 BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState)

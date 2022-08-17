@@ -111,7 +111,9 @@ typedef struct _ST_TCPLINK_ {
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
-    CHAR bIsUsed; 
+    CHAR bIsUsed;    
+    USHORT usBacklogNum; 
+    USHORT usBacklogCnt;      
     HSEM hSemAccept; 
     PST_SLINKEDLIST pstSListBacklog; 
     PST_SLINKEDLIST pstSListRcvQueue; 
@@ -128,8 +130,8 @@ TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink);
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach); 
 TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr);
-TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog); 
-TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog);
+TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog, USHORT *pusBacklogCnt);
+TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog, USHORT *pusBacklogCnt);
 TCP_LINK_EXT void tcp_backlog_free(PST_TCPBACKLOG pstBacklog);
 
 TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr);

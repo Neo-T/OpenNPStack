@@ -584,7 +584,7 @@ __lblErr:
     return -1;      
 }
 
-INT listen(SOCKET socket, INT backlog)
+INT listen(SOCKET socket, USHORT backlog)
 {
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;
@@ -616,7 +616,12 @@ INT listen(SOCKET socket, INT backlog)
             pstAttach = tcpsrv_input_attach_get(&enErr);
             if (pstAttach)
             {
-                if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstAttach, &enErr))
+                if (onps_input_set((INT)socket, IOPT_SETATTACH, pstAttach, &enErr))
+                {
+                    pstAttach->usBacklogNum = backlog; 
+                    pstAttach->usBacklogCnt = 0; 
+                }
+                else
                 {
                     tcpsrv_input_attach_free(pstAttach); 
                     goto __lblErr;
@@ -697,7 +702,7 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
         }
         
         //* 取出一个连接请求
-        pstBacklog = tcp_backlog_get(&pstAttach->pstSListBacklog); 
+        pstBacklog = tcp_backlog_get(&pstAttach->pstSListBacklog, &pstAttach->usBacklogCnt); 
         if (pstBacklog)
         {
             //* 只要是正常完成三次握手的连接请求，协议栈底层就会投递一个semaphore，所以如果用户选择了不等待（即参数nWaitSecs为0），这里就必须pend一次以消除这个到达的semaphore
