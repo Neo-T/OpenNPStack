@@ -178,7 +178,7 @@ PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
     os_critical_init();
     os_enter_critical();
     {
-        /*PST_SLINKEDLIST_NODE pstNode = */sllist_get_node(&l_pstSListBacklogFreed);
+        /*PST_SLINKEDLIST_NODE*/ pstNode = sllist_get_node(&l_pstSListBacklogFreed);
         /*
         if (pstNode)
         {
