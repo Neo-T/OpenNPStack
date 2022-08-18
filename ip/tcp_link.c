@@ -173,18 +173,27 @@ void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
 PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
 {
     PST_TCPBACKLOG pstBacklog = NULL;
+    PST_SLINKEDLIST_NODE pstNode; 
 
     os_critical_init();
     os_enter_critical();
     {
-        PST_SLINKEDLIST_NODE pstNode = sllist_get_node(&l_pstSListBacklogFreed);
+        /*PST_SLINKEDLIST_NODE pstNode = */sllist_get_node(&l_pstSListBacklogFreed);
+        /*
         if (pstNode)
         {
             pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
             pstBacklog->pstNode = pstNode;             
         }
+        */
     }
     os_exit_critical();
+
+    if (pstNode)
+    {
+        pstBacklog = (PST_TCPBACKLOG)pstNode->uniData.ptr;
+        pstBacklog->pstNode = pstNode;
+    }
 
     if (!pstBacklog)
     {
