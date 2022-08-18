@@ -75,8 +75,8 @@ void arp_ctl_block_free(PSTCB_ETHARP pstcbArp)
 //* 添加arp条目
 void arp_add_ethii_ipv4(PST_NETIF pstNetif/*PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl*/, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
 {
-    PSTCB_ETHARP pstcbEthArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
-    BOOL blIsNotExist = TRUE; 
+	BOOL blIsExist; 
+    PSTCB_ETHARP pstcbEthArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;     
 
     os_critical_init(); 
 
@@ -127,6 +127,8 @@ __lblSend:
     //* 逐个取出待发送报文
     os_enter_critical(); 
     {
+		blIsExist = FALSE;
+
         //* 看看有没有待发送的报文
         PST_SLINKEDLIST_NODE pstNextNode = (PST_SLINKEDLIST_NODE)pstcbEthArp->pstSListWaitQueue;
         PST_SLINKEDLIST_NODE pstPrevNode = NULL;
@@ -183,7 +185,7 @@ __lblSend:
                 //* 清空，显式地告诉定时器已经发送了（如果定时器溢出函数此时已经执行的话）
                 pstcbArpWait->pstNode = NULL;    
 
-                blIsNotExist = FALSE; 
+				blIsExist = TRUE;
 
                 break; 
             }
@@ -195,10 +197,8 @@ __lblSend:
     } 
     os_exit_critical(); 
 
-    if (blIsNotExist)
-        return;
-
-    goto __lblSend; 
+    if (blIsExist)        
+		goto __lblSend; 
 }
 
 INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
