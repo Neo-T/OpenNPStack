@@ -201,6 +201,54 @@ __lblSend:
 		goto __lblSend; 
 }
 
+void arp_add_ethii_ipv4_ext(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+{    
+    os_critical_init();
+
+    //* 先查找该条目是否已经存在，如果存在则直接更新，否则直接添加或替换最老条目
+    INT i;
+    for (i = 0; i < ARPENTRY_NUM; i++)
+    {
+        //* 至此，前面缓存的条目没有匹配的，不必继续查找了，直接新增即可
+        if (!pstArpIPv4Tbl[i].unIPAddr)
+            break;
+
+        if (unIPAddr == pstArpIPv4Tbl[i].unIPAddr) //* 匹配
+        {
+            //* 更新mac地址
+            os_enter_critical();
+            {
+                memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, ETH_MAC_ADDR_LEN);
+                pstArpIPv4Tbl[i].unUpdateTime = os_get_system_secs();
+            }
+            os_exit_critical();
+            return;
+        }
+    }
+
+    //* 到这里意味着尚未缓存该地址条目，需要增加一条或者覆盖最老的一个条目
+    if (i >= ARPENTRY_NUM)
+    {
+        INT nFirstEntry = 0;
+        for (i = 1; i < ARPENTRY_NUM; i++)
+        {
+            if (pstArpIPv4Tbl[nFirstEntry].unUpdateTime > pstArpIPv4Tbl[i].unUpdateTime)
+                nFirstEntry = i;
+        }
+
+        i = nFirstEntry;
+    }
+
+    //* 更新mac地址
+    os_enter_critical();
+    {
+        memcpy(pstArpIPv4Tbl[i].ubaMacAddr, ubaMacAddr, ETH_MAC_ADDR_LEN);
+        pstArpIPv4Tbl[i].unUpdateTime = os_get_system_secs();
+        pstArpIPv4Tbl[i].unIPAddr = unIPAddr;
+    }
+    os_exit_critical();
+}
+
 INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
 {
     PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 

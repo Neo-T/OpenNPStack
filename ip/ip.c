@@ -376,6 +376,21 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
         return; 
     }
 
+#if SUPPORT_ETHERNET
+    //* 如果当前网卡类型是ethernet网卡，就需要看看ip地址是否匹配，只有匹配的才会处理
+    if (NIF_ETHERNET == pstNetif->enType)
+    {
+        //* ip地址不匹配，直接丢弃当前报文
+        if (!ethernet_ipv4_addr_matched(pstNetif, pstHdr->unDstIP))
+            return; 
+
+        //* 更新arp缓存表
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+        arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntryIPv4, pstHdr->unDstIP, pubDstMacAddr); 
+    }
+#endif
+    
+
     switch (pstHdr->ubProto)
     {
     case IPPROTO_ICMP: 
