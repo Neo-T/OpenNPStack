@@ -14,6 +14,7 @@
 #define SYMBOL_GLOBALS
 #include "ip/ip.h"
 #undef SYMBOL_GLOBALS
+#include "ethernet/ethernet.h"
 #include "ip/icmp.h"
 #include "ip/tcp.h"
 #include "ip/udp.h"
@@ -386,7 +387,7 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
 
         //* 更新arp缓存表
         PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-        arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntryIPv4, pstHdr->unDstIP, pubDstMacAddr); 
+        arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntryIPv4, pstHdr->unSrcIP, pubDstMacAddr); 
     }
 #endif
     
