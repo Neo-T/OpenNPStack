@@ -772,11 +772,20 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
         if (penErr)
             *penErr = ERRTCPNOLISTEN;
         goto __lblErr;
-    }
+    }	
 
     //* 需要等待一小段时间或直至数据到达
     if (nWaitSecs)
     {
+		//* 先不等待，首先查询一次接收队列，有的话就直接拿到信号返回了，没有的话再等待用户指定的时间
+		pstNode = tcpsrv_recv_queue_get(&pstAttach->pstSListRcvQueue);
+		if (pstNode)
+		{
+			INT nClientInput = pstNode->uniData.nVal;
+			tcpsrv_recv_queue_free(pstNode);
+			return (SOCKET)nClientInput;
+		}
+
         if (nWaitSecs < 0)
             nWaitSecs = 0; 
 
@@ -788,7 +797,7 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
             goto __lblErr; 
     }
 
-    //* 获取接收队列
+    //* 获取接收队列	
     pstNode = tcpsrv_recv_queue_get(&pstAttach->pstSListRcvQueue); 
     if (pstNode)
     {

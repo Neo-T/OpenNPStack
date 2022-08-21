@@ -902,8 +902,8 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     if (blIsOK)
     {       		
         //* 在这里，除了本地客户端显式地指定需要等待数据到达semaphore之外，tcp远端客户端也会投递一个semaphore用于标准的poll操作
-		if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
-			os_thread_sem_post(l_stcbaInput[nInput].hSem);		
+		if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)		
+			os_thread_sem_post(l_stcbaInput[nInput].hSem); 
     }    
 
     return blIsOK; 

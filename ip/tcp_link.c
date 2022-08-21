@@ -255,7 +255,7 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr)
     }
     os_exit_critical(); 
 
-#if 1
+#if 0
 	os_thread_mutex_lock(o_hMtxPrintf);
 	{
 		printf("<G> %d\r\n", tcpsrv_recv_queue_count(&l_pstSListRcvQueueFreed));
@@ -283,6 +283,15 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueu
     }
     os_exit_critical();
 
+	//* 测试使用
+#if 0
+	os_thread_mutex_lock(o_hMtxPrintf);
+	{
+		printf("<Q> %d\r\n", tcpsrv_recv_queue_count(ppstSListRcvQueue));
+	}
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+
     return pstNode; 
 }
 
@@ -308,7 +317,7 @@ void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode)
 
 
 	//* 测试使用
-#if 1
+#if 0
 	os_thread_mutex_lock(o_hMtxPrintf);
 	{
 		printf("<F> %d\r\n", tcpsrv_recv_queue_count(&l_pstSListRcvQueueFreed)); 
