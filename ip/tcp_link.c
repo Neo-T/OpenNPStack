@@ -255,6 +255,14 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr)
     }
     os_exit_critical(); 
 
+#if 1
+	os_thread_mutex_lock(o_hMtxPrintf);
+	{
+		printf("<G> %d\r\n", tcpsrv_recv_queue_count(&l_pstSListRcvQueueFreed));
+	}
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+
     if (!pstNode)
     {
         if (penErr)
@@ -294,7 +302,36 @@ void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode)
     os_critical_init();
     os_enter_critical();
     {
-        sllist_put_node(&l_pstSListRcvQueueFreed, pstNode);
+        sllist_put_node(&l_pstSListRcvQueueFreed, pstNode);		
     }
     os_exit_critical();
+
+
+	//* 测试使用
+#if 1
+	os_thread_mutex_lock(o_hMtxPrintf);
+	{
+		printf("<F> %d\r\n", tcpsrv_recv_queue_count(&l_pstSListRcvQueueFreed)); 
+	}
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+}
+
+INT tcpsrv_recv_queue_count(PST_SLINKEDLIST *ppstSListRcvQueue)
+{
+	INT nCount = 0; 	
+
+	os_critical_init(); 
+	os_enter_critical();
+	{
+		PST_SLINKEDLIST_NODE pstNextNode = (PST_SLINKEDLIST_NODE)(*ppstSListRcvQueue); 
+		while (pstNextNode)
+		{
+			nCount++; 
+			pstNextNode = pstNextNode->pstNext;
+		}
+	}
+	os_exit_critical();
+
+	return nCount; 
 }

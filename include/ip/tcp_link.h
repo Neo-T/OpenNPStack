@@ -138,5 +138,6 @@ TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *pe
 TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue);
 TCP_LINK_EXT void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput);
 TCP_LINK_EXT void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode); 
+TCP_LINK_EXT INT tcpsrv_recv_queue_count(PST_SLINKEDLIST *ppstSListRcvQueue); 
 
 #endif
