@@ -211,7 +211,7 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
     pstCltId->stHdr.ubLen = sizeof(ST_DHCPOPT_CLTID) - sizeof(ST_DHCPOPT_HDR); 
     pstCltId->ubHardwareType = 1; 
     memcpy(pstCltId->ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 
-    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID);
+    unOptionsOffset += sizeof(ST_DHCPOPT_CLTID); 
 
     //* 填充vendor标识信息
     PST_DHCPOPT_VENDORID pstVendorId = (PST_DHCPOPT_VENDORID)&ubaOptions[unOptionsOffset];
@@ -227,7 +227,7 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
     UCHAR *pubParamItem = ((UCHAR *)pstParamListHdr) + sizeof(ST_DHCPOPT_HDR); 
     pubParamItem[0] = DHCPOPT_SUBNETMASK;
     pubParamItem[1] = DHCPOPT_ROUTER;
-    pubParamItem[2] = DHCPOPT_DNS; 
+    pubParamItem[2] = DHCPOPT_DNS;
 
     //* 选项结束
     pubParamItem[3] = DHCPOPT_END; 

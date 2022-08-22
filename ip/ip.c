@@ -385,7 +385,7 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
 		if (pstHdr->unDstIP != 0xFFFFFFFF)
 		{
 			// ip地址不匹配，直接丢弃当前报文
-			if (!ethernet_ipv4_addr_matched(pstNetif, pstHdr->unDstIP))
+			if (pstNetif->stIPv4.unAddr && !ethernet_ipv4_addr_matched(pstNetif, pstHdr->unDstIP))
 				return;
 
 			// 更新arp缓存表
