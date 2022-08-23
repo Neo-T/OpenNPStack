@@ -307,6 +307,34 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *pu
     }
 }
 
+//* 获取缺省路由使用的网卡以获取其指定的dns服务器
+PST_NETIF route_get_default(void)
+{
+    PST_ROUTE pstDefaultRoute = NULL; 
+
+    //* 查找路由表
+    os_thread_mutex_lock(l_hMtxRoute);
+    {
+        PST_ROUTE_NODE pstNextNode = l_pstRouteLink; 
+        while (pstNextNode)
+        {
+            if (!pstNextNode->stRoute.unDestination)
+            {
+                pstDefaultRoute = &pstNextNode->stRoute;
+                break; 
+            }
+
+            pstNextNode = pstNextNode->pstNext; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxRoute); 
+
+    if (pstDefaultRoute)
+        return pstDefaultRoute->pstNetif; 
+    else //* 缺省路由为空，则直接使用网络接口链表的首节点作为缺省路由
+        return netif_get_first(FALSE); 
+}
+
 UINT route_get_netif_ip(UINT unDestination)
 {
     UINT unNetifIp = 0; 

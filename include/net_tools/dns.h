@@ -15,6 +15,8 @@
 	#define DNS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#define DNS_SRV_PORT 53 //* dns服务器端口，这是一个固定值
+
 //* dns查询报文标志字段
 typedef union _UNI_DNS_FLAG_ {
     struct {
@@ -42,7 +44,11 @@ typedef struct _ST_DNS_HDR_ {
 } PACKED ST_DNS_HDR, *PST_DNS_HDR; 
 PACKED_END
 
+//* 开启dns查询，返回值为dns客户端句柄，利用该句柄可以实现多次不同域名的dns查询
+DNS_EXT INT dns_client_start(in_addr_t *punPrimaryDNS, in_addr_t *punSecondaryDNS, EN_ONPSERR *penErr);
+DNS_EXT void dns_client_end(INT nClient); 
+
 //* 实现dns查询，参数pszDomainName指定要查询的域名，返回值为查询结果，如果地址为0，具体错误信息从penErr获得
-DNS_EXT in_addr_t dns_query(const CHAR *pszDomainName, EN_ONPSERR *penErr); 
+DNS_EXT in_addr_t dns_client_query(INT nClient, const CHAR *pszDomainName, EN_ONPSERR *penErr);
 
 #endif

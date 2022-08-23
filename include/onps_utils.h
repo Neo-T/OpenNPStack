@@ -72,4 +72,8 @@ ONPS_UTILS_EXT BOOL ethernet_mac_matched(const UCHAR *pubaMacAddr1, const UCHAR 
 ONPS_UTILS_EXT BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr); 
 #endif
 
+//* 几级域名，也就是域名分了几段，为封装dns查询报文提供数据支持，参数pnBytesOf1stSeg用于接收第一段域名的长度
+//* 返回值为域名级数，其实就是这个域名分了几段
+ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg); 
+
 #endif

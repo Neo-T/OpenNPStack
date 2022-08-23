@@ -459,5 +459,27 @@ BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr)
 
     return TRUE;
 }
+
+//* 几级域名，也就是域名分了几段，为封装dns查询报文提供数据支持
+INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
+{
+    INT i, nCount = 1, nBytesOf1stSeg = 0;
+    INT nDomainNameLen = strlen(pszDomainName);
+    for (i = 0; i < nDomainNameLen; i++)
+    {
+        if (pszDomainName[i] == '.')
+        {
+            nCount++;
+            if (0 == nBytesOf1stSeg)
+                nBytesOf1stSeg = i;
+        }
+    }
+
+    if (0 == nBytesOf1stSeg)
+        nBytesOf1stSeg = i;
+    *pnBytesOf1stSeg = nBytesOf1stSeg;
+
+    return nCount;
+}
 #endif
 

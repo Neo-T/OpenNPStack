@@ -37,7 +37,8 @@ ROUTE_EXT void route_table_uninit(void);
 ROUTE_EXT BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGenmask, EN_ONPSERR *penErr);
 ROUTE_EXT void route_del(UINT unDestination);
 ROUTE_EXT void route_del_ext(PST_NETIF pstNetif);
-ROUTE_EXT PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *punSrcIp, in_addr_t *punArpDstAddr);
+ROUTE_EXT PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *punSrcIp, in_addr_t *punArpDstAddr); 
+ROUTE_EXT PST_NETIF route_get_default(void);
 ROUTE_EXT UINT route_get_netif_ip(UINT unDestination);
 ROUTE_EXT void route_get_gateway_by_netif(PST_NETIF pstNetif, in_addr_t unSource, in_addr_t unDestination, in_addr_t *punArpDstAddr);
 
