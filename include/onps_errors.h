@@ -78,7 +78,12 @@ typedef enum {
     ERRTCPBACKLOGEMPTY,     //* tcp服务器的backlog资源为空
     ERRTCPRCVQUEUEEMPTY,    //* tcp服务器的接收队列资源为空
     ERRTCPNOLISTEN,         //* tcp服务器未进入listen阶段
-    ERRTCPBACKLOGFULL,      //* tcp服务器的backlog队列已满  
+    ERRTCPBACKLOGFULL,      //* tcp服务器的backlog队列已满
+    ERRDNSQUERYFMT,         //* dns查询报文格式错误
+    ERRDNSSRV,              //* dns服务器故障
+    ERRDNSNAME,             //* 域名不存在
+    ERRDNSQUERYTYPE,        //* 不被支持的dns查询类型
+    ERRDNSREFUSED,          //* dns服务器拒绝
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

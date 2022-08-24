@@ -908,7 +908,7 @@ __lblWaitRecv:
             if (nRcvedBytes < 0)
                 goto __lblErr;
 
-            if(bWaitSecs <= 0) 
+            if (bWaitSecs <= 0) 
                 return 0; 
             goto __lblWaitRecv; 
         }

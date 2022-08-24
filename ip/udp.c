@@ -390,7 +390,11 @@ INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t 
     //* 读取数据
     nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, punFromIP, pusFromPort, &enErr);
     if (nRcvedBytes > 0)
+    {
+        if (bRcvTimeout > 0)
+            onps_input_sem_pend(nInput, 1, NULL); //* 因为收到数据了，所以一定存在这个信号，所以这里主动消除该信号，确保用户端的延时准确
         return nRcvedBytes;
+    }
     else
     {
         if (nRcvedBytes < 0)
@@ -400,10 +404,9 @@ INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t 
     //* 等待后
     if (bRcvTimeout)
     {
-        CHAR bWaitSecs;        
+        CHAR bWaitSecs = bRcvTimeout;
 
-    __lblWaitRecv:
-        bWaitSecs = bRcvTimeout;
+__lblWaitRecv:        
         if (bRcvTimeout > 0)
         {
             if (onps_input_sem_pend(nInput, 1, &enErr) < 0)            

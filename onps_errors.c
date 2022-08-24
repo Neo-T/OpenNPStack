@@ -70,6 +70,10 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRTCPRCVQUEUEEMPTY, "recv queue resource for tcp server is empty" }, 
     { ERRTCPNOLISTEN, "tcp server does not enter the listen stage" }, 
     { ERRTCPBACKLOGFULL, "backlog resource for tcp server is full" }, 
+    { ERRDNSQUERYFMT, "The format of the dns query packet is wrong" },
+    { ERRDNSSRV, "dns server failure" }, 
+    { ERRDNSNAME, "domain name does not exist" }, 
+    { ERRDNSQUERYTYPE, "unsupported dns query type" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 
