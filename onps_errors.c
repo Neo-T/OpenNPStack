@@ -74,6 +74,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRDNSSRV, "dns server failure" }, 
     { ERRDNSNAME, "domain name does not exist" }, 
     { ERRDNSQUERYTYPE, "unsupported dns query type" }, 
+    { ERRDNSNOTRESOLVED, "not resolved to ip address" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

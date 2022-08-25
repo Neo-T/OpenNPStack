@@ -45,6 +45,27 @@ typedef struct _ST_DNS_HDR_ {
 } PACKED ST_DNS_HDR, *PST_DNS_HDR; 
 PACKED_END
 
+//* dns应答报文携带的Answers字段头部结构
+PACKED_BEGIN
+typedef struct _ST_DNS_ANSWER_HDR_ {
+    USHORT usOffset;
+    USHORT usType;
+    USHORT usClass;
+    UINT unTTL;
+    USHORT usDataLen;    
+} PACKED ST_DNS_ANSWER_HDR, *PST_DNS_ANSWER_HDR;
+PACKED_END
+
+//* dns应答报文携带的Answers字段头部结构
+PACKED_BEGIN
+typedef struct _ST_DNS_ANSWER_HDR_NONAME_ {    
+    USHORT usType;
+    USHORT usClass;
+    UINT unTTL;
+    USHORT usDataLen;
+} PACKED ST_DNS_ANSWER_HDR_NONAME, *PST_DNS_ANSWER_HDR_NONAME; 
+PACKED_END
+
 //* 开启dns查询，返回值为dns客户端句柄，利用该句柄可以实现多次不同域名的dns查询
 DNS_EXT INT dns_client_start(in_addr_t *punPrimaryDNS, in_addr_t *punSecondaryDNS, CHAR bRcvTimeout, EN_ONPSERR *penErr);
 DNS_EXT void dns_client_end(INT nClient); 

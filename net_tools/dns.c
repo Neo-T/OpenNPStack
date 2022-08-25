@@ -80,6 +80,67 @@ static void dns_queries_encap(UCHAR *pubQueries, const CHAR *pszDomainName, EN_O
     pubQueries[i + 5] = 0x01;
 }
 
+//* 解析响应报文的answer数据段
+static in_addr_t dns_srv_answer_handler(UCHAR *pubAnswer, UCHAR **pubNextAnswer)
+{
+    in_addr_t unAddr = 0; 
+
+    //* 确定当前要解析的Answer携带的name字段是否为指针类型
+    if (0xC0 == (pubAnswer[0] & 0xC0))
+    {        
+        PST_DNS_ANSWER_HDR pstAnswerHdr = (PST_DNS_ANSWER_HDR)pubAnswer; 
+        USHORT usType = htons(pstAnswerHdr->usType); 
+        USHORT usDataLen = htons(pstAnswerHdr->usDataLen);
+        if (0x0001 == usType) //* 看看这个回答类型是否为A（Host Address, Ipv4）类型
+        {
+            //* 一定是Ipv4地址类型才可
+            if (4 == usDataLen)
+            {
+                memcpy((UCHAR *)&unAddr, pubAnswer + sizeof(ST_DNS_ANSWER_HDR), 4); 
+                return unAddr; 
+            }
+        }
+        else //* 迁移到下一个Answer        
+            *pubNextAnswer = pubAnswer + sizeof(ST_DNS_ANSWER_HDR) + usDataLen;         
+    }
+    else
+    {     
+        //* 先跳过前面的name字段
+        UCHAR i = 0;
+        UCHAR ubLen;
+        do {
+            if (!pubAnswer[i])
+                break;
+            if (0xC0 == (0xC0 & pubAnswer[i]))
+                i += 2;
+            else
+            {
+                ubLen = pubAnswer[i];
+                i += ubLen + 1;
+            }
+        } while (TRUE);
+        i++;
+
+        //* 得到name之后的Answer其它字段
+        PST_DNS_ANSWER_HDR_NONAME pstAnswerHdrNoName = (PST_DNS_ANSWER_HDR_NONAME)(pubAnswer + i);
+        USHORT usType = htons(pstAnswerHdrNoName->usType);
+        USHORT usDataLen = htons(pstAnswerHdrNoName->usDataLen);
+        if (0x0001 == usType) //* A型
+        {
+            //* Ipv4地址
+            if (4 == usDataLen)
+            {
+                memcpy((UCHAR *)&unAddr, pubAnswer + i + sizeof(ST_DNS_ANSWER_HDR_NONAME), 4);
+                return unAddr;
+            }
+        }
+        else
+            *pubNextAnswer = pubAnswer + i + sizeof(ST_DNS_ANSWER_HDR_NONAME) + usDataLen;
+    }
+
+    return 0; 
+}
+
 //* 查询dns
 in_addr_t dns_client_query(INT nClient, in_addr_t unPrimaryDNS, in_addr_t unSecondaryDNS, const CHAR *pszDomainName, EN_ONPSERR *penErr)
 {    
@@ -97,9 +158,9 @@ in_addr_t dns_client_query(INT nClient, in_addr_t unPrimaryDNS, in_addr_t unSeco
         return 0; 
 
     //* 申请一块内存，然后根据协议封装必要的字段  
-    UCHAR *pubDnsQueryPkt = buddy_alloc(DNS_RCV_BUF_SIZE/*sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4*/, penErr);
-    if (pubDnsQueryPkt)    
-        pstHdr = (PST_DNS_HDR)pubDnsQueryPkt;     
+    UCHAR *pubDnsPkt = buddy_alloc(DNS_RCV_BUF_SIZE/*sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4*/, penErr);
+    if (pubDnsPkt)    
+        pstHdr = (PST_DNS_HDR)pubDnsPkt;     
     else
         return 0;     
 
@@ -113,7 +174,7 @@ __lblSend:
     }
 
     //* 封装    
-    dns_queries_encap(pubDnsQueryPkt + sizeof(ST_DNS_HDR), pszDomainName, penErr);
+    dns_queries_encap(pubDnsPkt + sizeof(ST_DNS_HDR), pszDomainName, penErr);
 
     //* 封装头
     usTransId = (USHORT)(rand() % (0xFFFF + 1)); 
@@ -127,7 +188,7 @@ __lblSend:
     pstHdr->usAdditionalRRs = 0;     
 
     //* 发送查询报文，2为单个域名首部长度字节+单个域名尾部结束字节，4为紧跟域名的查询类型与地址类型字段，这两个字段各占两个字节
-    nSndBytes = udp_sendto(nClient, unDnsSrvIp, DNS_SRV_PORT, pubDnsQueryPkt, sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4);
+    nSndBytes = udp_sendto(nClient, unDnsSrvIp, DNS_SRV_PORT, pubDnsPkt, sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4);
     if (nSndBytes < 0)
     {
         onps_get_last_error(nClient, penErr); 
@@ -135,17 +196,33 @@ __lblSend:
     } 
 
     //* 等待应答报文
-    nRcvBytes = udp_recv_upper(nClient, pubDnsQueryPkt, DNS_RCV_BUF_SIZE, NULL, NULL, bRcvTimeout); 
+    nRcvBytes = udp_recv_upper(nClient, pubDnsPkt, DNS_RCV_BUF_SIZE, NULL, NULL, bRcvTimeout); 
     if (nRcvBytes > 0)
     {
-        //* 事务Id匹配且为响应报文则说明是针对当前查询的应答
-        uniFlag.usVal = pstHdr->usFlag; 
+        //* 事务ID匹配且为响应报文则说明是针对当前查询的应答
+        uniFlag.usVal = htons(pstHdr->usFlag); 
         if (usTransId == pstHdr->usTransId && uniFlag.stb16.qr)
         {
             //* 响应码无差错，则报文有效，可以解析地址了
             if (!uniFlag.stb16.reply_code)
             {
+                USHORT usAnswerNum = htons(pstHdr->usAnswerRRs); 
+                UCHAR *pubNextAnswer = pubDnsPkt + sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4;
+                UCHAR *pubAnswer;
+                USHORT usAnswerCnt = 0; 
+                do {                    
+                    pubAnswer = pubNextAnswer; 
+                    unRtnAddr = dns_srv_answer_handler(pubAnswer, &pubNextAnswer); 
+                    if (unRtnAddr)
+                        goto __lblEnd; 
+                    usAnswerNum++; 
+                } while (pubNextAnswer && usAnswerCnt < usAnswerNum);
 
+                if (penErr)
+                    *penErr = ERRDNSNOTRESOLVED; 
+
+                //* 无论有没有解析到地址都将结束查询，因为已经收到无错误的应答了
+                goto __lblEnd;
             }
             else
             {
@@ -155,7 +232,7 @@ __lblSend:
                     {
                     case 1:
                         *penErr = ERRDNSQUERYFMT; 
-                        break; 
+                        goto __lblEnd; 
 
                     case 2: 
                         *penErr = ERRDNSSRV; 
@@ -163,15 +240,19 @@ __lblSend:
 
                     case 3:
                         *penErr = ERRDNSNAME; 
-                        break; 
+                        goto __lblEnd; 
 
                     case 4:
                         *penErr = ERRDNSQUERYTYPE; 
-                        break; 
+                        goto __lblEnd; 
 
                     case 5:
                         *penErr = ERRDNSREFUSED; 
                         break; 
+
+                    default: 
+                        *penErr = ERRUNKNOWN; 
+                        goto __lblEnd;
                     }
                 }                
             }
@@ -179,20 +260,20 @@ __lblSend:
     }
     else
     {
-        if (!nRcvBytes)
-        {
-            if (unDnsSrvIp == unPrimaryDNS)
-                unDnsSrvIp = unSecondaryDNS; 
-            else
-                unDnsSrvIp = unPrimaryDNS; 
-
-            goto __lblSend; 
-        }
+        if (nRcvBytes < 0)
+            goto __lblEnd; 
     }
+
+    if (unDnsSrvIp == unPrimaryDNS)
+        unDnsSrvIp = unSecondaryDNS;
+    else
+        unDnsSrvIp = unPrimaryDNS;
+
+    goto __lblSend;
 
 __lblEnd: 
     //* 释放刚才申请的内存
-    buddy_free(pubDnsQueryPkt); 
+    buddy_free(pubDnsPkt); 
 
     return unRtnAddr;
 }
