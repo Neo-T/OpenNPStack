@@ -16,7 +16,7 @@
 #endif //* SYMBOL_GLOBALS
 
 #define DNS_SRV_PORT        53  //* dns服务器端口，这是一个固定值
-#define DNS_RCV_BUF_SIZE    256 //* 狐疑如果要查比较长的域名时请把该值调整为最大值512即可
+#define DNS_RCV_BUF_SIZE    384 //* 注意如果要查比较长的域名时请把该值调整为最大值512即可
 
 //* dns查询报文标志字段
 typedef union _UNI_DNS_FLAG_ {

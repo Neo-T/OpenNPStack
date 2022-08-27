@@ -97,8 +97,9 @@ static in_addr_t dns_srv_answer_handler(UCHAR *pubAnswer, UCHAR **pubNextAnswer)
             if (4 == usDataLen)
             {
                 memcpy((UCHAR *)&unAddr, pubAnswer + sizeof(ST_DNS_ANSWER_HDR), 4); 
+                //*pubNextAnswer = pubAnswer + sizeof(ST_DNS_ANSWER_HDR) + usDataLen; 
                 return unAddr; 
-            }
+            }            
         }
         else //* 迁移到下一个Answer        
             *pubNextAnswer = pubAnswer + sizeof(ST_DNS_ANSWER_HDR) + usDataLen;         
@@ -210,12 +211,12 @@ __lblSend:
                 UCHAR *pubNextAnswer = pubDnsPkt + sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4;
                 UCHAR *pubAnswer;
                 USHORT usAnswerCnt = 0; 
-                do {                    
+                do {     
                     pubAnswer = pubNextAnswer; 
                     unRtnAddr = dns_srv_answer_handler(pubAnswer, &pubNextAnswer); 
                     if (unRtnAddr)
                         goto __lblEnd; 
-                    usAnswerNum++; 
+                    usAnswerCnt++;
                 } while (pubNextAnswer && usAnswerCnt < usAnswerNum);
 
                 if (penErr)
