@@ -13,6 +13,7 @@
 #include "net_tools/dns.h"
 #undef SYMBOL_GLOBALS
 
+#if NETTOOLS_DNS_CLIENT
 INT dns_client_start(in_addr_t *punPrimaryDNS, in_addr_t *punSecondaryDNS, CHAR bRcvTimeout, EN_ONPSERR *penErr)
 {
     INT nClient = onps_input_new(IPPROTO_UDP, penErr);
@@ -278,3 +279,4 @@ __lblEnd:
 
     return unRtnAddr;
 }
+#endif

@@ -97,15 +97,15 @@ static INT dhcp_send_and_wait_ack(INT nInput, PST_NETIF pstNetif, UCHAR ubOptCod
     CHAR bWaitSecs = 0; 
     
 __lblRecv:       
-    if (bWaitSecs++ > 2) //* 等待超时
+    if (bWaitSecs++ > 3) //* 等待超时
     {
         if (penErr)
-            *penErr = ERRWAITACKTIMEOUT;
+            *penErr = ERRWAITACKTIMEOUT;        
         return 0;
     }
 
     //* 接收
-    nRcvBytes = udp_recv_upper(nInput, pubRcvBuf, (UINT)usRcvBufSize, NULL, NULL, 1); 
+    nRcvBytes = udp_recv_upper(nInput, pubRcvBuf, (UINT)usRcvBufSize, NULL, NULL, 1);     
     if (nRcvBytes > 0)
     {
         PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
@@ -240,7 +240,7 @@ static BOOL dhcp_discover(INT nInput, PST_NETIF pstNetif, UINT unTransId, in_add
     INT nRcvedBytes; 
 
 __lblSend: 
-    if (bRetryNum++ >= 4)
+    if (bRetryNum++ >= 6)
         goto __lblEnd; 
 
     nRcvedBytes = dhcp_send_and_wait_ack(nInput, pstNetif, DHCP_OPT_REQUEST, ubaOptions, sizeof(ubaOptions), unTransId, 0, 0xFFFFFFFF, pubRcvBuf, 512, penErr);
@@ -254,7 +254,7 @@ __lblSend:
             PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
             if (!pstMsgType || DHCPMSGTP_OFFER != pstMsgType->ubTpVal) //* 必须携带dhcp报文类型并且一定是offer报文才可以,如果不是则认为超时，重新发送
             {
-                *penErr = ERRWAITACKTIMEOUT; 
+                *penErr = ERRWAITACKTIMEOUT;                 
                 break;
             }
 
@@ -262,7 +262,7 @@ __lblSend:
             PST_DHCPOPT_SRVID pstSrvId = (PST_DHCPOPT_SRVID)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_SRVID); 
             if (!pstSrvId)
             {
-                *penErr = ERRWAITACKTIMEOUT; 
+                *penErr = ERRWAITACKTIMEOUT;                 
                 break;
             }
 
@@ -381,7 +381,7 @@ __lblSend:
             PST_DHCPOPT_MSGTYPE pstMsgType = (PST_DHCPOPT_MSGTYPE)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_MSGTYPE);
             if (!pstMsgType || (DHCPMSGTP_ACK != pstMsgType->ubTpVal && DHCPMSGTP_NAK != pstMsgType->ubTpVal)) //* 必须携带dhcp报文类型并且一定是ack/nack报文才可以，如果不是则认为超时，重新发送
             {                
-                *penErr = ERRWAITACKTIMEOUT;
+                *penErr = ERRWAITACKTIMEOUT;                
                 break;
             }
 
@@ -398,7 +398,7 @@ __lblSend:
             PST_DHCPOPT_SUBNETMASK pstNetmask = (PST_DHCPOPT_SUBNETMASK)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_SUBNETMASK);
             if (!pstNetmask)
             {
-                *penErr = ERRWAITACKTIMEOUT;
+                *penErr = ERRWAITACKTIMEOUT;                
                 break;
             }
             pstIPv4->unSubnetMask = pstNetmask->unVal; 
@@ -407,7 +407,7 @@ __lblSend:
             PST_DHCPOPT_ROUTER pstRouter = (PST_DHCPOPT_ROUTER)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_ROUTER); 
             if (!pstRouter)
             {
-                *penErr = ERRWAITACKTIMEOUT;
+                *penErr = ERRWAITACKTIMEOUT;                
                 break;
             }
             pstIPv4->unGateway = pstRouter->unVal; 
@@ -416,7 +416,7 @@ __lblSend:
             PST_DHCPOPT_DNS pstDns = (PST_DHCPOPT_DNS)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_DNS); 
             if (!pstDns)
             {
-                *penErr = ERRWAITACKTIMEOUT;
+                *penErr = ERRWAITACKTIMEOUT;                
                 break; 
             }
             pstIPv4->unPrimaryDNS = pstDns->unPrimary; 
@@ -426,7 +426,7 @@ __lblSend:
             PST_DHCPOPT_LEASETIME pstLeaseTime = (PST_DHCPOPT_LEASETIME)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_LEASETIME); 
             if (!pstLeaseTime)
             {
-                *penErr = ERRWAITACKTIMEOUT;
+                *penErr = ERRWAITACKTIMEOUT;                
                 break; 
             }
             *punLeaseTime = htonl(pstLeaseTime->unVal); 

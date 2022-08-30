@@ -16,10 +16,12 @@
 #endif //* SYMBOL_GLOBALS
 
  //* 大小端转换宏
-#define ENDIAN_CONVERTER_UINT(n)    ((((n) & 0xFF) << 24) | (((n) & 0xFF00) << 8) | (((n) & 0xFF0000) >> 8) | (((n) & 0xFF000000) >> 24))
-#define ENDIAN_CONVERTER_USHORT(n)	((((n) & 0xFF) << 8)  | (((n) & 0xFF00) >> 8))
-#define htonl(n) ENDIAN_CONVERTER_UINT(n)
-#define htons(n) ENDIAN_CONVERTER_USHORT(n)
+#define ENDIAN_CONVERTER_LONGLONG(n)    ((((n) & 0xFF) << 56) | (((n) & 0xFF00) << 40) | (((n) & 0xFF0000) << 24) | (((n) & 0xFF000000) << 8) | (((n) & 0xFF00000000) >> 8) | (((n) & 0xFF0000000000) >> 24) | (((n) & 0xFF000000000000) >> 40) | (((n) & 0xFF00000000000000) >> 56))
+#define ENDIAN_CONVERTER_UINT(n)        ((((n) & 0xFF) << 24) | (((n) & 0xFF00) << 8) | (((n) & 0xFF0000) >> 8) | (((n) & 0xFF000000) >> 24))
+#define ENDIAN_CONVERTER_USHORT(n)	    ((((n) & 0xFF) << 8)  | (((n) & 0xFF00) >> 8))
+#define htonll(n)   ENDIAN_CONVERTER_LONGLONG(n) 
+#define htonl(n)    ENDIAN_CONVERTER_UINT(n)
+#define htons(n)    ENDIAN_CONVERTER_USHORT(n)
 #define ip_addressing(unDestIP, unIfIP, unGenmask) ((UINT)(unIfIP & unGenmask) == (UINT)(unDestIP & unGenmask))
 
 #if !(defined(__linux__) || defined(__linux)) && !(defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)) && !(defined(WIN64) || defined(_WIN64) || defined(__WIN64__))
@@ -38,6 +40,16 @@ ONPS_UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, C
 ONPS_UTILS_EXT void printf_hex(const UCHAR *pubHex, USHORT usHexDataLen, UCHAR ubBytesPerLine);
 ONPS_UTILS_EXT void printf_hex_ext(SHORT sBufListHead, UCHAR ubBytesPerLine);
 #endif
+
+//* 64位长整型（适用于按32位解析的场景）
+typedef union _UNI_LONG_LONG_ {
+    struct {
+        INT l; 
+        INT h; 
+    } stInt64; 
+
+    LONGLONG llVal; 
+} UNI_LONG_LONG, *PUNI_LONG_LONG;
 
 //* 单向链表节点
 typedef struct _ST_SLINKEDLIST_NODE_ ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE, *PST_SLINKEDLIST;

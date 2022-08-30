@@ -11,6 +11,7 @@
 #include "net_tools/ping.h"
 #undef SYMBOL_GLOBALS
 
+#if NETTOOLS_PING
 INT ping_start(EN_ONPSERR *penErr)
 {    
     return onps_input_new(IPPROTO_ICMP, penErr);
@@ -78,3 +79,4 @@ INT ping(INT nPing, in_addr_t unDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfu
 
     return nRcvedBytes; 
 }
+#endif

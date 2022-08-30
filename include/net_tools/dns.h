@@ -15,6 +15,8 @@
 	#define DNS_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#if NETTOOLS_DNS_CLIENT
+
 #define DNS_SRV_PORT        53  //* dns服务器端口，这是一个固定值
 #define DNS_RCV_BUF_SIZE    384 //* 注意如果要查比较长的域名时请把该值调整为最大值512即可
 
@@ -72,5 +74,5 @@ DNS_EXT void dns_client_end(INT nClient);
 
 //* 实现dns查询，参数pszDomainName指定要查询的域名，返回值为查询结果，如果地址为0，具体错误信息从penErr获得
 DNS_EXT in_addr_t dns_client_query(INT nClient, in_addr_t unPrimaryDNS, in_addr_t unSecondaryDNS, const CHAR *pszDomainName, EN_ONPSERR *penErr);
-
+#endif
 #endif

@@ -15,6 +15,8 @@
 	#define PING_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#if NETTOOLS_PING
+
 //* 开始ping探测，返回值唯一的标识当前开始的ping探测链路，其用于ping_send()、ping_recv()、ping()、ping_end()函数的调用
 PING_EXT INT ping_start(EN_ONPSERR *penErr);
 
@@ -41,5 +43,5 @@ PING_EXT INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCH
 //* 参数pfunGetCurMSecs指定一个计时函数，其用于记录ping开始时地毫秒数以及结束时的毫秒数，以计算ping目标地址的时长
 //* 参数pfunRcvHandler指向用户自定义的接收处理函数，当收到正确的ping应答报文后调用，用户可根据自己需求实现特定处理逻辑
 PING_EXT INT ping(INT nPing, in_addr_t unDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfunGetCurMSecs)(void), void(* pfunRcvHandler)(USHORT usIdentifier, in_addr_t unFromAddr, USHORT usSeqNum, UCHAR *pubEchoData, UCHAR ubEchoDataLen, UCHAR ubTTL, UCHAR ubElapsedMSecs), UCHAR ubWaitSecs, EN_ONPSERR *penErr);
-
+#endif
 #endif
