@@ -20,8 +20,7 @@
 typedef struct _STCB_PSTACKTHREAD_ { //* 协议栈内部工作线程控制块，其用于线程建立
 	void(*pfunThread)(void *pvParam); 
 	void *pvParam; 
-} STCB_PSTACKTHREAD, *PSTCB_PSTACKTHREAD;
-extern STCB_PSTACKTHREAD o_stcbaPStackThread[];
+} STCB_PSTACKTHREAD, *PSTCB_PSTACKTHREAD; 
 
 //* 解决多线程输出调试信息互相干扰的问题
 #if SUPPORT_PRINTF && PRINTF_THREAD_MUTEX
@@ -36,7 +35,7 @@ OS_ADAPTER_EXT void os_sleep_ms(UINT unMSecs);							//* 休眠，单位：毫�
 OS_ADAPTER_EXT UINT os_get_system_secs(void);							//* 获取系统启动以来已运行的秒数（从0开始）
 OS_ADAPTER_EXT HMUTEX os_thread_mutex_init(void);						//* 线程同步锁初始化，成功返回同步锁句柄，失败则返回INVALID_HMUTEX
 OS_ADAPTER_EXT void os_thread_mutex_lock(HMUTEX hMutex);				//* 线程同步区加锁
-OS_ADAPTER_EXT void os_thread_mutex_unlock(HMUTEX hMutex);				//* 线程同步区开锁
+OS_ADAPTER_EXT void os_thread_mutex_unlock(HMUTEX hMutex);				//* 线程同步区解锁
 OS_ADAPTER_EXT void os_thread_mutex_uninit(HMUTEX hMutex);				//* 删除线程同步锁，释放该资源
 OS_ADAPTER_EXT HSEM os_thread_sem_init(UINT unInitVal, UINT unCount);	//* 信号量初始化，参数unInitVal指定初始信号量值， unCount指定信号量最大数值
 OS_ADAPTER_EXT void os_thread_sem_post(HSEM hSem);						//* 投递信号量
