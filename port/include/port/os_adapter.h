@@ -41,11 +41,11 @@ OS_ADAPTER_EXT HSEM os_thread_sem_init(UINT unInitVal, UINT unCount);	//* 信号
 OS_ADAPTER_EXT void os_thread_sem_post(HSEM hSem);						//* 投递信号量
 OS_ADAPTER_EXT INT os_thread_sem_pend(HSEM hSem, INT nWaitSecs);		//* 等待信号量到达，参数unWaitSecs指定要等待的超时时间（单位为秒）：0，一直等下去直至信号量到达，收到信号则返回值为0，出错则返回值为-1；其它，等待指定时间，如果指定时间内信号量到达，则返回值为0，超时则返回值为1，出错则返回值为-1
 OS_ADAPTER_EXT void os_thread_sem_uninit(HSEM hSem);					//* 信号量去初始化，释放该资源
-OS_ADAPTER_EXT void os_thread_onpstack_start(void *pvParam);			//* 协议栈内部工作线程启动
+OS_ADAPTER_EXT void os_thread_onpstack_start(void *pvParam);			//* 启动协议栈内部工作线程
 
 #define os_critical_init()    //* 临界区初始化
-#define os_enter_critical()   //* 进入临界区（关中断，或者禁止任务切换）
-#define os_exit_critical()    //* 退出临界区（开中断，或开启任务切换）
+#define os_enter_critical()   //* 进入临界区（关中断）
+#define os_exit_critical()    //* 退出临界区（开中断）
 
 #if SUPPORT_PPP
 OS_ADAPTER_EXT HTTY os_open_tty(const CHAR *pszTTYName);
