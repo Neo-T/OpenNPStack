@@ -94,7 +94,7 @@ SOCKET start_tcp_server(USHORT usPort, UINT unListenNum)
     memset(&stSockAddr, 0, sizeof(ST_SOCKADDR));
     stSockAddr.sin_family = AF_INET;
     stSockAddr.sin_port = htons(usPort);
-    stSockAddr.sin_addr.S_un.S_addr = INADDR_ANY;//inet_addr("192.168.1.112");
+    stSockAddr.sin_addr.S_un.S_addr = INADDR_ANY;/*inet_addr("192.168.0.2")*/;
     if (bind(hSocket, (struct sockaddr*)&stSockAddr, sizeof(ST_SOCKADDR)) == SOCKET_ERROR)
     {
         switch (WSAGetLastError())

@@ -424,15 +424,15 @@ int main()
     FD_ZERO(&fdsRead);
     FD_SET(l_hSocketSrv, &fdsRead);
     FD_ZERO(&fdsException);
-    FD_SET(l_hSocketSrv, &fdsException);
+    FD_SET(l_hSocketSrv, &fdsException);    
 
     //* 开始循环，等待新的客户端进入
     struct timeval stTimeout;
     INT nRtnVal;
     while (l_blIsRunning)
-    {
+    {        
         thread_lock_enter(&l_thLockClients);
-        {
+        {                        
             //* 由于select描述符集会导致所有已加入的描述符集被清零,因此实际调用select之前应先建立一套描述符集副本,select使用此副本即可避免该问题
             fdsTstRead = fdsRead;
             fdsTstException = fdsException;
@@ -441,10 +441,10 @@ int main()
             stTimeout.tv_usec = 0;
             nRtnVal = select(l_hSocketMax + 1, &fdsTstRead, NULL, &fdsTstException, &stTimeout);
             if (nRtnVal > 0)
-            {
+            {                                
                 //* 首先处理监听端口的相关连接请求和异常事件			
                 if (FD_ISSET(l_hSocketSrv, &fdsTstRead))
-                {
+                {                    
                     if (!HandleAccept(&fdsRead, &fdsException))                    
                         l_blIsRunning = FALSE;
                 }
@@ -476,7 +476,7 @@ int main()
                 }
             }
             else
-            {
+            {                
                 if (nRtnVal < 0)
                 {
                     printf("The process catch a select error (%d), the process will be exit!\r\n", WSAGetLastError());
