@@ -127,6 +127,7 @@ TCP_LINK_EXT void tcp_link_uninit(void);
 TCP_LINK_EXT PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink); 
 
+#if SUPPORT_ETHERNET
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach); 
 TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr);
@@ -139,5 +140,6 @@ TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *pps
 TCP_LINK_EXT void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput);
 TCP_LINK_EXT void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode); 
 TCP_LINK_EXT INT tcpsrv_recv_queue_count(PST_SLINKEDLIST *ppstSListRcvQueue); 
+#endif
 
 #endif

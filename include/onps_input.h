@@ -53,7 +53,9 @@ ONPSINPUT_EXT void onps_input_uninit(void);
 
 //* 建立一个新的输入控制块
 ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr); 
+#if SUPPORT_ETHERNET
 ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
+#endif
 
 //* 释放一个输入控制块
 ONPSINPUT_EXT void onps_input_free(INT nInput); 
@@ -66,7 +68,10 @@ ONPSINPUT_EXT BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, 
 ONPSINPUT_EXT void onps_input_sem_post(INT nInput); 
 ONPSINPUT_EXT INT onps_input_sem_pend(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr);
+
+#if SUPPORT_ETHERNET
 ONPSINPUT_EXT void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput, UINT unLocalSeqNum); 
+#endif
 
 //* 对tcp链路关闭状态进行迁移
 ONPSINPUT_EXT BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState); 
@@ -96,7 +101,9 @@ ONPSINPUT_EXT BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort);
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 
 //* 根据ip地址和端口号获取input句柄
+#if SUPPORT_ETHERNET
 ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT unCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
+#endif
 ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach);
 
 //* 设置/获取最近一次发生的错误

@@ -584,6 +584,7 @@ __lblErr:
     return -1;      
 }
 
+#if SUPPORT_ETHERNET
 INT listen(SOCKET socket, USHORT backlog)
 {
     EN_ONPSERR enErr;
@@ -809,3 +810,4 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
 __lblErr: 
     return INVALID_SOCKET; 
 }
+#endif

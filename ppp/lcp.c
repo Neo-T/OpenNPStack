@@ -461,7 +461,9 @@ BOOL lcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		if (l_staConfReqItem[i].blIsNegoRequired && l_staConfReqItem[i].pfunPut)
 			usWriteIdx += l_staConfReqItem[i].pfunPut(&ubaPacket[usWriteIdx], pstcbPPP->pstNegoResult);
 	}
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("]\r\n");
+#endif
 
 	return send_nego_packet(pstcbPPP, LCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErr);
 }

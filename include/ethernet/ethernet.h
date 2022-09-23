@@ -15,6 +15,7 @@
 	#define ETHERNET_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#if SUPPORT_ETHERNET
 ETHERNET_EXT void ethernet_init(void); 
 ETHERNET_EXT PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], PST_IPV4 pstIPv4, PFUN_EMAC_SEND pfunEmacSend, void (*pfunStartTHEmacRecv)(void *pvParam), PST_NETIF *ppstNetif, EN_ONPSERR *penErr);
 ETHERNET_EXT void ethernet_del(PST_NETIF *ppstNetif); 
@@ -23,5 +24,6 @@ ETHERNET_EXT void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPa
 ETHERNET_EXT void thread_ethernet_ii_recv(void *pvParam); 
 ETHERNET_EXT BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr);
 ETHERNET_EXT void ethernet_put_packet(PST_NETIF pstNetif, PST_SLINKEDLIST_NODE pstNode); 
+#endif
 
 #endif

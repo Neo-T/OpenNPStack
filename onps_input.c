@@ -185,6 +185,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     return pstNode->uniData.nVal;
 }
 
+#if SUPPORT_ETHERNET
 INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
 {
     if (nInputSrv < 0 || nInputSrv > SOCKET_NUM_MAX - 1)
@@ -279,6 +280,7 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
 
     return pstNode->uniData.nVal;
 }
+#endif
 
 void onps_input_free(INT nInput)
 {
@@ -311,10 +313,14 @@ void onps_input_free(INT nInput)
                 {
                     if (IPPROTO_TCP == pstcbInput->ubIPProto)
                     {
+                    #if SUPPORT_ETHERNET
                         if(TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
                             tcpsrv_input_attach_free((PST_INPUTATTACH_TCPSRV)pstcbInput->pvAttach); 
-                        else
+                        else                    
                             tcp_link_free((PST_TCPLINK)pstcbInput->pvAttach);
+                    #else
+                        tcp_link_free((PST_TCPLINK)pstcbInput->pvAttach);
+                    #endif
                     }
                 }
 
@@ -621,6 +627,7 @@ INT onps_input_sem_pend_uncond(INT nInput, INT nWaitSecs, EN_ONPSERR *penErr)
     return 0;
 }
 
+#if SUPPORT_ETHERNET
 void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput, UINT unLocalSeqNum)
 {
     PST_INPUTATTACH_TCPSRV pstAttach; 
@@ -654,6 +661,7 @@ void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput, UINT unLoca
 __lblErr: 
     onps_input_free(nCltInput); 
 }
+#endif
 
 BOOL onps_input_set_tcp_close_state(INT nInput, CHAR bDstState)
 {
@@ -823,6 +831,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     {
         if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {
+        #if SUPPORT_ETHERNET
             PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = NULL; 
             if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
             {
@@ -830,6 +839,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
                 if(NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
                     blIsOK = FALSE; 
             }
+        #endif
             
             if (blIsOK)
             {
@@ -845,6 +855,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
                 if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
                     ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;
 
+            #if SUPPORT_ETHERNET
                 //* 如果接收队列不为NULL，则需要投递这个到达的数据到服务器接收队列
                 if (pstRcvQueueNode)
                 {
@@ -852,6 +863,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
                     PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach;
                     tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput);
                 }                
+            #endif
             }
         }
         else if (IPPROTO_UDP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
@@ -1144,6 +1156,7 @@ __lblPortNew:
         return usPort;
 }
 
+#if SUPPORT_ETHERNET
 INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT unCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink)
 {
     INT nInput = -1;
@@ -1175,6 +1188,7 @@ INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT un
 
     return nInput;
 }
+#endif
 
 INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach)
 {

@@ -62,6 +62,7 @@ SOCKET_EXT INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr);
 //* 为socket绑定指定的网络地址和端口，如果想绑定任意网络接口地址，参数pszNetifIp为NULL即可
 SOCKET_EXT INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort);
 
+#if SUPPORT_ETHERNET
 //* tcp服务器进入被动监听状态，入口参数与函数功能与伯克利sockets完全相同
 SOCKET_EXT INT listen(SOCKET socket, USHORT backlog); 
 
@@ -77,5 +78,6 @@ SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort,
 //* 小于0: 一直等待，直至某个或多个客户端链路收到数据
 //* 返回值为收到数据的客户端socket
 SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET hSocketSrv, INT nWaitSecs, EN_ONPSERR *penErr);
+#endif
 
 #endif

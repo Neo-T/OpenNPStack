@@ -14,6 +14,7 @@ static ST_TCPLINK l_staTcpLinkNode[TCP_LINK_NUM_MAX];
 static PST_TCPLINK l_pstFreeTcpLinkList = NULL; 
 static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX; 
 
+#if SUPPORT_ETHERNET
 //* 与tcp服务器业务逻辑相关的静态存储时期的变量
 //* =========================================================================
 static ST_INPUTATTACH_TCPSRV l_staIAttachSrv[TCPSRV_NUM_MAX]; 
@@ -27,6 +28,7 @@ static PST_SLINKEDLIST l_pstSListBacklogFreed;
 static ST_SLINKEDLIST_NODE l_staSListRcvQueue[TCPSRV_RECV_QUEUE_NUM]; 
 static PST_SLINKEDLIST l_pstSListRcvQueueFreed; 
 //* =========================================================================
+#endif
 
 BOOL tcp_link_init(EN_ONPSERR *penErr)
 {
@@ -41,6 +43,7 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
     l_staTcpLinkNode[i].bNext = -1; 
     l_pstFreeTcpLinkList = &l_staTcpLinkNode[0]; 
 
+#if SUPPORT_ETHERNET
     //* 组成backlog资源链（用于tcp服务器）    
     for (i = 0; i < TCPSRV_BACKLOG_NUM_MAX - 1; i++)
     {
@@ -59,6 +62,7 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
         l_staSListRcvQueue[i].pstNext = &l_staSListRcvQueue[i + 1]; 
     l_staSListRcvQueue[i].pstNext = NULL; 
     l_pstSListRcvQueueFreed = &l_staSListRcvQueue[0]; 
+#endif
 
     l_hMtxTcpLinkList = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxTcpLinkList)
@@ -121,7 +125,7 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 }
 
-
+#if SUPPORT_ETHERNET
 PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
 {
     PST_INPUTATTACH_TCPSRV pstAttach = NULL;     
@@ -344,3 +348,4 @@ INT tcpsrv_recv_queue_count(PST_SLINKEDLIST *ppstSListRcvQueue)
 
 	return nCount; 
 }
+#endif

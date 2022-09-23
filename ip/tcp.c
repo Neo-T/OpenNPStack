@@ -628,6 +628,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 	INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
     if (uniFlag.stb16.ack)
     {         
+    #if SUPPORT_ETHERNET
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
         if(!pstLink) 
         { 
@@ -648,6 +649,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             nInput = nRmtCltInput; 
         }
+    #endif
 
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
@@ -820,6 +822,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }            
         }
     }
+#if SUPPORT_ETHERNET
     //* 只有tcp syn连接请求报文才没有ack标志
     else
     {       
@@ -859,6 +862,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             tcpsrv_send_syn_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort, &enErr);             
         }                
     }
+#endif
 }
 
 INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvTimeout)

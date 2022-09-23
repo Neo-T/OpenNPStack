@@ -295,7 +295,9 @@ BOOL ipcp_send_conf_request(PSTCB_PPP pstcbPPP, EN_ONPSERR *penErr)
 		if (lr_staConfReqItem[i].blIsNegoRequired && lr_staConfReqItem[i].pfunPut)
 			usWriteIdx += lr_staConfReqItem[i].pfunPut(&ubaPacket[usWriteIdx], pstcbPPP->pstNegoResult);
 	}
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	printf("]\r\n");
+#endif
 
 	return send_nego_packet(pstcbPPP, IPCP, (UCHAR)CONFREQ, ubIdentifier, ubaPacket, usWriteIdx, TRUE, penErr);
 }
