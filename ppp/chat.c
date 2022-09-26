@@ -58,17 +58,20 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 	UINT unBytes;
 	CHAR szBuf[80];
 	UCHAR ubElapsedSecs = 0;
-	UINT unHaveRcvBytes, unHaveCpyBytes, unCpyBytes;
+	UINT unHaveRcvBytes, unHaveCpyBytes, unCpyBytes; 
 
 	//* 发送AT指令
 	sprintf(szBuf, "%s\r\n", pszAT); 
-    ubATBytes += 2; 
+    ubATBytes += 2;     
 	unBytes = os_tty_send(hTTY, (UCHAR *)szBuf, (UINT)ubATBytes);
 	if (unBytes != (UINT)ubATBytes)
 	{
 		*penErr = ERRATWRITE;
 		return FALSE;
 	}
+
+    if (pszDataBuf != NULL)
+        pszDataBuf[0] = 0;
 
 	//* AT指令执行一般至少需要1秒时长，所以这里先固定等待1秒后再去读modem
 	os_sleep_secs(1); 
@@ -79,7 +82,7 @@ static BOOL exec_at_cmd(HTTY hTTY, const CHAR *pszAT, UCHAR ubATBytes, const CHA
 	memset(szBuf, 0, sizeof(szBuf));
 	while (ubElapsedSecs < ubWaitSecs && unHaveRcvBytes <= sizeof(szBuf) - 1)
 	{	
-		unBytes = os_tty_recv(hTTY, (UCHAR *)&szBuf[unHaveRcvBytes], sizeof(szBuf) - 1 - unHaveRcvBytes, 1); 
+		unBytes = os_tty_recv(hTTY, (UCHAR *)&szBuf[unHaveRcvBytes], sizeof(szBuf) - 1 - unHaveRcvBytes, 1);        
 		if (unBytes > 0) //* 收到了应答数据
 		{
 			if (pszDataBuf != NULL) //* 上层调用函数需要读取应答结果
@@ -253,7 +256,7 @@ __lblExecAT:
 	blRtnVal = exec_at_cmd(hTTY, AT, sizeof(AT) - 1, AT_OK, sizeof(AT_OK) - 1, AT_ERROR, sizeof(AT_ERROR) - 1, szRcvBuf, sizeof(szRcvBuf), 3, &enErr);
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szRcvBuf))
-		printf("%s", szRcvBuf);
+        printf("%s", szRcvBuf);
 #endif
 	if (!blRtnVal)
 	{
@@ -382,10 +385,13 @@ __lblExecAT:
 		printf(ATAPN, pszAPN);
 		printf("> failed, %s\r\n", onps_error(enErr)); 
 #endif
+        if (penErr)
+            *penErr = enErr;
+
 		return FALSE;
 	}
 
-	snprintf(szBuf, sizeof(szBuf), ATAPN, pszAPN); 
+	snprintf(szBuf, sizeof(szBuf), ATAPN, pszAPN);     
 	blRtnVal = exec_at_cmd(hTTY, szBuf, strlen(szBuf), ATAPN_OK, sizeof(ATAPN_OK) - 1, ATAPN_ERROR, sizeof(ATAPN_ERROR) - 1, szBuf, sizeof(szBuf), 3, &enErr);
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	if (strlen(szBuf))
@@ -410,6 +416,9 @@ __lblExecAT:
 #if SUPPORT_PRINTF && DEBUG_LEVEL
 		printf("the command <%s> failed, %s\r\n", ATDIAL, onps_error(enErr));
 #endif
+        if (penErr)
+            *penErr = enErr;
+
 		return FALSE;
 	}
 

@@ -1007,7 +1007,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
         {
             //* 通知dhcp服务器当前ip地址冲突，需要重新分配一个
             dhcp_decline(nInput, pstNetif, unTransId, stIPv4.unAddr, unSrvIp);
-            os_sleep_secs(3); //* 休眠一小段时间，给dhcp服务器流出处理时间
+            os_sleep_secs(3); //* 休眠一小段时间，给dhcp服务器留出处理时间
             goto __lblDiscover; 
         }
         
