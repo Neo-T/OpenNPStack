@@ -15,7 +15,7 @@
 #undef SYMBOL_GLOBALS
 
 #if SUPPORT_PPP
-//* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯
+//* 在此指定连接modem的串行口，以此作为tty终端进行ppp通讯，其存储索引应与os_open_tty()返回的tty句柄值一一对应
 const CHAR *or_pszaTTY[PPP_NETLINK_NUM] = { "SCP3" };
 const ST_DIAL_AUTH_INFO or_staDialAuth[PPP_NETLINK_NUM] = {
     { "4gnet", "card", "any_char" },  /* 注意ppp账户和密码尽量控制在20个字节以内，太长需要需要修改chap.c中send_response()函数的szData数组容量及 */
@@ -41,7 +41,7 @@ const CHAR *or_pszaEthName[ETHERNET_NUM] = {
 const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
 	{ thread_one_shot_timer_count, NULL}, 	
 #if SUPPORT_PPP
-	//* 在此按照顺序建立ppp工作线程，入口函数为thread_ppp_handler()，线程入口参数为该ppp链路在l_staTTY数组的存储单元索引值
+	//* 在此按照顺序建立ppp工作线程，入口函数为thread_ppp_handler()，线程入口参数为os_open_tty()返回的tty句柄值
 	//* 其直接强行进行数据类型转换即可，即作为线程入口参数时直接以如下形式传递：
 	//* (void *)nPPPIdx
 	//* 不要传递参数地址，即(void *)&nPPPIdx，这种方式是错误的
