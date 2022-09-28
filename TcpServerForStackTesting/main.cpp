@@ -133,7 +133,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
 
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
-    unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));
+    unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));    
     printf("%d#%s#>sent control command to peer, cmd = 0x01, LinkIdx = %d, the data length is %d bytes\r\n", pstClient->bClientIdx < 0 ? pstClient->bLinkIdx : pstClient->bClientIdx, szPktTime, pstHdr->bLinkIdx, pstHdr->usDataLen);
 
     //* 更新需要等待的报文标识
