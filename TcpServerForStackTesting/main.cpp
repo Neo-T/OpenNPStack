@@ -133,8 +133,8 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
 
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
-    unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));    
-    printf("%d#%s#>sent control command to peer, cmd = 0x01, LinkIdx = %d, the data length is %d bytes\r\n", pstClient->bClientIdx < 0 ? pstClient->bLinkIdx : pstClient->bClientIdx, szPktTime, pstHdr->bLinkIdx, pstHdr->usDataLen);
+    unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));     
+    printf("%d#%s#>sent control command to peer, cmd = 0x01, ClientID = %d, the data length is %d bytes\r\n",  pstClient->bLinkIdx, szPktTime, pstClient->bClientIdx, pstHdr->usDataLen);
 
     //* 更新需要等待的报文标识
     pstClient->tTimestampToAck = (time_t)pstHdr->unTimestamp;     
@@ -316,7 +316,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
                                 pstClient->bClientIdx = pstHdr->bLinkIdx; 
-                                printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, SeqNum = %d, the data length is %d bytes\r\n", pstHdr->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->unSeqNum, pstHdr->usDataLen);
+                                printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %d, the data length is %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
                             else if (pstHdr->bCmd == 1) //* 这是控制指令的应答报文
@@ -325,7 +325,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 if (pstAck->unTimestamp == (UINT)pstClient->tTimestampToAck && pstAck->bLinkIdx == pstClient->bLinkIdx)
                                 {
                                     pstClient->tTimestampToAck = 0;
-                                    printf("%d#%s#>recved acknowledge packet, AckedLinkIdx = %d, AckedTimestamp <", pstHdr->bLinkIdx, szPktTime, pstAck->bLinkIdx);
+                                    printf("%d#%s#>recved acknowledge packet, AckedLinkIdx = %d, ClientID = %d, AckedTimestamp <", pstClient->bLinkIdx, szPktTime, pstAck->bLinkIdx, pstHdr->bLinkIdx);
                                     unix_time_to_local((time_t)pstAck->unTimestamp, szPktTime, sizeof(szPktTime));
                                     printf("%s>\r\n", szPktTime);
                                 }

@@ -899,7 +899,10 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
                     l_stcbaInput[nInput].pubRcvBuf = (UCHAR *)pstRcvedPacket;
             }
             else
+            {
                 blIsOK = FALSE;
+                printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>unSize: %d\r\n", unSize);
+            }
         }
         else
         {
