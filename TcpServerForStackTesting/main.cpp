@@ -224,10 +224,9 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
                 tLastSendSecs = time(NULL); 
             else
                 break; 
-        }
-#else
-        Sleep(1000);
+        }        
 #endif
+        Sleep(1000);
     }
 
     printf("A client exception is caught, the client will be removed\r\n");
