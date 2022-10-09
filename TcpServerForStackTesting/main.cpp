@@ -134,7 +134,7 @@ static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataL
     //* 日志输出
     CHAR szPktTime[24] = { 0 };
     unix_time_to_local((time_t)pstHdr->unTimestamp, szPktTime, sizeof(szPktTime));     
-    printf("%d#%s#>sent control command to peer, cmd = 0x01, ClientID = %d, the data length is %d bytes\r\n",  pstClient->bLinkIdx, szPktTime, pstClient->bClientIdx, pstHdr->usDataLen);
+    //printf("%d#%s#>sent control command to peer, cmd = 0x01, ClientID = %d, the data length is %d bytes\r\n",  pstClient->bLinkIdx, szPktTime, pstClient->bClientIdx, pstHdr->usDataLen);
 
     //* 更新需要等待的报文标识
     pstClient->tTimestampToAck = (time_t)pstHdr->unTimestamp;     
@@ -151,6 +151,7 @@ __lblSend:
         printf("Did not receive the reply packet from the peer\r\n"); 
         return FALSE; 
     }
+    printf("%d#%s#>sent control command to peer, cmd = 0x01, ClientID = %d, the data length is %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstClient->bClientIdx, pstHdr->usDataLen);
 
     nSndTotalBytes = 0;
     while (nSndTotalBytes < nPacketLen)
@@ -216,7 +217,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
     time_t tLastSendSecs = 0;    
     while (l_blIsRunning && pstClient->blTHIsRunning)
     {
-#if 1
+    #if 1
         tInterval = 120 - (time_t)rand() % 31; 
         if (time(NULL) - tLastSendSecs > tInterval)
         {
@@ -225,7 +226,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
             else
                 break; 
         }        
-#endif
+    #endif
         Sleep(1000);
     }
 

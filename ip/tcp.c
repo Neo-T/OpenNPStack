@@ -778,7 +778,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             if (nDataLen)
             {                           
                 //* 只有序号不同才会搬运数据，确认过序号的说明已经搬运不能重复搬运了，对端重复发送的原因是没有收到ack报文，所以只需再次发送ack报文即可
-                if (unPeerSeqNum != pstLink->stLocal.unAckNum)
+                if (unPeerSeqNum != pstLink->stLocal.unAckNum && unPeerSeqNum > pstLink->stLocal.unAckNum)
                 {
                     //* 必须是非零窗口探测报文才搬运数据
                     if (!(nDataLen == 1 && pstLink->stLocal.bIsZeroWnd))
