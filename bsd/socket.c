@@ -302,14 +302,18 @@ static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TC
 {    
     if (TDSSENDING != enSndState)
     {
-        INT nRtnVal = tcp_send_data((INT)socket, pubData, nDataLen, 0); 
+        /*
+        INT nRtnVal = tcp_send_data((INT)socket, pubData, nDataLen, 0);         
         if (nRtnVal < 0)
             return -1;
         else
             return 0; 
+        */ 
+        return tcp_send_data((INT)socket, pubData, nDataLen, 0);
     }
-    else
+    else //* 上一个报文尚未收到对端的tcp ack报文，当前报文暂时不能发送
     {
+        /*
         EN_ONPSERR enErr; 
         USHORT usLastSndBytes; 
         switch (enSndState)
@@ -338,6 +342,9 @@ static INT socket_tcp_send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen, EN_TC
         default:
             return 0; 
         }
+        */
+
+        return 0; 
     }
 }
 
@@ -426,7 +433,39 @@ INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
     return socket_send(socket, pubData, nDataLen, 0);
 }
 
-INT sendto(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, UCHAR *pubData, INT nDataLen)
+INT is_tcp_send_ok(SOCKET socket)
+{
+    EN_ONPSERR enErr; 
+    EN_TCPDATASNDSTATE enSndState;
+    if (!onps_input_get((INT)socket, IOPT_GETTCPDATASNDSTATE, &enSndState, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
+    }
+
+    switch (enSndState)
+    {
+    case TDSACKRCVED:
+        return 1; 
+
+    case TDSTIMEOUT:
+        onps_set_last_error((INT)socket, ERRTCPACKTIMEOUT);
+        return -1;
+
+    case TDSLINKRESET:
+        onps_set_last_error((INT)socket, ERRTCPCONNRESET);
+        return -1;
+
+    case TDSLINKCLOSED:
+        onps_set_last_error((INT)socket, ERRTCPCONNCLOSED);
+        return -1;
+
+    default:
+        return 0;
+    }
+}
+
+INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData, INT nDataLen)
 {
     //* 空数据没必要发送，这里并不返回-1以显式地告诉用户，仅记录这个错误即可，用户可以主动获取这个错误
     if (NULL == pubData || !nDataLen)
@@ -447,7 +486,7 @@ INT sendto(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, UCHAR *pubData, I
     //* 只有udp协议才支持指定目标地址的发送操作
     if (IPPROTO_UDP == enProto)
     {
-        return udp_sendto((INT)socket, inet_addr(srv_ip), srv_port, pubData, nDataLen);  
+        return udp_sendto((INT)socket, inet_addr(dest_ip), dest_port, pubData, nDataLen);  
     }
     else
         enErr = ERRIPROTOMATCH;

@@ -32,19 +32,20 @@ SOCKET_EXT SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr)
 SOCKET_EXT void close(SOCKET socket);
 
 //* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数
-//* 获得，注意，nConnTimeout参数必须大于0，小于等于0则使用缺省超时时间TCP_CONN_TIMEOUT
+//* 获得，注意，nConnTimeout参数必须大于0，小于等于0则函数直接返回，相当于调用connect_nb()函数
 SOCKET_EXT INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout);
 //* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port); 
 
-//* 发送函数(阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
+//* 发送函数(tcp链路下阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
 //* 对于udp协议来说参数nWaitAckTimeout将被忽略，其将作为非阻塞型函数使用
 SOCKET_EXT INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout); 
-//* 发送函数(非阻塞型)，返回值大于0则为实际发送成功的字节数，等于0为发送中，尚未收到对端的应答，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
-//* udp协议该函数与send()函数功能及实现逻辑完全相同
+//* 发送函数(tcp链路下非阻塞型)，udp链路该函数与send()函数功能及实现逻辑完全相同
 SOCKET_EXT INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
+//* 检查当前tcp链路发送的数据是否已成功送达对端，返回值为1则成功送达对端（收到tcp ack报文）；等于0为发送中，尚未收到对端的应答；小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
+SOCKET_EXT INT is_tcp_send_ok(SOCKET socket);
 //* 仅用于udp发送，发送时指定目标地址
-SOCKET_EXT INT sendto(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, UCHAR *pubData, INT nDataLen);
+SOCKET_EXT INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData, INT nDataLen);
 
 //* 设定recv()函数等待接收的时长（单位：秒），大于0指定数据到达的最长等待时间；0，则不等待；-1，则一直等待直至数据到达或报错
 SOCKET_EXT BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr);
