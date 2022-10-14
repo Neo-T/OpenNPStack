@@ -623,6 +623,16 @@ __lblErr:
     return -1;      
 }
 
+const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr)
+{
+    return onps_get_last_error(socket, penErr); 
+}
+
+EN_ONPSERR socket_get_last_error_code(SOCKET socket)
+{
+    return onps_get_last_error_code(socket); 
+}
+
 #if SUPPORT_ETHERNET
 INT listen(SOCKET socket, USHORT backlog)
 {

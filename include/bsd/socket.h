@@ -81,4 +81,10 @@ SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort,
 SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET hSocketSrv, INT nWaitSecs, EN_ONPSERR *penErr);
 #endif
 
+//* 获取最近一次发生的错误信息
+SOCKET_EXT const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr);
+
+//* 获取最近一次发生的错误码
+SOCKET_EXT EN_ONPSERR socket_get_last_error_code(SOCKET socket); 
+
 #endif
