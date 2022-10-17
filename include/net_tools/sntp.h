@@ -1,9 +1,9 @@
-/* sntp.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 实现sntp协议，提供网络对时功能
  * 
  * Neo-T, 创建于2022.08.27 17:00
- * 版本: 1.0
  *
  */
 #ifndef SNTP_H

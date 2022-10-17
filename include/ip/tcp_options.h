@@ -1,9 +1,9 @@
-/* tcp_options.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * tcp头部选项相关的功能函数实现
  *
  * Neo-T, 创建于2022.04.29 10:41
- * 版本: 1.0
  *
  */
 #ifndef TCP_OPTIONS_H

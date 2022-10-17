@@ -1,10 +1,11 @@
-/* onps.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * open net protocol statck
  *
  * Neo-T, 创建于2022.03.21 10:19
- * 版本: 1.0
  *
+ * version 1.0.0.221017_RC
  */
 #ifndef ONPS_H
 #define ONPS_H
@@ -36,6 +37,8 @@
 #include "ip/icmp.h"
 #include "onps_input.h"
 #include "bsd/socket.h"
+
+#define ONPS_VER "1.0.0.221017_RC"
 
 ONPS_EXT BOOL open_npstack_load(EN_ONPSERR *penErr); 
 ONPS_EXT void open_npstack_unload(void);

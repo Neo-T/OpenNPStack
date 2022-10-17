@@ -1,9 +1,9 @@
-/* os_datatype.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 与目标操作系统相关的通用数据类型定义
  *
  * Neo-T, 创建于2022.03.14 15:56
- * 版本: 1.0
  *
  */
 #ifndef OS_DATATYPE_H

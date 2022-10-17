@@ -1,9 +1,9 @@
-/* ethernet_protocols.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * ethernet协议解析相关的宏定义
  *
  * Neo-T, 创建于2022.06.14 16:39
- * 版本: 1.0
  *
  */
 #ifndef ETHERNET_PROTOCOLS_H

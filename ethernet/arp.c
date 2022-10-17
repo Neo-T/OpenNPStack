@@ -1,3 +1,7 @@
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ *
+ */
 #include "port/datatype.h"
 #include "onps_errors.h"
 #include "port/sys_config.h"

@@ -1,9 +1,9 @@
-/* tcp.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * tcp协议相关功能函数
  *
  * Neo-T, 创建于2022.04.25 15:13
- * 版本: 1.0
  *
  */
 #ifndef TCP_H

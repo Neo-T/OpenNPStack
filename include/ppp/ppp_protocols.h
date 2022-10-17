@@ -1,9 +1,9 @@
-/* ppp_protocols.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * ppp协议解析相关的宏定义：包括支持的上层协议、协议头相关的标志字符串、地址、MRU等定义
  *
  * Neo-T, 创建于2022.03.21 10:19
- * 版本: 1.0
  *
  */
 #ifndef PPP_PROTOCOLS_H

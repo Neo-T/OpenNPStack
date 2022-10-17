@@ -1,9 +1,9 @@
-/* ethernet.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 完成ethernet模块相关宏定义、接口函数、结构体定义等工作
  *
  * Neo-T, 创建于2022.06.14 17:04
- * 版本: 1.0
  *
  */
 #ifndef ETHERNET_H

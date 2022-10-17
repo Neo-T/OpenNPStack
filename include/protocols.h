@@ -1,9 +1,9 @@
-/* protocols.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 协议栈支持的通讯协议类型值
  *
  * Neo-T, 创建于2022.03.26 10:00
- * 版本: 1.0
  *
  */
 #ifndef PROTOCOLS_H

@@ -1,9 +1,9 @@
-/* tcp_link.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 保存tcp链路相关信息的辅助功能函数
  *
  * Neo-T, 创建于2022.04.28 14:28
- * 版本: 1.0
  *
  */
 #ifndef TCP_LINK_H

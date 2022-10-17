@@ -1,9 +1,9 @@
-/* ppp_frame.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * ppp帧结构定义
  *
  * Neo-T, 创建于2022.03.21 14:04
- * 版本: 1.0
  *
  */
 #ifndef PPP_FRAME_H

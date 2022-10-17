@@ -3,7 +3,6 @@
  * tcp协议相关的功能函数库，基于windows平台
  *
  * Neo-T, 创建于2022.05.18 09:19
- * 版本: 1.0
  *
  */
 #ifndef TCPHELPER_H

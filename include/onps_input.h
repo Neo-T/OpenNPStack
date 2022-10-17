@@ -1,9 +1,9 @@
-/* onps_input.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * icmp/tcp/udp层接收处理逻辑用到的基础数据结构、辅助宏、相关功能函数等的定义与声明工作
  *
  * Neo-T, 创建于2022.04.13 17:25
- * 版本: 1.0
  *
  */
 #ifndef ONPSINPUT_H

@@ -1,9 +1,9 @@
-/* icmp.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * icmp协议相关功能函数
  *
  * Neo-T, 创建于2022.04.12 14:10
- * 版本: 1.0
  *
  */
 #ifndef ICMP_H

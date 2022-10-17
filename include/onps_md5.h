@@ -1,9 +1,9 @@
-/* onps_md5.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 提供md5摘要计算相关的功能函数
  *
  * Neo-T, 创建于2022.03.21 16:48
- * 版本: 1.0
  *
  */
 #ifndef ONPS_MD5_H

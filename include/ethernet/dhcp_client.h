@@ -1,9 +1,9 @@
-/* dhcp_client.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 完成dhcp客户端模块相关宏定义、接口函数、结构体定义等工作
  *
  * Neo-T, 创建于2022.07.14 10:13
- * 版本: 1.0
  *
  */
 #ifndef DHCP_CLIENT_H

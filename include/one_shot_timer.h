@@ -1,9 +1,9 @@
-/* one_shot_timer.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 协议栈使用的one-shot类型的定时器，时间粒度为1秒
  *
  * Neo-T, 创建于2022.03.17 17:45
- * 版本: 1.0
  *
  */
 #ifndef ONE_SHOT_TIMER_H

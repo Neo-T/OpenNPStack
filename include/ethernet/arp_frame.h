@@ -1,9 +1,9 @@
-/* arp_frame.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * arp（Address Resolution Protocol）协议帧结构定义
  *
  * Neo-T, 创建于2022.06.16 13:46
- * 版本: 1.0
  *
  */
 #ifndef ARP_FRAME_H

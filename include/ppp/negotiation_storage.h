@@ -1,8 +1,8 @@
-/* negotiation_storage.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 用于保存链路协商结果的存储类结构体及其相关辅助宏定义
  * Neo-T, 创建于2022.03.25 10:26
- * 版本: 1.0
  *
  */
 #ifndef NEGOTIATION_STORAGE_H

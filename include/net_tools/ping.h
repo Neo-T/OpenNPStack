@@ -1,9 +1,9 @@
-/* ping.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 提供ping功能实现相关的操作函数
  * 
  * Neo-T, 创建于2022.07.12 14:36
- * 版本: 1.0
  *
  */
 #ifndef PING_H

@@ -1,9 +1,9 @@
-/* tty.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * tty终端，提供与modem设备进行通讯的相关功能函数
  *
  * Neo-T, 创建于2022.03.22 10:17
- * 版本: 1.0
  *
  */
 #ifndef TTY_H

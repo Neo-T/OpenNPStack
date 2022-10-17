@@ -1,9 +1,9 @@
-/* onps_utils.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 协议栈用到的相关功能函数在此文件声明、定义
  *
  * Neo-T, 创建于2022.03.21 16:05
- * 版本: 1.0
  *
  */
 #ifndef ONPS_UTILS_H

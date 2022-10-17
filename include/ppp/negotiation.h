@@ -1,9 +1,9 @@
-/* negotiation.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * 完成ppp链路的协商工作，为ip层通讯准备好ppp链路
  *
  * Neo-T, 创建于2022.03.24 14:48
- * 版本: 1.0
  *
  */
 #ifndef NEGOTIATION_H

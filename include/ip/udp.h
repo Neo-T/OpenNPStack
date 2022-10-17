@@ -1,9 +1,9 @@
-/* udp.h
+/*
+ * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
  * udp协议相关功能函数
  *
  * Neo-T, 创建于2022.06.01 15:29
- * 版本: 1.0
  *
  */
 #ifndef UDP_H
