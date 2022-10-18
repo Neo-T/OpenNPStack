@@ -43,9 +43,26 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 
 可以看出，其与传统的网络编程模型并没有什么不同，用户仍然是继续利用socket api编写常见的tcp及udp网络应用。同时你还可以利用协议栈提供的几个网络工具进行网络校时、dns查询等操作。
 
+#### 目录结构
+
+| 名称  | 描述  |
+|---|---|
+| bsd  | 伯克利sockets层  |
+|   |   |
+|   |   |
+|   |   |
+|   |   |
+|   |   |
+|   |   |
+|   |   |
+|   |   |
+
+
 #### 移植及使用说明
 
-请参考《onps网络协议栈移植及使用说明v1.0》一文，点此[下载](https://gitee.com/Neo-T/open-npstack/releases/download/v1.0.0.221017/onps%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88%E7%A7%BB%E6%A4%8D%E5%8F%8A%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8Ev1.0.7z)。
+移植的核心工作就是完成RTOS模拟层的编写及适配，详细的移植说明请参考《onps网络协议栈移植及使用说明v1.0》一文，点此[下载](https://gitee.com/Neo-T/open-npstack/releases/download/v1.0.0.221017/onps%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88%E7%A7%BB%E6%A4%8D%E5%8F%8A%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8Ev1.0.7z)。
+
+协议栈支持主流的ARM Cortex系列MCU，支持Keil MDK、IAR等常见IDE。
 
 #### 参与贡献
 
