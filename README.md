@@ -11,7 +11,27 @@
 
 
 #### 简介
-onps是一个开源且完全自主开发的国产网络协议栈，适用于资源受限的单片机系统，提供完整地ethernet/ppp/tcp/ip协议族实现，同时提供sntp、dns、ping等网络工具，支持以太网环境下dhcp动态ip地址申请，也支持动态及静态路由表。协议栈还封装实现了一个伯克利套接字（Berkeley sockets）层。该层并没有完全按照Berkeley sockets标准设计实现，而是我根据以往socket编程经验，以方便用户使用、简化用户编码为设计目标，重新声明并定义了一组常见socket接口函数。协议栈简化了传统BSD socket编程需要的一些繁琐操作，将一些不必要的操作细节改为底层实现，比如select/poll模型、阻塞及非阻塞读写操作等。
+onps是一个开源且完全自主开发的国产网络协议栈，适用于资源受限的单片机系统，提供完整地ethernet/ppp/tcp/ip协议族实现，同时提供sntp、dns、ping等网络工具，支持以太网环境下dhcp动态ip地址申请，也支持动态及静态路由表。协议栈还封装实现了一个伯克利套接字（Berkeley sockets）层。该层并没有完全按照Berkeley sockets标准设计实现，而是我根据以往socket编程经验，以方便用户使用、简化用户编码为设计目标，重新声明并定义了一组常见socket接口函数：
+- socket：创建一个socket，目前仅支持udp和tcp两种类型
+- close：关闭一个socket，释放当前占用的协议栈资源
+- connect：与目标tcp服务器建立连接（阻塞型）或绑定一个固定的udp服务器地址
+- connect_nb：与目标tcp服务器建立连接（非阻塞型）
+- is_tcp_connected：获取当前tcp链路的连接状态
+- send：数据发送函数，tcp链路下为阻塞型
+- send_nb：数据发送函数，非阻塞型
+- is_tcp_send_ok：数据是否已成功送达tcp链路的对端（收到tcp ack报文）
+- sendto：udp数据发送函数，发送数据到指定目标地址
+- recv：数据接收函数，udp/tcp链路通用
+- recvfrom：数据接收函数，用于udp链路，接收数据的同时函数会返回数据源的地址信息
+- socket_set_rcv_timeout：设定recv()函数接收等待的时长，单位：秒
+- bind：绑定一个固定端口、地址
+- listen：tcp服务器进入监听状态
+- accept：接受一个到达的tcp连接请求
+- tcpsrv_recv_poll：tcp服务器专用函数，等待任意一个或多个tcp客户端数据到达信号
+- socket_get_last_error：获取socket最近一次发生的错误信息
+- socket_get_last_error_code：获取socket最近一次发生的错误编码
+
+协议栈简化了传统BSD socket编程需要的一些繁琐操作，将一些不必要的操作细节改为底层实现，比如select/poll模型、阻塞及非阻塞读写操作等。
 
 为了适应单片机系统对内存使用极度变态的苛刻要求，onps协议栈在设计之初即考虑采用写时零复制（zero copy）技术。用户层数据在向下层协议传递过程中，协议栈采用buf list链表技术将它们链接到一起，直至将其发送出去，均无须任何内存复制操作。另外，协议栈采用buddy算法提供安全、可靠的动态内存管理功能，以期最大限度地提高协议栈运行过程中的内存利用率并尽可能地减少内存碎片。
 
