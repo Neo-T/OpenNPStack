@@ -47,15 +47,16 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 
 | 名称  | 描述  |
 |---|---|
-| bsd  | 伯克利sockets层  |
-|   |   |
-|   |   |
-|   |   |
-|   |   |
-|   |   |
-|   |   |
-|   |   |
-|   |   |
+| bsd  | 伯克利sockets层的相关接口函数实现源文件  |
+| ethernet  | 以太网协议族如ethernet-ii/arp及emac层、dhcp客户端等的相关实现源文件  |
+| include  | 协议栈的头文件  |
+| ip  | ip及其上层icmp/tcp/udp协议族的相关实现源文件  |
+| mmu  | 协议栈内存管理模块的相关实现源文件  |
+| net_tools  | 网络工具实现源文件，如dns查询、网络校时、ping等  |
+| netif  | 网卡及路由管理等相关接口实现源文件  |
+| port  | 协议栈移植相关的源文件  |
+| ppp  | ppp链路层相关实现源文件，包括lcp/ipcp/chap/pap等协议族的实现源文件  |
+| TcpServerForStackTesting  | 用于协议栈测试的tcp服务器，IDE为vs2015开发，目标系统为win7及以上  | 
 
 
 #### 移植及使用说明
