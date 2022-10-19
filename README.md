@@ -57,6 +57,7 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 | port  | 协议栈移植相关的源文件  |
 | ppp  | ppp链路层相关实现源文件，包括lcp/ipcp/chap/pap等协议族的实现源文件  |
 | TcpServerForStackTesting  | 用于协议栈测试的tcp服务器，IDE为vs2015开发，目标系统为win7及以上  | 
+| test_code  | linux下的ppp拨号原理验证文件  |
 
 
 #### 移植及使用说明
