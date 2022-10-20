@@ -64,19 +64,12 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 
 协议栈支持主流的ARM Cortex系列MCU，支持Keil MDK、IAR等常见IDE。移植的核心工作就是完成RTOS模拟层的编写及适配，详细的移植说明请参考《onps网络协议栈移植及使用说明v1.0》一文，点此[下载](https://gitee.com/Neo-T/open-npstack/releases/download/v1.0.0.221017/onps%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88%E7%A7%BB%E6%A4%8D%E5%8F%8A%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8Ev1.0.7z)。本说明提供了STM32F103RCT6及STM32F407VET6两种硬件平台的移植样例，每种样例分别针对RT-Thread和ucosii两种RTOS。样例工程经过了严格的内部测试，可以直接使用。
 
-#### 参与贡献
+#### 社区支持
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+如您在使用过程中遇到任何问题或建议，您可以到 **[onps栈交流社区](http://www.onps.org.cn)** 提出您的建议或问题，同时新版本发布也会在交流社区第一时间通知。同时您也可以加入QQ群进行在线技术交流：
+![输入图片说明](onps%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88%E6%8A%80%E6%9C%AF%E4%BA%A4%E6%B5%81%E7%BE%A4%E7%BE%A4%E4%BA%8C%E7%BB%B4%E7%A0%81.png)
+群号：740808291
 
+#### 许可协议
 
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+Apache License 2.0开源许可协议
