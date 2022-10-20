@@ -85,4 +85,4 @@ Apache License 2.0开源许可协议
 
 为了项目能够持续下去，期望得到您的支持，您可以扫描下面的二维码通过支付宝/微信向本项目捐款：
 
-![支付宝](alipayn.jpg) ![输入图片说明](tencentpay.jpg)
+![支付宝](alipayn.jpg) ![微信](tencentpay.jpg)
