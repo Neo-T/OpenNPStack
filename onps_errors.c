@@ -79,6 +79,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRDNSNAME, "domain name does not exist" }, 
     { ERRDNSQUERYTYPE, "unsupported dns query type" }, 
     { ERRDNSNOTRESOLVED, "not resolved to ip address" }, 
+    { ERRNOUDPLINKNODE, "the udp link list is empty" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

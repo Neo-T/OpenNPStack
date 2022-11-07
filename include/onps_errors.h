@@ -85,6 +85,7 @@ typedef enum {
     ERRDNSQUERYTYPE,        //* 不被支持的dns查询类型
     ERRDNSREFUSED,          //* dns服务器拒绝
     ERRDNSNOTRESOLVED,      //* 未解析到ip地址
+    ERRNOUDPLINKNODE,       //* 无可用udp link节点
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

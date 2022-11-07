@@ -9,9 +9,6 @@
 #ifndef SYS_CONFIG_H
 #define SYS_CONFIG_H
 
-#define SOCKET_NUM_MAX  16  //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响），其值应大于等于TCP_LINK_NUM_MAX值
-#define IP_TTL_DEFAULT  64  //* 缺省TTL值
-
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================
 #define SUPPORT_PRINTF	1	//* 是否支持调用printf()输出相关调试或系统信息
@@ -48,9 +45,6 @@
 #endif
 
 #define NETIF_NUM   (PPP_NETLINK_NUM + ETHERNET_NUM)    //* 系统支持的网卡数量
-#define ROUTE_ITEM_NUM  8   //* 系统路由表数量
-
-#define SUPPORT_IPV6	0	//* 是否支持IPv6：1，支持；0，不支持
  //* ===============================================================================================
 
 //* 内存管理单元(mmu)相关配置项，其直接影响协议栈能分配多少个socket给用户使用
@@ -66,6 +60,9 @@
 
 //* ip支持的上层协议相关配置项
 //* ===============================================================================================
+#define SUPPORT_IPV6	0   //* 是否支持IPv6：1，支持；0，不支持
+#define SUPPORT_SACK    0   //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
+
 #define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 
 #define TCPRCVBUF_SIZE_DEFAULT  2048    //* tcp层缺省的接收缓冲区大小，大小应是2^n次幂才能最大限度不浪费budyy模块分配的内存
@@ -84,8 +81,10 @@
     #define TCPSRV_RECV_QUEUE_NUM   64      //* tcp服务器接收队列大小，所有已开启的tcp服务器共享该队列资源，如果单位时间内到达所有已开启tcp服务器的报文数量较大，应将该值调大
 #endif
 
-#define UDP_LINK_NUM_MAX        4       //* 调用connect()函数连接对端udp服务器的最大数量（一旦调用connect()函数，收到的非服务器报文将被直接丢弃）
-#define SUPPORT_SACK            0       //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
+#define UDP_LINK_NUM_MAX 4  //* 调用connect()函数连接对端udp服务器的最大数量（一旦调用connect()函数，收到的非服务器报文将被直接丢弃）
+#define SOCKET_NUM_MAX   16 //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响），其值应大于等于TCP_LINK_NUM_MAX值
+#define IP_TTL_DEFAULT   64 //* 缺省TTL值
+#define ROUTE_ITEM_NUM   8  //* 系统路由表数量
 //* ===============================================================================================
 
 //* 网络工具配置项
