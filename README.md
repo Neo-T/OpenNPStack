@@ -62,7 +62,9 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 
 #### 移植及使用说明
 
-协议栈支持主流的ARM Cortex系列MCU，支持Keil MDK、IAR等常见IDE。移植的核心工作就是完成RTOS模拟层的编写及适配，详细的移植说明请参考《onps网络协议栈移植及使用说明v1.0》一文，点此[下载](https://gitee.com/Neo-T/open-npstack/releases/download/v1.0.0.221017/onps%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88%E7%A7%BB%E6%A4%8D%E5%8F%8A%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8Ev1.0.7z)。本说明提供了STM32F103RCT6及STM32F407VET6两种硬件平台的移植样例，每种样例分别针对RT-Thread和ucosii两种RTOS。样例工程经过了严格的内部测试，可以直接使用。如果你没有太多时间，或者样例工程与你的目标平台并不匹配，你可以直接参考协议栈移植的一般性指导文件[《onps栈移植手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88%E7%A7%BB%E6%A4%8D%E6%89%8B%E5%86%8C.pdf)。
+协议栈支持主流的ARM Cortex系列MCU，支持Keil MDK、IAR等常见IDE。移植的核心工作就是完成RTOS模拟层的编写及适配，详细的移植说明请参考《onps网络协议栈移植及使用说明v1.0》一文，点此[下载](https://gitee.com/Neo-T/open-npstack/releases/download/v1.0.0.221017/onps%E7%BD%91%E7%BB%9C%E5%8D%8F%E8%AE%AE%E6%A0%88%E7%A7%BB%E6%A4%8D%E5%8F%8A%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8Ev1.0.7z)。本说明提供了STM32F103RCT6及STM32F407VET6两种硬件平台的移植样例，每种样例分别针对RT-Thread和ucosii两种RTOS。样例工程经过了严格的内部测试，可以直接使用。
+
+如果你没有太多时间，或者样例工程与你的目标平台并不匹配，你可以直接参考协议栈移植的一般性指导文件[《onps栈移植手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88%E7%A7%BB%E6%A4%8D%E6%89%8B%E5%86%8C.pdf)。
 
 #### 社区支持
 
