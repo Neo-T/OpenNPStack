@@ -275,6 +275,28 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
     return NULL; 
 }
 
+PST_NETIF netif_get_by_name(const CHAR *pszIfName)
+{
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        while (pstNextNode)
+        {
+            if (strcmp(pszIfName, pstNextNode->stIf.szName) == 0)
+            {
+                os_thread_mutex_unlock(l_hMtxNetif);
+
+                return &pstNextNode->stIf; 
+            }
+
+            pstNextNode = pstNextNode->pstNext; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    return NULL;
+}
+
 #if SUPPORT_ETHERNET
 PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp)
 {
