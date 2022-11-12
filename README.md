@@ -66,7 +66,7 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 
 如果你没有太多时间，或者样例工程与你的目标平台并不匹配，你可以直接参考协议栈移植的一般性指导文件[《onps栈移植手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88%E7%A7%BB%E6%A4%8D%E6%89%8B%E5%86%8C.pdf)。
 
-协议栈开发的一般性指导文件请参考[《onps栈API接口手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88API%E6%8E%A5%E5%8F%A3%E6%89%8B%E5%86%8C.pdf)。
+协议栈开发的一般性指导文件请参考[《onps栈API接口手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88API%E6%8E%A5%E5%8F%A3%E6%89%8B%E5%86%8C.pdf)及[《onps栈用户使用手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88%E7%94%A8%E6%88%B7%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C.pdf)。
 
 #### 社区支持
 
