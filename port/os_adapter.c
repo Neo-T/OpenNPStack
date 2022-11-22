@@ -78,6 +78,16 @@ UINT os_get_system_secs(void)
 	return 0; 
 }
 
+#if SUPPORT_SACK
+//* 获取系统启动以来已运行的毫秒数（从0开始）
+UINT os_get_system_msecs(void)
+{
+#error os_get_system_msecs() cannot be empty
+
+    return 0;
+}
+#endif
+
 void os_thread_onpstack_start(void *pvParam)
 {
 	/* 用户自定义代码 */

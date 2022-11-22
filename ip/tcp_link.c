@@ -17,6 +17,7 @@
 static ST_TCPLINK l_staTcpLinkNode[TCP_LINK_NUM_MAX]; 
 static PST_TCPLINK l_pstFreeTcpLinkList = NULL; 
 static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX; 
+static PST_TCPLINK l_pstUsedTcpLinkList = NULL; 
 
 #if SUPPORT_ETHERNET
 //* 与tcp服务器业务逻辑相关的静态存储时期的变量
@@ -120,6 +121,32 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
 {    
     os_thread_mutex_lock(l_hMtxTcpLinkList);
     {
+        //* 先从使用队列中摘除
+        PST_TCPLINK pstNextNode = l_pstUsedTcpLinkList;
+        PST_TCPLINK pstPrevNode = NULL; 
+        while (pstNextNode)
+        {
+            if (pstTcpLink == pstNextNode)
+            {
+                if (pstPrevNode)
+                    pstPrevNode->bNext = pstTcpLink->bNext;
+                else
+                {
+                    if (pstTcpLink->bNext >= 0)
+                        l_pstUsedTcpLinkList = &l_staTcpLinkNode[pstTcpLink->bNext];
+                    else //* 这即是第一个节点也是最后一个节点
+                        l_pstUsedTcpLinkList = NULL; 
+                }
+
+                break; 
+            }
+
+            pstPrevNode = pstNextNode;
+            if (pstNextNode->bNext < 0) //* 理论上不会出现小于0的情况在这之前应该能找到
+                break; 
+            pstNextNode = &l_staTcpLinkNode[pstNextNode->bNext];
+        }
+
         if (l_pstFreeTcpLinkList)        
             pstTcpLink->bNext = l_pstFreeTcpLinkList->bIdx;         
         else        
@@ -127,6 +154,40 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
         l_pstFreeTcpLinkList = pstTcpLink;
     }
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
+}
+
+void tcp_link_list_used_put(PST_TCPLINK pstTcpLink)
+{
+    os_thread_mutex_lock(l_hMtxTcpLinkList);
+    {
+        if (l_pstUsedTcpLinkList)
+            pstTcpLink->bNext = l_pstUsedTcpLinkList->bIdx;
+        else
+            pstTcpLink->bNext = -1; 
+        l_pstUsedTcpLinkList = pstTcpLink; 
+    }
+    os_thread_mutex_unlock(l_hMtxTcpLinkList);
+}
+
+PST_TCPLINK tcp_link_list_used_get_next(PST_TCPLINK pstTcpLink)
+{
+    PST_TCPLINK pstNextNode = NULL; 
+
+    os_thread_mutex_lock(l_hMtxTcpLinkList);
+    {
+        if (pstTcpLink)
+        {
+            if(pstTcpLink->bNext >= 0)
+                pstNextNode = &l_staTcpLinkNode[pstTcpLink->bNext]; 
+        }
+        else
+        {
+            pstNextNode = l_pstUsedTcpLinkList;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxTcpLinkList); 
+
+    return pstNextNode; 
 }
 
 #if SUPPORT_ETHERNET

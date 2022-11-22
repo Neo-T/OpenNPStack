@@ -49,7 +49,7 @@ void tcpsrv_syn_recv_timeout_handler(void *pvParam)
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
-#endif
+    #endif
         }
     }
 }

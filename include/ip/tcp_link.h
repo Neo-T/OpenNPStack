@@ -54,6 +54,11 @@ typedef enum {
     TDSLINKCLOSED
 } EN_TCPDATASNDSTATE; 
 
+//* tcp链路标志位相关定义
+//* =================================================
+#define TLF_NO_DELAY_ACK 0x0001 //* 立即回馈应答而不是等一小段时间或有数据需要发送时（200毫秒）再回馈
+//* =================================================
+
 //* 记录到达的tcp服务器连接请求信息的结构体
 typedef struct _ST_TCPBACKLOG__ {
     struct {
@@ -98,12 +103,20 @@ typedef struct _ST_TCPLINK_ {
         UINT unSeqNum;      //* 当前序号
     } stPeer;
 
+    union {
+        struct {            
+            USHORT no_delay_ack : 1;
+            USHORT resrved1 : 15;
+        } stb16;
+        USHORT usVal;
+    } uniFlags; 
+
     //* 用于TCP_TYPE_RCLIENT类型的tcp链路
     PST_TCPBACKLOG pstBacklog; 
     INT nInputSrv; 
 
     CHAR bState;        //* 当前链路状态
-    CHAR bIsPassiveFin; //* 是被动FIN操作    
+    CHAR bIsPassiveFin; //* 是被动FIN操作
 
     CHAR bIdx;
     CHAR bNext;
@@ -126,6 +139,8 @@ TCP_LINK_EXT BOOL tcp_link_init(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcp_link_uninit(void); 
 TCP_LINK_EXT PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink); 
+TCP_LINK_EXT void tcp_link_list_used_put(PST_TCPLINK pstTcpLink);
+TCP_LINK_EXT PST_TCPLINK tcp_link_list_used_get_next(PST_TCPLINK pstTcpLink);
 
 #if SUPPORT_ETHERNET
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);

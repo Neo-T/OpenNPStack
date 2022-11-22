@@ -505,6 +505,32 @@ BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr)
     return onps_input_set((INT)socket, IOPT_SETRCVTIMEOUT, &bRcvTimeout, penErr); 
 }
 
+BOOL socket_set_tcp_link_flags(SOCKET socket, USHORT usNewFlags, EN_ONPSERR *penErr)
+{
+    return onps_input_set((INT)socket, IOPT_SET_TCP_LINK_FLAGS, &usNewFlags, penErr);
+}
+
+BOOL socket_set_tcp_link_flags_safe(SOCKET socket, USHORT usNewFlags, EN_OPTTYPE enOptType, EN_ONPSERR *penErr)
+{
+    USHORT usFlags;
+
+    switch (enOptType)
+    {
+    case OR: 
+        if (onps_input_get((INT)socket, IOPT_GET_TCP_LINK_FLAGS, &usFlags, penErr))
+            usFlags |= usNewFlags; 
+        else
+            return FALSE;
+        break; 
+
+    default: 
+        usFlags = usNewFlags; 
+        break;
+    }
+
+    return onps_input_set((INT)socket, IOPT_SET_TCP_LINK_FLAGS, &usFlags, penErr);
+}
+
 INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
 {
     EN_ONPSERR enErr;

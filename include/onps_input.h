@@ -20,6 +20,7 @@
 typedef enum {    
     IOPT_SETICMPECHOID = 0,     //* 设置icmp echo请求ID
     IOPT_SETTCPUDPADDR,         //* 设置TCP/UDP本地分配的地址
+    IOPT_SET_TCP_LINK_FLAGS,    //* 设置tcp链路标志
     IOPT_GETTCPUDPADDR,         //* 获取TCP/UDP本地分配的地址
     IOPT_GETSEM,                //* 获取input用到的semaphore
     IOPT_GETIPPROTO,            //* 获取当前input绑定的ip上层协议
@@ -31,7 +32,8 @@ typedef enum {
     IOPT_GETTCPDATASNDSTATE,    //* 获取tcp链路数据发送的状态
     IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
     IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
-    IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度    
+    IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度        
+    IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志
 } ONPSIOPT;
 
 #define TCP_TYPE_LCLIENT 0  //* 连接远端服务器的tcp客户端

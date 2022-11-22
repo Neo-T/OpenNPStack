@@ -62,6 +62,11 @@ typedef struct _ST_SLINKEDLIST_NODE_ {
     } uniData;  
 } ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE;
 
+typedef enum {
+    AND, 
+    OR, 
+} EN_OPTTYPE;
+
 //* 单向链表相关操作函数
 ONPS_UTILS_EXT PST_SLINKEDLIST_NODE sllist_get_node(PST_SLINKEDLIST *ppstSLList);                    //* 获取一个节点，其直接摘取链表的头部节点返回给调用者
 ONPS_UTILS_EXT PST_SLINKEDLIST_NODE sllist_get_tail_node(PST_SLINKEDLIST *ppstSLList);               //* 同上，只不过这个函数将摘取链表的尾部节点给调用者

@@ -50,6 +50,12 @@ SOCKET_EXT INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHA
 //* 设定recv()函数等待接收的时长（单位：秒），大于0指定数据到达的最长等待时间；0，则不等待；-1，则一直等待直至数据到达或报错
 SOCKET_EXT BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr);
 
+//* 修改tcp链路相关控制标志
+SOCKET_EXT BOOL socket_set_tcp_link_flags(SOCKET socket, USHORT usNewFlags, EN_ONPSERR *penErr); 
+
+//* 修改tcp链路相关控制标志
+SOCKET_EXT BOOL socket_set_tcp_link_flags_safe(SOCKET socket, USHORT usNewFlags, EN_OPTTYPE enOptType, EN_ONPSERR *penErr);
+
 //* 接收函数(阻塞型/非阻塞型)，依赖于socket_set_rcv_timeout()函数设定的接收等待时长，缺省为一直等待直至收到数据或报错，阻塞型返回值为实际收到的数据长度，-1则代
 //* 表出错；非阻塞型返回值为实际收到的数据长度（大于等于0），-1同样代表接收失败
 SOCKET_EXT INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 

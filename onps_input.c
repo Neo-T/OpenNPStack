@@ -433,6 +433,24 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         */
         break; 
 
+    case IOPT_SET_TCP_LINK_FLAGS:
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+        {
+            if (pstcbInput->pvAttach)
+            {
+                if (penErr)
+                    *penErr = ERRTCPNOTCONNECTED;
+                return FALSE;
+            }
+
+            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stAddr.bType)
+                ((PST_TCPLINK)pstcbInput->pvAttach)->uniFlags.usVal = *((USHORT *)pvVal); 
+        }
+        else
+            goto __lblIpProtoNotMatched;
+
+        break; 
+
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT; 
@@ -551,7 +569,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
             if (pstcbInput->pvAttach)
-                *((USHORT *)pvVal) = (USHORT)((PST_TCPLINK)(pstcbInput->pvAttach))->stcbWaitAck.usSendDataBytes; 
+                *((USHORT *)pvVal) = ((PST_TCPLINK)(pstcbInput->pvAttach))->stcbWaitAck.usSendDataBytes; 
             else
             {
                 if (penErr)
@@ -565,6 +583,28 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
                 *penErr = ERRTDSNONTCP;
             return FALSE;
         }
+        break; 
+
+    case IOPT_GET_TCP_LINK_FLAGS: 
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+        {
+            if (pstcbInput->pvAttach)
+            {
+                if (penErr)
+                    *penErr = ERRTCPNOTCONNECTED;
+                return FALSE;
+            }
+
+            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stAddr.bType)
+                *((USHORT *)pvVal) = ((PST_TCPLINK)pstcbInput->pvAttach)->uniFlags.usVal;
+        }
+        else
+        {
+            if (penErr)
+                *penErr = ERRIPROTOMATCH;
+            return FALSE;
+        }
+
         break; 
 
     default:
