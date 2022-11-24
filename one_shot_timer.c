@@ -7,10 +7,15 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "onps_utils.h"
+#include "onps_input.h"
 
 #define SYMBOL_GLOBALS
 #include "one_shot_timer.h"
 #undef SYMBOL_GLOBALS
+
+#include "ip/tcp_link.h"
+#include "ip/tcp.h"
 
 typedef struct _ST_ONESHOTTIMER_ { //* 定时器
     PST_ONESHOTTIMER pstNext;
@@ -87,62 +92,103 @@ void one_shot_timer_stop(void)
 	l_blIsRunning = FALSE;
 }
 
+#if SUPPORT_SACK
+#error thread_one_shot_timer_count() function not implemented 
+#else
 //* 这并不是一个精确的定时器计时队列，这依赖于休眠精度以及队列长度，但对于我们的应用场景来说已经足够使用
 void thread_one_shot_timer_count(void *pvParam)
 {
 	PST_ONESHOTTIMER pstTimer, pstPrevTimer, pstNextTimer; 
+#if 1
+    USHORT usTimeCount = 0;
+    PST_TCPLINK pstNextLink = NULL;
+    UINT unDelayAckTimeout = TCP_ACK_DELAY_MSECS < 40 || TCP_ACK_DELAY_MSECS > 200 ? 100 - 1 : TCP_ACK_DELAY_MSECS - 1; 
+#endif
 
     //os_critical_init();
 
     l_ubThreadExitFlag = FALSE;
 	while (l_blIsRunning)
 	{
-		os_thread_mutex_lock(l_hMtxOneShotTimer);
-        //os_enter_critical();
-		{
-			pstNextTimer = l_pstOneShotTimerLink;
-			pstPrevTimer = NULL;
-            pstTimer = NULL; 
-			while (pstNextTimer)
-			{
-				if (pstNextTimer->nTimeoutCount-- <= 0)
-				{
-					//* 先从计时器队列摘除
-                    if (pstPrevTimer)
-                        pstPrevTimer->pstNext = NULL;
-                    else
-                        l_pstOneShotTimerLink = NULL; 
-					pstTimer = pstNextTimer;
-                    break; 					
-				}
-				else //* 计时尚未结束，检查下一个节点
-				{
-					pstPrevTimer = pstNextTimer;
-					pstNextTimer = pstNextTimer->pstNext;
-				}
-			}
-		}
-		os_thread_mutex_unlock(l_hMtxOneShotTimer); 
-        //os_exit_critical();
-
-        //* 如果存在溢出节点则开始执行溢出操作
-        if (pstTimer)
+    #if 1
+        //* 延迟tcp ack处理
+        tcp_link_lock();
         {
-            pstNextTimer = pstTimer;
-            while (pstNextTimer)
+            do {
+                pstNextLink = tcp_link_list_used_get_next(pstNextLink);
+                if (pstNextLink)
+                {
+                    if (pstNextLink->bState == TLSCONNECTED)
+                    {                        
+                        if (!pstNextLink->uniFlags.stb16.no_delay_ack && pstNextLink->stPeer.bIsNotAcked)
+                        {
+                            if (os_get_system_msecs() - pstNextLink->stPeer.unStartMSecs > unDelayAckTimeout)
+                            {                               
+                                tcp_send_ack(pstNextLink, pstNextLink->stLocal.pstAddr->unNetifIp, pstNextLink->stLocal.pstAddr->usPort, pstNextLink->stPeer.stAddr.unIp, pstNextLink->stPeer.stAddr.usPort);
+                                pstNextLink->stPeer.bIsNotAcked = FALSE;
+                            }
+                        }
+                    }
+                }
+            } while (pstNextLink);
+        }
+        tcp_link_unlock();
+
+        if (usTimeCount++ > 999)        
+        {
+    #endif
+            os_thread_mutex_lock(l_hMtxOneShotTimer);
+            //os_enter_critical();
             {
-                //* 保存当前要操作的定时器并在操作之前推进到下一个溢出定时器
-                pstTimer = pstNextTimer; 
-                pstNextTimer = pstNextTimer->pstNext; 
-
-                //* 执行溢出函数并归还给系统
-                pstTimer->pfunTimeoutHandler(pstTimer->pvParam);                           
-                one_shot_timer_free(pstTimer);
+                pstNextTimer = l_pstOneShotTimerLink;
+                pstPrevTimer = NULL;
+                pstTimer = NULL;
+                while (pstNextTimer)
+                {
+                    if (pstNextTimer->nTimeoutCount-- <= 0)
+                    {
+                        //* 先从计时器队列摘除
+                        if (pstPrevTimer)
+                            pstPrevTimer->pstNext = NULL;
+                        else
+                            l_pstOneShotTimerLink = NULL;
+                        pstTimer = pstNextTimer;
+                        break;
+                    }
+                    else //* 计时尚未结束，检查下一个节点
+                    {
+                        pstPrevTimer = pstNextTimer;
+                        pstNextTimer = pstNextTimer->pstNext;
+                    }
+                }
             }
-        }        
+            os_thread_mutex_unlock(l_hMtxOneShotTimer);
+            //os_exit_critical();
 
-		//* 这个休眠可以不用特别精确（1秒左右），我们的应用场景足够了
-		os_sleep_secs(1);
+            //* 如果存在溢出节点则开始执行溢出操作
+            if (pstTimer)
+            {
+                pstNextTimer = pstTimer;
+                while (pstNextTimer)
+                {
+                    //* 保存当前要操作的定时器并在操作之前推进到下一个溢出定时器
+                    pstTimer = pstNextTimer;
+                    pstNextTimer = pstNextTimer->pstNext;
+
+                    //* 执行溢出函数并归还给系统
+                    pstTimer->pfunTimeoutHandler(pstTimer->pvParam);
+                    one_shot_timer_free(pstTimer);
+                }
+            }
+
+    #if 0
+            //* 这个休眠可以不用特别精确（1秒左右），我们的应用场景足够了
+            os_sleep_secs(1);
+    #else
+            usTimeCount = 0;
+        }
+        os_sleep_ms(1);        
+    #endif
 	}
 
 	//* 回收资源
@@ -165,6 +211,7 @@ void thread_one_shot_timer_count(void *pvParam)
 
     l_ubThreadExitFlag = TRUE;
 }
+#endif
 
 //* 分配一个新的one-shot定时器
 PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandler, void *pvParam, INT nTimeoutCount)

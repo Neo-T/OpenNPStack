@@ -20,6 +20,11 @@
 typedef INT SOCKET;         //* socket句柄
 #define INVALID_SOCKET  -1  //* 无效的SOCKET
 
+//* tcp链路标志位相关定义
+//* =================================================
+#define TLF_NO_DELAY_ACK 0x0001 //* 立即回馈应答而不是等一小段时间或有数据需要发送时（200毫秒）再回馈
+//* =================================================
+
 //* Supported address families.
 #define AF_INET 2   //* internetwork: UDP, TCP, etc.
 

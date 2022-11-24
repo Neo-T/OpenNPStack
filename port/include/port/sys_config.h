@@ -61,7 +61,7 @@
 //* ip支持的上层协议相关配置项
 //* ===============================================================================================
 #define SUPPORT_IPV6	0   //* 是否支持IPv6：1，支持；0，不支持
-#define SUPPORT_SACK    1   //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
+#define SUPPORT_SACK    0   //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
 
 #define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 
@@ -74,6 +74,7 @@
 #define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
 #define TCP_MSL                 15      //* 指定TCP链路TIMEWAIT态的最大关闭时长：2 * TCP_MSL，单位：秒
 #define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（涵盖所有TCP客户端 + TCP服务器的并发连接数），超过这个数量将无法建立新的tcp链路
+#define TCP_ACK_DELAY_MSECS     100     //* 延迟多少毫秒发送ack报文，这个值最小40毫秒，最大200毫秒
 
 #if SUPPORT_ETHERNET
     #define TCPSRV_BACKLOG_NUM_MAX  10      //* tcp服务器支持的最大请求队列数量，任意时刻所有已开启的tcp服务器的请求连接队列数量之和应小于该值，否则将会出现拒绝连接的情况

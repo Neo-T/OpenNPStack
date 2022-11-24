@@ -104,15 +104,23 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
             l_pstFreeTcpLinkList = &l_staTcpLinkNode[l_pstFreeTcpLinkList->bNext]; 
         else        
             l_pstFreeTcpLinkList = NULL;
+
+        if (l_pstUsedTcpLinkList)
+            pstFreeNode->bNext = l_pstUsedTcpLinkList->bIdx;
+        else
+            pstFreeNode->bNext = -1;
+        l_pstUsedTcpLinkList = pstFreeNode;
     }
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 
     pstFreeNode->bState = TLSINIT;
-    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0; 
+    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0;
+    pstFreeNode->uniFlags.usVal = 0; 
     pstFreeNode->stPeer.bSackEn = FALSE;
     pstFreeNode->stPeer.bWndScale = 0;
     pstFreeNode->stPeer.usMSS = 1200; 
     pstFreeNode->stPeer.usWndSize = 8192;     
+    pstFreeNode->stPeer.bIsNotAcked = FALSE;
     pstFreeNode->stLocal.bDataSendState = TDSSENDRDY;   //* 发送状态初始化
     return pstFreeNode;
 }
@@ -173,21 +181,27 @@ PST_TCPLINK tcp_link_list_used_get_next(PST_TCPLINK pstTcpLink)
 {
     PST_TCPLINK pstNextNode = NULL; 
 
-    os_thread_mutex_lock(l_hMtxTcpLinkList);
+    if (pstTcpLink)
     {
-        if (pstTcpLink)
-        {
-            if(pstTcpLink->bNext >= 0)
-                pstNextNode = &l_staTcpLinkNode[pstTcpLink->bNext]; 
-        }
-        else
-        {
-            pstNextNode = l_pstUsedTcpLinkList;
-        }
+        if (pstTcpLink->bNext >= 0)
+            pstNextNode = &l_staTcpLinkNode[pstTcpLink->bNext];
     }
-    os_thread_mutex_unlock(l_hMtxTcpLinkList); 
+    else
+    {
+        pstNextNode = l_pstUsedTcpLinkList;
+    }
 
     return pstNextNode; 
+}
+
+void tcp_link_lock(void)
+{
+    os_thread_mutex_lock(l_hMtxTcpLinkList);
+}
+
+void tcp_link_unlock(void)
+{
+    os_thread_mutex_unlock(l_hMtxTcpLinkList);
 }
 
 #if SUPPORT_ETHERNET

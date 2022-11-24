@@ -33,9 +33,7 @@ extern HMUTEX o_hMtxPrintf;
 OS_ADAPTER_EXT void os_sleep_secs(UINT unSecs);							//* 休眠，单位：秒 
 OS_ADAPTER_EXT void os_sleep_ms(UINT unMSecs);							//* 休眠，单位：毫秒 
 OS_ADAPTER_EXT UINT os_get_system_secs(void);							//* 获取系统启动以来已运行的秒数（从0开始）
-#if SUPPORT_SACK
 OS_ADAPTER_EXT UINT os_get_system_msecs(void);							//* 获取系统启动以来已运行的毫秒数（从0开始）
-#endif
 OS_ADAPTER_EXT HMUTEX os_thread_mutex_init(void);						//* 线程同步锁初始化，成功返回同步锁句柄，失败则返回INVALID_HMUTEX
 OS_ADAPTER_EXT void os_thread_mutex_lock(HMUTEX hMutex);				//* 线程同步区加锁
 OS_ADAPTER_EXT void os_thread_mutex_unlock(HMUTEX hMutex);				//* 线程同步区解锁

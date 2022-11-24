@@ -58,27 +58,23 @@ const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
 //* 当前线程休眠指定的秒数，参数unSecs指定要休眠的秒数
 void os_sleep_secs(UINT unSecs)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_sleep_secs() cannot be empty
 }
 
 //* 当前线程休眠指定的毫秒数，单位：毫秒 
 void os_sleep_ms(UINT unMSecs)
 {
-    /* 用户自定义代码 */
-    /* …… */
+#error os_sleep_ms() cannot be empty
 }
 
 //* 获取系统启动以来已运行的秒数（从0开始）
 UINT os_get_system_secs(void)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_get_system_secs() cannot be empty
 
 	return 0; 
 }
 
-#if SUPPORT_SACK
 //* 获取系统启动以来已运行的毫秒数（从0开始）
 UINT os_get_system_msecs(void)
 {
@@ -86,12 +82,10 @@ UINT os_get_system_msecs(void)
 
     return 0;
 }
-#endif
 
 void os_thread_onpstack_start(void *pvParam)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_onpstack_start() cannot be empty
 
 	//* 建立工作线程
 	INT i; 
@@ -106,84 +100,73 @@ void os_thread_onpstack_start(void *pvParam)
 
 HMUTEX os_thread_mutex_init(void)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_mutex_init() cannot be empty
+
 	return INVALID_HMUTEX; //* 初始失败要返回一个无效句柄
 }
 
 void os_thread_mutex_lock(HMUTEX hMutex)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_mutex_lock() cannot be empty
 }
 
 void os_thread_mutex_unlock(HMUTEX hMutex)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_mutex_unlock() cannot be empty
 }
 
 void os_thread_mutex_uninit(HMUTEX hMutex)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_mutex_uninit() cannot be empty
 }
 
 HSEM os_thread_sem_init(UINT unInitVal, UINT unCount)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_sem_init() cannot be empty
 
 	return INVALID_HSEM; //* 初始失败要返回一个无效句柄
 }
 
 void os_thread_sem_post(HSEM hSem)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_sem_post() cannot be empty
 }
 
 INT os_thread_sem_pend(HSEM hSem, INT nWaitSecs)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_sem_pend() cannot be empty
 
 	return -1; 
 }
 
 void os_thread_sem_uninit(HSEM hSem)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_thread_sem_uninit() cannot be empty
 }
 
 #if SUPPORT_PPP
 HTTY os_open_tty(const CHAR *pszTTYName)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_open_tty() cannot be empty
 
 	return INVALID_HTTY; 
 }
 
 void os_close_tty(HTTY hTTY)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_close_tty() cannot be empty
 }
 
 INT os_tty_send(HTTY hTTY, UCHAR *pubData, INT nDataLen)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_tty_send() cannot be empty
 
 	return 0; 
 }
 
 INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen, INT nWaitSecs)
 {
-	/* 用户自定义代码 */
-	/* …… */
+#error os_tty_recv() cannot be empty
 
 	return 0;
 }

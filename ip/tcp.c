@@ -241,7 +241,7 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
 
     //* 更新tcp序号
     pstLink->stLocal.unSeqNum = unSrvAckNum; 
-    pstLink->stPeer.unSeqNum += 1; 
+    pstLink->stPeer.unSeqNum += 1;     
 
     //* 发送
     EN_ONPSERR enErr;
@@ -380,6 +380,9 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 		onps_set_last_error(nInput, ERRNOIDLETIMER);
 		return -1;
 	}    
+
+    pstLink->stPeer.bIsNotAcked = FALSE; 
+
     pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
     pstLink->stLocal.bDataSendState = TDSSENDING;
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
@@ -458,12 +461,13 @@ void tcp_disconnect(INT nInput)
     }
 }
 
-static void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort)
+void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort)
 {
     //* 标志字段ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
     uniFlag.usVal = 0;
     uniFlag.stb16.ack = 1;
+    pstLink->stPeer.bIsNotAcked = FALSE;
 
     //* 发送应答报文 
     tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, NULL);    
@@ -821,7 +825,13 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 else
                 {
                     pstLink->stPeer.unSeqNum = unPeerSeqNum + nDataLen;
-                    tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+                    if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED)
+                        tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+                    else
+                    {
+                        pstLink->stPeer.unStartMSecs = os_get_system_msecs(); 
+                        pstLink->stPeer.bIsNotAcked = TRUE;
+                    }
                 }
             }            
         }

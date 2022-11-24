@@ -63,8 +63,14 @@ typedef struct _ST_SLINKEDLIST_NODE_ {
 } ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE;
 
 typedef enum {
-    AND, 
-    OR, 
+    AND,    //* 与  
+    OR,     //* 或
+    LT,     //* 小于
+    LE,     //* 小于等于
+    EQ,     //* 等于
+    NE,     //* 不等于
+    GT,     //* 大于
+    GE      //* 大于等于
 } EN_OPTTYPE;
 
 //* 单向链表相关操作函数

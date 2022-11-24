@@ -436,7 +436,7 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     case IOPT_SET_TCP_LINK_FLAGS:
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
-            if (pstcbInput->pvAttach)
+            if (NULL == pstcbInput->pvAttach)
             {
                 if (penErr)
                     *penErr = ERRTCPNOTCONNECTED;

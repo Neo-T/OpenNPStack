@@ -54,11 +54,6 @@ typedef enum {
     TDSLINKCLOSED
 } EN_TCPDATASNDSTATE; 
 
-//* tcp链路标志位相关定义
-//* =================================================
-#define TLF_NO_DELAY_ACK 0x0001 //* 立即回馈应答而不是等一小段时间或有数据需要发送时（200毫秒）再回馈
-//* =================================================
-
 //* 记录到达的tcp服务器连接请求信息的结构体
 typedef struct _ST_TCPBACKLOG__ {
     struct {
@@ -101,11 +96,13 @@ typedef struct _ST_TCPLINK_ {
             in_addr_t unIp; //* 地址            
         } stAddr;
         UINT unSeqNum;      //* 当前序号
+        UINT unStartMSecs;  //* 延时计数
+        CHAR bIsNotAcked;   //* 是否已经应答
     } stPeer;
 
     union {
         struct {            
-            USHORT no_delay_ack : 1;
+            USHORT no_delay_ack : 1;            
             USHORT resrved1 : 15;
         } stb16;
         USHORT usVal;
@@ -141,6 +138,8 @@ TCP_LINK_EXT PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcp_link_free(PST_TCPLINK pstTcpLink); 
 TCP_LINK_EXT void tcp_link_list_used_put(PST_TCPLINK pstTcpLink);
 TCP_LINK_EXT PST_TCPLINK tcp_link_list_used_get_next(PST_TCPLINK pstTcpLink);
+TCP_LINK_EXT void tcp_link_lock(void); 
+TCP_LINK_EXT void tcp_link_unlock(void);
 
 #if SUPPORT_ETHERNET
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
