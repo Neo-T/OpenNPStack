@@ -15,14 +15,19 @@
 //* 在此把相关基础数据准备好，确保协议栈不过多占用用户的堆空间
 static UCHAR l_ubaMemPool[BUDDY_MEM_SIZE];
 static ST_BUDDY_AREA l_staArea[BUDDY_ARER_COUNT];
-static const UINT lr_unPageCount = BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1;
 static ST_BUDDY_PAGE l_staPage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
+#if 0
 static STCB_BUDDY_PAGE_NODE l_stcbaFreePage[BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1];
+#else
+static PST_BUDDY_PAGE l_pstFreePageHead; 
+#endif
 //static HMUTEX l_hMtxMMUBuddy = INVALID_HMUTEX;
 
 static PST_BUDDY_PAGE GetPageNode(EN_ONPSERR *penErr)
 {
 	PST_BUDDY_PAGE pstPage;
+
+#if 0
 	PSTCB_BUDDY_PAGE_NODE pstNode = &l_stcbaFreePage[0];
 	while (pstNode)
 	{
@@ -37,14 +42,26 @@ static PST_BUDDY_PAGE GetPageNode(EN_ONPSERR *penErr)
 
 		pstNode = pstNode->pstNext; 
 	}
+#else
+    if (l_pstFreePageHead)
+    {
+        pstPage = l_pstFreePageHead; 
+        l_pstFreePageHead = l_pstFreePageHead->pstNext; 
+        pstPage->blIsUsed = FALSE; 
+        pstPage->pstNext = NULL; 
+        return pstPage; 
+    }
+#endif
 
-	*penErr = ERRNOPAGENODE;
+    if(penErr)
+	    *penErr = ERRNOPAGENODE;
 
 	return NULL;
 }
 
 static void FreePageNode(PST_BUDDY_PAGE pstPage)
 {
+#if 0
 	PSTCB_BUDDY_PAGE_NODE pstNode = &l_stcbaFreePage[0];
 	while (pstNode)
 	{
@@ -56,25 +73,36 @@ static void FreePageNode(PST_BUDDY_PAGE pstPage)
 
 		pstNode = pstNode->pstNext;
 	}
+#else   
+    pstPage->pstNext = l_pstFreePageHead;
+    l_pstFreePageHead = pstPage;    
+#endif
 }
 
 BOOL buddy_init(EN_ONPSERR *penErr)
 {
 	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE; 
-	EN_ONPSERR enCode;
 
+#if 0
 	//* 存储页面控制信息的链表必须先初始化，接下来就要用到
-	for (i = 0; i < lr_unPageCount; i++)
+	for (i = 0; i < (INT)(BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1); i++)
 	{
 		l_stcbaFreePage[i].pstPage = &l_staPage[i];
 		l_stcbaFreePage[i].pstNext = &l_stcbaFreePage[i + 1];
 	}
 	l_stcbaFreePage[i - 1].pstNext = NULL;
+#else
+    memset(&l_staPage, 0, sizeof(l_staPage)); 
+    for (i = 0; i < (INT)(BUDDY_MEM_SIZE / BUDDY_PAGE_SIZE + 1); i++)    
+        l_staPage[i].pstNext = &l_staPage[i + 1];         
+    l_staPage[i - 1].pstNext = NULL; 
+    l_pstFreePageHead = &l_staPage[0]; 
+#endif
 
 	//* 清零，并把交给buddy管理的整块内存挂载到页块管理数组的最后一个单元，确保最后一个单元为最大一块连续的内存
 	memset(&l_staArea, 0, sizeof(l_staArea));
-	PST_BUDDY_PAGE pstPage = GetPageNode(&enCode); 
+	PST_BUDDY_PAGE pstPage = GetPageNode(penErr);
 	pstPage->pstNext = NULL;
 	pstPage->pubStart = l_ubaMemPool;
 	l_staArea[BUDDY_ARER_COUNT - 1].pstNext = pstPage;

@@ -15,21 +15,29 @@
 	#define BUDDY_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+PACKED_BEGIN
 typedef struct _ST_BUDDY_PAGE_ { //* 具有相同页面大小的页面链表节点的基本数据结构
-    struct _ST_BUDDY_PAGE_ *pstNext;
-	BOOL blIsUsed; 
+    struct _ST_BUDDY_PAGE_ *pstNext;	
     UCHAR *pubStart;     
-} ST_BUDDY_PAGE, *PST_BUDDY_PAGE; 
+    CHAR blIsUsed;
+} PACKED ST_BUDDY_PAGE, *PST_BUDDY_PAGE;
+PACKED_END
 
+#if 0
+PACKED_BEGIN
 typedef struct _STCB_BUDDY_PAGE_NODE_ { //* 页面控制块链表节点
-	struct _STCB_BUDDY_PAGE_NODE_  *pstNext;
+	struct _STCB_BUDDY_PAGE_NODE_ *pstNext;
 	PST_BUDDY_PAGE pstPage; 
-} STCB_BUDDY_PAGE_NODE, *PSTCB_BUDDY_PAGE_NODE;
+} PACKED STCB_BUDDY_PAGE_NODE, *PSTCB_BUDDY_PAGE_NODE;
+PACKED_END
+#endif
 
+PACKED_BEGIN
 typedef struct _ST_BUDDY_AREA_ { //* 具有相同页面大小的页块数组单元的基本数据结构
-    PST_BUDDY_PAGE pstNext; 
+    PST_BUDDY_PAGE pstNext;      
     UINT unPageSize;	//* 该内存块单个页面大小
-} ST_BUDDY_AREA, *PST_BUDDY_AREA; 
+} PACKED ST_BUDDY_AREA, *PST_BUDDY_AREA;
+PACKED_END
 
 BUDDY_EXT BOOL buddy_init(EN_ONPSERR *penErr);				    //* buddy模块初始化函数
 BUDDY_EXT void buddy_uninit(void);                              //* buddy模块去初始化函数
