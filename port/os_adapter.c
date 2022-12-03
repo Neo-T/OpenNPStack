@@ -7,12 +7,15 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "one_shot_timer.h"
+#include "onps_utils.h"
 #include "protocols.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation_storage.h"
 #include "ppp/ppp.h"
 #endif
+
+#include "ip/tcp.h"
 
 #define SYMBOL_GLOBALS
 #include "port/os_adapter.h"
@@ -49,6 +52,10 @@ const static STCB_PSTACKTHREAD lr_stcbaPStackThread[] = {
 	//* 其直接强行进行数据类型转换即可，即作为线程入口参数时直接以如下形式传递：
 	//* (void *)nPPPIdx
 	//* 不要传递参数地址，即(void *)&nPPPIdx，这种方式是错误的
+#endif
+
+#if SUPPORT_SACK
+    { thread_tcp_handler, NULL },
 #endif
 }; 
 

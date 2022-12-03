@@ -63,9 +63,12 @@
 #define SUPPORT_IPV6	0   //* 是否支持IPv6：1，支持；0，不支持
 #define SUPPORT_SACK    1   //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
 
-#define ICMPRCVBUF_SIZE_DEFAULT 128     //* icmp发送echo请求报文时指定的接收缓冲区的缺省大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
+#define ICMPRCVBUF_SIZE 128     //* icmp发送echo请求报文时指定的接收缓冲区的大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 
-#define TCPRCVBUF_SIZE_DEFAULT  2048    //* tcp层缺省的接收缓冲区大小，大小应是2^n次幂才能最大限度不浪费budyy模块分配的内存
+#define TCPRCVBUF_SIZE  2048    //* tcp层接收缓冲区大小，大小应是2^n次幂才能最大限度不浪费budyy模块分配的内存
+#if SUPPORT_SACK
+#define TCPSNDBUF_SIZE  4096    //* tcp层发送缓冲区大小，同接收缓冲区，大小应是2^n次幂才能最大限度不浪费budyy模块分配的内存
+#endif
 
 #define TCPUDP_PORT_START       20000   //* TCP/UDP协议动态分配的起始端口号
 

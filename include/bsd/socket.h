@@ -43,12 +43,17 @@ SOCKET_EXT INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT n
 SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port); 
 
 //* 发送函数(tcp链路下阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
-//* 对于udp协议来说参数nWaitAckTimeout将被忽略，其将作为非阻塞型函数使用
+//* 对于udp协议来说参数nWaitAckTimeout将被忽略，其将作为非阻塞型函数使用；
+//* 当使能tcp的SUPPORT_SACK选项支持时，tcp链路下参数nWaitAckTimeout无效，可以是任意值，此时该函数为非阻塞型，其仅仅是把数据写入tcp链路的发送缓冲区，返回值为实际写入
+//* 的数据长度，返回值为0代表缓冲区已满，小于0则发生错误，具体的错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout); 
+
 //* 发送函数(tcp链路下非阻塞型)，udp链路该函数与send()函数功能及实现逻辑完全相同
 SOCKET_EXT INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen);
+
 //* 检查当前tcp链路发送的数据是否已成功送达对端，返回值为1则成功送达对端（收到tcp ack报文）；等于0为发送中，尚未收到对端的应答；小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT INT is_tcp_send_ok(SOCKET socket);
+
 //* 仅用于udp发送，发送时指定目标地址
 SOCKET_EXT INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData, INT nDataLen);
 

@@ -13,7 +13,6 @@
 #include "netif/netif.h"
 #include "netif/route.h"
 #include "onps_input.h"
-#include "ip/tcp_link.h"
 #include "ip/tcp_frame.h"
 #include "ip/tcp_options.h" 
 #define SYMBOL_GLOBALS
@@ -939,3 +938,13 @@ __lblErr:
     onps_set_last_error(nInput, enErr);
     return -1;
 }
+
+#if SUPPORT_SACK
+void thread_tcp_handler(void *pvParam)
+{
+    while (TRUE)
+    {
+
+    }
+}
+#endif

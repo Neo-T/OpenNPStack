@@ -113,4 +113,8 @@ ONPSINPUT_EXT const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr);
 ONPSINPUT_EXT EN_ONPSERR onps_get_last_error_code(INT nInput);
 ONPSINPUT_EXT void onps_set_last_error(INT nInput, EN_ONPSERR enErr);
 
+#if SUPPORT_SACK
+ONPSINPUT_EXT INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen);
+#endif
+
 #endif

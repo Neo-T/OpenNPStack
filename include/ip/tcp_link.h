@@ -102,11 +102,22 @@ typedef struct _ST_TCPLINK_ {
 
     union {
         struct {            
-            USHORT no_delay_ack : 1;            
+            USHORT no_delay_ack : 1; //* tcp ack是否延迟一小段时间后再发送（延迟的目的是等待是否有数据一同发送到对端）
             USHORT resrved1 : 15;
         } stb16;
         USHORT usVal;
-    } uniFlags; 
+    } uniFlags;  //* tcp标志
+
+#if SUPPORT_SACK
+    struct {
+        UINT unWriteBytes; 
+        struct {
+            UINT unLeft; 
+            UINT unRight; 
+        } staSack[4];
+        UCHAR *pubSndBuf; 
+    } stcbSend; //* 发送控制块
+#endif
 
     //* 用于TCP_TYPE_RCLIENT类型的tcp链路
     PST_TCPBACKLOG pstBacklog; 

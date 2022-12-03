@@ -80,6 +80,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRDNSQUERYTYPE, "unsupported dns query type" }, 
     { ERRDNSNOTRESOLVED, "not resolved to ip address" }, 
     { ERRNOUDPLINKNODE, "the udp link list is empty" }, 
+    { ERRTCPLINKCBNULL, "the tcp link control block is NULL" },
     { ERRUNKNOWN, "unknown error" }
 }; 
 

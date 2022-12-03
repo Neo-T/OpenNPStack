@@ -86,6 +86,7 @@ typedef enum {
     ERRDNSREFUSED,          //* dns服务器拒绝
     ERRDNSNOTRESOLVED,      //* 未解析到ip地址
     ERRNOUDPLINKNODE,       //* 无可用udp link节点
+    ERRTCPLINKCBNULL,       //* tcp link控制块为NULL
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

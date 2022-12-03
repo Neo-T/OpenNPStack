@@ -130,11 +130,11 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     switch (enProtocol)
     {
     case IPPROTO_ICMP:
-        unSize = ICMPRCVBUF_SIZE_DEFAULT;
+        unSize = ICMPRCVBUF_SIZE; 
         break; 
 
     case IPPROTO_TCP:
-        unSize = TCPRCVBUF_SIZE_DEFAULT;
+        unSize = TCPRCVBUF_SIZE; 
         break; 
 
     case IPPROTO_UDP:
@@ -171,6 +171,7 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         pstcbInput->pubRcvBuf = pubRcvBuf; 
         pstcbInput->unRcvBufSize = unSize;
         pstcbInput->unRcvedBytes = 0; 
+        pstcbInput->ubLastErr = ERRNO; 
 
         if (IPPROTO_ICMP == enProtocol)
             pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
@@ -229,7 +230,7 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         return -1; 
     }
 
-    UINT unSize = TCPRCVBUF_SIZE_DEFAULT;
+    UINT unSize = TCPRCVBUF_SIZE;
     UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(unSize, penErr);
     if (NULL == pubRcvBuf)
     {
@@ -1296,4 +1297,85 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, v
 
     return nInput;
 }
+
+#if SUPPORT_SACK
+INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen)
+{
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
+    {
+#if SUPPORT_PRINTF
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif
+        printf("onps_set_last_error() failed, Handle %d is out of system scope\r\n", nInput);
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+        return -1;
+    }
+
+    os_critical_init();
+    
+    UCHAR ubErr; 
+    PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput]; 
+    if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
+    {
+        INT nCpyBytes;
+        if (pstcbInput->pvAttach)
+        {
+            PST_TCPLINK pstLink = (PST_TCPLINK)pstcbInput->pvAttach;
+            os_enter_critical();
+            {
+                UINT unAckIdx = (pstLink->stLocal.unSeqNum - 1) % TCPSNDBUF_SIZE;
+                UINT unWriteIdx = pstLink->stcbSend.unWriteBytes % TCPSNDBUF_SIZE;
+                if (unWriteIdx >= unAckIdx)
+                {
+                    UINT unRemainBytes = TCPSNDBUF_SIZE - unWriteIdx;
+                    if (nDataLen < (INT)unRemainBytes)
+                    {
+                        nCpyBytes = nDataLen;
+                        memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);                       
+                    } 
+                    else
+                    {
+                        memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, unRemainBytes);
+                        nCpyBytes = unRemainBytes; 
+
+                        INT nDataRemainBytes = nDataLen - unRemainBytes; 
+                        if (nDataRemainBytes <= unAckIdx)
+                        {
+                            memcpy(pstLink->stcbSend.pubSndBuf, pubData + unRemainBytes, nDataRemainBytes);
+                            nCpyBytes += nDataRemainBytes;
+                        }
+                        else
+                        {
+                            memcpy(pstLink->stcbSend.pubSndBuf, pubData + unRemainBytes, unAckIdx);
+                            nCpyBytes += unAckIdx;
+                        }
+                    }
+                }
+                else
+                {
+                    nCpyBytes = unAckIdx - unWriteIdx;
+                    memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);
+                }
+            }
+            os_exit_critical();
+
+            return nCpyBytes; 
+        }
+        else
+            ubErr = (UCHAR)ERRTCPLINKCBNULL; 
+    }
+    else
+        ubErr = (UCHAR)ERRIPROTOMATCH;
+
+    os_enter_critical();
+    pstcbInput->ubLastErr = ubErr;
+    os_exit_critical();
+
+    return -1; 
+}
+#endif
 

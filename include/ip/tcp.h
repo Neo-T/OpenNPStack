@@ -23,5 +23,9 @@ TCP_EXT void tcp_disconnect(INT nInput);
 TCP_EXT void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen); 
 TCP_EXT INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvTimeout); 
 
+#if SUPPORT_SACK
+TCP_EXT void thread_tcp_handler(void *pvParam); 
+#endif
+
 
 #endif

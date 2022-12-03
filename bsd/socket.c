@@ -252,6 +252,14 @@ INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port)
     return socket_connect(socket, srv_ip, srv_port, 0);
 }
 
+#if SUPPORT_SACK
+INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
+{
+#warning when tcp sack support is enabled, the parameter nWaitAckTimeout of the send() function is invalid
+    nWaitAckTimeout = nWaitAckTimeout; 
+    return onps_tcp_send((INT)socket, pubData, nDataLen); 
+}
+#else
 static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 {    
     //* 发送数据	
@@ -431,14 +439,23 @@ INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
         nWaitAckTimeout = TCP_ACK_TIMEOUT;
     return socket_send(socket, pubData, nDataLen, nWaitAckTimeout); 
 }
+#endif
 
 INT send_nb(SOCKET socket, UCHAR *pubData, INT nDataLen)
 {
+#if SUPPORT_SACK
+    return send(socket, pubData, nDataLen, 0); 
+#else
     return socket_send(socket, pubData, nDataLen, 0);
+#endif
 }
 
 INT is_tcp_send_ok(SOCKET socket)
 {
+#if SUPPORT_SACK
+#warning when tcp sack support is enabled, the is_tcp_send_ok() function is invalid
+    return 1; 
+#else
     EN_ONPSERR enErr; 
     EN_TCPDATASNDSTATE enSndState;
     if (!onps_input_get((INT)socket, IOPT_GETTCPDATASNDSTATE, &enSndState, &enErr))
@@ -467,6 +484,7 @@ INT is_tcp_send_ok(SOCKET socket)
     default:
         return 0;
     }
+#endif
 }
 
 INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData, INT nDataLen)
