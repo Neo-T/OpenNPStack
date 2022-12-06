@@ -164,7 +164,7 @@ in_addr_t dns_client_query(INT nClient, in_addr_t unPrimaryDNS, in_addr_t unSeco
         return 0; 
 
     //* 申请一块内存，然后根据协议封装必要的字段  
-    UCHAR *pubDnsPkt = buddy_alloc(DNS_RCV_BUF_SIZE/*sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4*/, penErr);
+    UCHAR *pubDnsPkt = (UCHAR *)buddy_alloc(DNS_RCV_BUF_SIZE/*sizeof(ST_DNS_HDR) + strlen(pszDomainName) + 2 + 4*/, penErr);
     if (pubDnsPkt)    
         pstHdr = (PST_DNS_HDR)pubDnsPkt;     
     else

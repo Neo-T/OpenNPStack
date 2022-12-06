@@ -9,6 +9,7 @@
 #include "port/os_adapter.h"
 #include "onps_utils.h"
 #include "one_shot_timer.h"
+#include "mmu/buddy.h"
 #define SYMBOL_GLOBALS
 #include "ip/tcp_link.h"
 #undef SYMBOL_GLOBALS
@@ -113,8 +114,17 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     }
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 
+    pstFreeNode->stcbSend.pubSndBuf = (UCHAR *)buddy_alloc(TCPSNDBUF_SIZE, penErr); 
+    if (!pstFreeNode->stcbSend.pubSndBuf)
+    {
+        tcp_link_free(pstFreeNode); 
+        return NULL; 
+    }
+
     pstFreeNode->bState = TLSINIT;
     pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0;
+    pstFreeNode->stcbSend.unWriteBytes = 0; 
+    memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack)); 
     pstFreeNode->uniFlags.usVal = 0; 
     pstFreeNode->stPeer.bSackEn = FALSE;
     pstFreeNode->stPeer.bWndScale = 0;

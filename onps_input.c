@@ -1325,45 +1325,53 @@ INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen)
         if (pstcbInput->pvAttach)
         {
             PST_TCPLINK pstLink = (PST_TCPLINK)pstcbInput->pvAttach;
-            os_enter_critical();
+            if (pstLink->bState == TLSCONNECTED)
             {
-                UINT unAckIdx = (pstLink->stLocal.unSeqNum - 1) % TCPSNDBUF_SIZE;
-                UINT unWriteIdx = pstLink->stcbSend.unWriteBytes % TCPSNDBUF_SIZE;
-                if (unWriteIdx >= unAckIdx)
+                os_enter_critical();
                 {
-                    UINT unRemainBytes = TCPSNDBUF_SIZE - unWriteIdx;
-                    if (nDataLen < (INT)unRemainBytes)
+                    UINT unAckIdx = (pstLink->stLocal.unSeqNum - 1) % TCPSNDBUF_SIZE;
+                    UINT unWriteIdx = pstLink->stcbSend.unWriteBytes % TCPSNDBUF_SIZE;
+                    if (unWriteIdx >= unAckIdx)
                     {
-                        nCpyBytes = nDataLen;
-                        memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);                       
-                    } 
+                        if (!(unWriteIdx == unAckIdx && pstLink->stcbSend.unWriteBytes != pstLink->stLocal.unSeqNum - 1))
+                        {
+                            UINT unRemainBytes = TCPSNDBUF_SIZE - unWriteIdx;
+                            if (nDataLen <= (INT)unRemainBytes)
+                            {
+                                nCpyBytes = nDataLen;
+                                memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);
+                                pstLink->stcbSend.unWriteBytes += (UINT)nCpyBytes;
+                            }
+                            else
+                            {
+                                //* 复制到剩余空间
+                                nCpyBytes = (INT)unRemainBytes;
+                                memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);
+
+                                //* 计算还剩下多少字节的数据然后把这些数据放到缓冲区的头部
+                                INT nDataRemainBytes = nDataLen - nCpyBytes;
+                                nDataRemainBytes = nDataRemainBytes > unAckIdx ? unAckIdx : nDataRemainBytes;
+                                memcpy(pstLink->stcbSend.pubSndBuf, pubData + nCpyBytes, nDataRemainBytes);
+                                nCpyBytes += nDataRemainBytes;
+                                pstLink->stcbSend.unWriteBytes += (UINT)nCpyBytes;
+                            }
+                        }
+                        else //* 读写指针相等，但读写字节数不相等意味着写指针追上读指针，缓冲区已满
+                            nCpyBytes = 0;
+                    }
                     else
                     {
-                        memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, unRemainBytes);
-                        nCpyBytes = unRemainBytes; 
-
-                        INT nDataRemainBytes = nDataLen - unRemainBytes; 
-                        if (nDataRemainBytes <= unAckIdx)
-                        {
-                            memcpy(pstLink->stcbSend.pubSndBuf, pubData + unRemainBytes, nDataRemainBytes);
-                            nCpyBytes += nDataRemainBytes;
-                        }
-                        else
-                        {
-                            memcpy(pstLink->stcbSend.pubSndBuf, pubData + unRemainBytes, unAckIdx);
-                            nCpyBytes += unAckIdx;
-                        }
+                        nCpyBytes = nDataLen <= unAckIdx - unWriteIdx ? nDataLen : unAckIdx - unWriteIdx;
+                        memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);
+                        pstLink->stcbSend.unWriteBytes += (UINT)nCpyBytes;
                     }
                 }
-                else
-                {
-                    nCpyBytes = unAckIdx - unWriteIdx;
-                    memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);
-                }
-            }
-            os_exit_critical();
+                os_exit_critical();
 
-            return nCpyBytes; 
+                return nCpyBytes;
+            }
+            else            
+                ubErr = (UCHAR)ERRTCPNOTCONNECTED;             
         }
         else
             ubErr = (UCHAR)ERRTCPLINKCBNULL; 
