@@ -942,9 +942,39 @@ __lblErr:
 #if SUPPORT_SACK
 void thread_tcp_handler(void *pvParam)
 {
+    INT nRtnVal; 
+
     while (TRUE)
     {
+        nRtnVal = tcp_send_sem_pend(1);
+        if (nRtnVal)
+        {
+            if (nRtnVal < 0)
+            {
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
+                printf("tcp_send_sem_pend() failed, %s\r\n", onps_error(ERRINVALIDSEM));
+        #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
+                os_sleep_secs(1);
+            }
 
+            continue; 
+        }
+
+__lblSend: 
+        //* 遍历所有tcp链路，发送数据到对端
+        tcp_link_lock();
+        {
+
+        }
+        tcp_link_unlock();
+
+        goto __lblSend; 
     }
 }
 #endif

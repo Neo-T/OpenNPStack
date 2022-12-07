@@ -152,6 +152,15 @@ TCP_LINK_EXT PST_TCPLINK tcp_link_list_used_get_next(PST_TCPLINK pstTcpLink);
 TCP_LINK_EXT void tcp_link_lock(void); 
 TCP_LINK_EXT void tcp_link_unlock(void);
 
+#if SUPPORT_SACK
+TCP_LINK_EXT void tcp_send_sem_post(void); 
+
+//* 等待信号量到达，参数nWaitSecs指定要等待的超时时间（单位为秒）：
+//* 0，一直等下去直至用户层调用了socket层的send()函数，此时返回值为0，出错了则返回返回值为-1；
+//* 其它，等待指定时间，如果指定时间内信号量到达，则返回值为0，超时则返回值为1，出错则返回值为-1
+TCP_LINK_EXT INT tcp_send_sem_pend(INT nWaitSecs);
+#endif
+
 #if SUPPORT_ETHERNET
 TCP_LINK_EXT PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr);
 TCP_LINK_EXT void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach); 

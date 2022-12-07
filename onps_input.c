@@ -1315,6 +1315,9 @@ INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen)
         return -1;
     }
 
+    if (!pubData || !nDataLen)
+        return 0;
+
     os_critical_init();
     
     UCHAR ubErr; 
@@ -1367,6 +1370,9 @@ INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen)
                     }
                 }
                 os_exit_critical();
+
+                //if (nCpyBytes)
+                    tcp_send_sem_post(); //* 投递信号到完成实际tcp发送的线程
 
                 return nCpyBytes;
             }

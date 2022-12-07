@@ -36,6 +36,10 @@ static PST_SLINKEDLIST l_pstSListRcvQueueFreed;
 //* =========================================================================
 #endif
 
+#if SUPPORT_SACK
+HSEM l_hSemSndForSack = INVALID_HSEM; 
+#endif
+
 BOOL tcp_link_init(EN_ONPSERR *penErr)
 {
     //* 链接	
@@ -70,9 +74,24 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
     l_pstSListRcvQueueFreed = &l_staSListRcvQueue[0]; 
 #endif
 
+#if SUPPORT_SACK
+    l_hSemSndForSack = os_thread_sem_init(0, 1000000000);
+    if (INVALID_HSEM == l_hSemSndForSack)
+    {
+        if (penErr)
+            *penErr = ERRSEMINITFAILED;
+        return FALSE; 
+    }
+#endif
+
     l_hMtxTcpLinkList = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxTcpLinkList)
         return TRUE;
+
+#if SUPPORT_SACK
+    os_thread_sem_uninit(l_hSemSndForSack);
+    l_hSemSndForSack = INVALID_HSEM; 
+#endif
 
     if (penErr)
         *penErr = ERRMUTEXINITFAILED;
@@ -215,6 +234,18 @@ void tcp_link_unlock(void)
 {
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 }
+
+#if SUPPORT_SACK
+void tcp_send_sem_post(void)
+{
+    os_thread_sem_post(l_hSemSndForSack);
+}
+
+INT tcp_send_sem_pend(INT nWaitSecs)
+{
+    return os_thread_sem_pend(l_hSemSndForSack, nWaitSecs);
+}
+#endif
 
 #if SUPPORT_ETHERNET
 PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
