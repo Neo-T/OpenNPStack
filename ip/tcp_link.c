@@ -114,17 +114,19 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     }
     os_thread_mutex_unlock(l_hMtxTcpLinkList);
 
+#if SUPPORT_SACK
     pstFreeNode->stcbSend.pubSndBuf = (UCHAR *)buddy_alloc(TCPSNDBUF_SIZE, penErr); 
     if (!pstFreeNode->stcbSend.pubSndBuf)
     {
         tcp_link_free(pstFreeNode); 
         return NULL; 
     }
+    pstFreeNode->stcbSend.unWriteBytes = 0;
+    memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));
+#endif
 
     pstFreeNode->bState = TLSINIT;
-    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0;
-    pstFreeNode->stcbSend.unWriteBytes = 0; 
-    memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack)); 
+    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0;    
     pstFreeNode->uniFlags.usVal = 0; 
     pstFreeNode->stPeer.bSackEn = FALSE;
     pstFreeNode->stPeer.bWndScale = 0;
