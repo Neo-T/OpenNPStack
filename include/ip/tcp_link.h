@@ -68,6 +68,8 @@ typedef struct _ST_TCPBACKLOG__ {
 
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
+typedef struct _STCB_TCPSENDTIMER_ STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER; 
+PACKED_BEGIN
 typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;
@@ -76,7 +78,7 @@ typedef struct _ST_TCPLINK_ {
         CHAR bIsZeroWnd;
         CHAR bDataSendState;
         PST_TCPUDP_HANDLE pstAddr;
-    } stLocal;
+    } PACKED stLocal;
 
     struct {
         PST_ONESHOTTIMER pstTimer;
@@ -84,7 +86,7 @@ typedef struct _ST_TCPLINK_ {
         CHAR bRcvTimeout;
         CHAR bIsAcked;
         USHORT usSendDataBytes;
-    } stcbWaitAck;
+    } PACKED stcbWaitAck;
 
     struct {
         CHAR bSackEn;       //* SACK选项使能
@@ -94,29 +96,33 @@ typedef struct _ST_TCPLINK_ {
         struct {
             USHORT usPort;  //* 端口
             in_addr_t unIp; //* 地址            
-        } stAddr;
+        } PACKED stAddr;
         UINT unSeqNum;      //* 当前序号
         UINT unStartMSecs;  //* 延时计数
         CHAR bIsNotAcked;   //* 是否已经应答
-    } stPeer;
+    } PACKED stPeer;
 
     union {
         struct {            
             USHORT no_delay_ack : 1; //* tcp ack是否延迟一小段时间后再发送（延迟的目的是等待是否有数据一同发送到对端）
             USHORT resrved1 : 15;
-        } stb16;
+        } PACKED stb16;
         USHORT usVal;
-    } uniFlags;  //* tcp标志
+    } PACKED uniFlags;  //* tcp标志
 
 #if SUPPORT_SACK
     struct {
-        UINT unWriteBytes; 
+        CHAR bNext; //* 链接下一个要发送数据的tcp link
+        CHAR bSendPacketNum; 
+        CHAR bIsPutted; 
+        UINT unWriteBytes;        
         struct {
             UINT unLeft; 
             UINT unRight; 
-        } staSack[4];
+        } PACKED staSack[4];
         UCHAR *pubSndBuf; 
-    } stcbSend; //* 发送控制块
+        PSTCB_TCPSENDTIMER pstcbSndTimer;         
+    } PACKED stcbSend; //* 发送控制块
 #endif
 
     //* 用于TCP_TYPE_RCLIENT类型的tcp链路
@@ -128,7 +134,17 @@ typedef struct _ST_TCPLINK_ {
 
     CHAR bIdx;
     CHAR bNext;
-} ST_TCPLINK, *PST_TCPLINK;
+} PACKED ST_TCPLINK, *PST_TCPLINK;
+PACKED_END
+
+#if SUPPORT_SACK
+#define TCPSENDTIMER_NUM  4   //* 每一路tcp链路允许挂载的定时器路数，也就是连续发送多少个报文后需要等待对端ack，这个值正好是tcp sack选项携带的最大重传块数
+typedef struct _STCB_TCPSENDTIMER_ {
+    UINT unSendMSecs;
+    UINT unSendBytes;    
+    struct _STCB_TCPSENDTIMER_ *pstcbNext;
+} STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
+#endif
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
@@ -159,6 +175,13 @@ TCP_LINK_EXT void tcp_send_sem_post(void);
 //* 0，一直等下去直至用户层调用了socket层的send()函数，此时返回值为0，出错了则返回返回值为-1；
 //* 其它，等待指定时间，如果指定时间内信号量到达，则返回值为0，超时则返回值为1，出错则返回值为-1
 TCP_LINK_EXT INT tcp_send_sem_pend(INT nWaitSecs);
+
+//* 获取一个发送定时器
+TCP_LINK_EXT PSTCB_TCPSENDTIMER tcp_send_timer_node_get(void);
+TCP_LINK_EXT void tcp_send_timer_node_free(PSTCB_TCPSENDTIMER pstSendTimer);
+TCP_LINK_EXT void tcp_link_for_send_data_put(PST_TCPLINK pstTcpLink); 
+TCP_LINK_EXT void tcp_link_for_send_data_del(PST_TCPLINK pstTcpLink); 
+TCP_LINK_EXT PST_TCPLINK tcp_link_for_send_data_get_next(PST_TCPLINK pstTcpLink);
 #endif
 
 #if SUPPORT_ETHERNET

@@ -940,12 +940,29 @@ __lblErr:
 }
 
 #if SUPPORT_SACK
+BOOL tcp_link_send(PST_TCPLINK pstLink)
+{
+    UINT unAckBytes = pstLink->stLocal.unSeqNum - 1;
+
+    //* 写入字节数与成功发送字节数并不相等则存在要发送的数据
+    if (pstLink->stcbSend.unWriteBytes != unAckBytes)
+    {
+        //* 判断已确认的数据是否小于4个MSS的距离，小于则继续发送，否则暂停发送
+        //if((pstLink->stcbSend.unSendBytes - unAckBytes) / )
+    }
+
+    return TRUE; 
+}
+
 void thread_tcp_handler(void *pvParam)
 {
+    PST_TCPLINK pstNextLink; 
     INT nRtnVal; 
+    BOOL blIsExistData = FALSE; 
 
     while (TRUE)
     {
+        //* 等待信号到来
         nRtnVal = tcp_send_sem_pend(1);
         if (nRtnVal)
         {
@@ -961,16 +978,26 @@ void thread_tcp_handler(void *pvParam)
         #endif
     #endif
                 os_sleep_secs(1);
-            }
 
-            continue; 
+                continue;
+            }            
         }
 
 __lblSend: 
         //* 遍历所有tcp链路，发送数据到对端
         tcp_link_lock();
         {
+            do {
+                pstNextLink = tcp_link_list_used_get_next(pstNextLink);
+                if (pstNextLink)
+                {
+                    if (pstNextLink->bState == TLSCONNECTED) //* 只有连接状态的tcp链路才会发送数据
+                    {
+                        //* 看看是否存在要发送的数据
 
+                    }
+                }
+            } while (pstNextLink);
         }
         tcp_link_unlock();
 

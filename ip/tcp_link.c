@@ -37,7 +37,12 @@ static PST_SLINKEDLIST l_pstSListRcvQueueFreed;
 #endif
 
 #if SUPPORT_SACK
-HSEM l_hSemSndForSack = INVALID_HSEM; 
+static STCB_TCPSENDTIMER l_stcbaSndTimer[TCP_LINK_NUM_MAX * TCPSENDTIMER_NUM]; //* 每一路tcp链路允许开启TCPSENDTIMER_NUM个定时器
+static PSTCB_TCPSENDTIMER l_pstcbFreeSndTimerList = NULL;
+static HMUTEX l_hMtxSndTimerLink = INVALID_HMUTEX;
+static HSEM l_hSemSndForSack = INVALID_HSEM; 
+static HMUTEX l_hMtxSndDataLink = INVALID_HMUTEX; 
+static PST_TCPLINK l_pstSndDataLink = NULL;
 #endif
 
 BOOL tcp_link_init(EN_ONPSERR *penErr)
@@ -75,9 +80,38 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
 #endif
 
 #if SUPPORT_SACK
+    for (i = 0; i < sizeof(l_stcbaSndTimer) / sizeof(STCB_TCPSENDTIMER) - 1; i++)    
+        l_stcbaSndTimer[i].pstcbNext = &l_stcbaSndTimer[i + 1]; 
+    l_stcbaSndTimer[i].pstcbNext = NULL; 
+    l_pstcbFreeSndTimerList = &l_stcbaSndTimer[0]; 
+
+    //* 用于发送定时器队列的互斥锁
+    l_hMtxSndTimerLink = os_thread_mutex_init(); 
+    if (INVALID_HMUTEX == l_hMtxSndTimerLink)
+    {
+        if (penErr)
+            *penErr = ERRMUTEXINITFAILED;
+        return FALSE;
+    }
+
+    //* 用于数据发送队列的互斥锁
+    l_hMtxSndDataLink = os_thread_mutex_init(); 
+    if (INVALID_HMUTEX == l_hMtxSndDataLink)
+    {
+        os_thread_mutex_uninit(l_hMtxSndTimerLink);
+
+        if (penErr)
+            *penErr = ERRMUTEXINITFAILED;
+        return FALSE;
+    }
+
+    //* 用于数据发送队列的信号量
     l_hSemSndForSack = os_thread_sem_init(0, 1000000000);
     if (INVALID_HSEM == l_hSemSndForSack)
     {
+        os_thread_mutex_uninit(l_hMtxSndTimerLink);
+        os_thread_mutex_uninit(l_hMtxSndDataLink); 
+
         if (penErr)
             *penErr = ERRSEMINITFAILED;
         return FALSE; 
@@ -140,7 +174,10 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
         tcp_link_free(pstFreeNode); 
         return NULL; 
     }
-    pstFreeNode->stcbSend.unWriteBytes = 0;
+    pstFreeNode->stcbSend.unWriteBytes = 0; 
+    pstFreeNode->stcbSend.bNext = -1; 
+    pstFreeNode->stcbSend.bSendPacketNum = 0; 
+    pstFreeNode->stcbSend.bIsPutted = FALSE; 
     memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));
 #endif
 
@@ -244,6 +281,121 @@ void tcp_send_sem_post(void)
 INT tcp_send_sem_pend(INT nWaitSecs)
 {
     return os_thread_sem_pend(l_hSemSndForSack, nWaitSecs);
+}
+
+PSTCB_TCPSENDTIMER tcp_send_timer_node_get(void)
+{
+    PSTCB_TCPSENDTIMER pstcbNode = NULL; 
+    os_thread_mutex_lock(l_hMtxSndTimerLink);
+    {
+        if (l_pstcbFreeSndTimerList)
+        {
+            pstcbNode = l_pstcbFreeSndTimerList; 
+            l_pstcbFreeSndTimerList = l_pstcbFreeSndTimerList->pstcbNext; 
+            pstcbNode->pstcbNext = NULL; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxSndTimerLink);
+
+    return pstcbNode;
+}
+
+void tcp_send_timer_node_free(PSTCB_TCPSENDTIMER pstSendTimer)
+{
+    os_thread_mutex_lock(l_hMtxSndTimerLink);
+    {
+        pstSendTimer->pstcbNext = l_pstcbFreeSndTimerList; 
+        l_pstcbFreeSndTimerList = pstSendTimer; 
+    }
+    os_thread_mutex_unlock(l_hMtxSndTimerLink);
+}
+
+void tcp_link_for_send_data_put(PST_TCPLINK pstTcpLink)
+{
+    PST_TCPLINK pstNext; 
+
+    if (pstTcpLink->stcbSend.bIsPutted)
+        return; 
+
+    pstTcpLink->stcbSend.bNext = -1;
+    pstTcpLink->stcbSend.bIsPutted = TRUE; 
+    os_thread_mutex_lock(l_hMtxSndDataLink); 
+    {
+        if (l_pstSndDataLink)
+        {
+            pstNext = l_pstSndDataLink; 
+            do {
+                if (pstNext->stcbSend.bNext < 0) //* 挂载到链表的尾部
+                {
+                    pstNext->stcbSend.bNext = pstTcpLink->bIdx;                     
+                    break; 
+                }
+                else
+                    pstNext = &l_staTcpLinkNode[pstNext->stcbSend.bNext];
+            } while (TRUE);
+        }
+        else        
+            l_pstSndDataLink = pstTcpLink;        
+    }
+    os_thread_mutex_unlock(l_hMtxSndDataLink);
+}
+
+void tcp_link_for_send_data_del(PST_TCPLINK pstTcpLink)
+{
+    os_thread_mutex_lock(l_hMtxSndDataLink);
+    {
+        if (pstTcpLink->stcbSend.bIsPutted)
+        {
+            PST_TCPLINK pstNext = l_pstSndDataLink;
+            PST_TCPLINK pstPrev = NULL; 
+            while (pstNext)
+            {
+                if (pstNext == pstTcpLink)
+                {
+                    if (pstPrev)
+                        pstPrev->stcbSend.bNext = pstNext->stcbSend.bNext; 
+                    else //* 链表第一个节点就匹配了
+                    {
+                        if (pstNext->stcbSend.bNext >= 0)
+                            l_pstSndDataLink = &l_staTcpLinkNode[pstNext->stcbSend.bNext];
+                        else
+                            l_pstSndDataLink = NULL; 
+                    }
+
+                    break; 
+                }
+
+                pstPrev = pstNext;
+                if (pstNext->stcbSend.bNext < 0) //* 理论上不会出现小于0的情况在这之前应该能找到
+                    break;
+                pstNext = &l_staTcpLinkNode[pstNext->stcbSend.bNext]; 
+            }
+
+            pstTcpLink->stcbSend.bIsPutted = FALSE; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxSndDataLink);    
+}
+
+PST_TCPLINK tcp_link_for_send_data_get_next(PST_TCPLINK pstTcpLink)
+{
+    PST_TCPLINK pstNext = NULL;
+
+    os_thread_mutex_lock(l_hMtxSndDataLink);
+    {
+        if (pstTcpLink)
+        {
+            if (pstTcpLink->stcbSend.bNext >= 0)
+                pstNext = &l_staTcpLinkNode[pstTcpLink->stcbSend.bNext];
+        }
+        else
+        {
+            pstNext = l_pstSndDataLink;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxSndDataLink);
+
+    return pstNext; 
 }
 #endif
 

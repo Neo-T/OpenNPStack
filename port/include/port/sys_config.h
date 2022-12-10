@@ -76,7 +76,7 @@
 #define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
 #define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
 #define TCP_MSL                 15      //* 指定TCP链路TIMEWAIT态的最大关闭时长：2 * TCP_MSL，单位：秒
-#define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（涵盖所有TCP客户端 + TCP服务器的并发连接数），超过这个数量将无法建立新的tcp链路
+#define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（涵盖所有TCP客户端 + TCP服务器的并发连接数），超过这个数量将无法建立新的tcp链路，另外这个值最大为127，超过则系统无法正常运行
 #define TCP_ACK_DELAY_MSECS     100     //* 延迟多少毫秒发送ack报文，这个值最小40毫秒，最大200毫秒
 
 #if SUPPORT_ETHERNET
