@@ -736,7 +736,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             else; 
         }
         else
-        {            
+        {               
             //* 看看有数据吗？            
             INT nDataLen = nPacketLen - nTcpHdrLen;
 
@@ -940,15 +940,23 @@ __lblErr:
 }
 
 #if SUPPORT_SACK
-BOOL tcp_link_send(PST_TCPLINK pstLink)
+static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
 {
     UINT unAckBytes = pstLink->stLocal.unSeqNum - 1;
 
     //* 写入字节数与成功发送字节数并不相等则存在要发送的数据
     if (pstLink->stcbSend.unWriteBytes != unAckBytes)
     {
-        //* 判断已确认的数据是否小于4个MSS的距离，小于则继续发送，否则暂停发送
-        //if((pstLink->stcbSend.unSendBytes - unAckBytes) / )
+        UINT unReadIdx = (pstLink->stLocal.unSeqNum - 1) % TCPSNDBUF_SIZE; 
+
+        //* 尚未达到sack选项的最大块数，说明还可以继续发送
+        if (pstLink->stcbSend.bSendPacketNum < 4)
+        {
+            //* 取出数据,最大不超过MSS
+            UINT unReadIdx = 
+
+            pstLink->stcbSend.bSendPacketNum++; 
+        }
     }
 
     return TRUE; 
@@ -956,9 +964,10 @@ BOOL tcp_link_send(PST_TCPLINK pstLink)
 
 void thread_tcp_handler(void *pvParam)
 {
-    PST_TCPLINK pstNextLink; 
     INT nRtnVal; 
     BOOL blIsExistData = FALSE; 
+    PST_TCPLINK pstSndDataLink = NULL;
+    UINT unAckedBytes; 
 
     while (TRUE)
     {
@@ -984,24 +993,34 @@ void thread_tcp_handler(void *pvParam)
         }
 
 __lblSend: 
-        //* 遍历所有tcp链路，发送数据到对端
-        tcp_link_lock();
+        //* 遍历所有tcp链路处理发送相关的逻辑        
+        pstSndDataLink = tcp_link_for_send_data_get_next(pstSndDataLink); 
+        if (pstSndDataLink)
         {
-            do {
-                pstNextLink = tcp_link_list_used_get_next(pstNextLink);
-                if (pstNextLink)
-                {
-                    if (pstNextLink->bState == TLSCONNECTED) //* 只有连接状态的tcp链路才会发送数据
-                    {
-                        //* 看看是否存在要发送的数据
+            //* 先看看状态是否还是CONNECTED状态
+            if (pstSndDataLink->bState != TLSCONNECTED)
+                goto __lblDelNode; 
 
-                    }
-                }
-            } while (pstNextLink);
-        }
-        tcp_link_unlock();
+            //* 看看还有数据需要发送吗，写入数据与确认数据不相等说明存在要发送的数据
+            unAckedBytes = pstSndDataLink->stLocal.unSeqNum - 1;             
+            if (pstSndDataLink->stcbSend.unWriteBytes != unAckedBytes)
+            {
 
-        goto __lblSend; 
+            }
+            else
+                goto __lblDelNode; 
+
+            tcp_link_send_data(pstSndDataLink);
+            goto __lblSend;
+
+            continue; 
+
+__lblDelNode: 
+            //* 直接从数据队列中删除
+            tcp_link_for_send_data_del(pstSndDataLink);
+            pstSndDataLink = NULL; //* 重新开始取数发送节点
+            goto __lblSend; 
+        }        
     }
 }
 #endif

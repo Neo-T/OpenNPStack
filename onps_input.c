@@ -1369,10 +1369,13 @@ INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen)
                         pstLink->stcbSend.unWriteBytes += (UINT)nCpyBytes;
                     }
                 }
-                os_exit_critical();
+                os_exit_critical();                 
 
                 //if (nCpyBytes)
-                    tcp_send_sem_post(); //* 投递信号到完成实际tcp发送的线程
+                //{
+                    tcp_link_for_send_data_put(pstLink);    //* 添加到数据发送队列
+                    tcp_send_sem_post();                    //* 投递信号到完成实际tcp发送的线程
+                //}                    
 
                 return nCpyBytes;
             }

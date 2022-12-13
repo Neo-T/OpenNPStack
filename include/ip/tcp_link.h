@@ -115,7 +115,9 @@ typedef struct _ST_TCPLINK_ {
         CHAR bNext; //* 链接下一个要发送数据的tcp link
         CHAR bSendPacketNum; 
         CHAR bIsPutted; 
-        UINT unWriteBytes;        
+        CHAR bDupAckNum; 
+        UINT unWriteBytes;  
+        UINT unPrevSeqNum; 
         struct {
             UINT unLeft; 
             UINT unRight; 
@@ -140,8 +142,10 @@ PACKED_END
 #if SUPPORT_SACK
 #define TCPSENDTIMER_NUM  4   //* 每一路tcp链路允许挂载的定时器路数，也就是连续发送多少个报文后需要等待对端ack，这个值正好是tcp sack选项携带的最大重传块数
 typedef struct _STCB_TCPSENDTIMER_ {
-    UINT unSendMSecs;
-    UINT unSendBytes;    
+    UINT unSendMSecs;    
+    UINT unLeft;
+    UINT unRight; 
+    struct _STCB_TCPSENDTIMER_ *pstcbNextForLink;
     struct _STCB_TCPSENDTIMER_ *pstcbNext;
 } STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
 #endif
@@ -178,7 +182,14 @@ TCP_LINK_EXT INT tcp_send_sem_pend(INT nWaitSecs);
 
 //* 获取一个发送定时器
 TCP_LINK_EXT PSTCB_TCPSENDTIMER tcp_send_timer_node_get(void);
-TCP_LINK_EXT void tcp_send_timer_node_free(PSTCB_TCPSENDTIMER pstSendTimer);
+TCP_LINK_EXT void tcp_send_timer_node_free(PSTCB_TCPSENDTIMER pstcbSendTimer); 
+TCP_LINK_EXT void tcp_send_timer_node_put(PSTCB_TCPSENDTIMER pstcbSendTimer);
+TCP_LINK_EXT void tcp_send_timer_node_put_unsafe(PSTCB_TCPSENDTIMER pstcbSendTimer);
+TCP_LINK_EXT void tcp_send_timer_node_del(PSTCB_TCPSENDTIMER pstcbSendTimer);
+TCP_LINK_EXT void tcp_send_timer_node_del_unsafe(PSTCB_TCPSENDTIMER pstcbSendTimer);
+TCP_LINK_EXT void tcp_send_timer_lock(void); 
+TCP_LINK_EXT void tcp_send_timer_unlock(void); 
+TCP_LINK_EXT PSTCB_TCPSENDTIMER tcp_send_timer_get_next(PSTCB_TCPSENDTIMER pstcbSendTimer);
 TCP_LINK_EXT void tcp_link_for_send_data_put(PST_TCPLINK pstTcpLink); 
 TCP_LINK_EXT void tcp_link_for_send_data_del(PST_TCPLINK pstTcpLink); 
 TCP_LINK_EXT PST_TCPLINK tcp_link_for_send_data_get_next(PST_TCPLINK pstTcpLink);
