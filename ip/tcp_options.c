@@ -162,3 +162,77 @@ void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
         }        
     }
 }
+
+#if SUPPORT_SACK
+BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
+{
+    INT nReadBytes = 0;
+    UCHAR *pubCurOption;
+    while (nReadBytes < nOptionsLen)
+    {
+        pubCurOption = pubOptions + nReadBytes;
+
+        //* 先判断是否为nop或end，如果是则直接跳过
+        EN_TCPOPTTYPE enType = (EN_TCPOPTTYPE)(*pubCurOption);
+        if (enType == TCPOPT_NOP || enType == TCPOPT_END)
+        {
+            nReadBytes += 1;
+            continue;
+        }        
+
+        BOOL blIsNotFound = TRUE; 
+        INT i;
+        for (i = 0; i < (INT)(sizeof(lr_staTcpOptList) / sizeof(ST_TCPOPT_HANDLER)); i++)
+        {
+            if (TCPOPT_SACKINFO == enType)
+            {
+                PST_TCPOPT_HDR pstOptHdr = (PST_TCPOPT_HDR)pubOptions; 
+                PST_TCPOPT_SACKINFO_ITEM pstItem = (PST_TCPOPT_SACKINFO_ITEM)(pubOptions + sizeof(ST_TCPOPT_HDR));
+                INT nInfoLen = (INT)(pstOptHdr->ubLen - sizeof(ST_TCPOPT_HDR)); 
+                if (nInfoLen > 32)
+                    return FALSE;
+                CHAR bWriteIdx = 0; 
+                while (nInfoLen > 0)
+                {
+                    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstItem->unLeft; 
+                    pstLink->stcbSend.staSack[bWriteIdx].unRight = pstItem->unRight; 
+                    pstItem++; 
+                    bWriteIdx++;
+                    nInfoLen -= (INT)sizeof(ST_TCPOPT_SACKINFO_ITEM);                     
+                }
+
+                //* 清零
+                for (; bWriteIdx < TCPSENDTIMER_NUM; bWriteIdx++)
+                    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstLink->stcbSend.staSack[bWriteIdx].unRight = 0; 
+
+                return TRUE; 
+            }
+            else
+            {
+                if (enType == lr_staTcpOptList[i].enType)
+                {
+                    nReadBytes += (INT)lr_staTcpOptList[i].ubLen;
+                    blIsNotFound = FALSE; 
+                    break;
+                }
+            }            
+        }
+
+        if (blIsNotFound)
+        {
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif            
+            printf("Unknown tcp option %02X\r\n", pubCurOption[0]);
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif
+            break; 
+        }
+    }
+
+    return FALSE; 
+}
+#endif

@@ -372,6 +372,8 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 
 	//* 提前赋值，因为存在发送即接收到的情况（常见于本地以太网）
     pstLink->stcbWaitAck.bRcvTimeout = nWaitAckTimeout; //* 必须更新这个值，因为send_nb()函数不等待semaphore信号，所以需要显式地告知接收逻辑收到数据发送ack时不再投递semaphore
+
+#if !SUPPORT_SACK
 	pstLink->stcbWaitAck.bIsAcked = FALSE;                      
 	pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nWaitAckTimeout ? nWaitAckTimeout : TCP_ACK_TIMEOUT);
 	if (!pstLink->stcbWaitAck.pstTimer)
@@ -379,6 +381,7 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 		onps_set_last_error(nInput, ERRNOIDLETIMER);
 		return -1;
 	}    
+#endif
 
     pstLink->stPeer.bIsNotAcked = FALSE; 
 
@@ -405,7 +408,10 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     else
     {
         pstLink->stLocal.bDataSendState = TDSSENDRDY;
+
+    #if !SUPPORT_SACK
 		one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+    #endif
 
         if (nRtnVal < 0)
             onps_set_last_error(nInput, enErr);
@@ -758,6 +764,19 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                     onps_input_recv(nInput, NULL, 0, 0, 0, NULL);                 
             }            
 
+        #if SUPPORT_SACK
+            if (unSrcAckNum == pstLink->stcbSend.unPrevSeqNum) //* 记录dup ack数量
+                pstLink->stcbSend.bDupAckNum++; 
+
+            //* 看看是否存在sack选项
+            if (nTcpHdrLen > sizeof(ST_TCP_HDR))            
+                tcp_options_get_sack(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR)); 
+
+            //* 收到应答，更新当前数据发送序号            
+            pstLink->stLocal.unSeqNum = unSrcAckNum; 
+
+            tcp_send_sem_post();
+        #else
             //* 已经发送了数据，看看是不是对应的ack报文            			
             if (TDSSENDING == (EN_TCPDATASNDSTATE)pstLink->stLocal.bDataSendState && unSrcAckNum == pstLink->stLocal.unSeqNum + (UINT)pstLink->stcbWaitAck.usSendDataBytes)
             {                
@@ -780,6 +799,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 				os_thread_mutex_unlock(o_hMtxPrintf);
 			}
 			*/
+        #endif
             
             //* 有数据则处理之
             if (nDataLen)

@@ -15,6 +15,10 @@
 	#define TCP_LINK_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#if SUPPORT_SACK
+#define TCPSENDTIMER_NUM  4   //* 每一路tcp链路允许挂载的定时器路数，也就是连续发送多少个报文后需要等待对端ack，这个值正好是tcp sack选项携带的最大重传块数
+#endif
+
 typedef enum {
     TLSINVALID,     //* TCP链路无效（尚未申请一个有效的tcp link节点）
     TLSINIT,        //* TCP链路初始状态
@@ -121,7 +125,7 @@ typedef struct _ST_TCPLINK_ {
         struct {
             UINT unLeft; 
             UINT unRight; 
-        } PACKED staSack[4];
+        } PACKED staSack[TCPSENDTIMER_NUM];
         UCHAR *pubSndBuf; 
         PSTCB_TCPSENDTIMER pstcbSndTimer;         
     } PACKED stcbSend; //* 发送控制块
@@ -140,7 +144,6 @@ typedef struct _ST_TCPLINK_ {
 PACKED_END
 
 #if SUPPORT_SACK
-#define TCPSENDTIMER_NUM  4   //* 每一路tcp链路允许挂载的定时器路数，也就是连续发送多少个报文后需要等待对端ack，这个值正好是tcp sack选项携带的最大重传块数
 typedef struct _STCB_TCPSENDTIMER_ {
     UINT unSendMSecs;    
     UINT unLeft;
