@@ -539,6 +539,101 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
     }
 }
 
+#if SUPPORT_SACK
+static void tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum)
+{
+    tcp_send_timer_lock();
+    {
+        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;
+        while (pstSendTimer)
+        {
+            if (pstSendTimer->unLeft == unRetransSeqNum - 1)
+            {
+                //* 取出数据重新发送
+                EN_ONPSERR enErr;
+                UCHAR *pubData = (UCHAR *)buddy_alloc(pstSendTimer->unRight - pstSendTimer->unLeft, &enErr);
+                if (pubData)
+                {
+                    UINT unStartReadIdx = pstSendTimer->unLeft % TCPSNDBUF_SIZE;
+                    UINT unEndReadIdx = pstSendTimer->unRight % TCPSNDBUF_SIZE;
+                    if (unEndReadIdx > unStartReadIdx)
+                        memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unEndReadIdx - unStartReadIdx);
+                    else
+                    {
+                        UINT unCpyBytes = TCPSNDBUF_SIZE - unStartReadIdx;
+                        memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unCpyBytes);
+                        memcpy(pubData + unCpyBytes, pstLink->stcbSend.pubSndBuf, unEndReadIdx);
+                    }
+
+                    //* 重发dup ack的数据块
+                    tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, 0);
+                    buddy_free(pubData);
+
+                    //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
+                    pstSendTimer->unSendMSecs = os_get_system_msecs();
+                    tcp_send_timer_node_del_unsafe(pstSendTimer);
+                    tcp_send_timer_node_put_unsafe(pstSendTimer);
+
+                    //os_critical_init();
+                    //os_enter_critical();
+                    //pstLink->stcbSend.unRetransSeqNum = 0;
+                    //os_exit_critical();
+                }
+                else
+                {
+            #if SUPPORT_PRINTF && DEBUG_LEVEL
+                #if PRINTF_THREAD_MUTEX
+                    os_thread_mutex_lock(o_hMtxPrintf);
+                #endif
+                    printf("tcp_link_fast_retransmit() failed, %s\r\n", onps_error(enErr));
+                #if PRINTF_THREAD_MUTEX
+                    os_thread_mutex_unlock(o_hMtxPrintf);
+                #endif
+            #endif
+                }
+
+                break;
+            }
+
+            pstSendTimer = pstSendTimer->pstcbNext;
+        }
+    }
+    tcp_send_timer_unlock();
+}
+
+static void tcp_link_sack_handler(PST_TCPLINK pstLink, CHAR bSackNum)
+{    
+    UINT unStartSeq = pstLink->stLocal.unSeqNum;
+
+    //* 确定是否为d-sack，判断依据如下：
+    //* 1) 第一个不连续块被ack序号覆盖；
+    //* 2）第一个不连续块被第二个不连续块覆盖；
+    //* 看看是否被ack范围覆盖，如果覆盖则说明这是一个d-sack，从第二段开始重发数据
+    CHAR i = 0;
+    if (uint_before(pstLink->stcbSend.staSack[0].unLeft, unStartSeq))
+        i = 1; 
+    else if (bSackNum > 1)
+    {
+        if (!uint_after(pstLink->stcbSend.staSack[0].unRight, pstLink->stcbSend.staSack[1].unRight)
+            && !uint_before(pstLink->stcbSend.staSack[0].unLeft, pstLink->stcbSend.staSack[1].unLeft))
+            i = 1; 
+        else; 
+    }
+    else; 
+    
+    //* 发送数据    
+    for (; i < bSackNum; i++)
+    {        
+        //* 先判断sack范围是否合理
+        if (uint_after(pstLink->stcbSend.staSack[i].unLeft, unStartSeq) && uint_before(pstLink->stcbSend.staSack[i].unRight, pstLink->stcbSend.unWriteBytes))
+        {
+            tcp_link_fast_retransmit(pstLink, pstLink->stcbSend.staSack[i].unLeft);
+            unStartSeq = pstLink->stcbSend.staSack[i].unRight;
+        }
+    }
+}
+#endif
+
 void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
 {
     PST_TCP_HDR pstHdr = (PST_TCP_HDR)pubPacket; 
@@ -768,24 +863,51 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         #if SUPPORT_SACK
             if (unSrcAckNum == pstLink->stcbSend.unPrevSeqNum) //* 记录dup ack数量
             {
-                pstLink->stcbSend.bDupAckNum++;
+                pstLink->stcbSend.bDupAckNum++;                
                 if (pstLink->stcbSend.bDupAckNum > 3)
                 {
-                    pstLink->stcbSend.unRetransSeqNum = unSrcAckNum; 
+                    //* 看看是否存在sack选项
+                    if (nTcpHdrLen > sizeof(ST_TCP_HDR))
+                    {
+                        CHAR bSackNum = tcp_options_get_sack(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
+                        if (bSackNum)
+                            tcp_link_sack_handler(pstLink, bSackNum);
+                        else
+                            tcp_link_fast_retransmit(pstLink, unSrcAckNum);
+                    }
+                    else
+                        tcp_link_fast_retransmit(pstLink, unSrcAckNum); 
+
                     pstLink->stcbSend.bDupAckNum = 0; 
-                }
+                }                
             }
             else
                 pstLink->stcbSend.bDupAckNum = 1;
 
             //* 看看是否存在sack选项
-            if (nTcpHdrLen > sizeof(ST_TCP_HDR))            
-                tcp_options_get_sack(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR)); 
+            /*
+            if (nTcpHdrLen > sizeof(ST_TCP_HDR))
+            {
+                CHAR bSackNum = tcp_options_get_sack(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
+                if(bSackNum)
+                    tcp_link_sack_handler(pstLink, bSackNum);
+            }
+            else
+            {
+                // 如果不存在sack选项，看看是否出现dup ack情形，存在则立即重发丢失的数据
+                if (pstLink->stcbSend.bDupAckNum > 3)
+                {
+                    tcp_link_fast_retransmit(pstLink, unSrcAckNum); 
+                    pstLink->stcbSend.bDupAckNum = 0;
+                }
+            }
+            */
 
             //* 收到应答，更新当前数据发送序号
             pstLink->stcbSend.unPrevSeqNum = unSrcAckNum;
             pstLink->stLocal.unSeqNum = unSrcAckNum; 
 
+            tcp_link_for_send_data_put(pstLink);
             tcp_send_sem_post();
         #else
             //* 已经发送了数据，看看是不是对应的ack报文            			
@@ -973,93 +1095,128 @@ __lblErr:
 #if SUPPORT_SACK
 static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
 {
-    UINT unAckBytes = pstLink->stLocal.unSeqNum - 1;
-
-    //* 写入字节数与成功发送字节数并不相等则存在要发送的数据
-    if (pstLink->stcbSend.unWriteBytes != unAckBytes)
+    UINT unStartSeqNum = pstLink->stLocal.unSeqNum - 1;
+    STCB_TCPSENDTIMER **ppstSendTimer = (STCB_TCPSENDTIMER **)&pstLink->stcbSend.pstcbSndTimer;
+    PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;        
+    CHAR i; 
+    for (i = 0; i < pstLink->stcbSend.bSendPacketNum; i++)
     {
-        UINT unReadIdx = (pstLink->stLocal.unSeqNum - 1) % TCPSNDBUF_SIZE; 
-
-        //* 尚未达到sack选项的最大块数，说明还可以继续发送
-        if (pstLink->stcbSend.bSendPacketNum < 4)
-        {
-            //* 取出数据,最大不超过MSS
-            UINT unReadIdx = 
-
-            pstLink->stcbSend.bSendPacketNum++; 
-        }
+        unStartSeqNum = pstSendTimer->unRight;
+        ppstSendTimer = (STCB_TCPSENDTIMER **)&pstSendTimer->pstcbNextForLink;
+        pstSendTimer = pstSendTimer->pstcbNextForLink; 
     }
-
-    return TRUE; 
-}
-
-static void tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum)
-{
-    tcp_send_timer_lock(); 
+    
+    //* 存在数据
+    if (pstLink->stcbSend.unWriteBytes != unStartSeqNum)
     {
-        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;
-        while (pstSendTimer)
+        *ppstSendTimer = tcp_send_timer_node_get();
+        if (NULL != *ppstSendTimer)
         {
-            if (pstSendTimer->unLeft == unRetransSeqNum)
+            pstSendTimer = *ppstSendTimer; 
+
+            //* 看看剩余数据是否超出了pstLink->stPeer.usMSS参数指定的长度
+            UINT unCpyBytes = pstLink->stcbSend.unWriteBytes - unStartSeqNum; 
+            if (unCpyBytes > pstLink->stPeer.usMSS)
+                unCpyBytes = pstLink->stPeer.usMSS; 
+            EN_ONPSERR enErr;
+            UCHAR *pubData = (UCHAR *)buddy_alloc(unCpyBytes, &enErr);
+            if (pubData)
             {
-                //* 取出数据重新发送
-                EN_ONPSERR enErr;
-                UCHAR *pubData = (UCHAR *)buddy_alloc(pstLink->stPeer.usMSS, &enErr);
-                if (pubData)
-                {
-                    UINT unStartReadIdx = pstSendTimer->unLeft % TCPSNDBUF_SIZE;
-                    UINT unEndReadIdx = pstSendTimer->unRight % TCPSNDBUF_SIZE;                     
-                    if (unEndReadIdx > unStartReadIdx)                    
-                        memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unEndReadIdx - unStartReadIdx);
-                    else
-                    {
-                        UINT unCpyBytes = TCPSNDBUF_SIZE - unStartReadIdx; 
-                        memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unCpyBytes);
-                        memcpy(pubData + unCpyBytes, pstLink->stcbSend.pubSndBuf, unEndReadIdx);
-                    }
+                pstSendTimer->unLeft = unStartSeqNum; 
+                pstSendTimer->unRight = unStartSeqNum + unCpyBytes;
 
-                    //* 重发dup ack的数据块
-                    tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, 0);
-                    buddy_free(pubData); 
-
-                    //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
-                    pstSendTimer->unSendMSecs = os_get_system_msecs(); 
-                    tcp_send_timer_node_del_unsafe(pstSendTimer);
-                    tcp_send_timer_node_put_unsafe(pstSendTimer);  
-
-                    os_critical_init();
-                    os_enter_critical();
-                    pstLink->stcbSend.unRetransSeqNum = 0;
-                    os_exit_critical();
-                }
+                UINT unStartReadIdx = pstSendTimer->unLeft % TCPSNDBUF_SIZE;
+                UINT unEndReadIdx = pstSendTimer->unRight % TCPSNDBUF_SIZE;
+                if (unEndReadIdx > unStartReadIdx)
+                    memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unEndReadIdx - unStartReadIdx);
                 else
                 {
-            #if SUPPORT_PRINTF && DEBUG_LEVEL
-                #if PRINTF_THREAD_MUTEX
-                    os_thread_mutex_lock(o_hMtxPrintf);
-                #endif
-                    printf("tcp_link_fast_retransmit() failed, %s\r\n", onps_error(enErr));
-                #if PRINTF_THREAD_MUTEX
-                    os_thread_mutex_unlock(o_hMtxPrintf);
-                #endif
-            #endif
+                    UINT unCpyBytes = TCPSNDBUF_SIZE - unStartReadIdx;
+                    memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unCpyBytes);
+                    memcpy(pubData + unCpyBytes, pstLink->stcbSend.pubSndBuf, unEndReadIdx);
                 }
+                
+                //* 计时并将其放入发送定时器队列
+                pstSendTimer->unSendMSecs = os_get_system_msecs();
+                tcp_send_timer_node_put(pstSendTimer);
+                pstLink->stcbSend.bSendPacketNum++; 
 
-                break;
+                //* 发送数据
+                tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
+                buddy_free(pubData);                
             }
+            else
+            {
+        #if SUPPORT_PRINTF && DEBUG_LEVEL
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_lock(o_hMtxPrintf);
+            #endif
+                printf("tcp_link_send_data() failed, %s\r\n", onps_error(enErr));
+            #if PRINTF_THREAD_MUTEX
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            #endif
+        #endif
 
+                tcp_send_timer_node_free(pstSendTimer);
+            }
+        }
+        else
+        {
+    #if SUPPORT_PRINTF && DEBUG_LEVEL
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_lock(o_hMtxPrintf);
+        #endif
+            printf("The tcp sending timer queue is empty.\r\n");
+        #if PRINTF_THREAD_MUTEX
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        #endif
+    #endif            
+        }
+        return TRUE; 
+    }
+    
+    return FALSE; //* 没有要发送的数据了，返回FALSE            
+}
+
+static void tcp_link_ack_handler(PST_TCPLINK pstLink)
+{    
+    CHAR bPacketIdx = 0; 
+    tcp_send_timer_lock();
+    {
+        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer; 
+        PSTCB_TCPSENDTIMER pstSendTimerPrev = NULL; 
+        while (pstSendTimer)
+        {
+            bPacketIdx++; 
+
+            //* 确认序号相等，说明当前报文已经成功送达对端
+            if (pstSendTimer->unRight == pstLink->stLocal.unSeqNum - 1)
+            {
+                //* 从当前链表队列中删除
+                if (pstSendTimerPrev)
+                    pstSendTimerPrev->pstcbNextForLink = pstSendTimer->pstcbNextForLink;
+                else
+                    pstLink->stcbSend.pstcbSndTimer = pstSendTimer->pstcbNextForLink;
+                pstLink->stcbSend.bSendPacketNum--; 
+
+                tcp_send_timer_node_del_unsafe(pstSendTimer);   //* 从定时器队列中删除当前节点                
+                tcp_send_timer_node_free_unsafe(pstSendTimer);  //* 归还当前节点
+
+                break; 
+            }            
+
+            pstSendTimerPrev = pstSendTimer;
             pstSendTimer = pstSendTimer->pstcbNext;
         }
     }
-    tcp_send_timer_unlock();     
+    tcp_send_timer_unlock();    
 }
 
 void thread_tcp_handler(void *pvParam)
 {
     INT nRtnVal; 
-    BOOL blIsExistData = FALSE; 
-    PST_TCPLINK pstSndDataLink = NULL;
-    UINT unAckedBytes;     
+    BOOL blIsExistData; 
+    PST_TCPLINK pstSndDataLink;   
 
     while (TRUE)
     {
@@ -1084,43 +1241,52 @@ void thread_tcp_handler(void *pvParam)
             }            
         }
 
-__lblSend: 
+        blIsExistData = FALSE;
+        pstSndDataLink = NULL;
+
+__lblSend:         
         //* 遍历所有tcp链路处理发送相关的逻辑        
         pstSndDataLink = tcp_link_for_send_data_get_next(pstSndDataLink); 
         if (pstSndDataLink)
         {
+            //blIsExistData = TRUE; 
+
             //* 先看看状态是否还是CONNECTED状态
             if (pstSndDataLink->bState != TLSCONNECTED)
                 goto __lblDelNode; 
 
-            //* 先看看是否触发了快速重传（Fast Retransmit）机制
-            if (pstSndDataLink->stcbSend.unRetransSeqNum)
-                tcp_link_fast_retransmit(pstSndDataLink, pstSndDataLink->stcbSend.unRetransSeqNum); 
-            else
+            //* 先看看是否触发了快速重传（Fast Retransmit）机制或者存在sack选项吗？这两个有其一就应当重发数据
+            //* 2022-12-17 下午开始发烧（这之后4天左右开始喉咙巨痛），2022-12-29基本康复，继续当前算法
+            //* 将其转移到接收线程，一旦收到dup ack或sack直接回馈对应报文，而不是在这里收到信号后再去处理
+            
+            //* 看看ack序号到哪里了
+            tcp_link_ack_handler(pstSndDataLink);            
+            
+            //* 发送数据
+            if (pstSndDataLink->stcbSend.bSendPacketNum < 4)
             {
+                if(tcp_link_send_data(pstSndDataLink))
+                    blIsExistData = TRUE;
+            }                                       
 
-            }
-
-            //* 看看还有数据需要发送吗，写入数据与确认数据不相等说明存在要发送的数据
-            unAckedBytes = pstSndDataLink->stLocal.unSeqNum - 1;             
-            if (pstSndDataLink->stcbSend.unWriteBytes != unAckedBytes)
-            {
-
-            }
-            else
-                goto __lblDelNode; 
-
-            tcp_link_send_data(pstSndDataLink);
             goto __lblSend;
-
-            continue; 
 
 __lblDelNode: 
             //* 直接从数据队列中删除
             tcp_link_for_send_data_del(pstSndDataLink);
-            pstSndDataLink = NULL; //* 重新开始取数发送节点
+            pstSndDataLink = NULL; //* 重新开始取发送节点
+            blIsExistData = FALSE; 
             goto __lblSend; 
-        }        
+        }
+        else //* 到尾部了或者没有要发送数据的tcp链路了
+        {            
+            if (blIsExistData) //* 到尾部了
+            {
+                blIsExistData = FALSE; 
+                goto __lblSend; 
+            }
+            else; //* 回到头部，等待下一个信号或者超时后再检查数据发送队列
+        }
     }
 }
 #endif

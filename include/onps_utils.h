@@ -24,6 +24,13 @@
 #define htons(n)    ENDIAN_CONVERTER_USHORT(n)
 #define ip_addressing(unDestIP, unIfIP, unGenmask) ((UINT)(unIfIP & unGenmask) == (UINT)(unDestIP & unGenmask))
 
+//* 判断某个无符号整型数是否在指定范围内
+#define uint_is_within_range(num, left, right) ((INT)((num - left) | (right - num)) >= 0)
+
+//* tcp序号比较宏
+#define uint_before(seq1, seq2) (((INT)(seq1 - seq2)) < 0)
+#define uint_after(seq2, seq1) uint_before(seq1, seq2)
+
 #if !(defined(__linux__) || defined(__linux)) && !(defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)) && !(defined(WIN64) || defined(_WIN64) || defined(__WIN64__))
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif

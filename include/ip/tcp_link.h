@@ -70,9 +70,20 @@ typedef struct _ST_TCPBACKLOG__ {
     PST_SLINKEDLIST_NODE pstNode;
 } ST_TCPBACKLOG, *PST_TCPBACKLOG;
 
+#if SUPPORT_SACK
+PACKED_BEGIN
+typedef struct _STCB_TCPSENDTIMER_ {
+    UINT unSendMSecs;
+    UINT unLeft;
+    UINT unRight;
+    struct _STCB_TCPSENDTIMER_ *pstcbNextForLink;
+    struct _STCB_TCPSENDTIMER_ *pstcbNext;
+} PACKED STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
+PACKED_END
+#endif
+
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
-typedef struct _STCB_TCPSENDTIMER_ STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER; 
 PACKED_BEGIN
 typedef struct _ST_TCPLINK_ {
     struct {
@@ -122,13 +133,13 @@ typedef struct _ST_TCPLINK_ {
         CHAR bDupAckNum; 
         UINT unWriteBytes;  
         UINT unPrevSeqNum;
-        UINT unRetransSeqNum; 
+        //UINT unRetransSeqNum; 
         struct {
             UINT unLeft; 
             UINT unRight; 
-        } PACKED staSack[TCPSENDTIMER_NUM];
+        } PACKED staSack[TCPSENDTIMER_NUM];        
         UCHAR *pubSndBuf; 
-        PSTCB_TCPSENDTIMER pstcbSndTimer;         
+        STCB_TCPSENDTIMER *pstcbSndTimer;
     } PACKED stcbSend; //* 发送控制块
 #endif
 
@@ -143,16 +154,6 @@ typedef struct _ST_TCPLINK_ {
     CHAR bNext;
 } PACKED ST_TCPLINK, *PST_TCPLINK;
 PACKED_END
-
-#if SUPPORT_SACK
-typedef struct _STCB_TCPSENDTIMER_ {
-    UINT unSendMSecs;    
-    UINT unLeft;
-    UINT unRight; 
-    struct _STCB_TCPSENDTIMER_ *pstcbNextForLink;
-    struct _STCB_TCPSENDTIMER_ *pstcbNext;
-} STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
-#endif
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
@@ -187,6 +188,7 @@ TCP_LINK_EXT INT tcp_send_sem_pend(INT nWaitSecs);
 //* 获取一个发送定时器
 TCP_LINK_EXT PSTCB_TCPSENDTIMER tcp_send_timer_node_get(void);
 TCP_LINK_EXT void tcp_send_timer_node_free(PSTCB_TCPSENDTIMER pstcbSendTimer); 
+TCP_LINK_EXT void tcp_send_timer_node_free_unsafe(PSTCB_TCPSENDTIMER pstcbSendTimer); 
 TCP_LINK_EXT void tcp_send_timer_node_put(PSTCB_TCPSENDTIMER pstcbSendTimer);
 TCP_LINK_EXT void tcp_send_timer_node_put_unsafe(PSTCB_TCPSENDTIMER pstcbSendTimer);
 TCP_LINK_EXT void tcp_send_timer_node_del(PSTCB_TCPSENDTIMER pstcbSendTimer);

@@ -164,7 +164,7 @@ void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
 }
 
 #if SUPPORT_SACK
-BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
+CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
 {
     INT nReadBytes = 0;
     UCHAR *pubCurOption;
@@ -190,7 +190,18 @@ BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
                 PST_TCPOPT_SACKINFO_ITEM pstItem = (PST_TCPOPT_SACKINFO_ITEM)(pubOptions + sizeof(ST_TCPOPT_HDR));
                 INT nInfoLen = (INT)(pstOptHdr->ubLen - sizeof(ST_TCPOPT_HDR)); 
                 if (nInfoLen > 32)
-                    return FALSE;
+                {
+            #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+                #if PRINTF_THREAD_MUTEX
+                    os_thread_mutex_lock(o_hMtxPrintf);
+                #endif            
+                    printf("The tcp sack option is longer than 32 bytes [%d]. \r\n", nInfoLen);
+                #if PRINTF_THREAD_MUTEX
+                    os_thread_mutex_unlock(o_hMtxPrintf);
+                #endif
+            #endif
+                    return 0;
+                }
                 CHAR bWriteIdx = 0; 
                 while (nInfoLen > 0)
                 {
@@ -202,10 +213,10 @@ BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
                 }
 
                 //* 清零
-                for (; bWriteIdx < TCPSENDTIMER_NUM; bWriteIdx++)
-                    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstLink->stcbSend.staSack[bWriteIdx].unRight = 0; 
+                //for (; bWriteIdx < TCPSENDTIMER_NUM; bWriteIdx++)
+                //    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstLink->stcbSend.staSack[bWriteIdx].unRight = 0; 
 
-                return TRUE; 
+                return bWriteIdx;
             }
             else
             {
@@ -213,7 +224,7 @@ BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
                 {
                     nReadBytes += (INT)lr_staTcpOptList[i].ubLen;
                     blIsNotFound = FALSE; 
-                    break;
+                    break; 
                 }
             }            
         }
@@ -233,6 +244,6 @@ BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
         }
     }
 
-    return FALSE; 
+    return 0; 
 }
 #endif

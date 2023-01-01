@@ -32,7 +32,7 @@ TCP_OPTIONS_EXT INT tcp_options_attach(UCHAR *pubAttachAddr, INT nAttachBufSize)
 TCP_OPTIONS_EXT void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen);
 
 #if SUPPORT_SACK
-TCP_OPTIONS_EXT BOOL tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen); 
+TCP_OPTIONS_EXT CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen); 
 #endif
 
 #endif

@@ -181,7 +181,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     pstFreeNode->stcbSend.bSendPacketNum = 0; 
     pstFreeNode->stcbSend.bDupAckNum = 0; 
     pstFreeNode->stcbSend.unPrevSeqNum = 1; 
-    pstFreeNode->stcbSend.unRetransSeqNum = 0; 
+    //pstFreeNode->stcbSend.unRetransSeqNum = 0; 
     pstFreeNode->stcbSend.bIsPutted = FALSE; 
     memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));
 #endif
@@ -303,6 +303,7 @@ PSTCB_TCPSENDTIMER tcp_send_timer_node_get(void)
             pstcbNode = l_pstcbSListSndTimerFreed;
             l_pstcbSListSndTimerFreed = l_pstcbSListSndTimerFreed->pstcbNext;
             pstcbNode->pstcbNext = NULL; 
+            pstcbNode->pstcbNextForLink = NULL; 
         }
     }
     os_thread_mutex_unlock(l_hMtxSndTimerLink);
@@ -318,6 +319,12 @@ void tcp_send_timer_node_free(PSTCB_TCPSENDTIMER pstcbSendTimer)
         l_pstcbSListSndTimerFreed = pstcbSendTimer;
     }
     os_thread_mutex_unlock(l_hMtxSndTimerLink);
+}
+
+void tcp_send_timer_node_free_unsafe(PSTCB_TCPSENDTIMER pstcbSendTimer)
+{
+    pstcbSendTimer->pstcbNext = l_pstcbSListSndTimerFreed; 
+    l_pstcbSListSndTimerFreed = pstcbSendTimer; 
 }
 
 void tcp_send_timer_node_put(PSTCB_TCPSENDTIMER pstcbSendTimer)
@@ -434,15 +441,18 @@ PSTCB_TCPSENDTIMER tcp_send_timer_get_next(PSTCB_TCPSENDTIMER pstcbSendTimer)
 
 void tcp_link_for_send_data_put(PST_TCPLINK pstTcpLink)
 {
-    PST_TCPLINK pstNext; 
+    PST_TCPLINK pstNext;     
 
-    if (pstTcpLink->stcbSend.bIsPutted)
-        return; 
-
-    pstTcpLink->stcbSend.bNext = -1;
-    pstTcpLink->stcbSend.bIsPutted = TRUE; 
     os_thread_mutex_lock(l_hMtxSndDataLink); 
     {
+        if (pstTcpLink->stcbSend.bIsPutted)
+        {
+            os_thread_mutex_unlock(l_hMtxSndDataLink); 
+            return;
+        }
+
+        pstTcpLink->stcbSend.bNext = -1;
+        pstTcpLink->stcbSend.bIsPutted = TRUE;
         if (l_pstSndDataLink)
         {
             pstNext = l_pstSndDataLink; 
