@@ -428,13 +428,8 @@ void tcp_send_timer_unlock(void)
 
 PSTCB_TCPSENDTIMER tcp_send_timer_get_next(PSTCB_TCPSENDTIMER pstcbSendTimer)
 {
-    if (pstcbSendTimer)
-    {
-        if (pstcbSendTimer->pstcbNext)
-            return pstcbSendTimer->pstcbNext;
-        else
-            return NULL; 
-    }
+    if (pstcbSendTimer)    
+        return pstcbSendTimer->pstcbNext;    
     else
         return l_pstcbSListSndTimer; 
 }

@@ -16,7 +16,9 @@
 #endif //* SYMBOL_GLOBALS
 
 #if SUPPORT_SACK
-#define TCPSENDTIMER_NUM  4   //* 每一路tcp链路允许挂载的定时器路数，也就是连续发送多少个报文后需要等待对端ack，这个值正好是tcp sack选项携带的最大重传块数
+#define TCPSENDTIMER_NUM    4       //* 每一路tcp链路允许挂载的定时器路数，也就是连续发送多少个报文后需要等待对端ack，这个值正好是tcp sack选项携带的最大重传块数
+#define RTO                 400     //* tcp超时重传时间（Retransmission Timeout），单位：毫秒
+#define RTO_MAX             6000    //* rto最大值，单位：毫秒
 #endif
 
 typedef enum {
@@ -70,20 +72,9 @@ typedef struct _ST_TCPBACKLOG__ {
     PST_SLINKEDLIST_NODE pstNode;
 } ST_TCPBACKLOG, *PST_TCPBACKLOG;
 
-#if SUPPORT_SACK
-PACKED_BEGIN
-typedef struct _STCB_TCPSENDTIMER_ {
-    UINT unSendMSecs;
-    UINT unLeft;
-    UINT unRight;
-    struct _STCB_TCPSENDTIMER_ *pstcbNextForLink;
-    struct _STCB_TCPSENDTIMER_ *pstcbNext;
-} PACKED STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
-PACKED_END
-#endif
-
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
+typedef struct _STCB_TCPSENDTIMER_ STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER; 
 PACKED_BEGIN
 typedef struct _ST_TCPLINK_ {
     struct {
@@ -154,6 +145,20 @@ typedef struct _ST_TCPLINK_ {
     CHAR bNext;
 } PACKED ST_TCPLINK, *PST_TCPLINK;
 PACKED_END
+
+#if SUPPORT_SACK
+PACKED_BEGIN
+typedef struct _STCB_TCPSENDTIMER_ {
+    UINT unSendMSecs;
+    UINT unLeft;
+    UINT unRight;
+    struct _STCB_TCPSENDTIMER_ *pstcbNextForLink;
+    struct _STCB_TCPSENDTIMER_ *pstcbNext;
+    PST_TCPLINK pstLink; 
+    USHORT usRto;
+} PACKED STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
+PACKED_END
+#endif
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {

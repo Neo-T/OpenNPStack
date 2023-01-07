@@ -7,6 +7,7 @@
 #include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
+#include "mmu/buddy.h"
 #include "onps_utils.h"
 #include "onps_input.h"
 
@@ -186,6 +187,70 @@ void thread_one_shot_timer_count(void *pvParam)
     l_ubThreadExitFlag = FALSE;
 	while (l_blIsRunning)
 	{
+    #if SUPPORT_SACK
+        tcp_send_timer_lock();
+        {
+            PSTCB_TCPSENDTIMER pstcbTcpSndTimer = NULL; 
+            do {
+                pstcbTcpSndTimer = tcp_send_timer_get_next(pstcbTcpSndTimer);
+                if (pstcbTcpSndTimer)
+                {
+                    //* 是否大于RTO，大于rto则重新发送之
+                    if (os_get_system_msecs() - pstcbTcpSndTimer->unSendMSecs > (UINT)pstcbTcpSndTimer->usRto)
+                    {
+                        //* 重新发送数据
+                        EN_ONPSERR enErr;
+                        UCHAR *pubData = (UCHAR *)buddy_alloc(pstcbTcpSndTimer->unRight - pstcbTcpSndTimer->unLeft, &enErr); 
+                        if (pubData)
+                        {
+                            UINT unStartReadIdx = pstcbTcpSndTimer->unLeft % TCPSNDBUF_SIZE;
+                            UINT unEndReadIdx = pstcbTcpSndTimer->unRight % TCPSNDBUF_SIZE;
+                            if (unEndReadIdx > unStartReadIdx)
+                                memcpy(pubData, pstcbTcpSndTimer->pstLink->stcbSend.pubSndBuf + unStartReadIdx, unEndReadIdx - unStartReadIdx);
+                            else
+                            {
+                                UINT unCpyBytes = TCPSNDBUF_SIZE - unStartReadIdx;
+                                memcpy(pubData, pstcbTcpSndTimer->pstLink->stcbSend.pubSndBuf + unStartReadIdx, unCpyBytes);
+                                memcpy(pubData + unCpyBytes, pstcbTcpSndTimer->pstLink->stcbSend.pubSndBuf, unEndReadIdx);
+                            }
+
+                            //* 重发dup ack的数据块
+                            tcp_send_data(pstcbTcpSndTimer->pstLink->stcbWaitAck.nInput, pubData, pstcbTcpSndTimer->unRight - pstcbTcpSndTimer->unLeft, 0);
+                            buddy_free(pubData);
+
+                            //* 每重发一次，rto加倍
+                            if (pstcbTcpSndTimer->usRto < RTO_MAX)
+                                pstcbTcpSndTimer->usRto *= 2; 
+
+                            //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
+                            pstcbTcpSndTimer->unSendMSecs = os_get_system_msecs();
+                            tcp_send_timer_node_del_unsafe(pstcbTcpSndTimer);
+                            tcp_send_timer_node_put_unsafe(pstcbTcpSndTimer);
+
+                            pstcbTcpSndTimer = NULL; 
+                            continue; 
+                        }
+                        else
+                        {
+                    #if SUPPORT_PRINTF && DEBUG_LEVEL
+                        #if PRINTF_THREAD_MUTEX
+                            os_thread_mutex_lock(o_hMtxPrintf);
+                        #endif
+                            printf("thread_one_shot_timer_count() caught an error, %s\r\n", onps_error(enErr));
+                        #if PRINTF_THREAD_MUTEX
+                            os_thread_mutex_unlock(o_hMtxPrintf);
+                        #endif
+                    #endif
+                        }
+                    }
+                    
+                    break; //* 新发送数据的节点会被放到尾部，换言之定时器队列发送时间为递增序列，所以当前节点一旦小于RTO，则后续的亦会小于，不必继续查找了
+                }
+            } while (pstcbTcpSndTimer);             
+        }
+        tcp_send_timer_unlock();
+    #endif
+
     #if 1
         //* 延迟tcp ack处理
         tcp_link_lock();

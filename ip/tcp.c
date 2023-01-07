@@ -1113,6 +1113,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
         if (NULL != *ppstSendTimer)
         {
             pstSendTimer = *ppstSendTimer; 
+            pstSendTimer->pstLink = pstLink; 
 
             //* 看看剩余数据是否超出了pstLink->stPeer.usMSS参数指定的长度
             UINT unCpyBytes = pstLink->stcbSend.unWriteBytes - unStartSeqNum; 
@@ -1138,6 +1139,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 
                 //* 计时并将其放入发送定时器队列
                 pstSendTimer->unSendMSecs = os_get_system_msecs();
+                pstSendTimer->usRto = RTO; 
                 tcp_send_timer_node_put(pstSendTimer);
                 pstLink->stcbSend.bSendPacketNum++; 
 
