@@ -187,7 +187,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
 #endif
 
     pstFreeNode->bState = TLSINIT;
-    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0;    
+    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unHasSndBytes = pstFreeNode->stLocal.unAckNum = pstFreeNode->stPeer.unSeqNum = 0;
     pstFreeNode->uniFlags.usVal = 0; 
     pstFreeNode->stPeer.bSackEn = FALSE;
     pstFreeNode->stPeer.bWndScale = 0;

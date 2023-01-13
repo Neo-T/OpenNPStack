@@ -256,8 +256,50 @@ INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port)
 INT send(SOCKET socket, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)
 {
 #warning when tcp sack support is enabled, the parameter nWaitAckTimeout of the send() function is invalid
-    nWaitAckTimeout = nWaitAckTimeout; 
-    return onps_tcp_send((INT)socket, pubData, nDataLen); 
+    nWaitAckTimeout = nWaitAckTimeout;
+
+    //* 空数据没必要发送，这里并不返回-1以显式地告诉用户，仅记录这个错误即可，用户可以主动获取这个错误
+    if (NULL == pubData || !nDataLen)
+    {
+        onps_set_last_error((INT)socket, ERRDATAEMPTY);
+        return 0;
+    }    
+
+    //* 确定这是系统支持的协议才可
+    EN_ONPSERR enErr;
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+        goto __lblErr;
+
+    //* 错误清0
+    onps_set_last_error((INT)socket, ERRNO);    
+    //* 完成实际的发送
+    if (enProto == IPPROTO_TCP)
+    {
+        //* 获取当前链路状态
+        EN_TCPLINKSTATE enLinkState;
+        if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
+            goto __lblErr;
+        if (TLSCONNECTED == enLinkState)
+        {
+            return onps_tcp_send((INT)socket, pubData, nDataLen);
+        }
+        else
+        {
+            enErr = ERRTCPNOTCONNECTED;
+            goto __lblErr;
+        }
+    }
+    else if (enProto == IPPROTO_UDP)
+    {
+        return udp_send((INT)socket, pubData, nDataLen);
+    }
+    else
+        enErr = ERRUNSUPPIPPROTO;
+
+__lblErr:
+    onps_set_last_error((INT)socket, enErr);
+    return -1;
 }
 #else
 static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLen, INT nWaitAckTimeout)

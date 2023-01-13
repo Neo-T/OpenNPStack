@@ -23,6 +23,7 @@
 
 using namespace std;
 
+#define SEND_CTL_DATA_EN    1       //* 下发控制指令使能宏
 #define SRV_PORT            6410    //* 服务器端口
 #define LISTEN_NUM          10      //* 最大监听数
 #define RCV_BUF_SIZE        2048    //* 接收缓冲区容量
@@ -389,7 +390,10 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
     auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL }, -1 });
     atoPair.first->second.bLinkIdx = l_bLinkIdx++; 
     atoPair.first->second.blTHIsRunning = TRUE; 
+
+#if SEND_CTL_DATA_EN
     atoPair.first->second.objTHSender = thread(THSender, hClient, pfdsRead, pfdsException); 
+#endif
 
     return TRUE; 
 }

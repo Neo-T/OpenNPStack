@@ -79,6 +79,9 @@ PACKED_BEGIN
 typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;
+#if SUPPORT_SACK
+        UINT unHasSndBytes;
+#endif
         UINT unAckNum;
         USHORT usWndSize;
         CHAR bIsZeroWnd;

@@ -131,7 +131,11 @@ static void tcp_close_timeout_handler(void *pvParam)
 }
 
 static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort,
-                            UNI_TCP_FLAG uniFlag, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, EN_ONPSERR *penErr)
+                            UNI_TCP_FLAG uniFlag, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, 
+#if SUPPORT_SACK
+    BOOL blIsSpecSeqNum, UINT unSeqNum, 
+#endif
+    EN_ONPSERR *penErr)
 {
     //* 挂载用户数据
     SHORT sBufListHead = -1; 
@@ -166,7 +170,14 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     ST_TCP_HDR stHdr; 
     stHdr.usSrcPort = htons(usSrcPort);
     stHdr.usDstPort = htons(usDstPort);
+#if SUPPORT_SACK
+    if (blIsSpecSeqNum)
+        stHdr.unSeqNum = htonl(unSeqNum); 
+    else
+        stHdr.unSeqNum = htonl(pstLink->stLocal.unHasSndBytes + 1);
+#else
     stHdr.unSeqNum = htonl(pstLink->stLocal.unSeqNum);
+#endif
     stHdr.unAckNum = htonl(pstLink->stPeer.unSeqNum);
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
     stHdr.usFlag = uniFlag.usVal;
@@ -220,6 +231,9 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
 
     //* 发送之
     INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, TCP, IP_TTL_DEFAULT, sBufListHead, penErr);
+#if SUPPORT_SACK
+    pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes;
+#endif
     onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
     //* 释放刚才申请的buf list节点
@@ -241,11 +255,16 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
 
     //* 更新tcp序号
     pstLink->stLocal.unSeqNum = unSrvAckNum; 
-    pstLink->stPeer.unSeqNum += 1;     
+    pstLink->stPeer.unSeqNum += 1; 
 
     //* 发送
     EN_ONPSERR enErr;
-    INT nRtnVal = tcp_send_packet(pstLink, unNetifIp, usSrcPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
+    INT nRtnVal = tcp_send_packet(pstLink, unNetifIp, usSrcPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
+                                    uniFlag, NULL, 0, NULL, 0, 
+#if SUPPORT_SACK
+        TRUE, pstLink->stPeer.unSeqNum,
+#endif
+        &enErr);
     if (nRtnVal > 0)
     {                  
         //* 连接成功
@@ -317,7 +336,11 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
 
     //* 完成实际的发送
     pstLink->bState = TLSSYNSENT;
-    INT nRtnVal = tcp_send_packet(pstLink, pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr); 
+    INT nRtnVal = tcp_send_packet(pstLink, pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, 
+#if SUPPORT_SACK
+        TRUE, 0,
+#endif        
+        &enErr); 
     if (nRtnVal > 0)
     {
         //* 加入定时器队列
@@ -389,7 +412,11 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
     pstLink->stLocal.bDataSendState = TDSSENDING;
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
-                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, &enErr); 
+                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, 
+#if SUPPORT_SACK
+        FALSE, 0,
+#endif
+        &enErr); 
     if (nRtnVal > 0)
     {        
         //* 加入定时器队列
@@ -423,6 +450,56 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
     return nRtnVal;
 }
 
+#if SUPPORT_SACK
+INT tcp_send_data_ext(INT nInput, UCHAR *pubData, INT nDataLen, UINT unSeqNum)
+{
+    EN_ONPSERR enErr;
+
+    //* 获取链路信息存储节点
+    PST_TCPLINK pstLink;
+    if (!onps_input_get(nInput, IOPT_GETTCPUDPLINK, &pstLink, &enErr))
+    {
+        onps_set_last_error(nInput, enErr);
+        return -1;
+    }
+
+    //* 首先看看对端的mss能够接收多少数据
+    INT nSndDataLen = nDataLen < (INT)pstLink->stPeer.usMSS ? nDataLen : (INT)pstLink->stPeer.usMSS;
+    //* 再看看对端的接收窗口是否足够大
+    INT nWndSize = ((INT)pstLink->stPeer.usWndSize) * (INT)pow(2, pstLink->stPeer.bWndScale);
+    nSndDataLen = nSndDataLen < nWndSize ? nSndDataLen : nWndSize;
+
+    //* 标志字段push、ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;
+    uniFlag.stb16.ack = 1;
+    uniFlag.stb16.push = 1;
+
+    //* 提前赋值，因为存在发送即接收到的情况（常见于本地以太网）
+    pstLink->stcbWaitAck.bRcvTimeout = 0; //* 必须更新这个值，因为send_nb()函数不等待semaphore信号，所以需要显式地告知接收逻辑收到数据发送ack时不再投递semaphore
+
+    pstLink->stPeer.bIsNotAcked = FALSE;
+
+    pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
+    pstLink->stLocal.bDataSendState = TDSSENDING;
+    INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
+                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, TRUE, unSeqNum, &enErr);
+    if (nRtnVal > 0)
+        return nSndDataLen;    
+    else
+    {
+        pstLink->stLocal.bDataSendState = TDSSENDRDY;
+
+        if (nRtnVal < 0)
+            onps_set_last_error(nInput, enErr);
+        else
+            onps_set_last_error(nInput, ERRSENDZEROBYTES);
+    }
+
+    return nRtnVal;
+}
+#endif
+
 static void tcp_send_fin(PST_TCPLINK pstLink)
 {
     //* 标志字段fin、ack域置1，其它标志域为0
@@ -432,7 +509,11 @@ static void tcp_send_fin(PST_TCPLINK pstLink)
     uniFlag.stb16.fin = 1;    
 
     //* 发送链路结束报文
-    tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, NULL, 0, NULL);     
+    tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, NULL, 0, 
+#if SUPPORT_SACK
+        FALSE, 0,
+#endif
+        NULL);     
 }
 
 void tcp_disconnect(INT nInput)
@@ -476,7 +557,11 @@ void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in
     pstLink->stPeer.bIsNotAcked = FALSE;
 
     //* 发送应答报文 
-    tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, NULL);    
+    tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, 
+#if SUPPORT_SACK
+        FALSE, 0,
+#endif
+        NULL);    
 }
 
 static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
@@ -492,7 +577,11 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT 
     INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
 
     //* 完成实际的发送
-    return tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr); 
+    return tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, 
+#if SUPPORT_SACK
+        FALSE, 0,
+#endif
+        penErr); 
 }
 
 static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort)
@@ -566,7 +655,7 @@ static void tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum)
                     }
 
                     //* 重发dup ack的数据块
-                    tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, 0);
+                    tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, pstSendTimer->unLeft);
                     buddy_free(pubData);
 
                     //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
@@ -936,7 +1025,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             
             //* 有数据则处理之
             if (nDataLen)
-            {                           
+            {                          
                 //* 只有序号不同才会搬运数据，确认过序号的说明已经搬运不能重复搬运了，对端重复发送的原因是没有收到ack报文，所以只需再次发送ack报文即可
                 if (unPeerSeqNum != pstLink->stLocal.unAckNum && unPeerSeqNum > pstLink->stLocal.unAckNum)
                 {
@@ -1143,7 +1232,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 tcp_send_timer_node_put(pstSendTimer);
                 pstLink->stcbSend.bSendPacketNum++; 
 
-                //* 发送数据
+                //* 发送数据                
                 tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
                 buddy_free(pubData);                
             }

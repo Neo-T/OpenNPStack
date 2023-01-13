@@ -215,7 +215,7 @@ void thread_one_shot_timer_count(void *pvParam)
                             }
 
                             //* 重发dup ack的数据块
-                            tcp_send_data(pstcbTcpSndTimer->pstLink->stcbWaitAck.nInput, pubData, pstcbTcpSndTimer->unRight - pstcbTcpSndTimer->unLeft, 0);
+                            tcp_send_data_ext(pstcbTcpSndTimer->pstLink->stcbWaitAck.nInput, pubData, pstcbTcpSndTimer->unRight - pstcbTcpSndTimer->unLeft, pstcbTcpSndTimer->unLeft);
                             buddy_free(pubData);
 
                             //* 每重发一次，rto加倍
