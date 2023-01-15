@@ -19,7 +19,7 @@ PACKED_BEGIN
 typedef struct _ST_BUDDY_PAGE_ { //* 具有相同页面大小的页面链表节点的基本数据结构
     struct _ST_BUDDY_PAGE_ *pstNext;	
     UCHAR *pubStart;     
-    CHAR blIsUsed;
+    //CHAR blIsUsed;
 } PACKED ST_BUDDY_PAGE, *PST_BUDDY_PAGE;
 PACKED_END
 
@@ -34,7 +34,8 @@ PACKED_END
 
 PACKED_BEGIN
 typedef struct _ST_BUDDY_AREA_ { //* 具有相同页面大小的页块数组单元的基本数据结构
-    PST_BUDDY_PAGE pstNext;      
+    PST_BUDDY_PAGE pstFreed;
+    PST_BUDDY_PAGE pstUsed; 
     UINT unPageSize;	//* 该内存块单个页面大小
 } PACKED ST_BUDDY_AREA, *PST_BUDDY_AREA;
 PACKED_END

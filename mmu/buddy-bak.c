@@ -47,7 +47,7 @@ static PST_BUDDY_PAGE GetPageNode(EN_ONPSERR *penErr)
     {
         pstPage = l_pstFreePageHead; 
         l_pstFreePageHead = l_pstFreePageHead->pstNext; 
-        //pstPage->blIsUsed = FALSE; 
+        pstPage->blIsUsed = FALSE; 
         pstPage->pstNext = NULL; 
         return pstPage; 
     }
@@ -105,7 +105,7 @@ BOOL buddy_init(EN_ONPSERR *penErr)
 	PST_BUDDY_PAGE pstPage = GetPageNode(penErr);
 	pstPage->pstNext = NULL;
 	pstPage->pubStart = l_ubaMemPool;
-	l_staArea[BUDDY_ARER_COUNT - 1].pstFreed = pstPage;
+	l_staArea[BUDDY_ARER_COUNT - 1].pstNext = pstPage;
 
 	//* 计算并存储各页块管理单元的单个页面大小
 	l_staArea[0].unPageSize = unPageSize;
@@ -135,9 +135,9 @@ void buddy_uninit(void)
 
 void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 {
-	INT i, nAreaIdx;
+	INT i;
 	UINT unPageSize = BUDDY_PAGE_SIZE;
-	PST_BUDDY_PAGE pstPage, pstNextPage;
+	PST_BUDDY_PAGE pstPage, pstPrevPage, pstNextPage;
 	PST_BUDDY_AREA pstArea;
 	PST_BUDDY_PAGE pstFreePage1, pstFreePage2;
 
@@ -148,13 +148,13 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 	}
 
 	//* 确定页块索引
-	for (i = 0; i < BUDDY_ARER_COUNT; i++)
+	for (i = 1; i < BUDDY_ARER_COUNT; i++)
 	{
-        if (unPageSize >= unSize)
-        {
-            nAreaIdx = i; 
-            break;
-        }
+		if (unPageSize >= unSize)
+		{
+			i--;
+			break;
+		}
 
 		unPageSize *= 2;
 	}
@@ -165,31 +165,39 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 	//os_thread_mutex_lock(l_hMtxMMUBuddy);
     os_enter_critical();
 	{
-		//* 存在有效页面则直接返回		
-        if (l_staArea[i].pstFreed)
-        {
-            pstPage = l_staArea[i].pstFreed;
-            l_staArea[i].pstFreed = pstPage->pstNext; 
-            pstPage->pstNext = l_staArea[i].pstUsed; 
-            l_staArea[i].pstUsed = pstPage;
+		//* 存在有效页面则直接返回
+		pstPage = l_staArea[i].pstNext;
+		while (pstPage)
+		{
+			if (!pstPage->blIsUsed)
+			{
+				pstPage->blIsUsed = TRUE;
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy);                
 
-            printf("+%p, %u\r\n", pstPage->pubStart, unSize);
-            os_exit_critical();
+                printf("+%p, %u\r\n", pstPage->pubStart, unSize);
 
-            return pstPage->pubStart;
-        }
+                os_exit_critical();
+                
+				return pstPage->pubStart;
+			}
+
+			pstPage = pstPage->pstNext;
+		}
 
 		//* 一旦执行到这里意味着当前页块单元没有可用页块，需要从更大的页块单元分裂出一块来使用
 		//* 先找到最近的有空余页块的单元	
 		i++;
 		for (; i < BUDDY_ARER_COUNT; i++)
 		{
-            if (l_staArea[i].pstFreed)
-            {
-                pstPage = l_staArea[i].pstFreed;
-                l_staArea[i].pstFreed = pstPage->pstNext;
-                goto __lblSplit;
-            }
+			pstPage = l_staArea[i].pstNext;
+			pstPrevPage = NULL;
+			while (pstPage)
+			{
+				if (!pstPage->blIsUsed)
+					goto __lblSplit;
+				pstPrevPage = pstPage;
+				pstPage = pstPage->pstNext;
+			}
 		}
 		//os_thread_mutex_unlock(l_hMtxMMUBuddy);
         os_exit_critical(); 
@@ -200,8 +208,14 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 
 	__lblSplit:
 		for (; i > 0; i--)
-		{			
-			//* 准备分裂
+		{
+			//* 摘除
+			if (pstPrevPage)
+				pstPrevPage->pstNext = pstPage->pstNext;
+			else
+				l_staArea[i].pstNext = pstPage->pstNext;
+
+			//* 分裂
 			pstArea = &l_staArea[i - 1];
 			pstFreePage1 = GetPageNode(penErr);
 			if (!pstFreePage1) //* 这属于程序BUG，理论上不应该申请不到
@@ -217,19 +231,18 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
                 os_exit_critical();
 				return (void *)0;
 			}
-
-            //* 分裂
 			pstFreePage1->pubStart = pstPage->pubStart;
 			pstFreePage2->pubStart = pstPage->pubStart + pstArea->unPageSize;
 			FreePageNode(pstPage); 
 
-			//* 挂载到页块尾部
-			pstNextPage = pstArea->pstFreed;
+			//* 挂接到下一个更小的页块单元
+			pstNextPage = pstArea->pstNext;
 			if (!pstNextPage)
 			{
-				pstArea->pstFreed = pstFreePage1;
+				pstArea->pstNext = pstFreePage1;
 				pstFreePage1->pstNext = pstFreePage2;
-				pstPage = pstFreePage1;				
+				pstPage = pstFreePage1;
+				pstPrevPage = NULL;
 			}
 			else
 			{
@@ -239,6 +252,7 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 						pstNextPage->pstNext = pstFreePage1;
 						pstFreePage1->pstNext = pstFreePage2;
 						pstPage = pstFreePage1;
+						pstPrevPage = pstNextPage;
 						break;
 					}
 
@@ -246,15 +260,19 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 				} while (TRUE);
 			}
 
-            //* 是否分裂完成
-            if (nAreaIdx == i - 1)
-            {
+			//* 看看当前单元满足分配要求吗，满足则分配，否则继续分裂		
+			if (unSize > pstArea->unPageSize / 2 || BUDDY_PAGE_SIZE == pstArea->unPageSize)
+			{
+				//* 申请容量大于页块容量的一半，不需要继续分裂了，直接返回给用户即可
+				pstPage->blIsUsed = TRUE;
+				//os_thread_mutex_unlock(l_hMtxMMUBuddy); 
+
                 printf("+%p, %u\r\n", pstPage->pubStart, unSize);
 
                 os_exit_critical();
-
-                return (void *)pstPage->pubStart;
-            }
+                
+				return (void *)pstPage->pubStart;
+			}
 		}
 	}
 	//os_thread_mutex_unlock(l_hMtxMMUBuddy);
@@ -273,49 +291,14 @@ static UCHAR *cal_buddy_addr(PST_BUDDY_AREA pstArea, PST_BUDDY_PAGE pstPage)
 	if (unOffset % unUpperPageSize == 0) //* 伙伴地址为后半部分	
 		return pstPage->pubStart + pstArea->unPageSize; 	
 	else //* 前半部分
-		return pstPage->pubStart - pstArea->unPageSize;
-}
-
-static void buddy_insert_freed_page(PST_BUDDY_AREA pstArea, PST_BUDDY_PAGE pstFreedPage)
-{
-    PST_BUDDY_PAGE pstNextPage, pstPrevPage; 
-
-    //* 插入当前链表，注意插入的时候要按照地址顺序插入，不能乱序
-    if (pstArea->pstFreed)
-    {
-        pstNextPage = pstArea->pstFreed;
-        pstPrevPage = NULL;
-        while (pstNextPage)
-        {
-            if (pstNextPage->pubStart > pstFreedPage->pubStart)
-            {
-                if (pstPrevPage)
-                {
-                    pstPrevPage->pstNext = pstFreedPage;
-                    pstFreedPage->pstNext = pstNextPage;
-                }
-                else
-                {
-                    pstFreedPage->pstNext = pstArea->pstFreed;
-                    pstArea->pstFreed = pstFreedPage;
-
-                }
-                break;
-            }
-        }
-    }
-    else
-    {
-        pstArea->pstFreed = pstFreedPage;
-        pstFreedPage->pstNext = NULL;
-    }
+		return (unOffset > unUpperPageSize) ? &l_ubaMemPool[((unOffset / unUpperPageSize) * unUpperPageSize)] : l_ubaMemPool;
 }
 
 BOOL buddy_free(void *pvStart)
 {
 	INT i;
 	PST_BUDDY_AREA pstArea;
-	PST_BUDDY_PAGE pstNextPage, pstPrevPage, pstFreedPage;
+	PST_BUDDY_PAGE pstNextPage, pstPrevPage1, pstPrevPage2, pstFreedPage;
 	UCHAR *pubBuddyAddr;    
 
     os_critical_init();
@@ -325,31 +308,20 @@ BOOL buddy_free(void *pvStart)
 	{
 		for (i = 0; i < BUDDY_ARER_COUNT; i++)
 		{
-            if (l_staArea[i].pstUsed)
-            {
-                pstNextPage = l_staArea[i].pstUsed;
-                pstPrevPage = NULL;
-                while (pstNextPage)
-                {
-                    if (pstNextPage->pubStart == (UCHAR *)pvStart)
-                    {                        
-                        pstFreedPage = pstNextPage;
+			pstNextPage = l_staArea[i].pstNext;
+			pstPrevPage1 = NULL;
+			while (pstNextPage)
+			{
+				if (pstNextPage->pubStart == (UCHAR *)pvStart)
+				{
+					pstFreedPage = pstNextPage;
+					pstNextPage->blIsUsed = FALSE;
+					goto __lblMergeRef;
+				}
 
-                        //* 摘除之
-                        if (pstPrevPage)                        
-                            pstPrevPage->pstNext = pstNextPage->pstNext;                         
-                        else
-                            l_staArea[i].pstUsed = pstNextPage->pstNext; 
-
-                        pstArea = &l_staArea[i];
-                        //pstNextPage->blIsUsed = FALSE;
-                        goto __lblMergeRef;
-                    }
-
-                    pstPrevPage = pstNextPage;
-                    pstNextPage = pstNextPage->pstNext;
-                }
-            }			
+				pstPrevPage1 = pstNextPage;
+				pstNextPage = pstNextPage->pstNext;
+			}
 		}
 		//os_thread_mutex_unlock(l_hMtxMMUBuddy);
         os_exit_critical();
@@ -360,38 +332,46 @@ BOOL buddy_free(void *pvStart)
     __lblMergeRef: 
         printf("-%p\r\n", pvStart);
 
+
 		//* 合并操作
-    __lblMerge:        		
+    __lblMerge:        
+		pstArea = &l_staArea[i];
 		pubBuddyAddr = cal_buddy_addr(pstArea, pstFreedPage);
 
-		pstNextPage = pstArea->pstFreed;
-		pstPrevPage = NULL;
+		pstNextPage = pstArea->pstNext;
+		pstPrevPage2 = NULL;
 		while (pstNextPage)
 		{
-            if (pubBuddyAddr == pstNextPage->pubStart) //* 其伙伴节点未被使用，则直接摘除
-            {
-                //* 先摘除之
-                if (pstPrevPage)
-                    pstPrevPage->pstNext = pstNextPage->pstNext;
-                else
-                    pstArea->pstFreed = pstNextPage->pstNext; 
+			if (!pstNextPage->blIsUsed)
+			{
+				if (pubBuddyAddr == pstNextPage->pubStart) //* 合并
+				{
+					if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 当前被释放的节点在前
+					{
+						//* 摘除其实就等于合并了
+						if (pstPrevPage1)
+							pstPrevPage1->pstNext = pstNextPage->pstNext;
+						else
+							pstArea->pstNext = pstNextPage->pstNext;
+					}
+					else
+					{
+						if (pstPrevPage2)
+							pstPrevPage2->pstNext = pstFreedPage->pstNext;
+						else
+							pstArea->pstNext = pstFreedPage->pstNext;
+						pstFreedPage->pubStart = pstNextPage->pubStart;
+					}
 
-                //* 当前被释放的节点在后，则将地址调整到伙伴页面的前半部分，这就相当于合并了
-                if (pstFreedPage->pubStart > pstNextPage->pubStart)
-                    pstFreedPage->pubStart = pstNextPage->pubStart;
+					FreePageNode(pstNextPage);
 
-                //* 释放伙伴节点
-                FreePageNode(pstNextPage);
-                goto __lblMountToUpperLink;
-            }			
+					goto __lblMountToUpperLink;
+				}
+			}
 
-			pstPrevPage = pstNextPage;
+			pstPrevPage2 = pstNextPage;
 			pstNextPage = pstNextPage->pstNext;
 		}        
-
-        //* 已经不存在伙伴节点了，在这里就直接插入当前链表即可
-        buddy_insert_freed_page(pstArea, pstFreedPage); 
-
 		//os_thread_mutex_unlock(l_hMtxMMUBuddy);
         os_exit_critical();
 
@@ -401,10 +381,11 @@ BOOL buddy_free(void *pvStart)
 		i++;
 		if (i < BUDDY_ARER_COUNT)
 		{
-			pstArea = &l_staArea[i];			
-			if (!pstArea->pstFreed)
+			pstArea = &l_staArea[i];
+			pstNextPage = pstArea->pstNext;
+			if (!pstNextPage)
 			{
-				pstArea->pstFreed = pstFreedPage;
+				pstArea->pstNext = pstFreedPage;
 				pstFreedPage->pstNext = NULL;
                 
 				//os_thread_mutex_unlock(l_hMtxMMUBuddy);
@@ -413,8 +394,36 @@ BOOL buddy_free(void *pvStart)
 				return TRUE;
 			}
 
-            goto __lblMerge;			         
-		}        
+			pubBuddyAddr = cal_buddy_addr(pstArea, pstFreedPage);
+			pstPrevPage2 = NULL;
+			while (pstNextPage)
+			{
+				if (pubBuddyAddr == pstNextPage->pubStart) //* 伙伴页面，则挂载
+				{
+					if (pstFreedPage->pubStart < pstNextPage->pubStart) //* 要挂载的节点为伙伴的前半部分
+					{
+						if (pstPrevPage2)
+							pstPrevPage2->pstNext = pstFreedPage;
+						else
+							pstArea->pstNext = pstFreedPage;
+						pstFreedPage->pstNext = pstNextPage;
+
+						pstPrevPage1 = pstPrevPage2;
+					}
+					else
+					{
+						pstFreedPage->pstNext = pstNextPage->pstNext;
+						pstNextPage->pstNext = pstFreedPage;
+						pstPrevPage1 = pstNextPage;
+					}
+
+					goto __lblMerge;
+				}
+
+				pstPrevPage2 = pstNextPage;
+				pstNextPage = pstNextPage->pstNext;
+			}
+		}
 	}    
 	//os_thread_mutex_unlock(l_hMtxMMUBuddy);
     os_exit_critical();

@@ -335,6 +335,7 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
     }
 
     //* 完成实际的发送
+    pstLink->stLocal.unSeqNum = 0; 
     pstLink->bState = TLSSYNSENT;
     INT nRtnVal = tcp_send_packet(pstLink, pstHandle->unNetifIp, pstHandle->usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, 
 #if SUPPORT_SACK

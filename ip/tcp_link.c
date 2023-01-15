@@ -175,7 +175,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     {
         tcp_link_free(pstFreeNode); 
         return NULL; 
-    }
+    }    
     pstFreeNode->stcbSend.unWriteBytes = 0; 
     pstFreeNode->stcbSend.bNext = -1; 
     pstFreeNode->stcbSend.bSendPacketNum = 0; 
@@ -201,8 +201,8 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
 void tcp_link_free(PST_TCPLINK pstTcpLink)
 {    
 #if SUPPORT_SACK
-    if (pstTcpLink->stcbSend.pubSndBuf)
-        buddy_free(pstTcpLink->stcbSend.pubSndBuf); 
+    if (pstTcpLink->stcbSend.pubSndBuf)            
+        buddy_free(pstTcpLink->stcbSend.pubSndBuf);            
 #endif
 
     os_thread_mutex_lock(l_hMtxTcpLinkList);
