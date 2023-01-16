@@ -172,8 +172,7 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
             l_staArea[i].pstFreed = pstPage->pstNext; 
             pstPage->pstNext = l_staArea[i].pstUsed; 
             l_staArea[i].pstUsed = pstPage;
-
-            printf("+%p, %u\r\n", pstPage->pubStart, unSize);
+            
             os_exit_critical();
 
             return pstPage->pubStart;
@@ -245,9 +244,7 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
             if (nAreaIdx == i - 1) 
             {
                 pstPage->pstNext = pstArea->pstUsed;
-                pstArea->pstUsed = pstPage;
-
-                printf("+%p, %u\r\n", pstPage->pubStart, unSize);
+                pstArea->pstUsed = pstPage;               
 
                 os_exit_critical();
 
@@ -298,15 +295,19 @@ static void buddy_insert_freed_page(PST_BUDDY_AREA pstArea, PST_BUDDY_PAGE pstFr
                     pstArea->pstFreed = pstFreedPage;
 
                 }
-                break;
+                return; 
             }
+
+            pstPrevPage = pstNextPage; 
+            pstNextPage = pstNextPage->pstNext;
         }
+
+        //* 放到尾部
+        pstPrevPage->pstNext = pstFreedPage;
     }
-    else
-    {
-        pstArea->pstFreed = pstFreedPage;
-        pstFreedPage->pstNext = NULL;
-    }
+    else    
+        pstArea->pstFreed = pstFreedPage;            
+    pstFreedPage->pstNext = NULL;
 }
 
 BOOL buddy_free(void *pvStart)
@@ -341,7 +342,7 @@ BOOL buddy_free(void *pvStart)
 
                         pstArea = &l_staArea[i];
                         //pstNextPage->blIsUsed = FALSE;
-                        goto __lblMergeRef;
+                        goto __lblMerge;
                     }
 
                     pstPrevPage = pstNextPage;
@@ -354,9 +355,6 @@ BOOL buddy_free(void *pvStart)
 
 		//* 如果上层调用者擅自修改了分配的起始地址，那么释放就会失败,所以只要释放失败就是这个问题        
 		return FALSE; 
-
-    __lblMergeRef: 
-        printf("-%p\r\n", pvStart);
 
 		//* 合并操作
     __lblMerge:        		

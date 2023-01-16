@@ -656,7 +656,7 @@ static void tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum)
                     }
 
                     //* 重发dup ack的数据块
-                    tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, pstSendTimer->unLeft);
+                    tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, pstSendTimer->unLeft + 1);
                     buddy_free(pubData);
 
                     //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
@@ -1271,34 +1271,25 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
 }
 
 static void tcp_link_ack_handler(PST_TCPLINK pstLink)
-{    
-    CHAR bPacketIdx = 0; 
+{        
     tcp_send_timer_lock();
     {
-        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer; 
-        PSTCB_TCPSENDTIMER pstSendTimerPrev = NULL; 
+        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;         
         while (pstSendTimer)
         {
-            bPacketIdx++; 
-
-            //* 确认序号相等，说明当前报文已经成功送达对端
-            if (pstSendTimer->unRight == pstLink->stLocal.unSeqNum - 1)
-            {
-                //* 从当前链表队列中删除
-                if (pstSendTimerPrev)
-                    pstSendTimerPrev->pstcbNextForLink = pstSendTimer->pstcbNextForLink;
-                else
-                    pstLink->stcbSend.pstcbSndTimer = pstSendTimer->pstcbNextForLink;
-                pstLink->stcbSend.bSendPacketNum--; 
-
-                tcp_send_timer_node_del_unsafe(pstSendTimer);   //* 从定时器队列中删除当前节点                
-                tcp_send_timer_node_free_unsafe(pstSendTimer);  //* 归还当前节点
-
+            //* 大于确认序号，说明这之后的数据尚未成功送达对端，退出循环不再继续查找剩下的了
+            if (pstSendTimer->unRight > pstLink->stLocal.unSeqNum - 1)
                 break; 
-            }            
 
-            pstSendTimerPrev = pstSendTimer;
-            pstSendTimer = pstSendTimer->pstcbNext;
+            //* 执行到这里，说明当前报文已经成功送达对端，从当前链表队列中删除                        
+            pstLink->stcbSend.pstcbSndTimer = pstSendTimer->pstcbNextForLink;
+            pstLink->stcbSend.bSendPacketNum--;
+
+            tcp_send_timer_node_del_unsafe(pstSendTimer);   //* 从定时器队列中删除当前节点                
+            tcp_send_timer_node_free_unsafe(pstSendTimer);  //* 归还当前节点            
+
+            //* 继续取出下一个节点            
+            pstSendTimer = pstSendTimer->pstcbNextForLink;
         }
     }
     tcp_send_timer_unlock();    
