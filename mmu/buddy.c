@@ -224,31 +224,29 @@ void *buddy_alloc(UINT unSize, EN_ONPSERR *penErr)
 			FreePageNode(pstPage); 
 
 			//* 挂载到页块尾部
+            pstPage = pstFreePage1;
 			pstNextPage = pstArea->pstFreed;
-			if (!pstNextPage)
-			{
-				pstArea->pstFreed = pstFreePage1;
-				pstFreePage1->pstNext = pstFreePage2;
-				pstPage = pstFreePage1;				
-			}
+			if (!pstNextPage)			
+				pstArea->pstFreed = pstFreePage2;			
 			else
 			{
 				do {
 					if (!pstNextPage->pstNext)
 					{
-						pstNextPage->pstNext = pstFreePage1;
-						pstFreePage1->pstNext = pstFreePage2;
-						pstPage = pstFreePage1;
+						pstNextPage->pstNext = pstFreePage2;						
 						break;
 					}
 
 					pstNextPage = pstNextPage->pstNext;
 				} while (TRUE);
 			}
-
+            
             //* 是否分裂完成
-            if (nAreaIdx == i - 1)
+            if (nAreaIdx == i - 1) 
             {
+                pstPage->pstNext = pstArea->pstUsed;
+                pstArea->pstUsed = pstPage;
+
                 printf("+%p, %u\r\n", pstPage->pubStart, unSize);
 
                 os_exit_critical();
