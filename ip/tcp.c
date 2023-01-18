@@ -1186,24 +1186,24 @@ __lblErr:
 static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
 {
     UINT unStartSeqNum = pstLink->stLocal.unSeqNum - 1;
-    STCB_TCPSENDTIMER **ppstSendTimer = (STCB_TCPSENDTIMER **)&pstLink->stcbSend.pstcbSndTimer;
-    PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;        
+    STCB_TCPSENDTIMER **ppstcbSndTimer = (STCB_TCPSENDTIMER **)&pstLink->stcbSend.pstcbSndTimer;
+    PSTCB_TCPSENDTIMER pstcbSndTimer = pstLink->stcbSend.pstcbSndTimer;        
     CHAR i; 
     for (i = 0; i < pstLink->stcbSend.bSendPacketNum; i++)
     {
-        unStartSeqNum = pstSendTimer->unRight;
-        ppstSendTimer = (STCB_TCPSENDTIMER **)&pstSendTimer->pstcbNextForLink;
-        pstSendTimer = pstSendTimer->pstcbNextForLink; 
+        unStartSeqNum = pstcbSndTimer->unRight;
+        ppstcbSndTimer = (STCB_TCPSENDTIMER **)&pstcbSndTimer->pstcbNextForLink;
+        pstcbSndTimer = pstcbSndTimer->pstcbNextForLink; 
     }
     
     //* 存在数据
     if (pstLink->stcbSend.unWriteBytes != unStartSeqNum)
     {
-        *ppstSendTimer = tcp_send_timer_node_get();
-        if (NULL != *ppstSendTimer)
+        *ppstcbSndTimer = tcp_send_timer_node_get();
+        if (NULL != *ppstcbSndTimer)
         {
-            pstSendTimer = *ppstSendTimer; 
-            pstSendTimer->pstLink = pstLink; 
+            pstcbSndTimer = *ppstcbSndTimer; 
+            pstcbSndTimer->pstLink = pstLink; 
 
             //* 看看剩余数据是否超出了pstLink->stPeer.usMSS参数指定的长度
             UINT unCpyBytes = pstLink->stcbSend.unWriteBytes - unStartSeqNum; 
@@ -1213,11 +1213,11 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
             UCHAR *pubData = (UCHAR *)buddy_alloc(unCpyBytes, &enErr);
             if (pubData)
             {
-                pstSendTimer->unLeft = unStartSeqNum; 
-                pstSendTimer->unRight = unStartSeqNum + unCpyBytes;
+                pstcbSndTimer->unLeft = unStartSeqNum; 
+                pstcbSndTimer->unRight = unStartSeqNum + unCpyBytes;
 
-                UINT unStartReadIdx = pstSendTimer->unLeft % TCPSNDBUF_SIZE;
-                UINT unEndReadIdx = pstSendTimer->unRight % TCPSNDBUF_SIZE;
+                UINT unStartReadIdx = pstcbSndTimer->unLeft % TCPSNDBUF_SIZE;
+                UINT unEndReadIdx = pstcbSndTimer->unRight % TCPSNDBUF_SIZE;
                 if (unEndReadIdx > unStartReadIdx)
                     memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unEndReadIdx - unStartReadIdx);
                 else
@@ -1225,12 +1225,12 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                     UINT unCpyBytes = TCPSNDBUF_SIZE - unStartReadIdx;
                     memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unCpyBytes);
                     memcpy(pubData + unCpyBytes, pstLink->stcbSend.pubSndBuf, unEndReadIdx);
-                }
+                }                
                 
                 //* 计时并将其放入发送定时器队列
-                pstSendTimer->unSendMSecs = os_get_system_msecs();
-                pstSendTimer->usRto = RTO; 
-                tcp_send_timer_node_put(pstSendTimer);
+                pstcbSndTimer->unSendMSecs = os_get_system_msecs();
+                pstcbSndTimer->usRto = RTO; 
+                tcp_send_timer_node_put(pstcbSndTimer);
                 pstLink->stcbSend.bSendPacketNum++; 
 
                 //* 发送数据                
@@ -1249,7 +1249,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
             #endif
         #endif
 
-                tcp_send_timer_node_free(pstSendTimer);
+                tcp_send_timer_node_free(pstcbSndTimer);
             }
         }
         else
@@ -1276,9 +1276,9 @@ static void tcp_link_ack_handler(PST_TCPLINK pstLink)
     {
         PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;         
         while (pstSendTimer)
-        {
-            //* 大于确认序号，说明这之后的数据尚未成功送达对端，退出循环不再继续查找剩下的了
-            if (pstSendTimer->unRight > pstLink->stLocal.unSeqNum - 1)
+        {            
+            //* 已发送数据在确认序号之后，说明这之后的数据尚未成功送达对端，退出循环不再继续查找剩下的了
+            if (uint_after(pstSendTimer->unRight, pstLink->stLocal.unSeqNum - 1))
                 break; 
 
             //* 执行到这里，说明当前报文已经成功送达对端，从当前链表队列中删除                        
