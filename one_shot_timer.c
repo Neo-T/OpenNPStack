@@ -195,6 +195,9 @@ void thread_one_shot_timer_count(void *pvParam)
                 pstcbTcpSndTimer = tcp_send_timer_get_next(pstcbTcpSndTimer);
                 if (pstcbTcpSndTimer)
                 {
+                    if (pstcbTcpSndTimer->pstLink->bState != TLSCONNECTED)
+                        continue; 
+
                     //* 是否大于RTO，大于rto则重新发送之
                     if (os_get_system_msecs() - pstcbTcpSndTimer->unSendMSecs > (UINT)pstcbTcpSndTimer->usRto)
                     {

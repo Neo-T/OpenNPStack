@@ -82,16 +82,16 @@ void close(SOCKET socket)
 }
 
 static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
-{    
+{        
     if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout) > 0)
-    {    
+    {            
 __lblWait: 
         //* 等待信号到达：超时或者收到syn ack同时本地回馈的syn ack的ack发送成功
         if (os_thread_sem_pend(hSem, 0) < 0)
         {
             onps_set_last_error((INT)socket, ERRINVALIDSEM);
             return -1;
-        }
+        }        
 
         EN_ONPSERR enErr;
         EN_TCPLINKSTATE enLinkState;
@@ -99,10 +99,10 @@ __lblWait:
         {
             onps_set_last_error((INT)socket, enErr);
             return -1;
-        }
+        }        
 
         if (TLSSYNSENT == enLinkState)
-            goto __lblWait; 
+            goto __lblWait;         
 
         switch (enLinkState)
         {
@@ -194,7 +194,7 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
             }
             else
                 goto __lblErr;
-        }
+        }        
 
         if (nConnTimeout > 0)
         {
@@ -205,7 +205,7 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
             {
                 enErr = ERRINVALIDSEM;
                 goto __lblErr;
-            }
+            }            
 
             return socket_tcp_connect(socket, hSem, srv_ip, srv_port, nConnTimeout);
         }

@@ -67,7 +67,7 @@ static void tcp_ack_timeout_handler(void *pvParam)
         }
         else
             pstLink->bState = TLSACKTIMEOUT;       		
-
+                
 		if (pstLink->stcbWaitAck.bRcvTimeout)					
 			onps_input_sem_post(pstLink->stcbWaitAck.nInput);
     }
@@ -327,7 +327,7 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
     //* 加入定时器队列
     pstLink->stcbWaitAck.bRcvTimeout = nConnTimeout; 
     pstLink->stcbWaitAck.bIsAcked = FALSE;
-    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT);
+    pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_ack_timeout_handler, pstLink, nConnTimeout ? nConnTimeout : TCP_CONN_TIMEOUT);        
     if (!pstLink->stcbWaitAck.pstTimer)
     {
         onps_set_last_error(nInput, ERRNOIDLETIMER);
