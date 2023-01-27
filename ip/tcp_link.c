@@ -207,15 +207,17 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
     //* 释放占用的send timer
     tcp_send_timer_lock();
     {
-        PSTCB_TCPSENDTIMER pstSendTimer = pstTcpLink->stcbSend.pstcbSndTimer;
-        while (pstSendTimer)
-        {                        
-            tcp_send_timer_node_del_unsafe(pstSendTimer);   //* 从定时器队列中删除当前节点                
-            tcp_send_timer_node_free_unsafe(pstSendTimer);  //* 归还当前节点            
-                                                                        
-            pstSendTimer = pstSendTimer->pstcbNextForLink;  //* 继续取出下一个节点
+        PSTCB_TCPSENDTIMER pstNextSendTimer = pstTcpLink->stcbSend.pstcbSndTimer;
+        PSTCB_TCPSENDTIMER pstSendTimer; 
+        while (pstNextSendTimer)
+        {                
+            pstSendTimer = pstNextSendTimer; 
+            pstNextSendTimer = pstNextSendTimer->pstcbNextForLink;  //* 继续取出下一个节点
+            tcp_send_timer_node_del_unsafe(pstSendTimer);           //* 从定时器队列中删除当前节点                
+            tcp_send_timer_node_free_unsafe(pstSendTimer);          //* 归还当前节点                                                                                               
         }
     }
+    pstTcpLink->stcbSend.pstcbSndTimer = NULL; 
     tcp_send_timer_unlock();   
 #endif
 
