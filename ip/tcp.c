@@ -232,7 +232,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     //* 发送之
     INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, TCP, IP_TTL_DEFAULT, sBufListHead, penErr);
 #if SUPPORT_SACK
-    pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes;
+    if (!blIsSpecSeqNum)
+        pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes;
 #endif
     onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
@@ -262,7 +263,7 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
     INT nRtnVal = tcp_send_packet(pstLink, unNetifIp, usSrcPort, pstLink->stPeer.stAddr.unIp, pstLink->stPeer.stAddr.usPort, 
                                     uniFlag, NULL, 0, NULL, 0, 
 #if SUPPORT_SACK
-        TRUE, pstLink->stPeer.unSeqNum,
+        TRUE, pstLink->stLocal.unSeqNum, 
 #endif
         &enErr);
     if (nRtnVal > 0)
@@ -1197,8 +1198,8 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
     }
     
     //* 存在数据
-    if (pstLink->stcbSend.unWriteBytes != unStartSeqNum)
-    {
+    if (uint_before(unStartSeqNum, pstLink->stcbSend.unWriteBytes))
+    {        
         *ppstcbSndTimer = tcp_send_timer_node_get();
         if (NULL != *ppstcbSndTimer)
         {
@@ -1234,7 +1235,13 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 pstLink->stcbSend.bSendPacketNum++; 
 
                 //* 发送数据                
-                tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
+                if (pstLink->stLocal.unHasSndBytes + 1 < 3665 || pstLink->stLocal.unHasSndBytes + 1 > 5497)
+                    tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
+                else
+                    pstLink->stLocal.unHasSndBytes += unCpyBytes;
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d, %d, %d\r\n", unStartSeqNum, pstLink->stLocal.unHasSndBytes + 1, pstLink->stcbSend.unWriteBytes);
+                os_thread_mutex_unlock(o_hMtxPrintf);
                 buddy_free(pubData);                
             }
             else

@@ -23,6 +23,7 @@
 
 using namespace std;
 
+#define FOR_TCP_SACK_TEST   1       //* 是否用于测试tcp sack，一旦打开这个选项，服务器将被动等待客户端上发的报文，而不会主动清理不活跃的客户端
 #define SEND_CTL_DATA_EN    1       //* 下发控制指令使能宏
 #define SRV_PORT            6410    //* 服务器端口
 #define LISTEN_NUM          10      //* 最大监听数
@@ -59,6 +60,7 @@ BOOL WINAPI ConsoleCtrlHandler(DWORD dwEvent)
     l_blIsRunning = FALSE;    
     return TRUE;
 }
+
 static BOOL init(void)
 {
     thread_lock_init(&l_thLockClients);
@@ -86,8 +88,10 @@ static void uninit(void)
     for (; iter != l_umstClients.end(); iter++)
     {
         closesocket(iter->second.hClient); 
+    #if !FOR_TCP_SACK_TEST
         if (iter->second.objTHSender.joinable())
             iter->second.objTHSender.join();        
+    #endif
     }
 
     if (INVALID_SOCKET != l_hSocketSrv)
@@ -103,8 +107,10 @@ void ClearClient(PST_TCPCLIENT pstClient, fd_set *pfdsRead, fd_set *pfdsExceptio
     FD_CLR(pstClient->hClient, pfdsException);            
 
     (*pIter)->second.blTHIsRunning = FALSE;
+#if !FOR_TCP_SACK_TEST
     if ((*pIter)->second.objTHSender.joinable())
         (*pIter)->second.objTHSender.join();        
+#endif
     *pIter = l_umstClients.erase(*pIter);
 
     //* 确定当前SOCKET是不是最大值,如果是则需要重新比较当前所有已连接客户端以获取最新的最大值
@@ -391,8 +397,10 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
     atoPair.first->second.bLinkIdx = l_bLinkIdx++; 
     atoPair.first->second.blTHIsRunning = TRUE; 
 
+#if !FOR_TCP_SACK_TEST
 #if SEND_CTL_DATA_EN
     atoPair.first->second.objTHSender = thread(THSender, hClient, pfdsRead, pfdsException); 
+#endif
 #endif
 
     return TRUE; 
@@ -490,7 +498,9 @@ int main()
         }
         thread_lock_leave(&l_thLockClients);        
 
+#if !FOR_TCP_SACK_TEST
         ScanInactiveClients(&fdsRead, &fdsException);
+#endif
     }    
 
     uninit(); 
