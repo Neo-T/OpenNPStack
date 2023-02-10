@@ -127,6 +127,7 @@ typedef struct _ST_TCPLINK_ {
         CHAR bDupAckNum; 
         UINT unWriteBytes;  
         UINT unPrevSeqNum;
+        UINT unLastSackMilliSecs; 
         //UINT unRetransSeqNum; 
         struct {
             UINT unLeft; 

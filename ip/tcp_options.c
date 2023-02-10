@@ -186,8 +186,8 @@ CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
         {
             if (TCPOPT_SACKINFO == enType)
             {
-                PST_TCPOPT_HDR pstOptHdr = (PST_TCPOPT_HDR)pubOptions; 
-                PST_TCPOPT_SACKINFO_ITEM pstItem = (PST_TCPOPT_SACKINFO_ITEM)(pubOptions + sizeof(ST_TCPOPT_HDR));
+                PST_TCPOPT_HDR pstOptHdr = (PST_TCPOPT_HDR)pubCurOption;
+                PST_TCPOPT_SACKINFO_ITEM pstItem = (PST_TCPOPT_SACKINFO_ITEM)(pubCurOption + sizeof(ST_TCPOPT_HDR));
                 INT nInfoLen = (INT)(pstOptHdr->ubLen - sizeof(ST_TCPOPT_HDR)); 
                 if (nInfoLen > 32)
                 {
@@ -205,8 +205,8 @@ CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
                 CHAR bWriteIdx = 0; 
                 while (nInfoLen > 0)
                 {
-                    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstItem->unLeft; 
-                    pstLink->stcbSend.staSack[bWriteIdx].unRight = pstItem->unRight; 
+                    pstLink->stcbSend.staSack[bWriteIdx].unLeft = htonl(pstItem->unLeft);
+                    pstLink->stcbSend.staSack[bWriteIdx].unRight = htonl(pstItem->unRight);
                     pstItem++; 
                     bWriteIdx++;
                     nInfoLen -= (INT)sizeof(ST_TCPOPT_SACKINFO_ITEM);                     

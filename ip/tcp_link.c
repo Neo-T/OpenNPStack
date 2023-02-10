@@ -182,6 +182,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     pstFreeNode->stcbSend.bDupAckNum = 0; 
     pstFreeNode->stcbSend.unPrevSeqNum = 1; 
     //pstFreeNode->stcbSend.unRetransSeqNum = 0; 
+    pstFreeNode->stcbSend.unLastSackMilliSecs = 0; 
     pstFreeNode->stcbSend.bIsPutted = FALSE; 
     memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));
 #endif
