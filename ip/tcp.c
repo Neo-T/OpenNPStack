@@ -637,18 +637,18 @@ static BOOL tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum, 
 
     tcp_send_timer_lock();
     {
-        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;
-        while (pstSendTimer)
+        PSTCB_TCPSENDTIMER pstcbSndTimer = pstLink->stcbSend.pstcbSndTimer;
+        while (pstcbSndTimer)
         {
-            if (pstSendTimer->unLeft == unRetransSeqNum - 1)
+            if (pstcbSndTimer->unLeft == unRetransSeqNum - 1)
             {
                 //* 取出数据重新发送
                 EN_ONPSERR enErr;
-                UCHAR *pubData = (UCHAR *)buddy_alloc(pstSendTimer->unRight - pstSendTimer->unLeft, &enErr);
+                UCHAR *pubData = (UCHAR *)buddy_alloc(pstcbSndTimer->unRight - pstcbSndTimer->unLeft, &enErr);
                 if (pubData)
                 {
-                    UINT unStartReadIdx = pstSendTimer->unLeft % TCPSNDBUF_SIZE;
-                    UINT unEndReadIdx = pstSendTimer->unRight % TCPSNDBUF_SIZE;
+                    UINT unStartReadIdx = pstcbSndTimer->unLeft % TCPSNDBUF_SIZE;
+                    UINT unEndReadIdx = pstcbSndTimer->unRight % TCPSNDBUF_SIZE;
                     if (unEndReadIdx > unStartReadIdx)
                         memcpy(pubData, pstLink->stcbSend.pubSndBuf + unStartReadIdx, unEndReadIdx - unStartReadIdx);
                     else
@@ -658,14 +658,18 @@ static BOOL tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum, 
                         memcpy(pubData + unCpyBytes, pstLink->stcbSend.pubSndBuf, unEndReadIdx);
                     }
 
+                    os_thread_mutex_lock(o_hMtxPrintf);
+                    printf("######################################%d\r\n", pstcbSndTimer->unLeft + 1);
+                    os_thread_mutex_unlock(o_hMtxPrintf);
+
                     //* 重发dup ack的数据块
-                    tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstSendTimer->unRight - pstSendTimer->unLeft, pstSendTimer->unLeft + 1);
+                    tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstcbSndTimer->unRight - pstcbSndTimer->unLeft, pstcbSndTimer->unLeft + 1);
                     buddy_free(pubData);
 
                     //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
-                    pstSendTimer->unSendMSecs = os_get_system_msecs();
-                    tcp_send_timer_node_del_unsafe(pstSendTimer);
-                    tcp_send_timer_node_put_unsafe(pstSendTimer);
+                    pstcbSndTimer->unSendMSecs = os_get_system_msecs();
+                    tcp_send_timer_node_del_unsafe(pstcbSndTimer);
+                    tcp_send_timer_node_put_unsafe(pstcbSndTimer);
 
                     //os_critical_init();
                     //os_enter_critical();
@@ -686,14 +690,14 @@ static BOOL tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum, 
                 }
 
                 if(punSndTimerRight)
-                    *punSndTimerRight = pstSendTimer->unRight + 1;
+                    *punSndTimerRight = pstcbSndTimer->unRight + 1;
 
                 blRtnVal = TRUE;
 
                 break;
             }
 
-            pstSendTimer = pstSendTimer->pstcbNextForLink;
+            pstcbSndTimer = pstcbSndTimer->pstcbNextForLink;
         }
     }
     tcp_send_timer_unlock();
@@ -726,8 +730,8 @@ static void tcp_link_sack_handler(PST_TCPLINK pstLink, CHAR bSackNum)
     {        
         UINT unSndTimerRight;
 
-        //* 先判断sack范围是否合理
-        if (uint_after(pstLink->stcbSend.staSack[i].unLeft, unStartSeq) && uint_after(pstLink->stcbSend.staSack[i].unRight - 1, pstLink->stcbSend.unWriteBytes))
+        //* 先判断sack范围是否合理       
+        if (uint_after(pstLink->stcbSend.staSack[i].unLeft, unStartSeq) && !uint_after(pstLink->stcbSend.staSack[i].unRight - 1, pstLink->stcbSend.unWriteBytes))
         {    
             //unStartSeq = pstLink->stcbSend.staSack[i].unLeft; 
             do {
@@ -739,6 +743,10 @@ static void tcp_link_sack_handler(PST_TCPLINK pstLink, CHAR bSackNum)
 
         unStartSeq = pstLink->stcbSend.staSack[i].unRight;
     }
+
+    os_thread_mutex_lock(o_hMtxPrintf);
+    printf("end######################################\r\n");
+    os_thread_mutex_unlock(o_hMtxPrintf);
 }
 #endif
 
@@ -969,9 +977,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }            
 
         #if SUPPORT_SACK
-            //* 看看是否存在sack选项              
-            if (pstLink->stLocal.unHasSndBytes > 5496 && os_get_system_msecs() - pstLink->stcbSend.unLastSackMilliSecs > RTO && nTcpHdrLen > sizeof(ST_TCP_HDR))
-            {
+            //* 看看是否存在sack选项                          
+            if (pstLink->stLocal.unHasSndBytes > 4580 && os_get_system_msecs() - pstLink->stcbSend.unLastSackMilliSecs > RTO && nTcpHdrLen > sizeof(ST_TCP_HDR))
+            {                
                 CHAR bSackNum = tcp_options_get_sack(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
                 if (bSackNum)
                 {
@@ -980,11 +988,14 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 }
             }
 
+            os_thread_mutex_lock(o_hMtxPrintf);
+            printf("%d : %d : %d\r\n", unSrcAckNum, pstLink->stcbSend.unPrevSeqNum, (UINT)pstLink->stcbSend.bDupAckNum);
+            os_thread_mutex_unlock(o_hMtxPrintf);
             if (unSrcAckNum == pstLink->stcbSend.unPrevSeqNum) //* 记录dup ack数量
             {
                 pstLink->stcbSend.bDupAckNum++;                
-                if (pstLink->stcbSend.bDupAckNum > 4)
-                {
+                if (pstLink->stcbSend.bDupAckNum > 4/*3*/)
+                {                    
                     tcp_link_fast_retransmit(pstLink, unSrcAckNum, NULL); 
                     pstLink->stcbSend.bDupAckNum = 0; 
                 }                
@@ -1252,7 +1263,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 pstLink->stcbSend.bSendPacketNum++; 
 
                 //* 发送数据                
-                if (pstLink->stLocal.unHasSndBytes + 1 != 1833 && pstLink->stLocal.unHasSndBytes + 1 != 3665)
+                if (pstLink->stLocal.unHasSndBytes + 1 != 1833 && pstLink->stLocal.unHasSndBytes + 1 != 3665 && pstLink->stLocal.unHasSndBytes + 1 != 5497)
                     tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
                 else
                     pstLink->stLocal.unHasSndBytes += unCpyBytes;

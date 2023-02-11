@@ -164,6 +164,23 @@ void tcp_options_get(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
 }
 
 #if SUPPORT_SACK
+void sack_sort_asc(PST_TCPSACK pstSack1, PST_TCPSACK pstSack2)
+{
+    UINT unLeft, unRight; 
+
+    if (uint_after(pstSack1->unLeft, pstSack2->unLeft))
+    {
+        unLeft = pstSack1->unLeft;
+        unRight = pstSack1->unRight;
+
+        pstSack1->unLeft = pstSack2->unLeft;
+        pstSack1->unRight = pstSack2->unRight;
+
+        pstSack2->unLeft = unLeft;
+        pstSack2->unRight = unRight;
+    }
+}
+
 CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLen)
 {
     INT nReadBytes = 0;
@@ -214,7 +231,28 @@ CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
 
                 //* 清零
                 //for (; bWriteIdx < TCPSENDTIMER_NUM; bWriteIdx++)
-                //    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstLink->stcbSend.staSack[bWriteIdx].unRight = 0; 
+                //    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstLink->stcbSend.staSack[bWriteIdx].unRight = 0;                 
+
+                //* 升序排序                
+                if (bWriteIdx == 2)
+                {
+                    sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[1]);
+                }
+                else if(bWriteIdx > 2)
+                {
+                    //* 1) 0 <--> 1，2 <--> 3 
+                    sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[1]);
+                    if(bWriteIdx == 4)
+                        sack_sort_asc(&pstLink->stcbSend.staSack[2], &pstLink->stcbSend.staSack[3]);
+
+                    //* 2) 0 <--> 2，1 <--> 3
+                    sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[2]);
+                    if (bWriteIdx == 4)
+                        sack_sort_asc(&pstLink->stcbSend.staSack[1], &pstLink->stcbSend.staSack[3]);
+
+                    //* 3) 1 <--> 2
+                    sack_sort_asc(&pstLink->stcbSend.staSack[1], &pstLink->stcbSend.staSack[2]);
+                }
 
                 return bWriteIdx;
             }

@@ -198,9 +198,9 @@ void thread_one_shot_timer_count(void *pvParam)
                     if (pstcbTcpSndTimer->pstLink->bState != TLSCONNECTED)
                         continue; 
 
-                    //* 是否大于RTO，大于rto则重新发送之
+                    //* 是否大于RTO，大于rto则重新发送之                    
                     if (os_get_system_msecs() - pstcbTcpSndTimer->unSendMSecs > (UINT)pstcbTcpSndTimer->usRto)
-                    {
+                    {                        
                         //* 重新发送数据
                         EN_ONPSERR enErr;
                         UCHAR *pubData = (UCHAR *)buddy_alloc(pstcbTcpSndTimer->unRight - pstcbTcpSndTimer->unLeft, &enErr); 

@@ -75,7 +75,14 @@ typedef struct _ST_TCPBACKLOG__ {
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 typedef struct _STCB_TCPSENDTIMER_ STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER; 
+
 PACKED_BEGIN
+#if SUPPORT_SACK
+typedef struct _ST_TCPSACK_ {
+    UINT unLeft;
+    UINT unRight;
+} PACKED ST_TCPSACK, *PST_TCPSACK;
+#endif
 typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;
@@ -129,10 +136,7 @@ typedef struct _ST_TCPLINK_ {
         UINT unPrevSeqNum;
         UINT unLastSackMilliSecs; 
         //UINT unRetransSeqNum; 
-        struct {
-            UINT unLeft; 
-            UINT unRight; 
-        } PACKED staSack[TCPSENDTIMER_NUM];        
+        ST_TCPSACK staSack[TCPSENDTIMER_NUM];
         UCHAR *pubSndBuf; 
         STCB_TCPSENDTIMER *pstcbSndTimer;
     } PACKED stcbSend; //* 发送控制块
