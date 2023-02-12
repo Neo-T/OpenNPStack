@@ -199,7 +199,7 @@ void thread_one_shot_timer_count(void *pvParam)
                         continue; 
 
                     //* 是否大于RTO，大于rto则重新发送之                    
-                    if (os_get_system_msecs() - pstcbTcpSndTimer->unSendMSecs > (UINT)pstcbTcpSndTimer->usRto)
+                    if (os_get_system_msecs() - pstcbTcpSndTimer->unSendMSecs > (UINT)pstcbTcpSndTimer->usRto && pstcbTcpSndTimer->bIsNotSacked)
                     {                        
                         //* 重新发送数据
                         EN_ONPSERR enErr;
@@ -227,6 +227,7 @@ void thread_one_shot_timer_count(void *pvParam)
 
                             //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
                             pstcbTcpSndTimer->unSendMSecs = os_get_system_msecs();
+                            pstcbTcpSndTimer->bIsNotSacked = TRUE; 
                             tcp_send_timer_node_del_unsafe(pstcbTcpSndTimer);
                             tcp_send_timer_node_put_unsafe(pstcbTcpSndTimer);
 

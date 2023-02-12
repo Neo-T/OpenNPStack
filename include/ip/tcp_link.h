@@ -133,12 +133,11 @@ typedef struct _ST_TCPLINK_ {
         CHAR bIsPutted; 
         CHAR bDupAckNum; 
         UINT unWriteBytes;  
-        UINT unPrevSeqNum;
-        UINT unLastSackMilliSecs; 
+        UINT unPrevSeqNum;        
         //UINT unRetransSeqNum; 
         ST_TCPSACK staSack[TCPSENDTIMER_NUM];
         UCHAR *pubSndBuf; 
-        STCB_TCPSENDTIMER *pstcbSndTimer;
+        STCB_TCPSENDTIMER *pstcbSndTimer;        
     } PACKED stcbSend; //* 发送控制块
 #endif
 
@@ -164,6 +163,7 @@ typedef struct _STCB_TCPSENDTIMER_ {
     struct _STCB_TCPSENDTIMER_ *pstcbNext;
     PST_TCPLINK pstLink; 
     USHORT usRto;
+    CHAR bIsNotSacked; 
 } PACKED STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
 PACKED_END
 #endif

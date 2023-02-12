@@ -181,10 +181,9 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     pstFreeNode->stcbSend.bSendPacketNum = 0; 
     pstFreeNode->stcbSend.bDupAckNum = 0; 
     pstFreeNode->stcbSend.unPrevSeqNum = 1; 
-    //pstFreeNode->stcbSend.unRetransSeqNum = 0; 
-    pstFreeNode->stcbSend.unLastSackMilliSecs = 0; 
+    //pstFreeNode->stcbSend.unRetransSeqNum = 0;     
     pstFreeNode->stcbSend.bIsPutted = FALSE; 
-    memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));
+    memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));    
 #endif
 
     pstFreeNode->bState = TLSINIT;
@@ -321,6 +320,7 @@ PSTCB_TCPSENDTIMER tcp_send_timer_node_get(void)
             l_pstcbSListSndTimerFreed = l_pstcbSListSndTimerFreed->pstcbNext;
             pstcbNode->pstcbNext = NULL; 
             pstcbNode->pstcbNextForLink = NULL; 
+            pstcbNode->bIsNotSacked = TRUE; 
         }
     }
     os_thread_mutex_unlock(l_hMtxSndTimerLink);

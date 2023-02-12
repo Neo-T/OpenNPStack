@@ -227,31 +227,48 @@ CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
                     pstItem++; 
                     bWriteIdx++;
                     nInfoLen -= (INT)sizeof(ST_TCPOPT_SACKINFO_ITEM);                     
-                }
+                }                                                              
 
                 //* 清零
                 //for (; bWriteIdx < TCPSENDTIMER_NUM; bWriteIdx++)
                 //    pstLink->stcbSend.staSack[bWriteIdx].unLeft = pstLink->stcbSend.staSack[bWriteIdx].unRight = 0;                 
 
                 //* 升序排序                
-                if (bWriteIdx == 2)
+                /*if (bWriteIdx == 2)
                 {
                     sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[1]);
                 }
-                else if(bWriteIdx > 2)
+                else */if(bWriteIdx > 1/*2*/)
                 {
-                    //* 1) 0 <--> 1，2 <--> 3 
+                    //* 确定是否为d-sack，判断依据如下：
+                    //* 1) 第一个不连续块被ack序号覆盖；
+                    //* 2）第一个不连续块被第二个不连续块覆盖；
+                    //* 看看是否被ack范围覆盖，如果覆盖则说明这是一个d-sack，从第二段开始重发数据
+                    if (uint_before(pstLink->stcbSend.staSack[0].unLeft, pstLink->stLocal.unSeqNum) ||
+                        (!uint_after(pstLink->stcbSend.staSack[0].unRight, pstLink->stcbSend.staSack[1].unRight)
+                            && !uint_before(pstLink->stcbSend.staSack[0].unLeft, pstLink->stcbSend.staSack[1].unLeft))
+                        )
+                    {
+                        bWriteIdx--;
+                        memmove(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[1], sizeof(ST_TCPSACK) * bWriteIdx);
+                    }
+
+                    //* 1) 0 <--> 1，如果4个sack则2 <--> 3 
                     sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[1]);
-                    if(bWriteIdx == 4)
-                        sack_sort_asc(&pstLink->stcbSend.staSack[2], &pstLink->stcbSend.staSack[3]);
+                    if (bWriteIdx > 2)
+                    {
+                        //* 2 <--> 3 
+                        if (bWriteIdx == 4)
+                            sack_sort_asc(&pstLink->stcbSend.staSack[2], &pstLink->stcbSend.staSack[3]);
 
-                    //* 2) 0 <--> 2，1 <--> 3
-                    sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[2]);
-                    if (bWriteIdx == 4)
-                        sack_sort_asc(&pstLink->stcbSend.staSack[1], &pstLink->stcbSend.staSack[3]);
+                        //* 2) 0 <--> 2，1 <--> 3
+                        sack_sort_asc(&pstLink->stcbSend.staSack[0], &pstLink->stcbSend.staSack[2]);
+                        if (bWriteIdx == 4)
+                            sack_sort_asc(&pstLink->stcbSend.staSack[1], &pstLink->stcbSend.staSack[3]);
 
-                    //* 3) 1 <--> 2
-                    sack_sort_asc(&pstLink->stcbSend.staSack[1], &pstLink->stcbSend.staSack[2]);
+                        //* 3) 1 <--> 2
+                        sack_sort_asc(&pstLink->stcbSend.staSack[1], &pstLink->stcbSend.staSack[2]);
+                    }                    
                 }
 
                 return bWriteIdx;
