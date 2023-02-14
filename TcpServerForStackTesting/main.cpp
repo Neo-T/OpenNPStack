@@ -243,8 +243,10 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
 
 static void HandleRead(PST_TCPCLIENT pstClient)
 {    
-    UINT unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx;
-    INT nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
+    UINT unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx; 
+    INT nRcvBytes; 
+ 
+    nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
     if (nRcvBytes > 0)
     {        
         PST_COMMUPKT_HDR pstHdr;

@@ -232,7 +232,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     //* 发送之
     INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, TCP, IP_TTL_DEFAULT, sBufListHead, penErr);
 #if SUPPORT_SACK
-    if (!blIsSpecSeqNum)
+    if (!blIsSpecSeqNum && usDataBytes > 1)
         pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes;
 #endif
     onps_input_unlock(pstLink->stcbWaitAck.nInput);
@@ -384,11 +384,13 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
         return -1;
     }
 
+#if !SUPPORT_SACK
     //* 首先看看对端的mss能够接收多少数据
     INT nSndDataLen = nDataLen < (INT)pstLink->stPeer.usMSS ? nDataLen : (INT)pstLink->stPeer.usMSS; 
     //* 再看看对端的接收窗口是否足够大
     INT nWndSize = ((INT)pstLink->stPeer.usWndSize) * (INT)pow(2, pstLink->stPeer.bWndScale); 
     nSndDataLen = nSndDataLen < nWndSize ? nSndDataLen : nWndSize; 
+#endif
     
     //* 标志字段push、ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
@@ -411,12 +413,18 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 
     pstLink->stPeer.bIsNotAcked = FALSE; 
 
+#if !SUPPORT_SACK
     pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
+#else
+    pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nDataLen; //* 记录当前实际发送的字节数
+#endif
     pstLink->stLocal.bDataSendState = TDSSENDING;
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
-                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, 
+                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData,  
 #if SUPPORT_SACK
-        FALSE, 0,
+        (USHORT)nDataLen, FALSE, 0,
+#else
+        (USHORT)nSndDataLen, 
 #endif
         &enErr); 
     if (nRtnVal > 0)
@@ -433,7 +441,11 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
         //* 记录当前实际发送的字节数
         //pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; 
         //pstLink->stLocal.bDataSendState = TDSSENDING; 
+#if SUPPORT_SACK
+        return nDataLen;
+#else
         return nSndDataLen; 
+#endif
     }
     else
     {
@@ -463,13 +475,7 @@ INT tcp_send_data_ext(INT nInput, UCHAR *pubData, INT nDataLen, UINT unSeqNum)
     {
         onps_set_last_error(nInput, enErr);
         return -1;
-    }
-
-    //* 首先看看对端的mss能够接收多少数据
-    INT nSndDataLen = nDataLen < (INT)pstLink->stPeer.usMSS ? nDataLen : (INT)pstLink->stPeer.usMSS;
-    //* 再看看对端的接收窗口是否足够大
-    INT nWndSize = ((INT)pstLink->stPeer.usWndSize) * (INT)pow(2, pstLink->stPeer.bWndScale);
-    nSndDataLen = nSndDataLen < nWndSize ? nSndDataLen : nWndSize;
+    }    
 
     //* 标志字段push、ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
@@ -482,12 +488,12 @@ INT tcp_send_data_ext(INT nInput, UCHAR *pubData, INT nDataLen, UINT unSeqNum)
 
     pstLink->stPeer.bIsNotAcked = FALSE;
 
-    pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nSndDataLen; //* 记录当前实际发送的字节数
+    pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nDataLen; //* 记录当前实际发送的字节数
     pstLink->stLocal.bDataSendState = TDSSENDING;
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstAddr->unNetifIp, pstLink->stLocal.pstAddr->usPort, pstLink->stPeer.stAddr.unIp, 
-                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, TRUE, unSeqNum, &enErr);
+                                    pstLink->stPeer.stAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nDataLen, TRUE, unSeqNum, &enErr);
     if (nRtnVal > 0)
-        return nSndDataLen;    
+        return nDataLen;    
     else
     {
         pstLink->stLocal.bDataSendState = TDSSENDRDY;
@@ -651,7 +657,11 @@ static void tcp_send_timer_retransmit(PST_TCPLINK pstLink, PSTCB_TCPSENDTIMER ps
 
         //* 重发dup ack的数据块
         tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstcbSndTimer->unRight - pstcbSndTimer->unLeft, pstcbSndTimer->unLeft + 1);
-        buddy_free(pubData);
+        buddy_free(pubData);     
+
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf("R: %d %d\r\n", pstcbSndTimer->unLeft + 1, pstLink->stLocal.unSeqNum);
+        os_thread_mutex_unlock(o_hMtxPrintf);
 
         //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
         pstcbSndTimer->unSendMSecs = os_get_system_msecs();
@@ -772,6 +782,8 @@ static void tcp_link_sack_handler(PST_TCPLINK pstLink, CHAR bSackNum)
 
 void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
 {
+    os_critical_init();
+
     PST_TCP_HDR pstHdr = (PST_TCP_HDR)pubPacket; 
     
     //* 把完整的tcp报文与tcp伪包头链接到一起，以便计算tcp校验和确保收到的tcp报文正确
@@ -872,7 +884,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     uniFlag.usVal = pstHdr->usFlag;
 	INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
     if (uniFlag.stb16.ack)
-    {         
+    {              
     #if SUPPORT_ETHERNET
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
         if(!pstLink) 
@@ -896,6 +908,14 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         }
     #endif
 
+        //* 更新对端的窗口信息                                                    
+        os_enter_critical();
+        {
+            pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+            pstLink->stcbSend.bIsWndSizeUpdated = TRUE; 
+        }        
+        os_exit_critical();
+
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
         {                                    
@@ -907,7 +927,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
                 //* 记录当前链路信息
                 pstLink->stPeer.unSeqNum = unPeerSeqNum;
-                pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize); 
+                //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize); 
                 pstLink->stPeer.stAddr.unIp = unCltIp/*htonl(unSrcAddr)*/;
                 pstLink->stPeer.stAddr.usPort = usCltPort/*htons(pstHdr->usSrcPort)*/;
 
@@ -1096,7 +1116,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 }
 
                 //* 更新对端的窗口信息                                                    
-                pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+                //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
 
                 //* 如果是零窗口探测报文则只更新当前窗口大小并通知给对端
                 if (nDataLen == 1 && pstLink->stLocal.bIsZeroWnd)
@@ -1238,20 +1258,53 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
         ppstcbSndTimer = (STCB_TCPSENDTIMER **)&pstcbSndTimer->pstcbNextForLink;
         pstcbSndTimer = pstcbSndTimer->pstcbNextForLink; 
     }
+
+    os_critical_init();
     
     //* 存在数据
     if (uint_before(unStartSeqNum, pstLink->stcbSend.unWriteBytes))
-    {        
+    {            
+        os_enter_critical();
+        {
+            if (pstLink->stcbSend.bIsWndSizeUpdated)
+            {
+                pstLink->stcbSend.unWndSize = ((UINT)pstLink->stPeer.usWndSize) * (UINT)pow(2, pstLink->stPeer.bWndScale);
+                pstLink->stcbSend.bIsWndSizeUpdated = FALSE; 
+            }
+        }
+        os_exit_critical();
+                        
+        if (!pstLink->stcbSend.unWndSize)
+        {            
+            if (os_get_system_msecs() - pstLink->stcbSend.unLastSndZeroWndPktMSecs > RTO)
+            {
+                tcp_send_data(pstLink->stcbWaitAck.nInput, pstLink->stcbSend.pubSndBuf + (unStartSeqNum % TCPSNDBUF_SIZE), 1, 0);
+                pstLink->stcbSend.unLastSndZeroWndPktMSecs = os_get_system_msecs();
+            }
+
+            return TRUE;
+        }
+
+        if (pstLink->stcbSend.unWndSize < 900)
+        {
+            os_thread_mutex_lock(o_hMtxPrintf);
+            printf("unWndSize: %d %d\r\n", pstLink->stcbSend.unWndSize, ((UINT)pstLink->stPeer.usWndSize) * (UINT)pow(2, pstLink->stPeer.bWndScale));
+            os_thread_mutex_unlock(o_hMtxPrintf);
+        }
+
         *ppstcbSndTimer = tcp_send_timer_node_get();
         if (NULL != *ppstcbSndTimer)
         {
             pstcbSndTimer = *ppstcbSndTimer; 
             pstcbSndTimer->pstLink = pstLink; 
-
-            //* 看看剩余数据是否超出了pstLink->stPeer.usMSS参数指定的长度
+            
+            //* 看看剩下还有多少数据要发送
             UINT unCpyBytes = pstLink->stcbSend.unWriteBytes - unStartSeqNum; 
-            if (unCpyBytes > pstLink->stPeer.usMSS)
-                unCpyBytes = pstLink->stPeer.usMSS; 
+            //* 再看看对端的mss能够接收多少数据
+            unCpyBytes = unCpyBytes < (INT)pstLink->stPeer.usMSS ? unCpyBytes : (INT)pstLink->stPeer.usMSS;            
+            //* 最后再看看对端的接收窗口是否足够大            
+            unCpyBytes = unCpyBytes < pstLink->stcbSend.unWndSize ? unCpyBytes : pstLink->stcbSend.unWndSize;
+            
             EN_ONPSERR enErr;
             UCHAR *pubData = (UCHAR *)buddy_alloc(unCpyBytes, &enErr);
             if (pubData)
@@ -1276,15 +1329,18 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 tcp_send_timer_node_put(pstcbSndTimer);
                 pstLink->stcbSend.bSendPacketNum++; 
 
-                //* 发送数据                
-                if (pstLink->stLocal.unHasSndBytes + 1 != 1833 && pstLink->stLocal.unHasSndBytes + 1 != 3665 && pstLink->stLocal.unHasSndBytes + 1 != 5497)
-                    tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
-                else
-                    pstLink->stLocal.unHasSndBytes += unCpyBytes;
+                //* 发送数据，注释掉的为添加的tcp sack选项的测试代码
+                //if (pstLink->stLocal.unHasSndBytes + 1 != 1 && pstLink->stLocal.unHasSndBytes + 1 != 1833 && pstLink->stLocal.unHasSndBytes + 1 != 2749 && pstLink->stLocal.unHasSndBytes + 1 != 5125)
+                    tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);                
+                //else
+                //    pstLink->stLocal.unHasSndBytes += unCpyBytes;
+                
+                buddy_free(pubData);  
+                pstLink->stcbSend.unWndSize -= unCpyBytes;
+
                 os_thread_mutex_lock(o_hMtxPrintf);
-                printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>%d, %d, %d\r\n", unStartSeqNum, pstLink->stLocal.unHasSndBytes + 1, pstLink->stcbSend.unWriteBytes);
+                printf("L: %d %d %d\r\n", pstLink->stLocal.unHasSndBytes + 1, pstLink->stLocal.unSeqNum, pstLink->stcbSend.unWndSize);
                 os_thread_mutex_unlock(o_hMtxPrintf);
-                buddy_free(pubData);                
             }
             else
             {

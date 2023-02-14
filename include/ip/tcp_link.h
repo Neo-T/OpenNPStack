@@ -130,14 +130,17 @@ typedef struct _ST_TCPLINK_ {
     struct {
         CHAR bNext; //* 链接下一个要发送数据的tcp link
         CHAR bSendPacketNum; 
-        CHAR bIsPutted; 
+        CHAR bIsPutted : 1; 
+        CHAR bIsWndSizeUpdated : 1; 
         CHAR bDupAckNum; 
         UINT unWriteBytes;  
         UINT unPrevSeqNum;        
         //UINT unRetransSeqNum; 
         ST_TCPSACK staSack[TCPSENDTIMER_NUM];
         UCHAR *pubSndBuf; 
-        STCB_TCPSENDTIMER *pstcbSndTimer;        
+        STCB_TCPSENDTIMER *pstcbSndTimer;  
+        UINT unLastSndZeroWndPktMSecs; 
+        UINT unWndSize; 
     } PACKED stcbSend; //* 发送控制块
 #endif
 

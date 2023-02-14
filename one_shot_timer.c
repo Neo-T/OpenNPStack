@@ -220,6 +220,10 @@ void thread_one_shot_timer_count(void *pvParam)
                             //* 重发dup ack的数据块
                             tcp_send_data_ext(pstcbTcpSndTimer->pstLink->stcbWaitAck.nInput, pubData, pstcbTcpSndTimer->unRight - pstcbTcpSndTimer->unLeft, pstcbTcpSndTimer->unLeft + 1);
                             buddy_free(pubData);
+                            
+                            os_thread_mutex_lock(o_hMtxPrintf);
+                            printf("T: %d %d\r\n", pstcbTcpSndTimer->unLeft + 1, pstcbTcpSndTimer->pstLink->stLocal.unSeqNum);
+                            os_thread_mutex_unlock(o_hMtxPrintf);
 
                             //* 每重发一次，rto加倍
                             if (pstcbTcpSndTimer->usRto < RTO_MAX)

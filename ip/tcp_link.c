@@ -182,7 +182,9 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     pstFreeNode->stcbSend.bDupAckNum = 0; 
     pstFreeNode->stcbSend.unPrevSeqNum = 1; 
     //pstFreeNode->stcbSend.unRetransSeqNum = 0;     
-    pstFreeNode->stcbSend.bIsPutted = FALSE; 
+    pstFreeNode->stcbSend.bIsPutted = FALSE;
+    pstFreeNode->stcbSend.bIsWndSizeUpdated = TRUE; 
+    pstFreeNode->stcbSend.unLastSndZeroWndPktMSecs = 0; 
     memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));    
 #endif
 
@@ -192,7 +194,10 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     pstFreeNode->stPeer.bSackEn = FALSE;
     pstFreeNode->stPeer.bWndScale = 0;
     pstFreeNode->stPeer.usMSS = 1200; 
-    pstFreeNode->stPeer.usWndSize = 8192;     
+    pstFreeNode->stPeer.usWndSize = 8192; 
+#if SUPPORT_SACK
+    pstFreeNode->stcbSend.unWndSize = pstFreeNode->stPeer.usWndSize;
+#endif
     pstFreeNode->stPeer.bIsNotAcked = FALSE;
     pstFreeNode->stLocal.bDataSendState = TDSSENDRDY;   //* 发送状态初始化
     return pstFreeNode;
