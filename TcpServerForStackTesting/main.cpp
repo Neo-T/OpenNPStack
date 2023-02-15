@@ -54,6 +54,10 @@ typedef struct _ST_TCPCLIENT_ {
 } ST_TCPCLIENT, *PST_TCPCLIENT;
 unordered_map<SOCKET, ST_TCPCLIENT> l_umstClients;
 
+#if FOR_TCP_SACK_TEST
+UINT l_unExpectNextSeqNum = 0;
+#endif
+
 static BOOL l_blIsRunning = TRUE;
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwEvent)
 {
@@ -325,7 +329,19 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
                                 pstClient->bClientIdx = pstHdr->bLinkIdx; 
-                                printf("%d#%s#>recved the uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %d, the data length is %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);
+                                printf("%d#%s#>Uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %u, %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);
+                            #if FOR_TCP_SACK_TEST
+                                if (pstHdr->unSeqNum == l_unExpectNextSeqNum)                                                                    
+                                    l_unExpectNextSeqNum++;                                 
+                                else
+                                {
+                                    printf("%d#%s#>Uploaded packet, but it is not the expected sequence number: %u\r\n", pstClient->bLinkIdx, szPktTime, l_unExpectNextSeqNum);
+                                    while (l_blIsRunning)
+                                    {
+                                        Sleep(1000);
+                                    }
+                                }
+                            #endif
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
                             else if (pstHdr->bCmd == 1) //* 这是控制指令的应答报文
@@ -334,7 +350,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                                 if (pstAck->unTimestamp == (UINT)pstClient->tTimestampToAck && pstAck->bLinkIdx == pstClient->bLinkIdx)
                                 {
                                     pstClient->tTimestampToAck = 0;
-                                    printf("%d#%s#>recved acknowledge packet, AckedLinkIdx = %d, ClientID = %d, AckedTimestamp <", pstClient->bLinkIdx, szPktTime, pstAck->bLinkIdx, pstHdr->bLinkIdx);
+                                    printf("%d#%s#>Acknowledge packet, AckedLinkIdx = %d, ClientID = %d, AckedTimestamp <", pstClient->bLinkIdx, szPktTime, pstAck->bLinkIdx, pstHdr->bLinkIdx);
                                     unix_time_to_local((time_t)pstAck->unTimestamp, szPktTime, sizeof(szPktTime));
                                     printf("%s>\r\n", szPktTime);
                                 }

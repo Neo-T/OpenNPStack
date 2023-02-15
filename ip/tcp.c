@@ -657,11 +657,7 @@ static void tcp_send_timer_retransmit(PST_TCPLINK pstLink, PSTCB_TCPSENDTIMER ps
 
         //* 重发dup ack的数据块
         tcp_send_data_ext(pstLink->stcbWaitAck.nInput, pubData, pstcbSndTimer->unRight - pstcbSndTimer->unLeft, pstcbSndTimer->unLeft + 1);
-        buddy_free(pubData);     
-
-        os_thread_mutex_lock(o_hMtxPrintf);
-        printf("R: %d %d\r\n", pstcbSndTimer->unLeft + 1, pstLink->stLocal.unSeqNum);
-        os_thread_mutex_unlock(o_hMtxPrintf);
+        buddy_free(pubData);             
 
         //* 将timer从当前位置转移到队列的尾部，并重新开启重传计时
         pstcbSndTimer->unSendMSecs = os_get_system_msecs();
@@ -748,13 +744,24 @@ static void tcp_packet_sacked(PST_TCPLINK pstLink, UINT unLeft, UINT unRight)
         PSTCB_TCPSENDTIMER pstcbSndTimer = pstLink->stcbSend.pstcbSndTimer;
         while (pstcbSndTimer)
         {
-            if (pstcbSndTimer->unLeft == unLeft)
+            //* 不在sack left的前面，则其在sack确认范围内
+            if (!uint_before(pstcbSndTimer->unLeft, unLeft))
             {
-                pstcbSndTimer->bIsNotSacked = FALSE;                 
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf("sack: %u, %u\r\n", pstcbSndTimer->unLeft, unLeft); 
+                os_thread_mutex_unlock(o_hMtxPrintf);
 
-                if (!uint_before(pstcbSndTimer->unRight, unRight))
+                //* right不在sack right的后面
+                if (!uint_after(pstcbSndTimer->unRight, unRight))
+                {
+                    pstcbSndTimer->bIsNotSacked = FALSE;
+                    unLeft = pstcbSndTimer->unRight;
+                }
+                else
+                {
+                    pstcbSndTimer->unLeft = unRight; 
                     break; 
-                unLeft = pstcbSndTimer->unRight; 
+                }                
             }
 
             pstcbSndTimer = pstcbSndTimer->pstcbNextForLink;            
@@ -771,6 +778,10 @@ static void tcp_link_sack_handler(PST_TCPLINK pstLink, CHAR bSackNum)
     //* 发送数据    
     for (i = 0; i < bSackNum; i++)
     {        
+        os_thread_mutex_lock(o_hMtxPrintf);
+        printf("<%d>: %u, %u\r\n", i,  pstLink->stcbSend.staSack[i].unLeft - 1, pstLink->stcbSend.staSack[i].unRight - 1);
+        os_thread_mutex_unlock(o_hMtxPrintf);
+
         //* 先判断sack范围是否合理       
         if (uint_after(pstLink->stcbSend.staSack[i].unLeft, unStartSeq) && !uint_after(pstLink->stcbSend.staSack[i].unRight - 1, pstLink->stcbSend.unWriteBytes))            
             tcp_packet_sacked(pstLink, pstLink->stcbSend.staSack[i].unLeft - 1, pstLink->stcbSend.staSack[i].unRight - 1);         
@@ -1056,9 +1067,12 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }
             */
 
-            //* 收到应答，更新当前数据发送序号
-            pstLink->stcbSend.unPrevSeqNum = unSrcAckNum;
-            pstLink->stLocal.unSeqNum = unSrcAckNum; 
+            //* 收到应答，更新当前数据发送序号，条件是ack序号一定要在之前已经确认的序号之后（相等或之前不更新，因为存在ack乱序的情形）
+            if (uint_after(unSrcAckNum, pstLink->stLocal.unSeqNum))
+            {
+                pstLink->stcbSend.unPrevSeqNum = unSrcAckNum;
+                pstLink->stLocal.unSeqNum = unSrcAckNum;
+            }            
 
             tcp_link_for_send_data_put(pstLink);
             tcp_send_sem_post();
@@ -1336,11 +1350,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 //    pstLink->stLocal.unHasSndBytes += unCpyBytes;
                 
                 buddy_free(pubData);  
-                pstLink->stcbSend.unWndSize -= unCpyBytes;
-
-                os_thread_mutex_lock(o_hMtxPrintf);
-                printf("L: %d %d %d\r\n", pstLink->stLocal.unHasSndBytes + 1, pstLink->stLocal.unSeqNum, pstLink->stcbSend.unWndSize);
-                os_thread_mutex_unlock(o_hMtxPrintf);
+                pstLink->stcbSend.unWndSize -= unCpyBytes;                
             }
             else
             {
@@ -1379,12 +1389,27 @@ static void tcp_link_ack_handler(PST_TCPLINK pstLink)
 {        
     tcp_send_timer_lock();
     {
-        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;         
+        PSTCB_TCPSENDTIMER pstSendTimer = pstLink->stcbSend.pstcbSndTimer;   
+        UINT unAckSeqNum = pstLink->stLocal.unSeqNum - 1;
         while (pstSendTimer)
-        {            
-            //* 已发送数据在确认序号之后，说明这之后的数据尚未成功送达对端，退出循环不再继续查找剩下的了
-            if (uint_after(pstSendTimer->unRight, pstLink->stLocal.unSeqNum - 1))
+        {    
+            //* 首先看看sequence num是否在left之前，如果是，则停止循环，因为这之后的所有已发送报文均比当前报文还要靠后
+            if (!uint_after(unAckSeqNum, pstSendTimer->unLeft))
                 break; 
+
+            //* 已发送数据在确认序号之后，说明这之后的数据尚未成功送达对端，退出循环不再继续查找剩下的了
+            if (uint_after(pstSendTimer->unRight, unAckSeqNum))
+            {
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf("ack: %u, %u\r\n", pstSendTimer->unLeft, unAckSeqNum);
+                os_thread_mutex_unlock(o_hMtxPrintf);
+
+                //* 将left指针后移至已确认的sequense number
+                pstSendTimer->unLeft = unAckSeqNum;
+                pstSendTimer->bIsNotSacked = TRUE; 
+
+                break;
+            }            
 
             //* 执行到这里，说明当前报文已经成功送达对端，从当前链表队列中删除                        
             pstLink->stcbSend.pstcbSndTimer = pstSendTimer->pstcbNextForLink;
