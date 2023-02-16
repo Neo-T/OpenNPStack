@@ -247,9 +247,11 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
 
 static void HandleRead(PST_TCPCLIENT pstClient)
 {    
-    UINT unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx; 
+    UINT unRemainBytes; 
     INT nRcvBytes; 
  
+__lblRead: 
+    unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx; 
     nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
     if (nRcvBytes > 0)
     {        
@@ -358,10 +360,10 @@ static void HandleRead(PST_TCPCLIENT pstClient)
                             else; 
 
                             //* 搬运剩余的字节
-                            UINT unRemainBytes = pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unReadIdx - 1;
+                            UINT unMoveBytes = pstClient->stcbRcv.unWriteIdx - pstClient->stcbRcv.unReadIdx - 1;
                             if (pstClient->stcbRcv.unReadIdx < pstClient->stcbRcv.unWriteIdx) 
-                                memmove(pstClient->stcbRcv.ubaRcvBuf, pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unReadIdx + 1, unRemainBytes);
-                            pstClient->stcbRcv.unWriteIdx = unRemainBytes;
+                                memmove(pstClient->stcbRcv.ubaRcvBuf, pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unReadIdx + 1, unMoveBytes);
+                            pstClient->stcbRcv.unWriteIdx = unMoveBytes;
 
                             //* 开始截取下一个报文
                             pstClient->stcbRcv.unReadIdx = 0;
@@ -385,6 +387,8 @@ static void HandleRead(PST_TCPCLIENT pstClient)
         }
 
         pstClient->tPrevActiveTime = time(NULL);  //* 收到数据了
+
+        goto __lblRead; 
     }
 }
 

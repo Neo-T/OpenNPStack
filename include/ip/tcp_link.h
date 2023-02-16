@@ -132,6 +132,7 @@ typedef struct _ST_TCPLINK_ {
         CHAR bSendPacketNum; 
         CHAR bIsPutted : 1; 
         CHAR bIsWndSizeUpdated : 1; 
+        CHAR bIsZeroWnd : 1; 
         CHAR bDupAckNum; 
         UINT unWriteBytes;  
         UINT unPrevSeqNum;        

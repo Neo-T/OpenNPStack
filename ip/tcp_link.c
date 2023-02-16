@@ -184,6 +184,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     //pstFreeNode->stcbSend.unRetransSeqNum = 0;     
     pstFreeNode->stcbSend.bIsPutted = FALSE;
     pstFreeNode->stcbSend.bIsWndSizeUpdated = TRUE; 
+    pstFreeNode->stcbSend.bIsZeroWnd = FALSE; 
     pstFreeNode->stcbSend.unLastSndZeroWndPktMSecs = 0; 
     memset(&pstFreeNode->stcbSend.staSack, 0, sizeof(pstFreeNode->stcbSend.staSack));    
 #endif
