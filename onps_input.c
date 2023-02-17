@@ -966,6 +966,87 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     return blIsOK; 
 }
 
+INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSERR *penErr)
+{
+    if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
+    {
+        if (penErr)
+            *penErr = ERRINPUTOVERFLOW;
+
+        return -1; 
+    }
+
+    if (IPPROTO_TCP != (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+    {
+        if (penErr)
+            *penErr = ERRIPROTOMATCH;
+
+        return -1;        
+    }
+
+    //* TCP层进入FIN操作后如果还有数据到来，依然会调用该搬运函数，只不过入口参数pubData为NULL，如此操作的原因是确保接收窗口不影响对端数据发送，虽然
+    //* 本地已经关闭了发送，且到达的数据会被丢弃（主要是看着wireshark上的0窗口报警心烦）
+    if (!pubData)
+    {
+        ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = l_stcbaInput[nInput].unRcvBufSize;
+        return 0;
+    }
+
+    //* 将数据搬运到接收缓冲区
+    BOOL blIsOK = TRUE; 
+    UINT unCpyBytes = 0; 
+    os_thread_mutex_lock(l_hMtxInput);
+    {
+#if SUPPORT_ETHERNET
+        PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = NULL;
+        if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
+        {
+            //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
+            if (NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
+                blIsOK = FALSE;
+        }
+#endif
+
+        if (blIsOK)
+        {
+            unCpyBytes = l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes;
+            //* 对于TCP协议由于存在流控（滑动窗口机制），理论上收到的数据应该一直小于等于缓冲区剩余容量才对，即unCpyBytes一直大于等于nDataBytes
+            //* 对于UDP协议则存在unCpyBytes小于nDataBytes的情况，此时只能丢弃剩余无法搬运的数据了
+            unCpyBytes = unCpyBytes > (UINT)nDataBytes ? (UINT)nDataBytes : unCpyBytes;
+            memcpy(l_stcbaInput[nInput].pubRcvBuf + l_stcbaInput[nInput].unRcvedBytes, pubData, unCpyBytes);
+            l_stcbaInput[nInput].unRcvedBytes += unCpyBytes;
+
+            //* 如果当前input绑定的协议为tcp，则立即更新接收窗口大小        
+            ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize = (USHORT)(l_stcbaInput[nInput].unRcvBufSize - l_stcbaInput[nInput].unRcvedBytes);
+            if (!((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.usWndSize)
+                ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->stLocal.bIsZeroWnd = TRUE;
+
+        #if SUPPORT_ETHERNET
+            //* 如果接收队列不为NULL，则需要投递这个到达的数据到服务器接收队列
+            if (pstRcvQueueNode)
+            {
+                INT nInputSrv = ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->nInputSrv;
+                PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach;
+                tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput);
+            }
+        #endif
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxInput);
+
+    //* 搬运成功则投递信号给上层用户，告知对端数据已到达
+    if (blIsOK)
+    {
+        //* 在这里，除了本地客户端显式地指定需要等待数据到达semaphore之外，tcp远端客户端也会投递一个semaphore用于标准的poll操作
+        if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
+            os_thread_sem_post(l_stcbaInput[nInput].hSem);
+
+        return (INT)unCpyBytes; 
+    }
+    else
+        return -1; 
+}
+
 INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr)
 {
     if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)

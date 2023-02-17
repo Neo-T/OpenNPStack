@@ -88,8 +88,7 @@ typedef struct _ST_TCPLINK_ {
         UINT unSeqNum;
 #if SUPPORT_SACK
         UINT unHasSndBytes;
-#endif
-        UINT unAckNum;
+#endif        
         USHORT usWndSize;
         CHAR bIsZeroWnd;
         CHAR bDataSendState;
@@ -114,6 +113,7 @@ typedef struct _ST_TCPLINK_ {
             in_addr_t unIp; //* 地址            
         } PACKED stAddr;
         UINT unSeqNum;      //* 当前序号
+        //UINT unNextSeqNum;  //* 期望得到的下一组序号
         UINT unStartMSecs;  //* 延时计数
         CHAR bIsNotAcked;   //* 是否已经应答
     } PACKED stPeer;

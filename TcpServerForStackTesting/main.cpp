@@ -23,7 +23,7 @@
 
 using namespace std;
 
-#define FOR_TCP_SACK_TEST   1       //* 是否用于测试tcp sack，一旦打开这个选项，服务器将被动等待客户端上发的报文，而不会主动清理不活跃的客户端
+#define FOR_TCP_SACK_TEST   0       //* 是否用于测试tcp sack，一旦打开这个选项，服务器将被动等待客户端上发的报文，而不会主动清理不活跃的客户端
 #define SEND_CTL_DATA_EN    1       //* 下发控制指令使能宏
 #define SRV_PORT            6410    //* 服务器端口
 #define LISTEN_NUM          10      //* 最大监听数
@@ -54,9 +54,7 @@ typedef struct _ST_TCPCLIENT_ {
 } ST_TCPCLIENT, *PST_TCPCLIENT;
 unordered_map<SOCKET, ST_TCPCLIENT> l_umstClients;
 
-#if FOR_TCP_SACK_TEST
 UINT l_unExpectNextSeqNum = 0;
-#endif
 
 static BOOL l_blIsRunning = TRUE;
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwEvent)
@@ -331,19 +329,20 @@ __lblRead:
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
                                 pstClient->bClientIdx = pstHdr->bLinkIdx; 
-                                printf("%d#%s#>Uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %u, %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);
-                            #if FOR_TCP_SACK_TEST
+                                if(0 == pstHdr->unSeqNum % 10000)
+                                    printf("%d#%s#>Uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %u, %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);                            
                                 if (pstHdr->unSeqNum == l_unExpectNextSeqNum)                                                                    
                                     l_unExpectNextSeqNum++;                                 
                                 else
                                 {
-                                    printf("%d#%s#>Uploaded packet, but it is not the expected sequence number: %u\r\n", pstClient->bLinkIdx, szPktTime, l_unExpectNextSeqNum);
+                                    printf("%d#%s#>Uploaded packet, but it is not the expected sequence number: %u %u\r\n", pstClient->bLinkIdx, szPktTime, l_unExpectNextSeqNum, pstHdr->unSeqNum);
+                                #if FOR_TCP_SACK_TEST
                                     while (l_blIsRunning)
                                     {
                                         Sleep(1000);
                                     }
-                                }
-                            #endif
+                                #endif
+                                }                            
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
                             else if (pstHdr->bCmd == 1) //* 这是控制指令的应答报文

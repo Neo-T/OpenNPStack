@@ -257,6 +257,7 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
     //* 更新tcp序号
     pstLink->stLocal.unSeqNum = unSrvAckNum; 
     pstLink->stPeer.unSeqNum += 1; 
+    //pstLink->stPeer.unNextSeqNum = pstLink->stPeer.unSeqNum;
 
     //* 发送
     EN_ONPSERR enErr;
@@ -969,7 +970,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             }            
 
             //* 发送ack
-            pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
+            pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum + 1;
             tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
             //* 迁移到相关状态
             if (TLSCONNECTED == (EN_TCPLINKSTATE)pstLink->bState)
@@ -1016,7 +1017,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 else;                 
 
                 if (nDataLen)
-                    onps_input_recv(nInput, NULL, 0, 0, 0, NULL);                 
+                    onps_input_tcp_recv(nInput, NULL, 0, NULL);
             }            
 
         #if SUPPORT_SACK
@@ -1096,53 +1097,52 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
             //* 有数据则处理之
             if (nDataLen)
             {                          
-                //* 只有序号不同才会搬运数据，确认过序号的说明已经搬运不能重复搬运了，对端重复发送的原因是没有收到ack报文，所以只需再次发送ack报文即可
-                if (unPeerSeqNum != pstLink->stLocal.unAckNum && unPeerSeqNum > pstLink->stLocal.unAckNum)
+                //* 只有得到期望序号的数据报文才会被上传给用户层，乱序报文直接丢弃
+                if (unPeerSeqNum == pstLink->stPeer.unSeqNum)
                 {
                     //* 必须是非零窗口探测报文才搬运数据
                     if (!(nDataLen == 1 && pstLink->stLocal.bIsZeroWnd))
                     {
                         //* 将数据搬运到input层
-                        if (onps_input_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, 0, 0, &enErr))
-                            pstLink->stLocal.unAckNum = unPeerSeqNum;
-                        else
+                        nDataLen = onps_input_tcp_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, &enErr); 
+                        if (nDataLen < 0)
                         {
                     #if SUPPORT_PRINTF && DEBUG_LEVEL
                         #if PRINTF_THREAD_MUTEX
                             os_thread_mutex_lock(o_hMtxPrintf);
                         #endif
-                            printf("onps_input_recv() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+                            printf("onps_input_tcp_recv() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
                         #if PRINTF_THREAD_MUTEX
                             os_thread_mutex_unlock(o_hMtxPrintf);
                         #endif
                     #endif
                             return;
                         }
-                    }                    
+                    }
+                    else //* 零窗口探测报文则只更新当前窗口大小并通知给对端
+                    {
+                        USHORT usWndSize = pstLink->stLocal.usWndSize;
+                        if (usWndSize)
+                            pstLink->stLocal.bIsZeroWnd = FALSE;
+                        pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum;
+                        tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+
+                        return; 
+                    }
                 }
+                else
+                    nDataLen = 0; //* 为了节省内存，这里直接丢弃乱序的报文，而不是先缓存
 
                 //* 更新对端的窗口信息                                                    
                 //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
 
-                //* 如果是零窗口探测报文则只更新当前窗口大小并通知给对端
-                if (nDataLen == 1 && pstLink->stLocal.bIsZeroWnd)
-                {
-                    USHORT usWndSize = pstLink->stLocal.usWndSize;
-                    if (usWndSize)                    
-                        pstLink->stLocal.bIsZeroWnd = FALSE; 
-                    pstLink->stPeer.unSeqNum = unPeerSeqNum;
+                pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum + nDataLen;
+                if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED)
                     tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
-                }
                 else
                 {
-                    pstLink->stPeer.unSeqNum = unPeerSeqNum + nDataLen;
-                    if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED)
-                        tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
-                    else
-                    {
-                        pstLink->stPeer.unStartMSecs = os_get_system_msecs(); 
-                        pstLink->stPeer.bIsNotAcked = TRUE;
-                    }
+                    pstLink->stPeer.unStartMSecs = os_get_system_msecs();
+                    pstLink->stPeer.bIsNotAcked = TRUE;
                 }
             }            
         }
@@ -1285,25 +1285,16 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink, UINT unStartSeqNum)
         if (!unPeerWndSize)
         {
             if(pstLink->stcbSend.bIsZeroWnd)
-            {
-                UINT unCurMSecs = os_get_system_msecs();
-                UINT unVal = unCurMSecs - pstLink->stcbSend.unLastSndZeroWndPktMSecs;
-                if (unVal/*os_get_system_msecs() - pstLink->stcbSend.unLastSndZeroWndPktMSecs*/ > RTO)
-                {
-                    os_thread_mutex_lock(o_hMtxPrintf);
-                    printf("Send Zero Window detect packet: %u, %u, %u\r\n", unVal, unCurMSecs, pstLink->stcbSend.unLastSndZeroWndPktMSecs);
-                    os_thread_mutex_unlock(o_hMtxPrintf);
-
+            {    
+                //* 超过RTO间隔，发送零窗口探测报文
+                if (os_get_system_msecs() - pstLink->stcbSend.unLastSndZeroWndPktMSecs > RTO)
+                {                    
                     tcp_send_data(pstLink->stcbWaitAck.nInput, pstLink->stcbSend.pubSndBuf + (unStartSeqNum % TCPSNDBUF_SIZE), 1, 0);
                     pstLink->stcbSend.unLastSndZeroWndPktMSecs = os_get_system_msecs();
                 }
             }
             else
-            {
-                os_thread_mutex_lock(o_hMtxPrintf);
-                printf("Enter Zero Window\r\n");
-                os_thread_mutex_unlock(o_hMtxPrintf);
-
+            {                
                 pstLink->stcbSend.bIsZeroWnd = TRUE; 
                 pstLink->stcbSend.unLastSndZeroWndPktMSecs = os_get_system_msecs();
             }            
@@ -1315,13 +1306,6 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink, UINT unStartSeqNum)
                         
         if (!pstLink->stcbSend.unWndSize)                    
             return TRUE;        
-
-        if (pstLink->stcbSend.unWndSize < 900)
-        {
-            os_thread_mutex_lock(o_hMtxPrintf);
-            printf("unWndSize: %d %d\r\n", pstLink->stcbSend.unWndSize, ((UINT)pstLink->stPeer.usWndSize) * (UINT)pow(2, pstLink->stPeer.bWndScale));
-            os_thread_mutex_unlock(o_hMtxPrintf);
-        }
 
         *ppstcbSndTimer = tcp_send_timer_node_get();
         if (NULL != *ppstcbSndTimer)
