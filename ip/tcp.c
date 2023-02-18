@@ -887,7 +887,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     UNI_TCP_FLAG uniFlag; 
     uniFlag.usVal = pstHdr->usFlag;
 	INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
-    if (uniFlag.stb16.ack)
+    if (uniFlag.stb16.ack || uniFlag.stb16.reset || uniFlag.stb16.reset)
     {              
     #if SUPPORT_ETHERNET
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
@@ -922,9 +922,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
         //* 连接请求的应答报文
         if (uniFlag.stb16.syn)
-        {                                    
+        {           
             if (TLSSYNSENT == pstLink->bState && unSrcAckNum == pstLink->stLocal.unSeqNum + 1) //* 确定这是一个有效的syn ack报文才可进入下一个处理流程，否则报文将被直接抛弃
-            {
+            {                
                 pstLink->stcbWaitAck.bIsAcked = TRUE; 
                 one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);                                 
                 //one_shot_timer_recount(pstLink->stcbWaitAck.pstTimer, 1); //* 通知定时器结束计时，释放占用的非常宝贵的定时器资源
@@ -1124,20 +1124,26 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                         USHORT usWndSize = pstLink->stLocal.usWndSize;
                         if (usWndSize)
                             pstLink->stLocal.bIsZeroWnd = FALSE;
-                        pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum;
+                        //pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum;
                         tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
 
                         return; 
                     }
                 }
                 else
-                    nDataLen = 0; //* 为了节省内存，这里直接丢弃乱序的报文，而不是先缓存
+                {                    
+                    os_thread_mutex_lock(o_hMtxPrintf);
+                    printf("unPeerSeqNum != pstLink->stPeer.unSeqNum(%u : %u), nDataLen: %d\r\n", unPeerSeqNum, pstLink->stPeer.unSeqNum, nDataLen);
+                    os_thread_mutex_unlock(o_hMtxPrintf);
+
+                    nDataLen = 0; //* 为了节省内存，这里直接丢弃乱序的报文，而不是先缓存                    
+                }
 
                 //* 更新对端的窗口信息                                                    
                 //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
 
-                pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum + nDataLen;
-                if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED)
+                pstLink->stPeer.unSeqNum += nDataLen;
+                if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED || (nDataLen > 0 && pstLink->stPeer.bIsNotAcked)/* 最后一个条件为当连续收到两个对端的数据报文后立即发送ack */)
                     tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
                 else
                 {
@@ -1269,27 +1275,30 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink, UINT unStartSeqNum)
     //* 存在数据
     if (uint_before(unStartSeqNum, pstLink->stcbSend.unWriteBytes))
     {            
-        UINT unPeerWndSize;
+        INT nPeerWndSize = -1;
         os_enter_critical();
-        {
-            unPeerWndSize = ((UINT)pstLink->stPeer.usWndSize) * (pstLink->stPeer.bWndScale > 0 ? (UINT)pow(2, pstLink->stPeer.bWndScale) : 1);
+        {            
             if (pstLink->stcbSend.bIsWndSizeUpdated)
             {
-                pstLink->stcbSend.unWndSize = unPeerWndSize;
+                nPeerWndSize = ((INT)pstLink->stPeer.usWndSize) * (pstLink->stPeer.bWndScale > 0 ? (INT)pow(2, pstLink->stPeer.bWndScale) : 1);
+                if(nPeerWndSize > 0)
+                    pstLink->stcbSend.bIsZeroWnd = FALSE;
+                pstLink->stcbSend.unWndSize = (UINT)nPeerWndSize;
                 pstLink->stcbSend.bIsWndSizeUpdated = FALSE; 
             }
         }
         os_exit_critical();
 
         //* 存在数据且对端接收窗口为0，则定期发送零窗口探测报文（固定RTO时长）
-        if (!unPeerWndSize)
+        if (!nPeerWndSize)
         {
             if(pstLink->stcbSend.bIsZeroWnd)
             {    
                 //* 超过RTO间隔，发送零窗口探测报文
                 if (os_get_system_msecs() - pstLink->stcbSend.unLastSndZeroWndPktMSecs > RTO)
                 {                    
-                    tcp_send_data(pstLink->stcbWaitAck.nInput, pstLink->stcbSend.pubSndBuf + (unStartSeqNum % TCPSNDBUF_SIZE), 1, 0);
+                    if (tcp_send_data(pstLink->stcbWaitAck.nInput, pstLink->stcbSend.pubSndBuf + (unStartSeqNum % TCPSNDBUF_SIZE), 1, 0) > 0)
+                        pstLink->stLocal.unHasSndBytes--; 
                     pstLink->stcbSend.unLastSndZeroWndPktMSecs = os_get_system_msecs();
                 }
             }
@@ -1301,8 +1310,8 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink, UINT unStartSeqNum)
 
             return TRUE; 
         }
-        else
-            pstLink->stcbSend.bIsZeroWnd = FALSE; 
+        //else
+        //    pstLink->stcbSend.bIsZeroWnd = FALSE; 
                         
         if (!pstLink->stcbSend.unWndSize)                    
             return TRUE;        
@@ -1319,6 +1328,13 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink, UINT unStartSeqNum)
             unCpyBytes = unCpyBytes < (INT)pstLink->stPeer.usMSS ? unCpyBytes : (INT)pstLink->stPeer.usMSS;            
             //* 最后再看看对端的接收窗口是否足够大            
             unCpyBytes = unCpyBytes < pstLink->stcbSend.unWndSize ? unCpyBytes : pstLink->stcbSend.unWndSize;
+
+            if (unCpyBytes == 1)
+            {
+                os_thread_mutex_lock(o_hMtxPrintf);
+                printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>Sent 1 bytes data\r\n");
+                os_thread_mutex_unlock(o_hMtxPrintf);
+            }            
             
             EN_ONPSERR enErr;
             UCHAR *pubData = (UCHAR *)buddy_alloc(unCpyBytes, &enErr);

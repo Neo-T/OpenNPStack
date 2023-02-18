@@ -27,7 +27,7 @@ using namespace std;
 #define SEND_CTL_DATA_EN    1       //* 下发控制指令使能宏
 #define SRV_PORT            6410    //* 服务器端口
 #define LISTEN_NUM          10      //* 最大监听数
-#define RCV_BUF_SIZE        2048    //* 接收缓冲区容量
+#define RCV_BUF_SIZE        8192    //* 接收缓冲区容量
 #define PKT_DATA_LEN_MAX    1200    //* 报文携带的数据最大长度，凡是超过这个长度的报文都将被丢弃
 
 static SOCKET l_hSocketSrv;
@@ -51,10 +51,9 @@ typedef struct _ST_TCPCLIENT_ {
     CHAR bLinkIdx;    
     BOOL blTHIsRunning; 
     thread objTHSender;
+    UINT unExpectNextSeqNum; 
 } ST_TCPCLIENT, *PST_TCPCLIENT;
 unordered_map<SOCKET, ST_TCPCLIENT> l_umstClients;
-
-UINT l_unExpectNextSeqNum = 0;
 
 static BOOL l_blIsRunning = TRUE;
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwEvent)
@@ -123,8 +122,8 @@ void ClearClient(PST_TCPCLIENT pstClient, fd_set *pfdsRead, fd_set *pfdsExceptio
         for (; iter != l_umstClients.end(); iter++)
             l_hSocketMax = l_hSocketMax < iter->second.hClient ? iter->second.hClient : l_hSocketMax; 
     }
-
-    closesocket(hClient);    
+    
+    closesocket(hClient);        
 }
 
 static BOOL SendCtlCmd(PST_TCPCLIENT pstClient, UCHAR *pubPacket, USHORT usDataLen, UINT unSeqNum)
@@ -241,6 +240,7 @@ static void THSender(SOCKET hClient, fd_set *pfdsRead, fd_set *pfdsException)
 
     printf("A client exception is caught, the client will be removed\r\n");
     pstClient->tPrevActiveTime = 0; 
+    pstClient->blTHIsRunning = FALSE; 
 }
 
 static void HandleRead(PST_TCPCLIENT pstClient)
@@ -249,6 +249,13 @@ static void HandleRead(PST_TCPCLIENT pstClient)
     INT nRcvBytes; 
  
 __lblRead: 
+    if (!pstClient->blTHIsRunning)
+    {
+        printf("HandleRead exit\r\n"); 
+        pstClient->tPrevActiveTime = 0; 
+        return;
+    }
+
     unRemainBytes = RCV_BUF_SIZE - pstClient->stcbRcv.unWriteIdx; 
     nRcvBytes = recv(pstClient->hClient, (char *)pstClient->stcbRcv.ubaRcvBuf + pstClient->stcbRcv.unWriteIdx, unRemainBytes, 0);
     if (nRcvBytes > 0)
@@ -331,17 +338,11 @@ __lblRead:
                                 pstClient->bClientIdx = pstHdr->bLinkIdx; 
                                 if(0 == pstHdr->unSeqNum % 10000)
                                     printf("%d#%s#>Uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %u, %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);                            
-                                if (pstHdr->unSeqNum == l_unExpectNextSeqNum)                                                                    
-                                    l_unExpectNextSeqNum++;                                 
+                                if (pstHdr->unSeqNum == pstClient->unExpectNextSeqNum)
+                                    pstClient->unExpectNextSeqNum++;
                                 else
                                 {
-                                    printf("%d#%s#>Uploaded packet, but it is not the expected sequence number: %u %u\r\n", pstClient->bLinkIdx, szPktTime, l_unExpectNextSeqNum, pstHdr->unSeqNum);
-                                #if FOR_TCP_SACK_TEST
-                                    while (l_blIsRunning)
-                                    {
-                                        Sleep(1000);
-                                    }
-                                #endif
+                                    printf("%d#%s#>-->Uploaded packet, but it is not the expected sequence number: %u %u<--\r\n", pstClient->bLinkIdx, szPktTime, pstClient->unExpectNextSeqNum, pstHdr->unSeqNum);                                
                                 }                            
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
@@ -417,6 +418,7 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
     auto atoPair = l_umstClients.emplace(hClient, ST_TCPCLIENT{ hClient, time(NULL), 0,{ 0, 0, 0, 0, NULL }, -1 });
     atoPair.first->second.bLinkIdx = l_bLinkIdx++; 
     atoPair.first->second.blTHIsRunning = TRUE; 
+    atoPair.first->second.unExpectNextSeqNum = 0; 
 
 #if !FOR_TCP_SACK_TEST
 #if SEND_CTL_DATA_EN
@@ -431,10 +433,10 @@ static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
 void ScanInactiveClients(fd_set *pfdsRead, fd_set *pfdsException)
 {
     thread_lock_enter(&l_thLockClients);
-    {
+    {        
         unordered_map<SOCKET, ST_TCPCLIENT>::iterator iter = l_umstClients.begin();
         for (; iter != l_umstClients.end();)
-        {            
+        {                 
             if (abs(time(NULL) - iter->second.tPrevActiveTime) > 30)            
                 ClearClient(&iter->second, pfdsRead, pfdsException, &iter);             
             else

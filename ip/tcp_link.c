@@ -225,10 +225,13 @@ void tcp_link_free(PST_TCPLINK pstTcpLink)
     }
     pstTcpLink->stcbSend.pstcbSndTimer = NULL; 
     tcp_send_timer_unlock();   
+
+    //* 数据发送队列删除
+    tcp_link_for_send_data_del(pstTcpLink);
 #endif
 
     os_thread_mutex_lock(l_hMtxTcpLinkList);
-    {
+    {                
         //* 先从使用队列中摘除
         PST_TCPLINK pstNextNode = l_pstUsedTcpLinkList;
         PST_TCPLINK pstPrevNode = NULL; 
