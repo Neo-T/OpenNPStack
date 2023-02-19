@@ -87,11 +87,19 @@ typedef struct _ST_TCPLINK_ {
     struct {
         UINT unSeqNum;
 #if SUPPORT_SACK
+        UINT unAckedSeqNum; 
         UINT unHasSndBytes;
 #endif        
         USHORT usWndSize;
+
+#if SUPPORT_SACK
+        CHAR bIsZeroWnd : 1;
+        CHAR bDataSendState : 3; 
+        //CHAR bIsSeqNumUpdated : 1; 
+#else
         CHAR bIsZeroWnd;
         CHAR bDataSendState;
+#endif
         PST_TCPUDP_HANDLE pstAddr;
     } PACKED stLocal;
 

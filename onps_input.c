@@ -1445,7 +1445,7 @@ INT onps_tcp_send(INT nInput, UCHAR *pubData, INT nDataLen)
                     }
                     else
                     {
-                        nCpyBytes = nDataLen <= unAckIdx - unWriteIdx ? nDataLen : unAckIdx - unWriteIdx;
+                        nCpyBytes = nDataLen <= (unAckIdx - unWriteIdx) ? nDataLen : (unAckIdx - unWriteIdx);
                         memcpy(pstLink->stcbSend.pubSndBuf + unWriteIdx, pubData, nCpyBytes);
                         pstLink->stcbSend.unWriteBytes += (UINT)nCpyBytes;
                     }

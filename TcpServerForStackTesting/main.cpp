@@ -250,8 +250,7 @@ static void HandleRead(PST_TCPCLIENT pstClient)
  
 __lblRead: 
     if (!pstClient->blTHIsRunning)
-    {
-        printf("HandleRead exit\r\n"); 
+    {        
         pstClient->tPrevActiveTime = 0; 
         return;
     }

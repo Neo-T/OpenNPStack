@@ -198,6 +198,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
     pstFreeNode->stPeer.usWndSize = 8192; 
 #if SUPPORT_SACK
     pstFreeNode->stcbSend.unWndSize = pstFreeNode->stPeer.usWndSize;
+    pstFreeNode->stLocal.unAckedSeqNum = 0; 
 #endif
     pstFreeNode->stPeer.bIsNotAcked = FALSE;
     pstFreeNode->stLocal.bDataSendState = TDSSENDRDY;   //* 发送状态初始化
