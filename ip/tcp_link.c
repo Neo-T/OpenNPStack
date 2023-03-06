@@ -190,7 +190,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
 #endif
 
     pstFreeNode->bState = TLSINIT;
-    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stLocal.unHasSndBytes = pstFreeNode->stPeer.unSeqNum = 0;
+    pstFreeNode->stLocal.unSeqNum = pstFreeNode->stPeer.unSeqNum = 0;
     pstFreeNode->uniFlags.usVal = 0; 
     pstFreeNode->stPeer.bSackEn = FALSE;
     pstFreeNode->stPeer.bWndScale = 0;
@@ -199,6 +199,7 @@ PST_TCPLINK tcp_link_get(EN_ONPSERR *penErr)
 #if SUPPORT_SACK
     pstFreeNode->stcbSend.unWndSize = pstFreeNode->stPeer.usWndSize;
     pstFreeNode->stLocal.unAckedSeqNum = 0; 
+	pstFreeNode->stLocal.unHasSndBytes = 0; 
 #endif
     pstFreeNode->stPeer.bIsNotAcked = FALSE;
     pstFreeNode->stLocal.bDataSendState = TDSSENDRDY;   //* 发送状态初始化

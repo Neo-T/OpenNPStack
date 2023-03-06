@@ -957,7 +957,9 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         os_enter_critical();
         {
             pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
+		#if SUPPORT_SACK
             pstLink->stcbSend.bIsWndSizeUpdated = TRUE; 
+		#endif
         }        
         os_exit_critical();
 
