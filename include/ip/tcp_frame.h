@@ -20,6 +20,19 @@ typedef struct _ST_TCP_PSEUDOHDR_ {
 } PACKED ST_TCP_PSEUDOHDR, *PST_TCP_PSEUDOHDR;
 PACKED_END
 
+#if SUPPORT_IPV6
+//* IPv6版本的用于校验和计算的伪报头
+PACKED_BEGIN
+typedef struct _ST_TCPv6_PSEUDOHDR_ {
+	UCHAR ubaSrcIp[16];
+	UCHAR ubaDstIp[16];	
+	UINT unUpperPktLen;		//* 其携带的上册协议报文的长度，比如unUpperPktLen = tcp头 + tcp选项 + 用户数据长度
+	UCHAR ubaMustBeZero[3];
+	UCHAR ubProto;			//* Ipv6支持的上层协议类型，参见ip_frame.h文件之EN_IPPROTO
+} PACKED ST_TCPv6_PSEUDOHDR, *PST_TCPv6_PSEUDOHDR;
+PACKED_END
+#endif
+
 typedef union _UNI_TCP_FLAG_ {
     struct {
         USHORT resrved1 : 3;

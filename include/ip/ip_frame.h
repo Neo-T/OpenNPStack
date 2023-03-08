@@ -24,6 +24,17 @@ typedef enum {
     IPPROTO_MAX
 } EN_IPPROTO;
 
+//* Ipv6支持的扩展选项头定义
+#if SUPPORT_IPV6
+#define IPv6HDREXT_HOP		0	//* Hop-by-hop Options Header，逐跳头，其为链路上唯一一个所有节点都需要处理的扩展头部选项，故其必须排在扩展头部第一位
+#define IPv6HDREXT_DST		60	//* Destination Options Header，目的头
+#define IPv6OHDREXT_ROUTE	43	//* Routing Header，路由头
+#define IPv6OHDREXT_FRAGG	44	//* Fragment Header，分片头
+#define IPv6OHDREXT_ESP		50	//* EncapsuIating Security PayIoad，负载封装安全头，为封装在其中的负载提供数据机密性、完整性和重传保护等服务，同时对数据进行认证
+#define IPv6OHDREXT_AUTH	51	//* Authentication Header，认证头
+#define IPv6OHDREXT_END		59	//* End，无操作，没有下一个头部了，扩展头部结束，ip上层协议均与此扩展选项作用相同，亦代表扩展头结束
+#endif
+
  //* ip帧头部结构体
 PACKED_BEGIN
 typedef struct _ST_IP_HDR_ {
@@ -47,13 +58,14 @@ typedef struct _ST_IP_HDR_ {
 PACKED_END
 
 #if SUPPORT_IPV6
+PACKED_BEGIN
 typedef struct _ST_IPV6_HDR_ {
 	union {
 		struct {
 			UINT bitFlowLabel : 20; //* Flow Label，标识源和目的地址之间的通讯数据流，即表示当前传输的报文属于这个数据流中的一个，以显式地通知Ipv6路由器对其特
 									//* 殊处理。其用于实现对数据包按照优先级顺序进行发送，比如优先发送实时数据（如音、视频）
 
-			UINT bitEcn : 2;		//* Explicit Congestion Notification，显式拥塞通知-0：非ECN能力传输，非ECT即不支持拥塞通知；1、2：支持ECN传输；3：遇到拥塞
+			UINT bitEcn : 2;		//* Explicit Congestion Notification，显式拥塞通知-0：非ECN能力传输，即不支持拥塞通知；1、2：支持ECN传输；3：遇到拥塞
 			UINT bitDscp : 6;		//* Differentiated Services Code Point，差分服务编码点，用于优先级指定，当网络出现拥塞时，低优先级的报文最先被丢弃	
 			UINT bitVer : 4;		//* Ip版本号
 		} stb32;
@@ -66,7 +78,8 @@ typedef struct _ST_IPV6_HDR_ {
 
 	UCHAR ubaSrcIp[16];		//* 源Ipv6地址 
 	UCHAR ubaDstIp[16];		//* 目标Ipv6地址
-} ST_IPV6_HDR, *PST_IPV6_HDR;
+} PACKED ST_IPV6_HDR, *PST_IPV6_HDR;
+PACKED_END
 
 #define ipv6_ver uniFlag.stb32.bitVer
 #define ipv6_dscp uniFlag.stb32.bitDscp
