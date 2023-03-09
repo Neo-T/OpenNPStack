@@ -240,6 +240,7 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
 
 #if SUPPORT_IPV6
     case ETHII_IPV6:
+		printf(">>>>>>>>>>>>>>>>>>>>ipv6: %04X\r\n", usProtocolType);
         break; 
 #endif
 

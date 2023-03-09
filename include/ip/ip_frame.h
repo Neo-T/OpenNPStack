@@ -68,9 +68,9 @@ typedef struct _ST_IPV6_HDR_ {
 			UINT bitEcn : 2;		//* Explicit Congestion Notification，显式拥塞通知-0：非ECN能力传输，即不支持拥塞通知；1、2：支持ECN传输；3：遇到拥塞
 			UINT bitDscp : 6;		//* Differentiated Services Code Point，差分服务编码点，用于优先级指定，当网络出现拥塞时，低优先级的报文最先被丢弃	
 			UINT bitVer : 4;		//* Ip版本号
-		} stb32;
+		} PACKED stb32;
 		UINT unVal;
-	} uniFlag;
+	} PACKED uniFlag;
 
 	USHORT usPayloadLen;	//* Payload Length，负载长度，Ipv6包携带的负载长度，即其携带的扩展头部和Icmpv6、Tcp、Udp等上层协议报文的长度
 	UCHAR ubNextHdr;		//* Next Header，首个扩展头部或上层协议类型

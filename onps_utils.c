@@ -454,6 +454,9 @@ BOOL ethernet_mac_matched(const UCHAR *pubaMacAddr1, const UCHAR *pubaMacAddr2)
 
 BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr)
 {
+	if (pubaMacAddr[0] == 0x33 && pubaMacAddr[1] == 0x33)
+		return TRUE; 
+
     INT i; 
     for (i = 0; i < ETH_MAC_ADDR_LEN; i++)
     {
