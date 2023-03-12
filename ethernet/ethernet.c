@@ -16,6 +16,10 @@
 #include "ip/ip.h"
 
 #if SUPPORT_ETHERNET
+#if SUPPORT_IPV6
+#include "ip/icmpv6.h"
+#endif
+
 #include "ethernet/arp.h" 
 #include "ethernet/ethernet_frame.h"
 #define SYMBOL_GLOBALS
@@ -91,7 +95,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
         pstExtra->pstcbArp = pstcbArp; 
         pstExtra->pfunEmacSend = pfunEmacSend; 
         memcpy(pstExtra->ubaMacAddr, ubaMacAddr, ETH_MAC_ADDR_LEN);
-        if (pstIPv4->unAddr) //* 地址不为0则为静态地址，需要将其添加到路由表中
+        if (pstIPv4 && pstIPv4->unAddr) //* 地址不为0则为静态地址，需要将其添加到路由表中
         {
             pstExtra->bIsStaticAddr = TRUE;
 
@@ -120,6 +124,10 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 			*ppstNetif = pstNetif;
 			pfunStartTHEmacRecv(ppstNetif);
 		}
+
+#if SUPPORT_IPV6
+		//* 按照生成链路本地地址
+#endif
     }
     else
     {

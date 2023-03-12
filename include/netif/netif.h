@@ -42,6 +42,15 @@ typedef struct _ST_IPV4_ {
     UINT unBroadcast; 
 } ST_IPV4, *PST_IPV4;
 
+#if SUPPORT_IPV6
+typedef struct _ST_IPV6_ {
+	UCHAR ubaAddr[16];		//* 单播地址，与PC不同的是，为了节省内存协议栈只允许一个固定Ipv6地址（手动或自动配置——自动配置先icmpv6，如失败再dhcpv6）
+	UCHAR ubaTmpAddr[16];	//* 临时地址
+	UCHAR ubaLLAddr[16];	//* 链路本地地址
+	UCHAR ubaGateway[16];	//* 网关地址 
+} ST_IPV6, *PST_IPV6;
+#endif
+
 //* 存储具体网卡信息的结构体
 #define NETIF_NAME_LEN  7   //* 网卡名称长度
 typedef struct _ST_NETIF_ {
@@ -50,6 +59,9 @@ typedef struct _ST_NETIF_ {
     CHAR bUsedCount; //* 使用计数
     PFUN_NETIF_SEND pfunSend;
     ST_IPV4 stIPv4;
+#if SUPPORT_IPV6
+	ST_IPV6 stIPv6; 
+#endif
     void *pvExtra; //* 附加信息，不同的网卡类型需要携带某些特定的信息供上层业务逻辑使用，在这里使用该字段提供访问路径
 } ST_NETIF, *PST_NETIF;
 

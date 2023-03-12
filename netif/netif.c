@@ -86,7 +86,8 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv
                 //* 更新网络接口相关信息
                 pstNextNode->stIf.enType   = enType;
                 pstNextNode->stIf.pfunSend = pfunSend;
-                pstNextNode->stIf.stIPv4   = *pstIPv4;
+				if(pstIPv4)
+					pstNextNode->stIf.stIPv4   = *pstIPv4;
                 pstNextNode->stIf.pvExtra  = pvExtra;
 
                 os_thread_mutex_unlock(l_hMtxNetif);
@@ -111,7 +112,8 @@ PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv
     //* 保存网络接口相关信息
     pstNode->stIf.enType     = enType;  
     pstNode->stIf.pfunSend   = pfunSend; 
-    pstNode->stIf.stIPv4     = *pstIPv4; 
+	if (pstIPv4)
+		pstNode->stIf.stIPv4 = *pstIPv4; 
     pstNode->stIf.pvExtra    = pvExtra; 
     pstNode->stIf.bUsedCount = -1; 
     snprintf(pstNode->stIf.szName, sizeof(pstNode->stIf.szName), "%s", pszIfName);
