@@ -300,7 +300,7 @@ PST_NETIF netif_get_by_name(const CHAR *pszIfName)
 }
 
 #if SUPPORT_ETHERNET
-PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp)
+PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsForSending)
 {
     PST_NETIF pstNetif = NULL;
 
@@ -341,6 +341,9 @@ PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp)
 
             pstNextNode = pstNextNode->pstNext; 
         }
+
+		if (pstNetif && blIsForSending)
+			pstNetif->bUsedCount++; 
     }
     os_thread_mutex_unlock(l_hMtxNetif);
 

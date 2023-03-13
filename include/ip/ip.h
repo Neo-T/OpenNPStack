@@ -26,4 +26,8 @@ IP_EXT void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, 
 IP_EXT void eth_arp_wait_timeout_handler(void *pvParam); 
 #endif
 
+#if SUPPORT_IPV6
+IP_EXT INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIp[16], UCHAR ubaDstIp[16], EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr); 
+#endif
+
 #endif

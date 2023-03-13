@@ -18,4 +18,6 @@
 
 typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF; 
 
+ICMPv6_EXT void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr);
+
 #endif

@@ -126,7 +126,8 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 		}
 
 #if SUPPORT_IPV6
-		//* 按照生成链路本地地址
+		//* 开启自动配置
+		icmpv6_start_config(pstNetif, penErr); 
 #endif
     }
     else

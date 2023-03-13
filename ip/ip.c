@@ -296,7 +296,9 @@ INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_ad
 
 	//* 如果未指定netif则通过路由表选择一个适合的netif
 	PST_NETIF pstNetifUsed = pstNetif; 
-    if (NULL == pstNetifUsed)
+    if (pstNetifUsed)
+		netif_used(pstNetifUsed);
+	else
     {
         pstNetifUsed = route_get_netif(unArpDstAddr/*unDstAddr*/, TRUE, &unSrcAddrUsed, &unArpDstAddr);
         if (NULL == pstNetifUsed)
@@ -307,9 +309,7 @@ INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_ad
             return -1;
         }
     }
-    else
-        netif_used(pstNetifUsed); 
-
+        
     return netif_ip_send(pstNetifUsed, pubDstMacAddr, unSrcAddrUsed, unDstAddr, unArpDstAddr, enProtocol, ubTTL, sBufListHead, penErr);
 }
 
@@ -427,3 +427,15 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
         break; 
     }
 }
+
+#if SUPPORT_IPV6
+static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unDstAddrUsedToGetLLA, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+
+}
+
+INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIp[16], UCHAR ubaDstIp[16], EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+
+}
+#endif
