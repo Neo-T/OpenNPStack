@@ -139,7 +139,7 @@ __lblSend:
         while (pstNextNode)
         {
             PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)pstNextNode->uniData.ptr; 
-            if (unIPAddr == pstcbArpWait->unArpDstAddr)
+            if (unIPAddr == pstcbArpWait->uniDstAddr.unIpv4)
             {
                 //* 释放这个定时器
                 //one_shot_timer_safe_free(pstcbArpWait->pstTimer); 
@@ -313,7 +313,7 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
 
         //* 计数器清零，并传递当前选择的netif
         pstcbArpWait->pstNetif = pstNetif;
-        pstcbArpWait->unArpDstAddr = unDstArpIp;
+        pstcbArpWait->uniDstAddr.unIpv4 = unDstArpIp;
         pstcbArpWait->usIpPacketLen = (USHORT)unIpPacketLen;
         pstcbArpWait->ubCount = 0;
         pstcbArpWait->pstNode = NULL; 

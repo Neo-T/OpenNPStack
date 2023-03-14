@@ -11,6 +11,7 @@
 
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================
+#define SUPPORT_IPV6	1   //* 是否支持IPv6：1，支持；0，不支持
 #define SUPPORT_PRINTF	1	//* 是否支持调用printf()输出相关调试或系统信息
 #if SUPPORT_PRINTF
     #define PRINTF_THREAD_MUTEX 1   //* 是否支持使用printf线程互斥锁，确保不同线程的调试输出信息不被互相干扰，值为1则支持互斥锁
@@ -39,7 +40,10 @@
 #define SUPPORT_ETHERNET    1   //* 是否支持ethernet：1，支持；0，不支持
 #if SUPPORT_ETHERNET
     #define ETHERNET_NUM    1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
-    #define ARPENTRY_NUM    32  //* arp条目缓存表的大小，只要不小于局域网内目标通讯节点的个数即可确保arp寻址次数为1，否则就会出现频繁寻址的可能，当然这也不会妨碍正常通讯逻辑，只不过这会降低通讯效率    
+    #define ARPENTRY_NUM    32  //* arp条目缓存表的大小（不要超过127），只要不小于局域网内目标通讯节点的个数即可确保arp寻址次数为1，否则就会出现频繁寻址的可能，当然这也不会妨碍正常通讯逻辑，只不过这会降低通讯效率    
+	#if SUPPORT_IPV6
+		#define IPV6TOMAC_ENTRY_NUM	8 //* Ipv6到以太网mac地址映射缓存表的大小（不要超过127），这个配置项指定缓存条目的数量，同样确保其不小于Ipv6通讯节点数量即可避免重复寻址的问题
+	#endif
 #else
     #define ETHERNET_NUM    0
 #endif
@@ -60,8 +64,7 @@
 
 //* ip支持的上层协议相关配置项
 //* ===============================================================================================
-#define SUPPORT_IPV6	1   //* 是否支持IPv6：1，支持；0，不支持
-#define SUPPORT_SACK    1   //* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
+#define SUPPORT_SACK    1		//* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
 
 #define ICMPRCVBUF_SIZE 128     //* icmp发送echo请求报文时指定的接收缓冲区的大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 

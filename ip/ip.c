@@ -76,7 +76,7 @@ void eth_arp_wait_timeout_handler(void *pvParam)
     //* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
     pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT); 
     pstIpHdr = (PST_IP_HDR)pubIpPacket;     
-    nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->unArpDstAddr, ubaDstMac, &enErr);
+    nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->uniDstAddr.unIpv4, ubaDstMac, &enErr);
     if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
     {
         os_enter_critical(); 
