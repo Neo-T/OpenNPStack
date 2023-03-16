@@ -358,38 +358,127 @@ const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase)
 	return szDst;
 }
 
-const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase)
+const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase, CHAR *pbBytes)
 {
+	if (!ubVal)
+	{
+		szDst[0] = '0';
+		szDst[1] = 0;
+
+		if (pbBytes)
+			*pbBytes = 1; 
+
+		return szDst;
+	}
+
 	szDst[0] = ubVal >> 4;
 	szDst[1] = ubVal & 0x0F;
 
+	CHAR bBytes = 2; 
 	if (szDst[0])
 	{
 		hex_to_char(szDst[0], blIsUppercase); 
 		hex_to_char(szDst[1], blIsUppercase);
-		szDst[2] = 0;
+		szDst[bBytes] = 0;
 	}
 	else
 	{
 		hex_to_char_no_lz(szDst[0], szDst[1], blIsUppercase); 
-		szDst[1] = 0;
+		bBytes = 1;
+		szDst[bBytes] = 0;		
 	}
+
+	if (pbBytes)
+		*pbBytes = bBytes;
 
 	return szDst;
 }
 
-const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsLeadingZerosFilled)
+const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsBigEndian)
 {
-	szDst[0] = usVal >> 12;
-	szDst[1] = usVal >> 8;
-	szDst[2] = usVal >> 4;
-	szDst[3] = usVal & 0x0F;
+	if (blIsBigEndian)
+	{
+		szDst[0] = (((UCHAR*)&usVal)[0]) >> 4;
+		szDst[1] = (((UCHAR*)&usVal)[0]) & 0x0F;
+		szDst[2] = (((UCHAR*)&usVal)[1]) >> 4;
+		szDst[3] = (((UCHAR*)&usVal)[1]) & 0x0F;
+	}
+	else
+	{
+		szDst[0] = (((UCHAR*)&usVal)[1]) >> 4;
+		szDst[1] = (((UCHAR*)&usVal)[1]) & 0x0F;
+		szDst[2] = (((UCHAR*)&usVal)[0]) >> 4;
+		szDst[3] = (((UCHAR*)&usVal)[0]) & 0x0F;
+	}	
 
 	hex_to_char(szDst[0], blIsUppercase);
 	hex_to_char(szDst[1], blIsUppercase);
 	hex_to_char(szDst[2], blIsUppercase);
 	hex_to_char(szDst[3], blIsUppercase);
 	szDst[4] = 0;
+	return szDst;
+}
+
+const CHAR *hex_to_str_no_lz_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsBigEndian, CHAR *pbBytes)
+{
+	if (!usVal)
+	{
+		szDst[0] = '0';
+		szDst[1] = 0;
+
+		if (pbBytes)
+			*pbBytes = 1;
+
+		return szDst;
+	}
+
+	if (blIsBigEndian)
+	{
+		szDst[0] = (((UCHAR*)&usVal)[0]) >> 4;
+		szDst[1] = (((UCHAR*)&usVal)[0]) & 0x0F;
+		szDst[2] = (((UCHAR*)&usVal)[1]) >> 4;
+		szDst[3] = (((UCHAR*)&usVal)[1]) & 0x0F;
+	}
+	else
+	{
+		szDst[0] = (((UCHAR*)&usVal)[1]) >> 4;
+		szDst[1] = (((UCHAR*)&usVal)[1]) & 0x0F;
+		szDst[2] = (((UCHAR*)&usVal)[0]) >> 4;
+		szDst[3] = (((UCHAR*)&usVal)[0]) & 0x0F;
+	}
+
+	//* 计算前导零个数
+	CHAR i = 0, k = 0;
+	for (; i < 3; i++)
+	{
+		if (szDst[i])
+			break;
+
+		k++;
+	}
+
+	if (pbBytes)
+		*pbBytes = 4 - k; 
+
+	hex_to_char(szDst[0], blIsUppercase);
+	hex_to_char(szDst[1], blIsUppercase);
+	hex_to_char(szDst[2], blIsUppercase);
+	hex_to_char(szDst[3], blIsUppercase);
+
+	//* k为0，没有前导0
+	if (!k)
+	{
+		szDst[4] = 0;		
+	}
+	else 
+	{
+		//* 去掉前导0
+		CHAR bMovNum = 4 - k;
+		for (i = 0; i < bMovNum; i++)
+			szDst[i] = szDst[k++];
+		szDst[bMovNum] = 0;
+	}	
+
 	return szDst;
 }
 
@@ -540,12 +629,64 @@ INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
 #if SUPPORT_IPV6
 const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40])
 {
-	USHORT *pusIpv6 = ubaIpv6; 
+	USHORT *pusIpv6 = (USHORT *)ubaIpv6;
+	CHAR i, k;
+	CHAR bBytes;
+	CHAR bStartIdx, bZeroFiledIdx = -1;
+	CHAR bCount = 0, bZeroCount = 0;
 
-	INT i = 0; 
-	for (; i < 8; i++)
+	//* 查找需要压缩展示的全0字段：
+	//* 1) 单0字段不能压缩；
+	//* 2) 如果存在多组连续全零字段，只压缩全零字段最长的那组
+	//* 3) 如果存在多个相等长度的全零字段，只压缩第一组连续全零字段
+	//* 一个Ipv6地址只能按照上述规则压缩一组连续全零字段
+	for (i = 0; i < 8; i++)
 	{
+		if (!pusIpv6[i])
+		{
+			if (!bCount)
+				bStartIdx = i;
+			bCount++;
+		}
+		else
+		{
+			if (bCount > bZeroCount)
+			{
+				bZeroFiledIdx = bStartIdx;
+				bZeroCount = bCount;
+			}
 
+			bCount = 0;
+		}
 	}
+
+	if (bCount > bZeroCount)
+	{
+		bZeroFiledIdx = bStartIdx;
+		bZeroCount = bCount;
+	}
+
+	k = 0;
+	for (i = 0; i < 8; i++)
+	{
+		if (i != bZeroFiledIdx)
+		{
+			if (i)
+				szIpv6[k++] = ':';
+			hex_to_str_no_lz_16(pusIpv6[i], &szIpv6[k], FALSE, TRUE, &bBytes);
+			k += bBytes;
+		}
+		else
+		{
+			szIpv6[k++] = ':';
+			i += bZeroCount - 1;
+			if (i == 7)
+				szIpv6[k++] = ':';
+		}
+	}
+
+	szIpv6[k] = 0;
+
+	return szIpv6;
 }
 #endif

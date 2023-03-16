@@ -41,9 +41,10 @@ ONPS_UTILS_EXT CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr);
 
 #define hex_to_char(val, is_uppercase) (val += val < 10 ? '0' : (is_uppercase ? 'A' - 10 : 'a' - 10))
 #define hex_to_char_no_lz(prev_val, next_val, is_uppercase) (prev_val = next_val + (next_val < 10 ? '0' : (is_uppercase ? 'A' - 10 : 'a' - 10)))
-ONPS_UTILS_EXT const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase);		//* 完整转换，如0x0A->0A
-ONPS_UTILS_EXT const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase);	//* 不带前导0的转换函数，如0x0A->A
-ONPS_UTILS_EXT const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsLeadingZerosFilled);
+ONPS_UTILS_EXT const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase); //* 完整转换，如0x0A->0A
+ONPS_UTILS_EXT const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase, CHAR *pbBytes); //* 不带前导0的转换函数，如0x0A->A
+ONPS_UTILS_EXT const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsBigEndian); //* 完整转换，如0x0F09->0F09
+ONPS_UTILS_EXT const CHAR *hex_to_str_no_lz_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsBigEndian, CHAR *pbBytes);//* 不带前导零的转换，如0x0F09->F09
 
 ONPS_UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
 ONPS_UTILS_EXT USHORT tcpip_checksum_ext(SHORT sBufListHead);
