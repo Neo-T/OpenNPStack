@@ -44,10 +44,14 @@ typedef struct _ST_IPV4_ {
 
 #if SUPPORT_IPV6
 typedef struct _ST_IPV6_ {
-	UCHAR ubaAddr[16];		//* 单播地址，与PC不同的是，为了节省内存协议栈只允许一个固定Ipv6地址（手动或自动配置——自动配置先icmpv6，如失败再dhcpv6）
+	UCHAR ubaUniAddr[16];	//* 单播地址，与PC不同的是，为了节省内存协议栈只允许一个固定Ipv6地址（手动或自动配置——自动配置先icmpv6，如失败再dhcpv6）
 	UCHAR ubaTmpAddr[16];	//* 临时地址
-	UCHAR ubaLLAddr[16];	//* 链路本地地址
+	UCHAR ubaLnkAddr[16];	//* 链路本地地址
 	UCHAR ubaGateway[16];	//* 网关地址 
+	UCHAR ubUAPrefixLen;	//* 单播地址前缀长度
+	UCHAR ubTAPrefixLen;	//* 临时地址前缀长度
+	UCHAR ubLLAPrefixLen;	//* 链路本地地址前缀长度
+	//UCHAR ubGAPrefixLen;	//* 网关地址前缀长度
 } ST_IPV6, *PST_IPV6;
 #endif
 
@@ -110,5 +114,9 @@ NETIF_EXT void netif_used(PST_NETIF pstNetif);
 NETIF_EXT void netif_freed(PST_NETIF pstNetif);
 NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName); 
 NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway);
+
+#if SUPPORT_IPV6
+NETIF_EXT UCHAR *netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestination[16]); 
+#endif
 
 #endif

@@ -39,6 +39,12 @@ ONPS_UTILS_EXT CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize);
 ONPS_UTILS_EXT CHAR *mem_str(CHAR *pszMem, CHAR *pszStr, UINT unStrSize, UINT unMemSize);
 ONPS_UTILS_EXT CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr); 
 
+#define hex_to_char(val, is_uppercase) (val += val < 10 ? '0' : (is_uppercase ? 'A' - 10 : 'a' - 10))
+#define hex_to_char_no_lz(prev_val, next_val, is_uppercase) (prev_val = next_val + (next_val < 10 ? '0' : (is_uppercase ? 'A' - 10 : 'a' - 10)))
+ONPS_UTILS_EXT const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase);		//* 完整转换，如0x0A->0A
+ONPS_UTILS_EXT const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase);	//* 不带前导0的转换函数，如0x0A->A
+ONPS_UTILS_EXT const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsLeadingZerosFilled);
+
 ONPS_UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
 ONPS_UTILS_EXT USHORT tcpip_checksum_ext(SHORT sBufListHead);
 ONPS_UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace);
@@ -105,5 +111,9 @@ ONPS_UTILS_EXT BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr);
 //* 几级域名，也就是域名分了几段，为封装dns查询报文提供数据支持，参数pnBytesOf1stSeg用于接收第一段域名的长度
 //* 返回值为域名级数，其实就是这个域名分了几段
 ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg); 
+
+#if SUPPORT_IPV6
+ONPS_UTILS_EXT const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
+#endif
 
 #endif

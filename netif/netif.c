@@ -428,3 +428,19 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 
     return pstNetif->stIPv4.unAddr;
 }
+
+#if SUPPORT_IPV6
+UCHAR *netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestination[16])
+{
+	//* 临时地址不为空，且匹配则返回临时地址
+	if (pstNetif->stIPv6.ubaTmpAddr[0] && !memcmp(ubaDestination, pstNetif->stIPv6.ubaTmpAddr, (size_t)pstNetif->stIPv6.ubTAPrefixLen))
+		return pstNetif->stIPv6.ubaTmpAddr; 
+
+	//* 单播地址不为空，且匹配则返回单播地址
+	if (pstNetif->stIPv6.ubaUniAddr[0] && !memcmp(ubaDestination, pstNetif->stIPv6.ubaUniAddr, (size_t)pstNetif->stIPv6.ubUAPrefixLen))
+		return pstNetif->stIPv6.ubaUniAddr;
+
+	//* 都不匹配则返回由协议栈自己生成的链路本地地址
+	return pstNetif->stIPv6.ubaLnkAddr; 
+}
+#endif

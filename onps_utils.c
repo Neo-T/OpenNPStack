@@ -346,6 +346,53 @@ CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr)
     return pszItem;
 }
 
+const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase)
+{
+	szDst[0] = ubVal >> 4;
+	szDst[1] = ubVal & 0x0F;	
+	
+	hex_to_char(szDst[0], blIsUppercase); 
+	hex_to_char(szDst[1], blIsUppercase); 
+	szDst[2] = 0;
+
+	return szDst;
+}
+
+const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase)
+{
+	szDst[0] = ubVal >> 4;
+	szDst[1] = ubVal & 0x0F;
+
+	if (szDst[0])
+	{
+		hex_to_char(szDst[0], blIsUppercase); 
+		hex_to_char(szDst[1], blIsUppercase);
+		szDst[2] = 0;
+	}
+	else
+	{
+		hex_to_char_no_lz(szDst[0], szDst[1], blIsUppercase); 
+		szDst[1] = 0;
+	}
+
+	return szDst;
+}
+
+const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsLeadingZerosFilled)
+{
+	szDst[0] = usVal >> 12;
+	szDst[1] = usVal >> 8;
+	szDst[2] = usVal >> 4;
+	szDst[3] = usVal & 0x0F;
+
+	hex_to_char(szDst[0], blIsUppercase);
+	hex_to_char(szDst[1], blIsUppercase);
+	hex_to_char(szDst[2], blIsUppercase);
+	hex_to_char(szDst[3], blIsUppercase);
+	szDst[4] = 0;
+	return szDst;
+}
+
 in_addr_t inet_addr(const char *pszIP)
 {    
     in_addr_t unAddr;
@@ -490,3 +537,15 @@ INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
 }
 #endif
 
+#if SUPPORT_IPV6
+const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40])
+{
+	USHORT *pusIpv6 = ubaIpv6; 
+
+	INT i = 0; 
+	for (; i < 8; i++)
+	{
+
+	}
+}
+#endif

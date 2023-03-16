@@ -40,6 +40,7 @@ void arp_init(void)
         l_stcbaEthArp[k].staSListWaitQueue[i].pstNext = NULL;
         l_stcbaEthArp[k].pstSListWaitQueueFreed = &l_stcbaEthArp[k].staSListWaitQueue[0]; 
         l_stcbaEthArp[k].pstSListWaitQueue = NULL; 
+		l_stcbaEthArp[k].pstSListWaitQueueIPv6 = NULL; 
     }    
 }
 
@@ -59,7 +60,8 @@ PSTCB_ETHARP arp_ctl_block_new(void)
             {
                 l_stcbaEthArp[i].bIsUsed = TRUE;
                 pstcbArp = &l_stcbaEthArp[i]; 
-                pstcbArp->bLastEntryIPv4ToRead = 0;                 
+                pstcbArp->bLastEntryIPv4ToRead = 0;
+				pstcbArp->bLastEntryIPv6ToRead = 0; 
                 break; 
             }
         }

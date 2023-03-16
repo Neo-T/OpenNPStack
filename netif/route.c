@@ -18,6 +18,11 @@ static ST_ROUTE_NODE l_staRouteNode[ROUTE_ITEM_NUM];
 static PST_ROUTE_NODE l_pstFreeNode = NULL;
 static PST_ROUTE_NODE l_pstRouteLink = NULL;
 static HMUTEX l_hMtxRoute = INVALID_HMUTEX;
+
+static ST_ROUTE_IPv6_NODE l_staRouteNodeIpv6[ROUTE_IPv6_ITEM_NUM];
+static PST_ROUTE_IPv6_NODE l_pstFreeNodeIpv6 = NULL;
+static PST_ROUTE_IPv6_NODE l_pstRouteLinkIpv6 = NULL;
+static HMUTEX l_hMtxRouteIpv6 = INVALID_HMUTEX;
 BOOL route_table_init(EN_ONPSERR *penErr)
 {
     //* 路由表清零
@@ -29,9 +34,28 @@ BOOL route_table_init(EN_ONPSERR *penErr)
         l_staRouteNode[i - 1].pstNext = &l_staRouteNode[i];
     l_pstFreeNode = &l_staRouteNode[0];
 
+#if SUPPORT_IPV6
+	for (i = 1; i < ROUTE_IPv6_ITEM_NUM; i++)
+		l_staRouteNodeIpv6[i - 1].pstNext = &l_staRouteNodeIpv6[i];
+	l_pstFreeNodeIpv6 = &l_staRouteNodeIpv6[0]; 
+
+	l_hMtxRouteIpv6 = os_thread_mutex_init();
+	if (INVALID_HMUTEX == l_hMtxRoute)
+	{
+		if (penErr)
+			*penErr = ERRMUTEXINITFAILED;
+		return FALSE; 
+	}
+#endif
+	
     l_hMtxRoute = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxRoute)
         return TRUE;
+
+#if SUPPORT_IPV6
+	//* 失败了，归还刚才占用的资源
+	os_thread_mutex_uninit(l_hMtxRouteIpv6); 
+#endif
 
     if (penErr)
         *penErr = ERRMUTEXINITFAILED;
@@ -46,6 +70,14 @@ void route_table_uninit(void)
 
     if (INVALID_HMUTEX != l_hMtxRoute)
         os_thread_mutex_uninit(l_hMtxRoute);
+
+#if SUPPORT_IPV6
+	l_pstRouteLinkIpv6 = NULL;
+	l_pstFreeNodeIpv6 = NULL;
+
+	if (INVALID_HMUTEX != l_hMtxRoute)
+		os_thread_mutex_uninit(l_hMtxRouteIpv6);
+#endif
 }
 
 static PST_ROUTE_NODE get_free_node(void)
@@ -379,3 +411,81 @@ UINT route_get_netif_ip(UINT unDestination)
 
     return unNetifIp; 
 }
+
+#if SUPPORT_IPV6
+static PST_ROUTE_IPv6_NODE route_ipv6_get_free_node(void)
+{
+	PST_ROUTE_IPv6_NODE pstNode;
+	os_thread_mutex_lock(l_hMtxRouteIpv6);
+	{
+		pstNode = l_pstFreeNodeIpv6;
+		if (l_pstFreeNodeIpv6)
+			l_pstFreeNodeIpv6 = l_pstFreeNodeIpv6->pstNext;
+	}
+	os_thread_mutex_unlock(l_hMtxRouteIpv6);
+
+	memset(&pstNode->stRoute, 0, sizeof(pstNode->stRoute));
+	return pstNode;
+}
+
+static void route_ipv6_put_free_node(PST_ROUTE_IPv6_NODE pstNode)
+{
+	os_thread_mutex_lock(l_hMtxRouteIpv6);
+	{
+		pstNode->pstNext = l_pstFreeNodeIpv6;
+		l_pstFreeNodeIpv6 = pstNode;
+	}
+	os_thread_mutex_unlock(l_hMtxRouteIpv6);
+}
+
+BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixLen, EN_ONPSERR *penErr)
+{
+	PST_ROUTE_IPv6_NODE pstNode;
+
+	//* 先看看是否已经存在这个目标网段
+	os_thread_mutex_lock(l_hMtxRouteIpv6);
+	{
+		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteLinkIpv6;
+		while (pstNextNode)
+		{
+			if (!memcmp(ubaDestination, l_pstRouteLinkIpv6->stRoute.ubaDestination, (size_t)l_pstRouteLinkIpv6->stRoute.ubDestPrefixLen)) //* 目标网段相等，则只更新不增加新条目
+			{
+				memcpy(pstNextNode->stRoute.ubaSource, netif_get_source_ipv6_by_destination(pstNetif, ubaDestination), 16);
+				memcpy(pstNextNode->stRoute.ubaGateway, ubaGateway, 16);
+				pstNextNode->stRoute.ubDestPrefixLen = ubDestPrefixLen;
+				pstNextNode->stRoute.pstNetif = pstNetif;
+				pstNextNode->stRoute.pstNetif->bUsedCount = 0;
+				pstNode = pstNextNode;
+				os_thread_mutex_unlock(l_hMtxRoute);
+				goto __lblEnd;
+			}
+
+			pstNextNode = pstNextNode->pstNext;
+		}
+	}
+	os_thread_mutex_unlock(l_hMtxRouteIpv6);
+
+__lblEnd:
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 0//1	
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+	printf("Add/Update network interface <%s> to IPv6 routing table\r\n[", pstNode->stRoute.pstNetif->szName);
+	if (pstNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
+	{
+		printf("destination %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+	}
+	else
+		printf("destination default");
+	pubAddr = (UCHAR *)&pstNode->stRoute.unGateway;
+	printf(", gateway %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+	pubAddr = (UCHAR *)&pstNode->stRoute.unGenmask;
+	printf(", genmask %d.%d.%d.%d]\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+#endif
+
+	return TRUE;
+}
+#endif
