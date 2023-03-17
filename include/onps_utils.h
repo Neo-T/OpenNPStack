@@ -45,6 +45,8 @@ ONPS_UTILS_EXT const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUpp
 ONPS_UTILS_EXT const CHAR *hex_to_str_no_lz_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase, CHAR *pbBytes); //* 不带前导0的转换函数，如0x0A->A
 ONPS_UTILS_EXT const CHAR *hex_to_str_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsBigEndian); //* 完整转换，如0x0F09->0F09
 ONPS_UTILS_EXT const CHAR *hex_to_str_no_lz_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase, BOOL blIsBigEndian, CHAR *pbBytes);//* 不带前导零的转换，如0x0F09->F09
+ONPS_UTILS_EXT CHAR ascii_to_hex_4(CHAR ch); //* 如ascii的字符F转为->0xF
+ONPS_UTILS_EXT USHORT ascii_to_hex_16(const CHAR *pszAscii); //* 如16位短整型ascii字符串F09转为0x0F09
 
 ONPS_UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
 ONPS_UTILS_EXT USHORT tcpip_checksum_ext(SHORT sBufListHead);
@@ -114,7 +116,8 @@ ONPS_UTILS_EXT BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr);
 ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg); 
 
 #if SUPPORT_IPV6
-ONPS_UTILS_EXT const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
+ONPS_UTILS_EXT const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
+ONPS_UTILS_EXT const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16]);
 #endif
 
 #endif

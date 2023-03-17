@@ -482,6 +482,29 @@ const CHAR *hex_to_str_no_lz_16(USHORT usVal, CHAR szDst[5], BOOL blIsUppercase,
 	return szDst;
 }
 
+CHAR ascii_to_hex_4(CHAR ch)
+{
+	if (ch >= '0' && ch <= '9')
+		return (ch - '0');
+	if (ch >= 'A' && ch <= 'F')
+		return (ch - 'A') + 10;
+	if (ch >= 'a' && ch <= 'f')
+		return (ch - 'a') + 10; 
+
+	return 0;
+}
+
+USHORT ascii_to_hex_16(const CHAR *pszAscii)
+{
+	USHORT usValue = 0;
+	INT i; 
+
+	for (i = 0; i < strlen(pszAscii); i++)	
+		usValue = (usValue << 4) + ascii_to_hex_4(pszAscii[i]);
+
+	return usValue;
+}
+
 in_addr_t inet_addr(const char *pszIP)
 {    
     in_addr_t unAddr;
@@ -627,19 +650,19 @@ INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
 #endif
 
 #if SUPPORT_IPV6
-const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40])
+const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40])
 {
 	USHORT *pusIpv6 = (USHORT *)ubaIpv6;
 	CHAR i, k;
 	CHAR bBytes;
-	CHAR bStartIdx, bZeroFiledIdx = -1;
+	CHAR bStartIdx, bZeroFieldIdx = -1;
 	CHAR bCount = 0, bZeroCount = 0;
 
 	//* 查找需要压缩展示的全0字段：
 	//* 1) 单0字段不能压缩；
 	//* 2) 如果存在多组连续全零字段，只压缩全零字段最长的那组
 	//* 3) 如果存在多个相等长度的全零字段，只压缩第一组连续全零字段
-	//* 一个Ipv6地址只能按照上述规则压缩一组连续全零字段
+	//* 注意：一个Ipv6地址只能按照上述规则压缩一组连续全零字段
 	for (i = 0; i < 8; i++)
 	{
 		if (!pusIpv6[i])
@@ -652,7 +675,7 @@ const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40])
 		{
 			if (bCount > bZeroCount)
 			{
-				bZeroFiledIdx = bStartIdx;
+				bZeroFieldIdx = bStartIdx;
 				bZeroCount = bCount;
 			}
 
@@ -662,14 +685,14 @@ const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40])
 
 	if (bCount > bZeroCount)
 	{
-		bZeroFiledIdx = bStartIdx;
+		bZeroFieldIdx = bStartIdx;
 		bZeroCount = bCount;
 	}
 
 	k = 0;
 	for (i = 0; i < 8; i++)
 	{
-		if (i != bZeroFiledIdx)
+		if (i != bZeroFieldIdx)
 		{
 			if (i)
 				szIpv6[k++] = ':';
@@ -681,12 +704,77 @@ const CHAR *inet6_ntoa(UCHAR ubaIpv6[16], CHAR szIpv6[40])
 			szIpv6[k++] = ':';
 			i += bZeroCount - 1;
 			if (i == 7)
+			{
 				szIpv6[k++] = ':';
+				break; 
+			}
 		}
 	}
 
 	szIpv6[k] = 0;
 
 	return szIpv6;
+}
+
+const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16])
+{
+	CHAR bZeroFieldIdx = -1, bCount = 0;
+	CHAR i;
+
+	//* 找出压缩的全零字段
+	BOOL blIsExecptNextColon = FALSE;
+	CHAR bIpv6Len = (CHAR)strlen(pszIpv6);
+	for (i = 0; i < bIpv6Len; i++)
+	{
+		if (pszIpv6[i] == ':')
+		{
+			if (i && i < bIpv6Len - 1)
+				bCount++;
+			if (blIsExecptNextColon && bZeroFieldIdx < 0)
+				bZeroFieldIdx = i;
+			else
+				blIsExecptNextColon = TRUE;
+		}
+		else
+			blIsExecptNextColon = FALSE;
+	}
+
+	//* 存在压缩字段，则计算压缩字段的数量
+	if (bZeroFieldIdx > 0)
+		bCount = 8 - bCount;
+	else
+		bCount = 0;
+
+	//* 解析字符串将其转成16进制的Ipv6地址
+	CHAR szIpv6[40];
+	memcpy(szIpv6, pszIpv6, bIpv6Len); //* 复制源字符串，以确保调用stotok_safe()函数时不改变入口参数pszIpv6的值
+	szIpv6[bIpv6Len] = 0;
+	CHAR *pszStart = szIpv6;
+	CHAR *pszField;
+	USHORT usVal;
+	i = 0;
+	do {
+		if (NULL != (pszField = strtok_safe(&pszStart, ":")))
+		{
+			if (bZeroFieldIdx > 0 && (CHAR *)&szIpv6[bZeroFieldIdx + 1] == pszField)
+			{
+				CHAR bFilledZeroNum = bCount * 2;
+				memset(&ubaIpv6[i], 0, bFilledZeroNum);
+				i += bFilledZeroNum;
+			}
+
+			usVal = ascii_to_hex_16(pszField);
+			ubaIpv6[i] = ((UCHAR *)&usVal)[1];
+			ubaIpv6[i + 1] = ((UCHAR *)&usVal)[0];
+			i += 2;
+		}
+		else
+			break;
+	} while (TRUE);
+
+	if (bZeroFieldIdx > 0 && bZeroFieldIdx + 1 == bIpv6Len)
+		memset(&ubaIpv6[i], 0, bCount * 2);
+
+	return ubaIpv6;
 }
 #endif
