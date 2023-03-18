@@ -117,7 +117,7 @@ ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBy
 
 #if SUPPORT_IPV6
 ONPS_UTILS_EXT const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
-ONPS_UTILS_EXT const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16]);
+ONPS_UTILS_EXT const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16]); 
 #endif
 
 #endif

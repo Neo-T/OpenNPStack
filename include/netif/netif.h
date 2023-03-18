@@ -50,7 +50,7 @@ typedef struct _ST_IPV6_ {
 	UCHAR ubaGateway[16];	//* 网关地址 
 	UCHAR ubUAPrefixLen;	//* 单播地址前缀长度
 	UCHAR ubTAPrefixLen;	//* 临时地址前缀长度
-	UCHAR ubLLAPrefixLen;	//* 链路本地地址前缀长度
+	UCHAR ubLAPrefixLen;	//* 链路本地地址前缀长度
 	//UCHAR ubGAPrefixLen;	//* 网关地址前缀长度
 } ST_IPV6, *PST_IPV6;
 #endif
@@ -117,6 +117,9 @@ NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway
 
 #if SUPPORT_IPV6
 NETIF_EXT UCHAR *netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestination[16]); 
+#if SUPPORT_ETHERNET
+NETIF_EXT PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, BOOL blIsForSending);
+#endif
 #endif
 
 #endif

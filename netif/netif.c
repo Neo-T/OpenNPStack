@@ -443,4 +443,54 @@ UCHAR *netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestina
 	//* 都不匹配则返回由协议栈自己生成的链路本地地址
 	return pstNetif->stIPv6.ubaLnkAddr; 
 }
+
+PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, BOOL blIsForSending)
+{
+	PST_NETIF pstNetif = NULL;
+
+	os_thread_mutex_lock(l_hMtxNetif);
+	{
+		PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+		while (pstNextNode)
+		{
+			if (NIF_ETHERNET == pstNextNode->stIf.enType)
+			{
+				//* 临时地址不为空，且匹配则返回临时地址
+				if (pstNextNode->stIf.stIPv6.ubaTmpAddr[0] && !memcmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaTmpAddr, (size_t)pstNextNode->stIf.stIPv6.ubTAPrefixLen))
+				{
+					pstNetif = &pstNextNode->stIf;
+					if (pubSource)
+						memcpy(pubSource, pstNetif->stIPv6.ubaTmpAddr, 16);
+					break; 
+				}
+
+				//* 单播地址不为空，且匹配则返回单播地址
+				if (pstNextNode->stIf.stIPv6.ubaUniAddr[0] && !memcmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaUniAddr, (size_t)pstNextNode->stIf.stIPv6.ubUAPrefixLen))
+				{
+					pstNetif = &pstNextNode->stIf;
+					if (pubSource)
+						memcpy(pubSource, pstNetif->stIPv6.ubaUniAddr, 16);
+					break;
+				}
+
+				//* 到这里则只有链路本地地址需要确定是否匹配了
+				if (!memcmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaLnkAddr, (size_t)pstNextNode->stIf.stIPv6.ubLAPrefixLen))
+				{
+					pstNetif = &pstNextNode->stIf;
+					if (pubSource)
+						memcpy(pubSource, pstNetif->stIPv6.ubaLnkAddr, 16);
+					break;
+				}
+			}
+
+			pstNextNode = pstNextNode->pstNext;
+		}
+
+		if (pstNetif && blIsForSending)
+			pstNetif->bUsedCount++;
+	}
+	os_thread_mutex_unlock(l_hMtxNetif);
+
+	return pstNetif;
+}
 #endif

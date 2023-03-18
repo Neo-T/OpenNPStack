@@ -39,7 +39,7 @@ typedef struct _STCB_ETHARP_ {
 #if SUPPORT_IPV6
 	CHAR bLastEntryIPv6ToRead; //* 最近读取的映射条目
 #endif
-    ST_ENTRY_ETHIIIPV4 staEntryIPv4[ARPENTRY_NUM]; //* arp条目缓存表
+    ST_ENTRY_ETHIIIPV4 staEntryIPv4[ARPENTRY_NUM]; //* arp条目缓存表（Ipv4地址到以太网mac地址映射表）
 #if SUPPORT_IPV6
 	ST_ENTRY_ETHIIIPV6 staEntryIPv6[IPV6TOMAC_ENTRY_NUM]; //* IPv6地址到以太网Mac地址映射表
 #endif

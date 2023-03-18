@@ -61,7 +61,10 @@ ROUTE_EXT UINT route_get_netif_ip(UINT unDestination);
 #if SUPPORT_IPV6
 ROUTE_EXT BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixLen, EN_ONPSERR *penErr);
 ROUTE_EXT void route_ipv6_del(UCHAR ubaDestination[16]);
-ROUTE_EXT PST_NETIF route_ipv6_get_netif(UCHAR ubaDstIpv6[16], BOOL blIsForSending, UCHAR ubaSrcIpv6[16], UCHAR ubaNSAddr[16]);
+ROUTE_EXT void route_ipv6_del_ext(PST_NETIF pstNetif);
+ROUTE_EXT PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr); 
+ROUTE_EXT PST_NETIF route_ipv6_get_default(void); 
+ROUTE_EXT UCHAR *route_ipv6_get_netif_ip(UCHAR ubaDestination[16], UCHAR ubaNetifIpv6[16]);
 #endif 
 
 #endif
