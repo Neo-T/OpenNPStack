@@ -9,6 +9,7 @@
 #ifndef ICMPv6_FRAME_H
 #define ICMPv6_FRAME_H
 
+#if SUPPORT_IPV6
 typedef enum {
     ICMPv6_ERRDST	= 1,	//* Destination Unreachable，目标不可达
     ICMPv6_ERRPTB	= 2,	//* Packet Too Big，包过大
@@ -97,5 +98,6 @@ typedef struct _ST_ICMPv6_NA_HDR_ {
 	UCHAR ubaTargetAddr[16]; //* 目标地址，对NS消息响应时，此地址应为NS消息中携带的目标地址字段值，非NS消息响应时，此应为链路层地址发生变换的IPv6地址。该字段说白了就是NA要通告的IPv6地址，其携带的目标链路层地址可选项值与之对应
 } PACKED ST_ICMPv6_NA_HDR, *PST_ICMPv6_NA_HDR;
 PACKED_END
+#endif
 
 #endif

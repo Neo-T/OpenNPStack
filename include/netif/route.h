@@ -38,7 +38,7 @@ typedef struct _ST_ROUTE_IPv6_ {
 	UCHAR ubaDestination[16];
 	UCHAR ubaGateway[16];
 	PST_NETIF pstNetif;
-	UCHAR ubDestPrefixLen; //* 前缀长度
+	UCHAR ubDestPrefixLen; //* 前缀长度，这个长度用于指定Ipv6地址的前多少位作为地址前缀
 } ST_ROUTE_IPv6, *PST_ROUTE_IPv6; 
 
 //* Ipv6路由链表节点

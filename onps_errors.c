@@ -80,7 +80,8 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRDNSQUERYTYPE, "unsupported dns query type" }, 
     { ERRDNSNOTRESOLVED, "not resolved to ip address" }, 
     { ERRNOUDPLINKNODE, "the udp link list is empty" }, 
-    { ERRTCPLINKCBNULL, "the tcp link control block is NULL" },
+    { ERRTCPLINKCBNULL, "the tcp link control block is NULL" }, 
+	{ ERRNEWIPv6MACCTLBLOCK, "The control block of the ipv6 to mac address mapping table is empty" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

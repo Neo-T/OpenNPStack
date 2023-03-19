@@ -23,34 +23,15 @@ typedef struct _ST_ENTRY_ETHIIIPV4_ {
     UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]; //* 对应的ip地址    
 } ST_ENTRY_ETHIIIPV4, *PST_ENTRY_ETHIIIPV4;
 
-#if SUPPORT_IPV6
-//* IPv6地址到以太网Mac地址映射表存储结构体
-typedef struct _ST_ENTRY_ETHIIIPV6_ {
-	UINT unUpdateTime;      //* 条目更新（读取/缓存）时间
-	UCHAR ubaIPv6Addr[16];	//* IPv6地址
-	UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]; //* 对应的ip地址    
-} ST_ENTRY_ETHIIIPV6, *PST_ENTRY_ETHIIIPV6; 
-#endif
-
 //* arp条目控制块
 typedef struct _STCB_ETHARP_ {
     CHAR bIsUsed;
-    CHAR bLastEntryIPv4ToRead; //* 最近读取的arp条目
-#if SUPPORT_IPV6
-	CHAR bLastEntryIPv6ToRead; //* 最近读取的映射条目
-#endif
-    ST_ENTRY_ETHIIIPV4 staEntryIPv4[ARPENTRY_NUM]; //* arp条目缓存表（Ipv4地址到以太网mac地址映射表）
-#if SUPPORT_IPV6
-	ST_ENTRY_ETHIIIPV6 staEntryIPv6[IPV6TOMAC_ENTRY_NUM]; //* IPv6地址到以太网Mac地址映射表
-#endif
+    CHAR bLastReadEntryIdx; //* 最近读取的arp条目索引
+    ST_ENTRY_ETHIIIPV4 staEntry[ARPENTRY_NUM]; //* arp条目缓存表（Ipv4地址到以太网mac地址映射表）
 
     ST_SLINKEDLIST_NODE staSListWaitQueue[12];		//* 等待arp查询结果的待发送报文队列    
 	PST_SLINKEDLIST pstSListWaitQueueFreed; 
-
     PST_SLINKEDLIST pstSListWaitQueue; 
-#if SUPPORT_IPV6
-	PST_SLINKEDLIST pstSListWaitQueueIPv6;
-#endif
 } STCB_ETHARP, *PSTCB_ETHARP;
 
 //* 等待arp查询结束后重新发送ip报文的控制块
@@ -58,14 +39,7 @@ typedef struct _STCB_ETH_ARP_WAIT_ {
     PST_ONESHOTTIMER pstTimer; 
     PST_NETIF pstNetif;
     PST_SLINKEDLIST_NODE pstNode; 
-#if SUPPORT_IPV6
-	union {
-		UINT unIpv4;
-		UCHAR ubaIpv6[16]; 
-	} uniDstAddr;
-#else
-    UINT unArpDstAddr;
-#endif
+	UINT unIpv4;
     USHORT usIpPacketLen;
     UCHAR ubCount;    
 } STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;

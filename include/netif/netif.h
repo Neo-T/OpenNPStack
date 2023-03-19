@@ -48,7 +48,7 @@ typedef struct _ST_IPV6_ {
 	UCHAR ubaTmpAddr[16];	//* 临时地址
 	UCHAR ubaLnkAddr[16];	//* 链路本地地址
 	UCHAR ubaGateway[16];	//* 网关地址 
-	UCHAR ubUAPrefixLen;	//* 单播地址前缀长度
+	UCHAR ubUAPrefixLen;	//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
 	UCHAR ubTAPrefixLen;	//* 临时地址前缀长度
 	UCHAR ubLAPrefixLen;	//* 链路本地地址前缀长度
 	//UCHAR ubGAPrefixLen;	//* 网关地址前缀长度
@@ -86,12 +86,16 @@ typedef struct _ST_NETIF_ETH_IP_NODE_ {
 
 //* ethernet网卡附加信息
 typedef struct _STCB_ETHARP_ STCB_ETHARP, *PSTCB_ETHARP; 
+#if SUPPORT_IPV6
+typedef struct _STCB_ETHIPv6MAC__ STCB_ETHIPv6MAC, *PSTCB_ETHIPv6MAC;
+#endif
 typedef struct _ST_NETIFEXTRA_ETH_ {     
     CHAR bIsUsed;                           //* 是否已被使用
     CHAR bIsStaticAddr;                     //* 静态地址？
     UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];     //* mac地址   
     PST_NETIF_ETH_IP_NODE pstIPList;        //* 绑定到该网卡的IP地址
     PSTCB_ETHARP pstcbArp; 
+	PSTCB_ETHIPv6MAC pstcbIpv6Mac; 
     PFUN_EMAC_SEND pfunEmacSend; 
     PST_SLINKEDLIST pstRcvedPacketList;
     HSEM hSem;

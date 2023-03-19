@@ -777,4 +777,30 @@ const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16])
 
 	return ubaIpv6;
 }
+
+INT ipv6_addr_prefix_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubPrefixLen)
+{
+	UCHAR ubBytes = ubPrefixLen / 8;
+	INT nRtnVal = memcmp(pubAddr1, pubAddr2, (size_t)ubBytes);
+	if (0 == nRtnVal)
+	{
+		UCHAR ubBitNum = ubPrefixLen % 8;
+		if (ubBitNum)
+		{
+			UCHAR ubMask = 0xFF << (8 - ubBitNum);
+			UCHAR ubAddr1 = pubAddr1[ubBytes] & ubMask;
+			UCHAR ubAddr2 = pubAddr2[ubBytes] & ubMask;
+			if (ubAddr1 == ubAddr2)
+				return 0;
+			else if (ubAddr1 > ubAddr2)
+				return 1;
+			else
+				return -1;
+		}
+		else
+			return 0;
+	}
+
+	return nRtnVal;
+}
 #endif

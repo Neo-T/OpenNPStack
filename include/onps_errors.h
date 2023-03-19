@@ -87,6 +87,7 @@ typedef enum {
     ERRDNSNOTRESOLVED,      //* 未解析到ip地址
     ERRNOUDPLINKNODE,       //* 无可用udp link节点
     ERRTCPLINKCBNULL,       //* tcp link控制块为NULL
+	ERRNEWIPv6MACCTLBLOCK,	//* ipv6到mac地址映射表控制块已空
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 
