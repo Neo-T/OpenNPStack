@@ -32,7 +32,7 @@ static ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM];
 void ethernet_init(void)
 {
     arp_init(); 
-	ipv6_to_mac_mapping_tbl_init(); 
+	ipv6_mac_mapping_tbl_init(); 
     memset(l_staExtraOfEth, 0, sizeof(l_staExtraOfEth)); 
 }
 
@@ -89,7 +89,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 
 #if SUPPORT_IPV6
 	//* 申请一个
-	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ipv6_to_mac_ctl_block_new(); 
+	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ipv6_mac_ctl_block_new(); 
 	if (!pstcbIpv6Mac)
 	{
 		arp_ctl_block_free(pstcbArp);			//* 释放刚才申请的arp控制块
@@ -130,7 +130,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
                 pstNetif = NULL; 
                 
 		#if SUPPORT_IPV6
-				ipv6_to_mac_ctl_block_free(pstcbIpv6Mac);	//* 释放前面刚刚申请的ipv6到mac地址映射表控制块
+				ipv6_mac_ctl_block_free(pstcbIpv6Mac);	//* 释放前面刚刚申请的ipv6到mac地址映射表控制块
 		#endif
 				arp_ctl_block_free(pstcbArp);				//* 释放前面刚才申请的arp控制块
                 os_thread_sem_uninit(pstExtra->hSem);		//* 归还占用的信号量资源                				
@@ -154,11 +154,11 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
     else
     {
 #if SUPPORT_IPV6
-		ipv6_to_mac_ctl_block_free(pstcbIpv6Mac);	//* 释放前面刚刚申请的ipv6到mac地址映射表控制块
+		ipv6_mac_ctl_block_free(pstcbIpv6Mac);	//* 释放前面刚刚申请的ipv6到mac地址映射表控制块
 #endif
-		arp_ctl_block_free(pstcbArp);				//* 释放前面刚才申请的arp控制块
-		os_thread_sem_uninit(pstExtra->hSem);		//* 归还占用的信号量资源                				
-		pstExtra->bIsUsed = FALSE;					//* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
+		arp_ctl_block_free(pstcbArp);			//* 释放前面刚才申请的arp控制块
+		os_thread_sem_uninit(pstExtra->hSem);	//* 归还占用的信号量资源                				
+		pstExtra->bIsUsed = FALSE;				//* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
     }
 
     return pstNetif;

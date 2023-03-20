@@ -433,11 +433,11 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 UCHAR *netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestination[16])
 {
 	//* 临时地址不为空，且匹配则返回临时地址
-	if (pstNetif->stIPv6.ubaTmpAddr[0] && !ipv6_addr_prefix_cmp(ubaDestination, pstNetif->stIPv6.ubaTmpAddr, pstNetif->stIPv6.ubTAPrefixLen))
+	if (pstNetif->stIPv6.ubaTmpAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNetif->stIPv6.ubaTmpAddr, pstNetif->stIPv6.ubTAPrefixLen))
 		return pstNetif->stIPv6.ubaTmpAddr; 
 
 	//* 单播地址不为空，且匹配则返回单播地址
-	if (pstNetif->stIPv6.ubaUniAddr[0] && !ipv6_addr_prefix_cmp(ubaDestination, pstNetif->stIPv6.ubaUniAddr, pstNetif->stIPv6.ubUAPrefixLen))
+	if (pstNetif->stIPv6.ubaUniAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNetif->stIPv6.ubaUniAddr, pstNetif->stIPv6.ubUAPrefixLen))
 		return pstNetif->stIPv6.ubaUniAddr;
 
 	//* 都不匹配则返回由协议栈自己生成的链路本地地址
@@ -456,7 +456,7 @@ PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 			if (NIF_ETHERNET == pstNextNode->stIf.enType)
 			{
 				//* 临时地址不为空，且匹配则返回临时地址
-				if (pstNextNode->stIf.stIPv6.ubaTmpAddr[0] && !ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaTmpAddr, pstNextNode->stIf.stIPv6.ubTAPrefixLen))
+				if (pstNextNode->stIf.stIPv6.ubaTmpAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaTmpAddr, pstNextNode->stIf.stIPv6.ubTAPrefixLen))
 				{
 					pstNetif = &pstNextNode->stIf;
 					if (pubSource)
@@ -465,7 +465,7 @@ PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 				}
 
 				//* 单播地址不为空，且匹配则返回单播地址
-				if (pstNextNode->stIf.stIPv6.ubaUniAddr[0] && !ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaUniAddr, pstNextNode->stIf.stIPv6.ubUAPrefixLen))
+				if (pstNextNode->stIf.stIPv6.ubaUniAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaUniAddr, pstNextNode->stIf.stIPv6.ubUAPrefixLen))
 				{
 					pstNetif = &pstNextNode->stIf;
 					if (pubSource)
@@ -474,7 +474,7 @@ PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 				}
 
 				//* 到这里则只有链路本地地址需要确定是否匹配了
-				if (!ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaLnkAddr, pstNextNode->stIf.stIPv6.ubLAPrefixLen))
+				if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaLnkAddr, pstNextNode->stIf.stIPv6.ubLAPrefixLen))
 				{
 					pstNetif = &pstNextNode->stIf;
 					if (pubSource)

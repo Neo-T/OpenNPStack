@@ -22,38 +22,40 @@ typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 
 #if SUPPORT_ETHERNET
 //* IPv6地址到以太网Mac地址映射表存储结构体
-typedef struct _ST_ENTRY_ETHIIIPV6_ {
-	UINT unUpdateTime;      //* 条目更新（读取/缓存）时间
-	UCHAR ubaIPv6Addr[16];	//* IPv6地址
-	UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]; //* 对应的ip地址    
-} ST_ENTRY_ETHIIIPV6, *PST_ENTRY_ETHIIIPV6;
+typedef struct _ST_ENTRY_ETHIPv6MAC_ {
+	UINT unUpdateTime;	//* 条目更新（读取/缓存）时间
+	UCHAR ubaIpv6[16];	//* IPv6地址
+	UCHAR ubaMac[ETH_MAC_ADDR_LEN]; //* 对应的ip地址    
+} ST_ENTRY_ETHIPv6MAC, *PST_ENTRY_ETHIPv6MAC;
 
 //* Ipv6到以太网Mac地址映射表控制块
 typedef struct _STCB_ETHIPv6MAC__ {
 	CHAR bIsUsed;	
 	CHAR bLastReadEntryIdx; //* 最近读取的映射条目
-	ST_ENTRY_ETHIIIPV6 staEntry[IPV6TOMAC_ENTRY_NUM]; //* IPv6地址到以太网Mac地址映射表
+	CHAR bEntriesNum;		//* 已经缓存的条目数量
+	ST_ENTRY_ETHIPv6MAC staEntry[IPV6TOMAC_ENTRY_NUM]; //* IPv6地址到以太网Mac地址映射表
 
 	ST_SLINKEDLIST_NODE staSListWaitQueue[12]; //* 等待icmpv6查询结果的待发送报文队列    
 	PST_SLINKEDLIST pstSListWaitQueueFreed;
 	PST_SLINKEDLIST pstSListWaitQueue;
 } STCB_ETHIPv6MAC, *PSTCB_ETHIPv6MAC;
 
-//* 等待arp查询结束后重新发送ip报文的控制块
-typedef struct _STCB_ETH_ARP_WAIT_ {
+//* ipv6报文待发送队列控制块（触发发送的依据是收到邻居节点地址请求（Neighbor Solicitation）报文的应答报文）
+typedef struct _STCB_ETHIPv6MAC_WAIT_ {
 	PST_ONESHOTTIMER pstTimer;
 	PST_NETIF pstNetif;
 	PST_SLINKEDLIST_NODE pstNode;
 	UCHAR ubaIpv6[16];
 	USHORT usIpPacketLen;
 	UCHAR ubCount;
-} STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;
+} STCB_ETHIPv6MAC_WAIT, *PSTCB_ETHIPv6MAC_WAIT;
 #endif
 
 #if SUPPORT_ETHERNET
-ICMPv6_EXT void ipv6_to_mac_mapping_tbl_init(void); 
-ICMPv6_EXT PSTCB_ETHIPv6MAC ipv6_to_mac_ctl_block_new(void); 
-ICMPv6_EXT void ipv6_to_mac_ctl_block_free(PSTCB_ETHIPv6MAC pstcbIpv6Mac);
+ICMPv6_EXT void ipv6_mac_mapping_tbl_init(void); 
+ICMPv6_EXT PSTCB_ETHIPv6MAC ipv6_mac_ctl_block_new(void); 
+ICMPv6_EXT void ipv6_mac_ctl_block_free(PSTCB_ETHIPv6MAC pstcbIpv6Mac); 
+ICMPv6_EXT void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]); 
 #endif
 
 ICMPv6_EXT void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr);

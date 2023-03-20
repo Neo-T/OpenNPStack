@@ -118,7 +118,7 @@ ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBy
 #if SUPPORT_IPV6
 ONPS_UTILS_EXT const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
 ONPS_UTILS_EXT const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16]); 
-ONPS_UTILS_EXT INT ipv6_addr_prefix_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubPrefixLen); //* 参数unPrefixLen为地址前缀长度，单位：位，Ipv6地址的前多少位作为前缀
+ONPS_UTILS_EXT INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCompare); //* 参数ubBitsToCompare指定要比较的数据位数，最长即为ipv6地址的128位长
 #endif
 
 #endif

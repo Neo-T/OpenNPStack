@@ -778,13 +778,13 @@ const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16])
 	return ubaIpv6;
 }
 
-INT ipv6_addr_prefix_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubPrefixLen)
+INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCompare)
 {
-	UCHAR ubBytes = ubPrefixLen / 8;
+	UCHAR ubBytes = ubBitsToCompare / 8;
 	INT nRtnVal = memcmp(pubAddr1, pubAddr2, (size_t)ubBytes);
 	if (0 == nRtnVal)
 	{
-		UCHAR ubBitNum = ubPrefixLen % 8;
+		UCHAR ubBitNum = ubBitsToCompare % 8;
 		if (ubBitNum)
 		{
 			UCHAR ubMask = 0xFF << (8 - ubBitNum);

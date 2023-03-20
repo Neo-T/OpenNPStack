@@ -422,7 +422,7 @@ BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGatew
 		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteIpv6Link;
 		while (pstNextNode)
 		{
-			if (!ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen)) //* 目标网段相等，则只更新不增加新条目
+			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen)) //* 目标网段相等，则只更新不增加新条目
 			{
 				memcpy(pstNextNode->stRoute.ubaSource, netif_get_source_ipv6_by_destination(pstNetif, ubaDestination), 16);
 				memcpy(pstNextNode->stRoute.ubaGateway, ubaGateway, 16);
@@ -497,7 +497,7 @@ void route_ipv6_del(UCHAR ubaDestination[16])
 		PST_ROUTE_IPv6_NODE pstPrevNode = NULL;
 		while (pstNextNode)
 		{
-			if (!ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
+			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
 			{
 				if (pstPrevNode)
 					pstPrevNode->pstNext = pstNextNode->pstNext;
@@ -577,7 +577,7 @@ PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UC
 		{
 			if (pstNextNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
 			{
-				if(!ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
+				if(!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
 				{
 					pstRoute = &pstNextNode->stRoute;
 					break;
@@ -658,7 +658,7 @@ UCHAR *route_ipv6_get_netif_ip(UCHAR ubaDestination[16], UCHAR ubaNetifIpv6[16])
 		{
 			if (pstNextNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
 			{
-				if (!ipv6_addr_prefix_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
+				if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
 				{
 					memcpy(ubaNetifIpv6, pstNextNode->stRoute.ubaSource, 16); 
 					break;
