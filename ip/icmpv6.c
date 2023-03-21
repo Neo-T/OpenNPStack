@@ -134,9 +134,57 @@ __lblSend:
 		while (pstNextNode)
 		{
 			PSTCB_ETHIPv6MAC_WAIT pstcbIpv6MacWait = (PSTCB_ETHIPv6MAC_WAIT)pstNextNode->uniData.ptr;			
-			if (!ipv6_addr_cmp(ubaIpv6, pstcbIpv6MacWait->ubaIpv6, 128))
+			if (!ipv6_addr_cmp(ubaIpv6, pstcbIpv6MacWait->ubaIpv6, 128)) //* 匹配，可以发送这个报文了
 			{
+				//* 通知定时器这个节点正处于发送状态，不要释放占用的内存
+				pstcbIpv6MacWait->ubSndStatus = 1; 
 
+				//* 首先摘除这个节点并归还给空闲资源队列，以便第一时间释放临界区
+				if (pstPrevNode)
+					pstPrevNode->pstNext = pstNextNode->pstNext;
+				else
+					pstcbIpv6Mac->pstSListWaitQueue = pstNextNode->pstNext;
+				sllist_put_node(&pstcbIpv6Mac->pstSListWaitQueueFreed, pstcbIpv6MacWait->pstNode);
+				pstcbIpv6MacWait->pstNode = NULL; //* 清空，显式地告诉定时器已经发送了（如果定时器溢出函数此时已经执行的话）
+				os_exit_critical();
+
+				UCHAR *pubIpPacket = ((UCHAR *)pstcbIpv6MacWait) + sizeof(STCB_ETHIPv6MAC_WAIT); 
+
+				//* 申请一个buf list节点并将ip报文挂载到list上
+				EN_ONPSERR enErr;
+				SHORT sBufListHead = -1;
+				SHORT sIpPacketNode = buf_list_get_ext(pubIpPacket, (UINT)pstcbIpv6MacWait->usIpPacketLen, &enErr); 
+				if (sIpPacketNode < 0)
+				{
+			#if SUPPORT_PRINTF && DEBUG_LEVEL
+				#if PRINTF_THREAD_MUTEX
+					os_thread_mutex_lock(o_hMtxPrintf);
+				#endif
+					printf("ipv6_mac_add_entry() failed, %s\r\n", onps_error(enErr));
+				#if PRINTF_THREAD_MUTEX
+					os_thread_mutex_unlock(o_hMtxPrintf);
+				#endif
+			#endif                    
+				}
+				buf_list_put_head(&sBufListHead, sIpPacketNode);
+
+				//* 完成实际地发送
+				if (pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaMacAddr, &enErr) < 0)
+				{
+			#if SUPPORT_PRINTF && DEBUG_LEVEL
+				#if PRINTF_THREAD_MUTEX
+					os_thread_mutex_lock(o_hMtxPrintf);
+				#endif
+					printf("ipv6_mac_add_entry() failed, %s\r\n", onps_error(enErr));
+				#if PRINTF_THREAD_MUTEX
+					os_thread_mutex_unlock(o_hMtxPrintf);
+				#endif
+			#endif
+				}
+				pstcbIpv6MacWait->ubSndStatus = 2;	//* 完成发送，通知定时器可以释放占用地内存了
+				buf_list_free(sIpPacketNode);		//* 释放buf list节点
+
+				goto __lblSend;
 			}
 
 			//* 下一个节点
@@ -145,9 +193,52 @@ __lblSend:
 		}
 	}
 	os_exit_critical();
+}
 
-	if (blIsExist)
-		goto __lblSend;
+void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+{
+	os_critical_init();
+
+	//* 先查找该条目是否已经存在，如果存在则直接更新，否则直接添加或替换最老条目
+	INT i;
+	for (i = 0; i < pstcbIpv6Mac->bEntriesNum; i++)
+	{		
+		if (!ipv6_addr_cmp(ubaIpv6, pstcbIpv6Mac->staEntry[i].ubaIpv6, 128)) //* 匹配
+		{
+			//* 更新mac地址
+			os_enter_critical();
+			{
+				memcpy(pstcbIpv6Mac->staEntry[i].ubaMac, ubaMacAddr, ETH_MAC_ADDR_LEN);
+				pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
+			}
+			os_exit_critical();
+			return;
+		}		
+	}
+
+	//* 到这里意味着尚未缓存该地址条目，需要增加一条或者覆盖最老的一个条目
+	if (i < IPV6TOMAC_ENTRY_NUM)
+		pstcbIpv6Mac->bEntriesNum++;
+	else
+	{
+		INT nFirstEntry = 0;
+		for (i = 1; i < IPV6TOMAC_ENTRY_NUM; i++)
+		{
+			if (pstcbIpv6Mac->staEntry[nFirstEntry].unUpdateTime > pstcbIpv6Mac->staEntry[i].unUpdateTime)
+				nFirstEntry = i;
+		}
+
+		i = nFirstEntry;
+	}
+
+	//* 更新mac地址
+	os_enter_critical();
+	{
+		memcpy(pstcbIpv6Mac->staEntry[i].ubaMac, ubaMacAddr, ETH_MAC_ADDR_LEN);
+		pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
+		memcpy(pstcbIpv6Mac->staEntry[i].ubaIpv6, ubaIpv6, 16);
+	}
+	os_exit_critical();
 }
 #endif
 

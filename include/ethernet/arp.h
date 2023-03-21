@@ -41,7 +41,8 @@ typedef struct _STCB_ETH_ARP_WAIT_ {
     PST_SLINKEDLIST_NODE pstNode; 
 	UINT unIpv4;
     USHORT usIpPacketLen;
-    UCHAR ubCount;    
+    UCHAR ubCount;
+	UCHAR ubSndStatus; 
 } STCB_ETH_ARP_WAIT, *PSTCB_ETH_ARP_WAIT;
 
 ARP_EXT void arp_init(void); 

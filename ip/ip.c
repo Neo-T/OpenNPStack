@@ -57,21 +57,27 @@ void eth_arp_wait_timeout_handler(void *pvParam)
 
     os_critical_init();
 
-    //* arp查询计数，如果超出限值，则不再查询直接丢弃该报文
-    pstcbArpWait->ubCount++; 
-    if (pstcbArpWait->ubCount > 5)
-    {
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("The arp query times out and the packet will be dropped\r\n"); 
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-        goto __lblEnd;
-    }
+	//* 尚未发送
+	if (!pstcbArpWait->ubSndStatus)
+	{
+		//* arp查询计数，如果超出限值，则不再查询直接丢弃该报文
+		pstcbArpWait->ubCount++;
+		if (pstcbArpWait->ubCount > 5)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("The arp query times out and the packet will be dropped\r\n");
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			goto __lblEnd;
+		}
+	}
+	else //* 已经处于发送中或发送完成状态，直接跳到函数尾部
+		goto __lblEnd; 
 
     //* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
     pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT); 
@@ -87,6 +93,7 @@ void eth_arp_wait_timeout_handler(void *pvParam)
                 PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;                
                 sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
                 sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列
+				pstcbArpWait->pstNode = NULL; //* 清空，显式地告知后续地处理代码这个节点已经被释放，2023-03-21 11:32
             }            
             else //* 已经发送，则没必要重复发送
             {
@@ -161,12 +168,15 @@ __lblEnd:
             PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;
             sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
             sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列            
-        }
-
-        //* 释放内存
-        buddy_free(pvParam);
+        }        
     }
     os_exit_critical();    
+
+	//* 如果不处于发送状态则直接释放内存，否则再次开启定时器以待发送完成后释放占用的内存
+	if (1 == pstcbArpWait->ubSndStatus)			
+		one_shot_timer_new(eth_arp_wait_timeout_handler, pstcbArpWait, 1); 	
+	else
+		buddy_free(pvParam);
 }
 #endif
 

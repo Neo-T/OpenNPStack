@@ -79,7 +79,6 @@ void arp_ctl_block_free(PSTCB_ETHARP pstcbArp)
 //* 添加arp条目
 void arp_add_ethii_ipv4(PST_NETIF pstNetif/*PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl*/, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
 {
-	BOOL blIsExist; 
     PSTCB_ETHARP pstcbEthArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;     
 
     os_critical_init(); 
@@ -130,10 +129,8 @@ void arp_add_ethii_ipv4(PST_NETIF pstNetif/*PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl*/,
 __lblSend:     
     //* 逐个取出待发送报文
     os_enter_critical(); 
-    {
-		blIsExist = FALSE;
-
-        //* 看看有没有待发送的报文
+    {	
+        //* 看看有没有待发送的报文，这里每次goto必须重新查找，即使前面的节点已经查找一次，因为存在定时器函数已经摘除节点的情形（记录的当前节点位置已经无效）
         PST_SLINKEDLIST_NODE pstNextNode = (PST_SLINKEDLIST_NODE)pstcbEthArp->pstSListWaitQueue;
         PST_SLINKEDLIST_NODE pstPrevNode = NULL;
         while (pstNextNode)
@@ -141,6 +138,18 @@ __lblSend:
             PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)pstNextNode->uniData.ptr; 
             if (unIPAddr == pstcbArpWait->unIpv4)
             {
+				//* 显式地告诉定时器，这节点正处于发送状态，不要释放占用的内存
+				pstcbArpWait->ubSndStatus = 1; 
+
+				//* 首先摘除这个节点并归还给空闲资源队列，以便第一时间释放临界区
+				if (pstPrevNode)
+					pstPrevNode->pstNext = pstNextNode->pstNext;
+				else
+					pstcbEthArp->pstSListWaitQueue = pstNextNode->pstNext;
+				sllist_put_node(&pstcbEthArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);				
+				pstcbArpWait->pstNode = NULL; //* 清空，显式地告诉定时器已经发送了（如果定时器溢出函数此时已经执行的话）
+				os_exit_critical();
+
                 //* 释放这个定时器
                 //one_shot_timer_safe_free(pstcbArpWait->pstTimer); 
 
@@ -177,21 +186,20 @@ __lblSend:
                 #endif
             #endif
                 }
-                buf_list_free(sIpPacketNode); //* 释放buf list节点                
-
-                //* 摘除这个节点并归还给空闲资源队列
+				pstcbArpWait->ubSndStatus = 2;	//* 完成发送，通知定时器可以释放占用地内存了
+                buf_list_free(sIpPacketNode);	//* 释放buf list节点                
+                
+				/*
+				// 摘除这个节点并归还给空闲资源队列
                 if (pstPrevNode)
                     pstPrevNode->pstNext = pstNextNode->pstNext;
                 else
                     pstcbEthArp->pstSListWaitQueue = pstNextNode->pstNext; 
-                sllist_put_node(&pstcbEthArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode); 
-
-                //* 清空，显式地告诉定时器已经发送了（如果定时器溢出函数此时已经执行的话）
-                pstcbArpWait->pstNode = NULL;    
-
-				blIsExist = TRUE;
-
-                break; 
+                sllist_put_node(&pstcbEthArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);                 				
+                pstcbArpWait->pstNode = NULL; // 清空，显式地告诉定时器已经发送了（如果定时器溢出函数此时已经执行的话）
+				*/				
+				
+				goto __lblSend;
             }
 
             //* 下一个节点
@@ -200,9 +208,6 @@ __lblSend:
         }
     } 
     os_exit_critical(); 
-
-    if (blIsExist)        
-		goto __lblSend; 
 }
 
 void arp_add_ethii_ipv4_ext(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
@@ -316,6 +321,7 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
         pstcbArpWait->unIpv4 = unDstArpIp;
         pstcbArpWait->usIpPacketLen = (USHORT)unIpPacketLen;
         pstcbArpWait->ubCount = 0;
+		pstcbArpWait->ubSndStatus = 0;
         pstcbArpWait->pstNode = NULL; 
 
         //* 启动一个1秒定时器，等待查询完毕

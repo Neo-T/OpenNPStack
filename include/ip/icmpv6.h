@@ -48,6 +48,7 @@ typedef struct _STCB_ETHIPv6MAC_WAIT_ {
 	UCHAR ubaIpv6[16];
 	USHORT usIpPacketLen;
 	UCHAR ubCount;
+	UCHAR ubSndStatus; 
 } STCB_ETHIPv6MAC_WAIT, *PSTCB_ETHIPv6MAC_WAIT;
 #endif
 
@@ -56,6 +57,7 @@ ICMPv6_EXT void ipv6_mac_mapping_tbl_init(void);
 ICMPv6_EXT PSTCB_ETHIPv6MAC ipv6_mac_ctl_block_new(void); 
 ICMPv6_EXT void ipv6_mac_ctl_block_free(PSTCB_ETHIPv6MAC pstcbIpv6Mac); 
 ICMPv6_EXT void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]); 
+ICMPv6_EXT void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]);
 #endif
 
 ICMPv6_EXT void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr);
