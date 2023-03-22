@@ -25,6 +25,141 @@
 //* ethernet ii协议arp缓存表及最近读取使用的地址条目
 static STCB_ETHARP l_stcbaEthArp[ETHERNET_NUM]; 
 
+//* 当通过ethernet网卡发送ip报文，协议栈尚未保存目标ip地址对应的mac地址时，需要先发送一组arp查询报文获取mac地址后才能发送该报文，这个定时器溢出函数即处理此项业务
+static void arp_wait_timeout_handler(void *pvParam)
+{
+	PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)pvParam;
+	PST_NETIF pstNetif = pstcbArpWait->pstNetif;
+	EN_ONPSERR enErr;
+	UCHAR *pubIpPacket;
+	PST_IP_HDR pstIpHdr;
+	UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
+	INT nRtnVal;
+
+	os_critical_init();
+
+	//* 尚未发送
+	if (!pstcbArpWait->ubSndStatus)
+	{
+		//* arp查询计数，如果超出限值，则不再查询直接丢弃该报文
+		pstcbArpWait->ubCount++;
+		if (pstcbArpWait->ubCount > 5)
+		{
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+			printf("The arp query times out and the packet will be dropped\r\n");
+#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+#endif
+			goto __lblEnd;
+		}
+	}
+	else //* 已经处于发送中或发送完成状态，直接跳到函数尾部
+		goto __lblEnd;
+
+	//* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
+	pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
+	pstIpHdr = (PST_IP_HDR)pubIpPacket;
+	nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->unIpv4, ubaDstMac, &enErr);
+	if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
+	{
+		os_enter_critical();
+		{
+			//* 尚未发送，则首先摘除这个节点
+			if (pstcbArpWait->pstNode)
+			{
+				PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;
+				sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
+				sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列
+				pstcbArpWait->pstNode = NULL; //* 清空，显式地告知后续地处理代码这个节点已经被释放，2023-03-21 11:32
+			}
+			else //* 已经发送，则没必要重复发送
+			{
+				os_exit_critical();
+				goto __lblEnd;
+			}
+		}
+		os_exit_critical();
+
+		//* 申请一个buf list节点并将ip报文挂载到list上
+		SHORT sBufListHead = -1;
+		SHORT sIpPacketNode = buf_list_get_ext(pubIpPacket/*((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT)*/, (UINT)pstcbArpWait->usIpPacketLen, &enErr);
+		if (sIpPacketNode < 0)
+		{
+			//buddy_free(pvParam);
+
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("arp_wait_timeout_handler() failed, %s\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			goto __lblEnd;
+		}
+		buf_list_put_head(&sBufListHead, sIpPacketNode);
+		nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, &enErr); //* 完成实际地发送   
+		if (nRtnVal < 0)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("arp_wait_timeout_handler() failed, %s\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
+		buf_list_free(sIpPacketNode); //* 释放buf list节点
+	}
+	else
+	{
+		//* 说明还是没有得到mac地址，需要再次开启一个定时器等1秒后再发送一次试试
+		if (nRtnVal > 0 && one_shot_timer_new(arp_wait_timeout_handler, pstcbArpWait, 1))
+			return;
+		else
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("arp_wait_timeout_handler() failed, %s\r\n", onps_error(ERRNOIDLETIMER));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
+	}
+
+__lblEnd:
+	//* 不再占用网卡
+	netif_freed(pstNetif);
+
+	os_enter_critical();
+	{
+		//* 尚未发送，则首先摘除这个节点
+		if (pstcbArpWait->pstNode)
+		{
+			PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;
+			sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
+			sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列            
+		}
+	}
+	os_exit_critical();
+
+	//* 如果不处于发送状态则直接释放内存，否则再次开启定时器以待发送完成后释放占用的内存
+	if (1 == pstcbArpWait->ubSndStatus)
+		one_shot_timer_new(arp_wait_timeout_handler, pstcbArpWait, 1);
+	else
+		buddy_free(pvParam);
+}
+
 //* arp初始化
 void arp_init(void)
 {
@@ -258,57 +393,71 @@ void arp_add_ethii_ipv4_ext(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UC
     os_exit_critical();
 }
 
+static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+{
+	PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
+
+	//* 如果ip地址为广播地址则填充目标mac地址也为广播地址
+	if (unDstArpIPAddr == 0xFFFFFFFF || (unDstArpIPAddr & 0x000000FF) == 0x000000FF)
+	{
+		memset(ubaMacAddr, 0xFF, ETH_MAC_ADDR_LEN);
+		return 0;
+	}
+
+	os_critical_init();
+
+	//* 是否命中最近刚读取过的条目
+	os_enter_critical();
+	if (unDstArpIPAddr == pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].unIPAddr)
+	{
+		memcpy(ubaMacAddr, pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].ubaMacAddr, ETH_MAC_ADDR_LEN);
+		pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].unUpdateTime = os_get_system_secs();
+		os_exit_critical();
+		return 0;
+	}
+	os_exit_critical();
+
+	//* 未命中，则查找整个缓存表
+	INT i;
+	for (i = 0; i < ARPENTRY_NUM; i++)
+	{
+		//* 找到全零地址，意味着这之后的单元尚未保存数据，没必要再查找了
+		if (!pstcbArp->staEntry[i].unIPAddr)
+			break;
+
+		os_enter_critical();
+		if (unDstArpIPAddr == pstcbArp->staEntry[i].unIPAddr)
+		{
+			memcpy(ubaMacAddr, pstcbArp->staEntry[i].ubaMacAddr, ETH_MAC_ADDR_LEN);
+			pstcbArp->staEntry[i].unUpdateTime = os_get_system_secs();
+			pstcbArp->bLastReadEntryIdx = i;
+			os_exit_critical();
+			return 0;
+		}
+		os_exit_critical();
+	}
+
+	return 1; 
+}
+
 INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
 {
-    PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
-
-    //* 如果ip地址为广播地址则填充目标mac地址也为广播地址
-    if (unDstArpIPAddr == 0xFFFFFFFF || (unDstArpIPAddr & 0x000000FF) == 0x000000FF)
-    {
-        memset(ubaMacAddr, 0xFF, ETH_MAC_ADDR_LEN); 
-        return 0; 
-    }
-
-    os_critical_init(); 
-
-    //* 是否命中最近刚读取过的条目
-    os_enter_critical();
-    if (unDstArpIPAddr == pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].unIPAddr)
-    {        
-        memcpy(ubaMacAddr, pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].ubaMacAddr, ETH_MAC_ADDR_LEN);
-        pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].unUpdateTime = os_get_system_secs();
-        os_exit_critical(); 
-        return 0; 
-    }
-    os_exit_critical();
-
-    //* 未命中，则查找整个缓存表
-    INT i; 
-    for (i = 0; i < ARPENTRY_NUM; i++)
-    {
-        os_enter_critical();
-        if (unDstArpIPAddr == pstcbArp->staEntry[i].unIPAddr)
-        {
-            memcpy(ubaMacAddr, pstcbArp->staEntry[i].ubaMacAddr, ETH_MAC_ADDR_LEN);
-            pstcbArp->staEntry[i].unUpdateTime = os_get_system_secs();
-            pstcbArp->bLastReadEntryIdx = i;
-            os_exit_critical();
-            return 0;
-        }
-        os_exit_critical();
-    }
-
-    //* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
-    if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
-        return -1;
-    return 1; 
+	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr[ETH_MAC_ADDR_LEN]))
+	{
+		//* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
+		if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
+			return -1;
+		return 1;
+	}
+	else
+		return 0;     
 }
 
 static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpIp, SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
 {    
     PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
     UINT unIpPacketLen = buf_list_get_len(sBufListHead); //* 获取报文长度
-    PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文，头部留出一个字节用来计数，超出累计计数限值不再发送arp报文并抛弃当前报文
+    PSTCB_ETH_ARP_WAIT pstcbArpWait = (PSTCB_ETH_ARP_WAIT)buddy_alloc(sizeof(STCB_ETH_ARP_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文并记录当前报文的相关控制信息
     if (pstcbArpWait)
     {
         UCHAR *pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
@@ -325,7 +474,7 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
         pstcbArpWait->pstNode = NULL; 
 
         //* 启动一个1秒定时器，等待查询完毕
-        pstcbArpWait->pstTimer = one_shot_timer_new(eth_arp_wait_timeout_handler, pstcbArpWait, 1);
+        pstcbArpWait->pstTimer = one_shot_timer_new(arp_wait_timeout_handler, pstcbArpWait, 1);
         if (pstcbArpWait->pstTimer)
         {
             *pblNetifFreedEn = FALSE; 
@@ -359,57 +508,24 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
 
 INT arp_get_mac_ext(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
 {
-    PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;
+	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr[ETH_MAC_ADDR_LEN]))
+	{
+		//* 先将这条报文放入待发送链表
+		PSTCB_ETH_ARP_WAIT pstcbArpWait = arp_wait_packet_put(pstNetif, unDstArpIPAddr, sBufListHead, pblNetifFreedEn, penErr);
+		if (!pstcbArpWait)
+			return -1;
 
-    //* 如果ip地址为广播地址则填充目标mac地址也为广播地址
-    if (unDstArpIPAddr == 0xFFFFFFFF || (unDstArpIPAddr & 0x000000FF) == 0x000000FF)
-    {
-        memset(ubaMacAddr, 0xFF, ETH_MAC_ADDR_LEN);
-        return 0;
-    }
+		//* 发送一条arp报文问问谁拥有这个IP地址
+		if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
+		{
+			one_shot_timer_free(pstcbArpWait->pstTimer);
+			return -1;
+		}
 
-    os_critical_init();
-
-    //* 是否命中最近刚读取过的条目
-    os_enter_critical();
-    if (unDstArpIPAddr == pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].unIPAddr)
-    {
-        memcpy(ubaMacAddr, pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].ubaMacAddr, ETH_MAC_ADDR_LEN);
-        pstcbArp->staEntry[pstcbArp->bLastReadEntryIdx].unUpdateTime = os_get_system_secs();
-        os_exit_critical();
-        return 0;
-    }
-    os_exit_critical();
-
-    //* 未命中，则查找整个缓存表
-    INT i;
-    for (i = 0; i < ARPENTRY_NUM; i++)
-    {
-        os_enter_critical();
-        if (unDstArpIPAddr == pstcbArp->staEntry[i].unIPAddr)
-        {
-            memcpy(ubaMacAddr, pstcbArp->staEntry[i].ubaMacAddr, ETH_MAC_ADDR_LEN);
-            pstcbArp->staEntry[i].unUpdateTime = os_get_system_secs();
-            pstcbArp->bLastReadEntryIdx = i;
-            os_exit_critical();
-            return 0;
-        }
-        os_exit_critical();
-    }
-
-    //* 先将这条报文放入待发送链表
-    PSTCB_ETH_ARP_WAIT pstcbArpWait = arp_wait_packet_put(pstNetif, unDstArpIPAddr, sBufListHead, pblNetifFreedEn, penErr);
-    if (!pstcbArpWait)
-        return -1; 
-
-    //* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
-    if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
-    {
-        one_shot_timer_free(pstcbArpWait->pstTimer); 
-        return -1;
-    }
-
-    return 1;
+		return 1; 
+	}
+	else
+		return 0;     
 }
 
 //* 发送地址请求报文

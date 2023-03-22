@@ -10,6 +10,8 @@
 #define ICMPv6_FRAME_H
 
 #if SUPPORT_IPV6
+#define IPv6MCTOMACADDR_PREFIX 0x33	//* ipv6版本的以太网mac组播地址前缀
+
 typedef enum {
     ICMPv6_ERRDST	= 1,	//* Destination Unreachable，目标不可达
     ICMPv6_ERRPTB	= 2,	//* Packet Too Big，包过大

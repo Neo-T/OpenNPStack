@@ -14,6 +14,7 @@
 #include "netif/netif.h"
 
 #if SUPPORT_IPV6
+#include "ip/ip.h"
 #define SYMBOL_GLOBALS
 #include "ip/icmpv6.h"
 #undef SYMBOL_GLOBALS
@@ -21,6 +22,12 @@
 #if SUPPORT_ETHERNET
  //* Ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
 static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
+
+//* 当通过ethernet网卡发送ipv6报文，协议栈尚未保存目标ipv6地址对应的mac地址时，需要先发送icmpv6 ns查询报文获取mac地址后才能发送该报文，这个定时器溢出函数即处理此项业务
+static void ipv6_mac_wait_timeout_handler(void *pvParam)
+{
+
+}
 
 void ipv6_mac_mapping_tbl_init(void)
 {
@@ -74,8 +81,7 @@ void ipv6_mac_ctl_block_free(PSTCB_ETHIPv6MAC pstcbIpv6Mac)
 }
 
 void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
-{
-	BOOL blIsExist;
+{	
 	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac; 
 
 	os_critical_init();
@@ -126,8 +132,6 @@ __lblSend:
 	//* 逐个取出待发送报文
 	os_enter_critical();
 	{
-		blIsExist = FALSE;
-
 		//* 看看有没有待发送的报文
 		PST_SLINKEDLIST_NODE pstNextNode = (PST_SLINKEDLIST_NODE)pstcbIpv6Mac->pstSListWaitQueue;
 		PST_SLINKEDLIST_NODE pstPrevNode = NULL; 
@@ -240,10 +244,175 @@ void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UC
 	}
 	os_exit_critical();
 }
+
+static INT ipv6_to_mac(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+{
+	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac;
+
+	//* 如果目标Ipv6地址为组播地址则依据ipv6标准生成组播mac地址。组播地址的判断依据是Ipv6地址以FF开头（P83 3.5）：
+	//* |---8位---|-4位-|-4位-|--------------112位--------------|
+	//* |1111 1111|标记 |范围 |              组ID               |
+	//* 标记：0RPT，T位为0表示这个是由IANA分配的固定且众所周知的组播地址，反之则是临时地址；P位表示其是否基于一个单播地址前缀（参见RFC3306）；R位表示其是否含有内嵌的交汇点地址（参见RFC3956）；
+	//* 范围：指定组播数据需要被发往哪个Ipv6网络范围，路由器以此来判定组播报文能否发送出去，相关值定义如下：
+	//*       0，保留；1，接口本地范围；2，链路本地范围；3，保留；4，管理本地范围；5，站点本地范围；8，组织本地范围；E，全球范围；F，保留；
+	//* 组ID：标识组播组，其值在地址范围内是唯一的。同样其也存在一些被永久分配的组ID：
+	//*       FF01::1，接口本地范围内的所有节点组播地址；
+	//*       FF02::2，链路本地范围内的所有节点组播地址；
+	//*       FF01::2，接口本地范围内的所有路由组播地址；
+	//*       FF02::2，链路本地范围内的所有路由组播地址；
+	//*       FF05::2，站点本地范围内的所有路由组播地址；
+	//*       最新IANA分配的永久组播地址详见：https://www.iana.org/assignments/ipv6-multicast-addresses
+	//* 
+	//* ipv6组播地址到mac组播地址的转换规则如下（P85 3.5.2）：
+	//*                       96位     104位    112位    120位  127位
+	//*                        :        :        :        :      :
+	//* ipv6组播地址 0xFF.....:|||||||| |||||||| |||||||| ||||||||
+	//*      mac地址 0x33-0x33-||||||||-||||||||-||||||||-||||||||
+
+	//* 如果ip地址为广播地址则填充目标mac地址也为广播地址
+	if (ubaDstIpv6[0] == 0xFF)
+	{
+		ubaMacAddr[0] = IPv6MCTOMACADDR_PREFIX;
+		ubaMacAddr[1] = IPv6MCTOMACADDR_PREFIX;
+		memcpy(ubaMacAddr, &ubaDstIpv6[12], 4);
+		return 0;
+	}
+
+	os_critical_init();
+
+	//* 是否命中最近刚读取过的条目
+	os_enter_critical();
+	if (!ipv6_addr_cmp(ubaDstIpv6, pstcbIpv6Mac->staEntry[pstcbIpv6Mac->bLastReadEntryIdx].ubaIpv6, 128))
+	{
+		memcpy(ubaMacAddr, pstcbIpv6Mac->staEntry[pstcbIpv6Mac->bLastReadEntryIdx].ubaMac, ETH_MAC_ADDR_LEN);
+		pstcbIpv6Mac->staEntry[pstcbIpv6Mac->bLastReadEntryIdx].unUpdateTime = os_get_system_secs();
+		os_exit_critical();
+		return 0;
+	}
+	os_exit_critical();
+
+	//* 未命中，则查找整个缓存表
+	INT i;
+	for (i = 0; i < (INT)pstcbIpv6Mac->bEntriesNum; i++)
+	{
+		os_enter_critical();
+		if (!ipv6_addr_cmp(ubaDstIpv6, pstcbIpv6Mac->staEntry[i].ubaIpv6, 128))
+		{
+			memcpy(ubaMacAddr, pstcbIpv6Mac->staEntry[i].ubaMac, ETH_MAC_ADDR_LEN);
+			pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
+			pstcbIpv6Mac->bLastReadEntryIdx = i;
+			os_exit_critical();
+			return 0;
+		}
+		os_exit_critical();
+	}
+
+	return 1; 
+}
+
+static PSTCB_ETHIPv6MAC_WAIT ipv6_mac_wait_packet_put(PST_NETIF pstNetif, UCHAR ubaDstIpv6[16], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
+{
+	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac; 
+	UINT unIpPacketLen = buf_list_get_len(sBufListHead); //* 获取报文长度
+	PSTCB_ETHIPv6MAC_WAIT pstcbIpv6MacWait = (PSTCB_ETHIPv6MAC_WAIT)buddy_alloc(sizeof(STCB_ETHIPv6MAC_WAIT) + unIpPacketLen, penErr); //* 申请一块缓冲区用来缓存当前尚无法发送的报文并记录当前报文的相关控制信息
+	if (pstcbIpv6MacWait)
+	{
+		UCHAR *pubIpPacket = ((UCHAR *)pstcbIpv6MacWait) + sizeof(STCB_ETHIPv6MAC_WAIT); 
+
+		//* 保存报文到刚申请的内存中，然后开启一个1秒定时器等待arp查询结果并在得到正确mac地址后发送ip报文
+		buf_list_merge_packet(sBufListHead, pubIpPacket); 
+
+		//* 计数器清零，并传递当前选择的netif
+		pstcbIpv6MacWait->pstNetif = pstNetif;
+		memcpy(pstcbIpv6MacWait->ubaIpv6, ubaDstIpv6, 16);		
+		pstcbIpv6MacWait->usIpPacketLen = (USHORT)unIpPacketLen;
+		pstcbIpv6MacWait->ubCount = 0;
+		pstcbIpv6MacWait->ubSndStatus = 0;
+		pstcbIpv6MacWait->pstNode = NULL; 
+
+		//* 启动一个1秒定时器，等待查询完毕
+		pstcbIpv6MacWait->pstTimer = one_shot_timer_new(ipv6_mac_wait_timeout_handler, pstcbIpv6MacWait, 1); 
+		if (pstcbIpv6MacWait->pstTimer)
+		{
+			*pblNetifFreedEn = FALSE; 
+
+			os_critical_init();
+			os_enter_critical();
+			{
+				PST_SLINKEDLIST_NODE pstNode = sllist_get_node(&pstcbIpv6Mac->pstSListWaitQueueFreed);
+				if (pstNode)
+				{
+					pstNode->uniData.ptr = pstcbIpv6MacWait;
+					pstcbIpv6MacWait->pstNode = pstNode;
+					sllist_put_tail_node(&pstcbIpv6Mac->pstSListWaitQueue, pstNode);
+				}
+			}
+			os_exit_critical();
+		}
+		else
+		{
+			//* 定时器未启动，这里就要释放刚才申请的内存
+			buddy_free(pstcbIpv6MacWait);
+
+			if (penErr)
+				*penErr = ERRNOIDLETIMER;
+			pstcbIpv6MacWait = NULL;
+		}
+	}
+
+	return pstcbIpv6MacWait; 
+}
+
+INT ipv6_mac_get(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
+{
+	if (ipv6_to_mac(pstNetif, ubaSrcIpv6, ubaDstIpv6, ubaMacAddr))
+	{
+		//* 不存在，则只能发送一条邻居节点地址请求报文问问谁拥有这个ipv6地址了	
+		if (icmpv6_send_ns_packet(pstNetif, ubaSrcIpv6, ubaDstIpv6, penErr) < 0)
+			return -1;
+		return 1;
+	}
+	else
+		return 0; 	
+}
+
+INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
+{
+	if (ipv6_to_mac(pstNetif, ubaSrcIpv6, ubaDstIpv6, ubaMacAddr))
+	{
+		//* 先将这条报文放入待发送链表		
+		PSTCB_ETHIPv6MAC_WAIT pstcbIpv6MacWait = ipv6_mac_wait_packet_put(pstNetif, ubaDstIpv6, sBufListHead, pblNetifFreedEn, penErr);
+		if (!pstcbIpv6MacWait)
+			return -1;
+
+		//* 发送一条邻居节点地址请求报文问问谁拥有这个ipv6地址
+		if (icmpv6_send_ns_packet(pstNetif, ubaSrcIpv6, ubaDstIpv6, penErr) < 0)
+		{
+			one_shot_timer_free(pstcbIpv6MacWait->pstTimer);
+			return -1;
+		}
+
+		return 1;
+	}
+	else
+		return 0;
+}
 #endif
 
 void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
 
+}
+
+INT icmpv6_send_ns_packet(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr)
+{
+	UCHAR ubaNSolicitation[sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NS_HDR) + sizeof(ST_ICMPv6_OPT_LLA)]; 
+	PST_ICMPv6_HDR pstHdr = (PST_ICMPv6_HDR)ubaNSolicitation; 
+	PST_ICMPv6_NS_HDR pstSolHdr = (PST_ICMPv6_NS_HDR)&ubaNSolicitation[sizeof(ST_ICMPv6_HDR)]; 
+	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)&ubaNSolicitation[sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NS_HDR)]; 
+
+	pstHdr->ubType = ICMPv6_NS; //* Neighbor Solicitation，邻居请求
+	pstHdr->ubCode = 0;			//* 固定为0
+	pstHdr->usChecksum = 0; 
 }
 #endif
