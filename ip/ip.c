@@ -20,6 +20,9 @@
 #undef SYMBOL_GLOBALS
 #include "ethernet/ethernet.h"
 #include "ip/icmp.h"
+#if SUPPORT_IPV6
+#include "ip/icmpv6.h"
+#endif
 #include "ip/tcp.h"
 #include "ip/udp.h"
 
@@ -37,6 +40,9 @@ static const EN_IPPROTO lr_enaIPProto[] = {
     IPPROTO_MAX,
 #endif
     IPPROTO_ICMP, 
+#if SUPPORT_IPV6
+	IPPROTO_ICMPv6,
+#endif
     IPPROTO_MAX,
     IPPROTO_TCP, 
     IPPROTO_UDP
@@ -260,13 +266,122 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
 }
 
 #if SUPPORT_IPV6
-static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, in_addr_t unDstAddrUsedToGetLLA, EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaDstIpv6ToMac[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
 {
+	INT nRtnVal;
+	BOOL blNetifFreedEn = TRUE; 
 
+	os_critical_init(); 
+
+	ST_IPv6_HDR stHdr; 
+	stHdr.ipv6_ver = 6; 
+	stHdr.ipv6_dscp = 0; 
+	stHdr.ipv6_ecn = 0;
+	stHdr.ipv6_flow_label = unFlowLabel & 0x000FFFFF; 
+	stHdr.ipv6_flag = htonl(stHdr.ipv6_flag); 
+	stHdr.usPayloadLen = htons(sizeof(ST_IPv6_HDR) + (USHORT)buf_list_get_len(sBufListHead)); 
+	stHdr.ubNextHdr = ubNextHeader; 
+	stHdr.ubHopLimit = ubHopLimit; 
+	memcpy(stHdr.ubaSrcIpv6, ubaSrcIpv6, 16);
+	memcpy(stHdr.ubaDstIpv6, ubaDstIpv6, 16); 
+
+	//* 挂载到buf list头部
+	SHORT sHdrNode;
+	sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (USHORT)sizeof(ST_IPv6_HDR), penErr);
+	if (sHdrNode < 0)
+	{
+		//* 使用计数减一，释放对网卡资源的占用
+		netif_freed(pstNetif);
+		return -1;
+	}
+	buf_list_put_head(&sBufListHead, sHdrNode); 
+
+#if SUPPORT_ETHERNET
+	//* 如果网络接口类型为ethernet，需要先获取目标mac地址
+	if (NIF_ETHERNET == pstNetif->enType)
+	{
+		if (pubDstMacAddr)
+		{
+			nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, pubDstMacAddr, penErr);
+		}
+		else
+		{
+			UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];			          
+			nRtnVal = ipv6_mac_get_ext(pstNetif, ubaSrcIpv6, ubaDstIpv6ToMac, ubaDstMac, sBufListHead, &blNetifFreedEn, penErr);
+			if (!nRtnVal) //* 得到目标mac地址，直接发送该报文
+				nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaDstMac, penErr);
+		}
+	}
+	else
+	{ 
+#endif
+		//* 完成发送
+		nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, NULL, penErr);
+#if SUPPORT_ETHERNET
+	}
+#endif
+
+	//* 如果不需要等待icmpv6查询结果，则立即释放对网卡的使用权
+	if (blNetifFreedEn)
+		netif_freed(pstNetif);
+
+	//* 释放刚才申请的buf list节点
+	buf_list_free(sHdrNode);
+
+	return nRtnVal;
 }
 
-INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIp[16], UCHAR ubaDstIp[16], EN_NPSPROTOCOL enProtocol, SHORT sBufListHead, EN_ONPSERR *penErr)
+INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
 {
+	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16]; 
+	memcpy(ubaSrcIpv6Used, ubaSrcIpv6, 16); 
+	memcpy(ubaDstIpv6ToMac, ubaDstIpv6, 16); 
 
+	//* 如果未指定netif则通过路由表选择一个适合的netif
+	PST_NETIF pstNetifUsed = pstNetif; 
+	if (pstNetifUsed)
+		netif_used(pstNetifUsed);
+	else
+	{		
+		pstNetifUsed = route_ipv6_get_netif(ubaDstIpv6ToMac, TRUE, ubaSrcIpv6Used, ubaDstIpv6ToMac); 
+		if (NULL == pstNetifUsed)
+		{
+			if (penErr)
+				*penErr = ERRADDRESSING;
+
+			return -1;
+		}
+	}
+
+	return netif_ipv6_send(pstNetifUsed, pubDstMacAddr, ubaSrcIpv6Used, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
+}
+
+INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
+{
+	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16];	
+	memcpy(ubaDstIpv6ToMac, ubaDstIpv6, 16);
+	     
+	//* 路由寻址
+	PST_NETIF pstNetif = route_ipv6_get_netif(ubaDstIpv6ToMac, TRUE, ubaSrcIpv6Used, ubaDstIpv6ToMac); 
+	if (NULL == pstNetif)
+	{
+		if (penErr)
+			*penErr = ERRADDRESSING;
+
+		return -1;
+	}
+
+	//* 路由寻址结果与上层调用函数给出的源地址不一致，则直接报错并抛弃该报文
+	if (memcmp(ubaSrcIpv6, ubaSrcIpv6Used, 16))
+	{
+		netif_freed(pstNetif);
+
+		if (penErr)
+			*penErr = ERRROUTEADDRMATCH;
+
+		return -1;
+	}
+	     
+	return netif_ipv6_send(pstNetif, NULL, ubaSrcIpv6, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
 }
 #endif

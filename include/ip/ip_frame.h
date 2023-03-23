@@ -16,11 +16,12 @@
 #endif //* SYMBOL_GLOBALS
 
 typedef enum {
-    IPPROTO_ICMP = 1,   //* Internet Control Message Protocol
-    IPPROTO_IGMP = 2,   //* Internet Gateway Management Protocol
-    IPPROTO_TCP  = 6,   //* Transmission Control Protocol    
-    IPPROTO_UDP  = 17,  //* User Datagram Protocol        
-    IPPROTO_RAW  = 255, //* Raw IP packets
+    IPPROTO_ICMP   = 1,		//* Internet Control Message Protocol
+    IPPROTO_IGMP   = 2,		//* Internet Gateway Management Protocol
+    IPPROTO_TCP    = 6,		//* Transmission Control Protocol    
+    IPPROTO_UDP    = 17,	//* User Datagram Protocol        
+	IPPROTO_ICMPv6 = 58,	//* Internet Control Message Protocol v6
+    IPPROTO_RAW    = 255,	//* Raw IP packets
     IPPROTO_MAX
 } EN_IPPROTO;
 
@@ -57,9 +58,20 @@ typedef struct _ST_IP_HDR_ {
 } PACKED ST_IP_HDR, *PST_IP_HDR;
 PACKED_END
 
+//* 用于校验和计算的ip伪包头
+PACKED_BEGIN
+typedef struct _ST_IP_PSEUDOHDR_ {
+	UINT unSrcAddr;
+	UINT unDstAddr;
+	UCHAR ubMustBeZero;
+	UCHAR ubProto;
+	USHORT usPacketLen;
+} PACKED ST_IP_PSEUDOHDR, *PST_IP_PSEUDOHDR;
+PACKED_END
+
 #if SUPPORT_IPV6
 PACKED_BEGIN
-typedef struct _ST_IPV6_HDR_ {
+typedef struct _ST_IPv6_HDR_ {
 	union {
 		struct {
 			UINT bitFlowLabel : 20; //* Flow Label，标识源和目的地址之间的通讯数据流，即表示当前传输的报文属于这个数据流中的一个，以显式地通知Ipv6路由器对其特
@@ -76,9 +88,9 @@ typedef struct _ST_IPV6_HDR_ {
 	UCHAR ubNextHdr;		//* Next Header，首个扩展头部或上层协议类型
 	UCHAR ubHopLimit;		//* Hop Limit，跳数限制，表示Ipv6包能经过的最大链路数，超过的包则直接丢弃，路由器会发送Icmpv6超时消息到源主机（类似于Ipv4的ttl字段）
 
-	UCHAR ubaSrcIp[16];		//* 源Ipv6地址 
-	UCHAR ubaDstIp[16];		//* 目标Ipv6地址
-} PACKED ST_IPV6_HDR, *PST_IPV6_HDR;
+	UCHAR ubaSrcIpv6[16];		//* 源Ipv6地址 
+	UCHAR ubaDstIpv6[16];		//* 目标Ipv6地址
+} PACKED ST_IPv6_HDR, *PST_IPv6_HDR;
 PACKED_END
 
 #define ipv6_ver uniFlag.stb32.bitVer
@@ -86,6 +98,18 @@ PACKED_END
 #define ipv6_ecn uniFlag.stb32.bitEcn
 #define ipv6_flow_label uniFlag.stb32.bitFlowLabel
 #define ipv6_flag uniFlag.unVal
+
+
+//* IPv6版本的用于校验和计算的伪报头
+PACKED_BEGIN
+typedef struct _ST_IPv6_PSEUDOHDR_ {
+	UCHAR ubaSrcIpv6[16];
+	UCHAR ubaDstIpv6[16];
+	UINT unUpperPktLen;		//* 其携带的上册协议报文的长度，比如unUpperPktLen = tcp头 + tcp选项 + 用户数据长度
+	UCHAR ubaMustBeZero[3];
+	UCHAR ubProto;			//* Ipv6支持的上层协议类型，参见ip_frame.h文件之EN_IPPROTO
+} PACKED ST_IPv6_PSEUDOHDR, *PST_IPv6_PSEUDOHDR;
+PACKED_END
 #endif
 
 #endif

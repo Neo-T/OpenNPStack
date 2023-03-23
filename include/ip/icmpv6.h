@@ -63,7 +63,7 @@ ICMPv6_EXT INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR 
 #endif
 
 ICMPv6_EXT void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr);
-ICMPv6_EXT INT icmpv6_send_ns_packet(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr); 
+ICMPv6_EXT INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr); 
 #endif
 
 #endif

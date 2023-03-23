@@ -203,6 +203,10 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
         stEthIIHdr.usProtoType = htons(ETHII_ARP);
         break; 
 
+	case IPV6:
+		stEthIIHdr.usProtoType = htons(ETHII_IPV6);
+		break;
+
     default: 
         if (penErr)
             *penErr = ERRUNSUPPETHIIPROTO; 

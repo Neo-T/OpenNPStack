@@ -59,6 +59,10 @@ typedef enum {
     ERRPP_UOPT = 2, //* Unrecognized IPv6 option encountered，无法识别的IPv6可选项
 } EN_ERRREDIRECT;
 
+//* icmpv6消息报文携带option类型值定义
+#define ICMPV6OPT_SLLA	1	//* Source link-layer address，源链路层地址可选项
+#define ICMPV6OPT_TLLA	2	//* Target link-layer address，目标链路层地址可选项
+
  //* Icmpv6帧头部结构体
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_HDR_ {

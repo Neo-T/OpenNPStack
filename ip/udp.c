@@ -49,8 +49,8 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     }
     buf_list_put_head(&sBufListHead, sHdrNode);
 
-    //* 填充用于校验和计算的tcp伪报头
-    ST_UDP_PSEUDOHDR stPseudoHdr;
+    //* 填充用于校验和计算的ip伪报头
+    ST_IP_PSEUDOHDR stPseudoHdr;
     stPseudoHdr.unSrcAddr = unSrcAddr;
     stPseudoHdr.unDstAddr = htonl(unDstAddr);
     stPseudoHdr.ubMustBeZero = 0;
@@ -58,7 +58,7 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + nDataLen);     
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_UDP_PSEUDOHDR), penErr);
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {
         if (sDataNode >= 0)
@@ -172,8 +172,8 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
         return -1;     
     buf_list_put_head(&sBufListHead, sHdrNode); 
 
-    //* 填充用于校验和计算的tcp伪报头
-    ST_UDP_PSEUDOHDR stPseudoHdr;
+    //* 填充用于校验和计算的ip伪报头
+    ST_IP_PSEUDOHDR stPseudoHdr;
     stPseudoHdr.unSrcAddr = unSrcIp;
     stPseudoHdr.unDstAddr = htonl(unDstIp);
     stPseudoHdr.ubMustBeZero = 0;
@@ -181,7 +181,7 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_UDP_PSEUDOHDR), penErr);
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {        
         buf_list_free(sHdrNode);
@@ -272,8 +272,8 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         }
         buf_list_put_head(&sBufListHead, sUdpPacketNode);
 
-        //* 填充用于校验和计算的udp伪报头
-        ST_UDP_PSEUDOHDR stPseudoHdr;
+        //* 填充用于校验和计算的ip伪报头
+        ST_IP_PSEUDOHDR stPseudoHdr;
         stPseudoHdr.unSrcAddr = unSrcAddr;
         stPseudoHdr.unDstAddr = unDstAddr;
         stPseudoHdr.ubMustBeZero = 0;
@@ -281,7 +281,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         stPseudoHdr.usPacketLen = htons((USHORT)nPacketLen);
         //* 挂载到链表头部
         SHORT sPseudoHdrNode;
-        sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_UDP_PSEUDOHDR), &enErr);
+        sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_IP_PSEUDOHDR), &enErr);
         if (sPseudoHdrNode < 0)
         {
     #if SUPPORT_PRINTF && DEBUG_LEVEL

@@ -9,17 +9,6 @@
 #ifndef UDP_FRAME_H
 #define UDP_FRAME_H
 
-//* 用于校验和计算的UDP伪包头
-PACKED_BEGIN
-typedef struct _ST_UDP_PSEUDOHDR_ {
-    UINT unSrcAddr;
-    UINT unDstAddr;
-    UCHAR ubMustBeZero;
-    UCHAR ubProto;
-    USHORT usPacketLen;
-} PACKED ST_UDP_PSEUDOHDR, *PST_UDP_PSEUDOHDR;
-PACKED_END
-
 //* UDP帧头部结构体
 PACKED_BEGIN
 typedef struct _ST_UDP_HDR_ {

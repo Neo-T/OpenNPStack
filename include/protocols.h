@@ -24,6 +24,9 @@ typedef enum {
 #endif
 
 	ICMP, 
+#if SUPPORT_IPV6
+	ICMPV6, 
+#endif
 	ARP, 
 	TCP, 
 	UDP, 

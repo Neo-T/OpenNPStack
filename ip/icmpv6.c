@@ -19,6 +19,9 @@
 #include "ip/icmpv6.h"
 #undef SYMBOL_GLOBALS
 
+static const UCHAR l_ubaAllNodesMcAddr[16] = {0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }; 
+static const UCHAR l_ubaSingleNodeMcAddr[13] = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF };
+
 #if SUPPORT_ETHERNET
  //* Ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
 static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
@@ -257,7 +260,7 @@ static INT ipv6_to_mac(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv
 	//*       0，保留；1，接口本地范围；2，链路本地范围；3，保留；4，管理本地范围；5，站点本地范围；8，组织本地范围；E，全球范围；F，保留；
 	//* 组ID：标识组播组，其值在地址范围内是唯一的。同样其也存在一些被永久分配的组ID：
 	//*       FF01::1，接口本地范围内的所有节点组播地址；
-	//*       FF02::2，链路本地范围内的所有节点组播地址；
+	//*       FF02::1，链路本地范围内的所有节点组播地址；
 	//*       FF01::2，接口本地范围内的所有路由组播地址；
 	//*       FF02::2，链路本地范围内的所有路由组播地址；
 	//*       FF05::2，站点本地范围内的所有路由组播地址；
@@ -399,20 +402,100 @@ INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[
 }
 #endif
 
+static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+	ST_IPv6_PSEUDOHDR stPseudoHdr;	
+	ST_ICMPv6_HDR stHdr;
+	UINT unIcmpv6DataLen = buf_list_get_len(sBufListHead); 
+
+	//* 申请一个buf list节点	
+	SHORT sIcmpv6HdrNode = buf_list_get_ext(&stHdr, (USHORT)sizeof(ST_ICMPv6_HDR), penErr);
+	if (sIcmpv6HdrNode < 0)
+		return -1;
+	buf_list_put_head(&sBufListHead, sIcmpv6HdrNode);
+
+	//* 申请ip伪报头并将其挂载到链表头部以便计算icmpv6校验和
+	SHORT sPseudoHdrNode;
+	sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IPv6_PSEUDOHDR), penErr);
+	if (sPseudoHdrNode < 0)
+	{
+		buf_list_free(sIcmpv6HdrNode);
+		return -1;
+	}
+	buf_list_put_head(&sBufListHead, sPseudoHdrNode);
+
+	//* 封装icmpv6 ns报文
+	//* ================================================================================
+	stHdr.ubType = ubType; 
+	stHdr.ubCode = ubCode;
+	stHdr.usChecksum = 0;	
+	//* ================================================================================
+
+	//* 封装ip伪报头用于icmpv6校验和计算
+	//* ================================================================================
+	memcpy(stPseudoHdr.ubaSrcIpv6, ubaSrcIpv6, 16);
+
+	switch(ubType)
+	{
+	case ICMPv6_NS: //* Neighbor Solicitation，邻居请求，根据目的地址生成组播地址：FF02::1:FF00:0/104 + 目的地址的后24位		
+		memcpy(stPseudoHdr.ubaDstIpv6, l_ubaSingleNodeMcAddr, sizeof(l_ubaSingleNodeMcAddr));
+		memcpy(&stPseudoHdr.ubaDstIpv6[sizeof(l_ubaSingleNodeMcAddr)], &ubaDstIpv6[sizeof(l_ubaSingleNodeMcAddr)], 3);
+		break; 
+
+	default: 
+		memcpy(stPseudoHdr.ubaDstIpv6, ubaDstIpv6, 16); 
+		break; 
+	}	
+
+	stPseudoHdr.unUpperPktLen = htonl(sizeof(ST_ICMPv6_HDR) + unIcmpv6DataLen);
+	stPseudoHdr.ubaMustBeZero[0] = stPseudoHdr.ubaMustBeZero[1] = stPseudoHdr.ubaMustBeZero[2] = 0;
+	stPseudoHdr.ubProto = IPPROTO_ICMPv6;
+	//* ================================================================================
+
+	//* 计算校验和并释放伪报头
+	stHdr.usChecksum = tcpip_checksum_ext(sBufListHead); 
+	buf_list_free_head(&sBufListHead, sPseudoHdrNode); 
+
+	//* 发送，并释放占用的buf list节点
+	INT nRtnVal = ipv6_send(pstNetif, NULL, ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, ICMPV6, sBufListHead, penErr); 
+	buf_list_free(sIcmpv6HdrNode); 
+
+	return nRtnVal; 
+}
+
 void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
 
 }
 
-INT icmpv6_send_ns_packet(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr)
-{
-	UCHAR ubaNSolicitation[sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NS_HDR) + sizeof(ST_ICMPv6_OPT_LLA)]; 
-	PST_ICMPv6_HDR pstHdr = (PST_ICMPv6_HDR)ubaNSolicitation; 
-	PST_ICMPv6_NS_HDR pstSolHdr = (PST_ICMPv6_NS_HDR)&ubaNSolicitation[sizeof(ST_ICMPv6_HDR)]; 
-	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)&ubaNSolicitation[sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NS_HDR)]; 
+INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr)
+{	
+	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
 
-	pstHdr->ubType = ICMPv6_NS; //* Neighbor Solicitation，邻居请求
-	pstHdr->ubCode = 0;			//* 固定为0
-	pstHdr->usChecksum = 0; 
+	UCHAR ubaNSolicitation[sizeof(ST_ICMPv6_NS_HDR) + sizeof(ST_ICMPv6_OPT_LLA)]; 	
+	PST_ICMPv6_NS_HDR pstNeiSolHdr = (PST_ICMPv6_NS_HDR)ubaNSolicitation; 
+	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)&ubaNSolicitation[sizeof(ST_ICMPv6_NS_HDR)]; 
+
+	//* 申请一个buf list节点
+	SHORT sBufListHead = -1;
+	SHORT sIcmpv6NeiSolNode = buf_list_get_ext(ubaNSolicitation, (USHORT)sizeof(ubaNSolicitation), penErr);
+	if (sIcmpv6NeiSolNode < 0)
+		return -1;
+	buf_list_put_head(&sBufListHead, sIcmpv6NeiSolNode);
+
+	//* 封装icmpv6 ns报文
+	//* ================================================================================	
+	pstNeiSolHdr->unReserved = 0; 
+	memcpy(pstNeiSolHdr->ubaTargetAddr, ubaDstIpv6, 16); 
+	pstOptLnkAddr->ubType = ICMPV6OPT_SLLA; 
+	pstOptLnkAddr->ubLen = 1; //* 单位：8字节
+	memcpy(pstOptLnkAddr->ubaAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 	
+	//* ================================================================================
+
+	//* 完成实际的发送并释放占用的buf list节点
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, penErr);
+	buf_list_free(sIcmpv6NeiSolNode); 
+
+	return nRtnVal; 
 }
 #endif

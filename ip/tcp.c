@@ -201,8 +201,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     }
     buf_list_put_head(&sBufListHead, sHdrNode); 
 
-    //* 填充用于校验和计算的tcp伪报头
-    ST_TCP_PSEUDOHDR stPseudoHdr; 
+    //* 填充用于校验和计算的ip伪报头
+    ST_IP_PSEUDOHDR stPseudoHdr; 
     stPseudoHdr.unSrcAddr = unSrcAddr;
     stPseudoHdr.unDstAddr = htonl(unDstAddr);
     stPseudoHdr.ubMustBeZero = 0; 
@@ -210,7 +210,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     stPseudoHdr.usPacketLen = htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes); 
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_TCP_PSEUDOHDR), penErr);
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);
     if (sPseudoHdrNode < 0)
     {
         if (sDataNode >= 0)
@@ -851,8 +851,8 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }
     buf_list_put_head(&sBufListHead, sTcpPacketNode);
 
-    //* 填充用于校验和计算的tcp伪报头
-    ST_TCP_PSEUDOHDR stPseudoHdr;
+    //* 填充用于校验和计算的ip伪报头
+    ST_IP_PSEUDOHDR stPseudoHdr;
     stPseudoHdr.unSrcAddr = unSrcAddr;
     stPseudoHdr.unDstAddr = unDstAddr;
     stPseudoHdr.ubMustBeZero = 0;
@@ -860,7 +860,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     stPseudoHdr.usPacketLen = htons((USHORT)nPacketLen); 
     //* 挂载到链表头部
     SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_TCP_PSEUDOHDR), &enErr);
+    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_IP_PSEUDOHDR), &enErr);
     if (sPseudoHdrNode < 0)
     {        
 #if SUPPORT_PRINTF && DEBUG_LEVEL
