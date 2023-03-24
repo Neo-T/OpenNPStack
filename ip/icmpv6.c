@@ -19,8 +19,14 @@
 #include "ip/icmpv6.h"
 #undef SYMBOL_GLOBALS
 
-static const UCHAR l_ubaAllNodesMcAddr[16] = {0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }; 
-static const UCHAR l_ubaSingleNodeMcAddr[13] = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF };
+#define MULTICAST_ADDR_NUMM 5 //* 协议栈支持的组播地址数量
+static const UCHAR l_ubaNetifNodesMcAddr[16] = { 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };			//* FF01::1，接口本地范围内所有节点组播地址
+static const UCHAR l_ubaAllNodesMcAddr[16] = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };			//* FF02::1，链路本地范围内所有节点组播地址
+static const UCHAR l_ubaSingleNodeMcAddr[IPv6MCA_NEISOL_PREFIXLEN / 8] = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xFF };	//* FF02::1:FF00:0/104 链路本地范围内的邻居节点请求组播地址前缀
+static const UCHAR l_ubaAllRoutersMcAddr[16] = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02 };			//* FF02::2，链路本地范围内所有路由器组播地址
+static const UCHAR l_ubaAllMLDv2RoutersMcAddr[16] = { 0xFF, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16 };		//* FF02::16，所有支持MLDv2路由器的组播地址
+static const UCHAR *l_pubaMcAddr[MULTICAST_ADDR_NUMM] = { l_ubaNetifNodesMcAddr, l_ubaAllNodesMcAddr, l_ubaSingleNodeMcAddr, l_ubaAllRoutersMcAddr, l_ubaAllMLDv2RoutersMcAddr }; //* 存储顺序必须与EN_MCADDR_TYPE的定义顺序一致
+
 
 #if SUPPORT_ETHERNET
  //* Ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
@@ -402,7 +408,7 @@ INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[
 }
 #endif
 
-static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, EN_ONPSERR *penErr)
+static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
 {
 	ST_IPv6_PSEUDOHDR stPseudoHdr;	
 	ST_ICMPv6_HDR stHdr;
@@ -457,7 +463,7 @@ static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR uba
 	buf_list_free_head(&sBufListHead, sPseudoHdrNode); 
 
 	//* 发送，并释放占用的buf list节点
-	INT nRtnVal = ipv6_send(pstNetif, NULL, ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, ICMPV6, sBufListHead, penErr); 
+	INT nRtnVal = ipv6_send(pstNetif, NULL, ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, ICMPV6, sBufListHead, unFlowLabel, ubHopLimit, penErr);
 	buf_list_free(sIcmpv6HdrNode); 
 
 	return nRtnVal; 
@@ -493,9 +499,27 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	//* ================================================================================
 
 	//* 完成实际的发送并释放占用的buf list节点
-	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, penErr);
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, 0, 255, penErr);
 	buf_list_free(sIcmpv6NeiSolNode); 
 
 	return nRtnVal; 
+}
+
+const UCHAR *ipv6_multicast_addr(EN_IPv6MCADDR_TYPE enType)
+{
+	if (0 <= enType < MULTICAST_ADDR_NUMM)
+		return l_pubaMcAddr[enType];
+	else
+		return NULL; 
+}
+
+UCHAR *ipv6_solicited_node_multicast_addr(UCHAR ubaUniIpv6[16], UCHAR ubaSolMcAddr[16])
+{
+	//* 生成节点请求组播地址
+	UCHAR ubPrefixBytes = IPv6MCA_NEISOL_PREFIXLEN / 8;
+	memcpy(ubaSolMcAddr, icmpv6_get_multicast_addr(IPv6MCA_NEISOL), ubPrefixBytes);
+	memcpy(&ubaSolMcAddr[ubPrefixBytes], &ubaUniIpv6[ubPrefixBytes], 3);
+
+	return ubaSolMcAddr;
 }
 #endif

@@ -384,4 +384,39 @@ INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader
 	     
 	return netif_ipv6_send(pstNetif, NULL, ubaSrcIpv6, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
 }
+
+void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
+{
+	PST_IPv6_HDR pstHdr = (PST_IPv6_HDR)pubPacket;	
+	USHORT usPayloadLen = htons(pstHdr->usPayloadLen); 
+	if (nPacketLen< (INT)usPayloadLen) //* 指定的报文长度与实际收到的字节数不匹配，直接丢弃该报文
+		return; 
+
+#if SUPPORT_ETHERNET
+	//* 如果网络接口类型为ethernet，就需要看看ip地址是否匹配，只有匹配的才会处理		
+	if (NIF_ETHERNET == pstNetif->enType)
+	{
+		//* 看看是否是单播地址
+		if (pstHdr->ubaDstIpv6[0] != 0xFF)
+		{
+
+		}
+		else //* 组播地址，则只需要处理认可的组播地址
+		{
+
+		}
+
+		if (pstHdr->unDstIP != 0xFFFFFFFF)
+		{
+			// ip地址不匹配，直接丢弃当前报文
+			if (pstNetif->stIPv4.unAddr && !ethernet_ipv4_addr_matched(pstNetif, pstHdr->unDstIP))
+				return;
+
+			// 更新arp缓存表
+			PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+			arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntry, pstHdr->unSrcIP, pubDstMacAddr);
+		}
+	}
+#endif
+}
 #endif

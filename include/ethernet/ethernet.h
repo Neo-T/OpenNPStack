@@ -23,7 +23,11 @@ ETHERNET_EXT INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sB
 ETHERNET_EXT void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen);
 ETHERNET_EXT void thread_ethernet_ii_recv(void *pvParam); 
 ETHERNET_EXT BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr);
+#if SUPPORT_IPV6
+ETHERNET_EXT BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]);
+#endif
 ETHERNET_EXT void ethernet_put_packet(PST_NETIF pstNetif, PST_SLINKEDLIST_NODE pstNode); 
+
 #endif
 
 #endif
