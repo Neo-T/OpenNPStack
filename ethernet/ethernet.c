@@ -31,7 +31,7 @@ static ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM];
 
 #if SUPPORT_IPV6
 ETHERNET_EXT BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]);
-static const UCHAR l_ubaInputMcAddrs[] = { IPv6MCA_NETIFNODES, IPv6MCA_ALLNODES, IPv6MCA_NEISOL }; //* 以太网接口允许通讯的组播地址白名单，这里如果添加新的名单，需要修改ethernet_ipv6_addr_matched()函数增加新名单的处理代码
+static const UCHAR l_ubaInputMcAddrs[] = { IPv6MCA_NETIFNODES, IPv6MCA_ALLNODES, IPv6MCA_SOLNODE }; //* 以太网接口允许通讯的组播地址白名单，这里如果添加新的名单，需要修改ethernet_ipv6_addr_matched()函数增加新名单的处理代码
 #endif
 
 void ethernet_init(void)
@@ -281,8 +281,8 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
         break; 
 
 #if SUPPORT_IPV6
-    case ETHII_IPV6:
-		printf(">>>>>>>>>>>>>>>>>>>>ipv6: %04X\r\n", usProtocolType);
+    case ETHII_IPV6: 		
+		ipv6_recv(pstNetif, pstHdr->ubaSrcMacAddr, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR));
         break; 
 #endif
 
@@ -330,18 +330,18 @@ static BOOL ipv6_sol_mc_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]
 	//* 如果临时地址不为空
 	if (pstNetif->stIPv6.ubaTmpAddr[0])
 	{
-		if (!memcmp(ubaTargetIpv6, ipv6_solicited_node_multicast_addr(pstNetif->stIPv6.ubaTmpAddr, ubaSolMcAddr), 16))
+		if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.ubaTmpAddr, ubaSolMcAddr), 16))
 			return TRUE; 
 	}
 
 	//* 如果单播地址不为空
 	if (pstNetif->stIPv6.ubaUniAddr[0])
 	{
-		if (!memcmp(ubaTargetIpv6, ipv6_solicited_node_multicast_addr(pstNetif->stIPv6.ubaUniAddr, ubaSolMcAddr), 16))
+		if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.ubaUniAddr, ubaSolMcAddr), 16))
 			return TRUE;
 	}
 
-	if (!memcmp(ubaTargetIpv6, ipv6_solicited_node_multicast_addr(pstNetif->stIPv6.ubaLnkAddr, ubaSolMcAddr), 16))
+	if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.ubaLnkAddr, ubaSolMcAddr), 16))
 		return TRUE;
 
 	return FALSE;
@@ -372,16 +372,16 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 			switch ((EN_IPv6MCADDR_TYPE)l_ubaInputMcAddrs[i])
 			{
 			case IPv6MCA_NETIFNODES: 
-				if (!memcmp(ubaTargetIpv6, ipv6_multicast_addr(IPv6MCA_NETIFNODES), 16))
+				if (!memcmp(ubaTargetIpv6, ipv6_mc_addr(IPv6MCA_NETIFNODES), 16))
 					return TRUE;
 				break; 
 
 			case IPv6MCA_ALLNODES:
-				if (!memcmp(ubaTargetIpv6, ipv6_multicast_addr(IPv6MCA_ALLNODES), 16))
+				if (!memcmp(ubaTargetIpv6, ipv6_mc_addr(IPv6MCA_ALLNODES), 16))
 					return TRUE;
 				break; 
 
-			case IPv6MCA_NEISOL:
+			case IPv6MCA_SOLNODE:
 				if (ipv6_sol_mc_addr_matched(pstNetif, ubaTargetIpv6))
 					return TRUE; 
 				break; 

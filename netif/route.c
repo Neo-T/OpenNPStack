@@ -40,7 +40,7 @@ BOOL route_table_init(EN_ONPSERR *penErr)
 	l_pstFreeNodeIpv6 = &l_staRouteIpv6Node[0];
 
 	l_hMtxRouteIpv6 = os_thread_mutex_init();
-	if (INVALID_HMUTEX == l_hMtxRoute)
+	if (INVALID_HMUTEX == l_hMtxRouteIpv6)
 	{
 		if (penErr)
 			*penErr = ERRMUTEXINITFAILED;
@@ -408,11 +408,11 @@ static void route_ipv6_put_free_node(PST_ROUTE_IPv6_NODE pstNode)
 	os_thread_mutex_unlock(l_hMtxRouteIpv6);
 }
 
-BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixLen, EN_ONPSERR *penErr)
+BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixBitLen, EN_ONPSERR *penErr)
 {
 	PST_ROUTE_IPv6_NODE pstNode;
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 0//1
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 	CHAR szIpv6[40]; 
 #endif
 
@@ -422,11 +422,11 @@ BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGatew
 		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteIpv6Link;
 		while (pstNextNode)
 		{
-			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen)) //* 目标网段相等，则只更新不增加新条目
+			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixBitLen)) //* 目标网段相等，则只更新不增加新条目
 			{
 				memcpy(pstNextNode->stRoute.ubaSource, netif_get_source_ipv6_by_destination(pstNetif, ubaDestination), 16);
 				memcpy(pstNextNode->stRoute.ubaGateway, ubaGateway, 16);
-				pstNextNode->stRoute.ubDestPrefixLen = ubDestPrefixLen;
+				pstNextNode->stRoute.ubDestPrefixBitLen = ubDestPrefixBitLen;
 				pstNextNode->stRoute.pstNetif = pstNetif;
 				pstNextNode->stRoute.pstNetif->bUsedCount = 0;
 				pstNode = pstNextNode;
@@ -453,7 +453,7 @@ BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGatew
 	memcpy(pstNode->stRoute.ubaSource, netif_get_source_ipv6_by_destination(pstNetif, ubaDestination), 16);
 	memcpy(pstNode->stRoute.ubaDestination, ubaDestination, 16);
 	memcpy(pstNode->stRoute.ubaGateway, ubaGateway, 16);
-	pstNode->stRoute.ubDestPrefixLen = ubDestPrefixLen;
+	pstNode->stRoute.ubDestPrefixBitLen = ubDestPrefixBitLen;
 	pstNode->stRoute.pstNetif = pstNetif;
 
 	//* 加入链表
@@ -466,14 +466,14 @@ BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGatew
 	pstNode->stRoute.pstNetif->bUsedCount = 0;
 
 __lblEnd:
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 0//1	
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1	
 #if PRINTF_THREAD_MUTEX
 	os_thread_mutex_lock(o_hMtxPrintf);
 #endif
 	printf("Add/Update network interface <%s> to IPv6 routing table\r\n[", pstNode->stRoute.pstNetif->szName);
 	if (pstNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
 	{
-		printf("destination %s/%d", inet6_ntoa(pstNode->stRoute.ubaDestination, szIpv6), pstNode->stRoute.ubDestPrefixLen); 
+		printf("destination %s/%d", inet6_ntoa(pstNode->stRoute.ubaDestination, szIpv6), pstNode->stRoute.ubDestPrefixBitLen); 
 	}
 	else
 		printf("destination default");	
@@ -497,7 +497,7 @@ void route_ipv6_del(UCHAR ubaDestination[16])
 		PST_ROUTE_IPv6_NODE pstPrevNode = NULL;
 		while (pstNextNode)
 		{
-			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
+			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixBitLen))
 			{
 				if (pstPrevNode)
 					pstPrevNode->pstNext = pstNextNode->pstNext;
@@ -577,7 +577,7 @@ PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UC
 		{
 			if (pstNextNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
 			{
-				if(!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
+				if(!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixBitLen))
 				{
 					pstRoute = &pstNextNode->stRoute;
 					break;
@@ -619,7 +619,7 @@ PST_NETIF route_ipv6_get_default(void)
 	//* 查找路由表
 	os_thread_mutex_lock(l_hMtxRouteIpv6);
 	{
-		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteLink;
+		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteIpv6Link;
 		while (pstNextNode)
 		{
 			if (!pstNextNode->stRoute.ubaDestination[0])
@@ -658,7 +658,7 @@ UCHAR *route_ipv6_get_netif_ip(UCHAR ubaDestination[16], UCHAR ubaNetifIpv6[16])
 		{
 			if (pstNextNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
 			{
-				if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixLen))
+				if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixBitLen))
 				{
 					memcpy(ubaNetifIpv6, pstNextNode->stRoute.ubaSource, 16); 
 					break;

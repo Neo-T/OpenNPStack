@@ -271,8 +271,6 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 	INT nRtnVal;
 	BOOL blNetifFreedEn = TRUE; 
 
-	os_critical_init(); 
-
 	ST_IPv6_HDR stHdr; 
 	stHdr.ipv6_ver = 6; 
 	stHdr.ipv6_dscp = 0; 
@@ -389,34 +387,59 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 {
 	PST_IPv6_HDR pstHdr = (PST_IPv6_HDR)pubPacket;	
 	USHORT usPayloadLen = htons(pstHdr->usPayloadLen); 
-	if (nPacketLen< (INT)usPayloadLen) //* 指定的报文长度与实际收到的字节数不匹配，直接丢弃该报文
+	if (nPacketLen < (INT)usPayloadLen) //* 指定的报文长度与实际收到的字节数不匹配，直接丢弃该报文
 		return; 
 
 #if SUPPORT_ETHERNET
-	//* 如果网络接口类型为ethernet，就需要看看ip地址是否匹配，只有匹配的才会处理		
+	//* 如果网络接口类型为ethernet，就需要看看ipv6地址是否匹配，只有匹配的才会处理，同时顺道更新ipv6 mac地址映射缓存表
 	if (NIF_ETHERNET == pstNetif->enType)
 	{
-		//* 看看是否是单播地址
-		if (pstHdr->ubaDstIpv6[0] != 0xFF)
-		{
+		CHAR szIpv6[40];
+		printf("%s -> ", inet6_ntoa(pstHdr->ubaSrcIpv6, szIpv6));
+		printf("%s\r\n", inet6_ntoa(pstHdr->ubaDstIpv6, szIpv6));
 
-		}
-		else //* 组播地址，则只需要处理认可的组播地址
-		{
+		// ip地址不匹配，直接丢弃当前报文
+		if (!ethernet_ipv6_addr_matched(pstNetif, pstHdr->ubaDstIpv6))
+			return; 
 
-		}
-
-		if (pstHdr->unDstIP != 0xFFFFFFFF)
-		{
-			// ip地址不匹配，直接丢弃当前报文
-			if (pstNetif->stIPv4.unAddr && !ethernet_ipv4_addr_matched(pstNetif, pstHdr->unDstIP))
-				return;
-
-			// 更新arp缓存表
-			PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-			arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntry, pstHdr->unSrcIP, pubDstMacAddr);
-		}
+		// 更新ipv6 mac地址映射缓存表
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+		ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstHdr->ubaSrcIpv6, pubDstMacAddr);
 	}
 #endif
+
+	if (pstHdr->ubNextHdr)
+	{
+		switch (pstHdr->ubNextHdr)
+		{
+		case IPPROTO_ICMPv6:
+			icmpv6_recv(pstNetif, pubDstMacAddr, pubPacket, nPacketLen, pubPacket + sizeof(ST_IPv6_HDR));
+			break;
+
+		case IPPROTO_TCP:
+			//tcp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket + usHdrLen, nPacketLen - usHdrLen);
+			break;
+
+		case IPPROTO_UDP:
+			//udp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket + usHdrLen, nPacketLen - usHdrLen);
+			break;
+
+		default:
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("unsupported IPv6 upper layer protocol (%d), the packet will be dropped\r\n", (UINT)pstHdr->ubNextHdr);
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			break;
+		}
+	}
+	else //* 处理ipv6逐跳选项（IPv6 Hop-by-Hop Option）
+	{
+
+	}	
 }
 #endif

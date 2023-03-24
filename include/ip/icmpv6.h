@@ -17,12 +17,14 @@
 #include "icmpv6_frame.h"
 
 #if SUPPORT_IPV6
-#define IPv6MCA_NEISOL_PREFIXLEN 104	//* FF02::1:FF00:0/104，链路本地范围内的邻居节点请求组播地址前缀长度，单位；数据位
+#define IPv6LLA_PREFIXBITLEN	64	//* 链路本地地址前缀位长度
+#define IPv6MCA_SOLPREFIXBITLEN 104	//* FF02::1:FF00:0/104，链路本地范围内的邻居节点请求组播地址前缀长度，单位；数据位
+
 //* 协议栈支持的组播地址类型，其直接决定了icmpv6.c中l_pubaMcAddr数组单元的数据存储顺序
 typedef enum {
 	IPv6MCA_NETIFNODES = 0,			//* FF01::1，接口本地范围内所有节点组播地址
 	IPv6MCA_ALLNODES = 1,			//* FF02::1，链路本地范围内所有节点组播地址
-	IPv6MCA_NEISOL = 2,				//* FF02::1:FF00:0/104，链路本地范围内的邻居节点请求组播地址前缀
+	IPv6MCA_SOLNODE = 2,			//* FF02::1:FF00:0/104，链路本地范围内的邻居节点请求组播地址前缀
 	IPv6MCA_ALLROUTERS = 3,			//* FF02::2，链路本地范围内所有路由器组播地址
 	IPv6MCA_ALLMLDv2ROUTERS = 4,	//* FF02::16，所有支持MLDv2路由器的组播地址
 } EN_IPv6MCADDR_TYPE;
@@ -70,13 +72,15 @@ ICMPv6_EXT void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR 
 ICMPv6_EXT void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]); 
 ICMPv6_EXT INT ipv6_mac_get(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr); 
 ICMPv6_EXT INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr); 
+ICMPv6_EXT const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16]);
+ICMPv6_EXT void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr);
 #endif
 
-ICMPv6_EXT const UCHAR *ipv6_multicast_addr(EN_IPv6MCADDR_TYPE enType);
-ICMPv6_EXT UCHAR *ipv6_solicited_node_multicast_addr(UCHAR ubaUniIpv6[16], UCHAR ubaSolMcAddr[16]);
+ICMPv6_EXT const UCHAR *ipv6_mc_addr(EN_IPv6MCADDR_TYPE enType);
+ICMPv6_EXT UCHAR *ipv6_sol_mc_addr(UCHAR ubaUniIpv6[16], UCHAR ubaSolMcAddr[16]);
 
-ICMPv6_EXT void icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr);
 ICMPv6_EXT INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr); 
+ICMPv6_EXT void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6); 
 #endif
 
 #endif

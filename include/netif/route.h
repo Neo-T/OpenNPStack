@@ -38,7 +38,7 @@ typedef struct _ST_ROUTE_IPv6_ {
 	UCHAR ubaDestination[16];
 	UCHAR ubaGateway[16];
 	PST_NETIF pstNetif;
-	UCHAR ubDestPrefixLen; //* 前缀长度，这个长度用于指定Ipv6地址的前多少位作为地址前缀
+	UCHAR ubDestPrefixBitLen; //* 前缀数据位长度，这个长度用于指定Ipv6地址的前多少位作为地址前缀
 } ST_ROUTE_IPv6, *PST_ROUTE_IPv6; 
 
 //* Ipv6路由链表节点
@@ -59,7 +59,7 @@ ROUTE_EXT PST_NETIF route_get_default(void);
 ROUTE_EXT UINT route_get_netif_ip(UINT unDestination);
 
 #if SUPPORT_IPV6
-ROUTE_EXT BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixLen, EN_ONPSERR *penErr);
+ROUTE_EXT BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixBitLen, EN_ONPSERR *penErr);
 ROUTE_EXT void route_ipv6_del(UCHAR ubaDestination[16]);
 ROUTE_EXT void route_ipv6_del_ext(PST_NETIF pstNetif);
 ROUTE_EXT PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr); 

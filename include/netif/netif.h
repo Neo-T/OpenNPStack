@@ -48,9 +48,9 @@ typedef struct _ST_IPV6_ {
 	UCHAR ubaTmpAddr[16];	//* 临时地址
 	UCHAR ubaLnkAddr[16];	//* 链路本地地址
 	UCHAR ubaGateway[16];	//* 网关地址 
-	UCHAR ubUAPrefixLen;	//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
-	UCHAR ubTAPrefixLen;	//* 临时地址前缀长度
-	UCHAR ubLAPrefixLen;	//* 链路本地地址前缀长度
+	UCHAR ubUAPrefixBitLen;	//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
+	UCHAR ubTAPrefixBitLen;	//* 临时地址前缀长度
+	UCHAR ubLAPrefixBitLen;	//* 链路本地地址前缀长度
 	//UCHAR ubGAPrefixLen;	//* 网关地址前缀长度
 } ST_IPV6, *PST_IPV6;
 #endif

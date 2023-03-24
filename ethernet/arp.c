@@ -442,7 +442,7 @@ static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr
 
 INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
 {
-	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr[ETH_MAC_ADDR_LEN]))
+	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr))
 	{
 		//* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
 		if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
@@ -508,7 +508,7 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
 
 INT arp_get_mac_ext(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
 {
-	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr[ETH_MAC_ADDR_LEN]))
+	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr))
 	{
 		//* 先将这条报文放入待发送链表
 		PSTCB_ETH_ARP_WAIT pstcbArpWait = arp_wait_packet_put(pstNetif, unDstArpIPAddr, sBufListHead, pblNetifFreedEn, penErr);

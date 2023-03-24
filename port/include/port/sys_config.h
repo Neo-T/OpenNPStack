@@ -9,6 +9,9 @@
 #ifndef SYS_CONFIG_H
 #define SYS_CONFIG_H
 
+#define SOCKET_NUM_MAX   16 //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响），其值应大于等于TCP_LINK_NUM_MAX值
+#define IP_TTL_DEFAULT   64 //* 缺省TTL值
+
  //* 系统支持哪些功能模块由此配置
  //* ===============================================================================================
 #define SUPPORT_IPV6	1   //* 是否支持IPv6：1，支持；0，不支持
@@ -48,7 +51,11 @@
     #define ETHERNET_NUM    0
 #endif
 
-#define NETIF_NUM   (PPP_NETLINK_NUM + ETHERNET_NUM)    //* 系统支持的网卡数量
+#define NETIF_NUM		(PPP_NETLINK_NUM + ETHERNET_NUM)    //* 系统支持的网卡数量
+#define ROUTE_ITEM_NUM	8									//* Ipv4系统路由表数量
+#if SUPPORT_IPV6
+	#define ROUTE_IPv6_ITEM_NUM	8  //* Ipv6系统路由表数量
+#endif
  //* ===============================================================================================
 
 //* 内存管理单元(mmu)相关配置项，其直接影响协议栈能分配多少个socket给用户使用
@@ -89,12 +96,6 @@
 #endif
 
 #define UDP_LINK_NUM_MAX 4  //* 调用connect()函数连接对端udp服务器的最大数量（一旦调用connect()函数，收到的非服务器报文将被直接丢弃）
-#define SOCKET_NUM_MAX   16 //* 系统支持的最大SOCKET数量，如实际应用中超过这个数量则会导致用户层业务逻辑无法全部正常运行（icmp/tcp/udp业务均受此影响），其值应大于等于TCP_LINK_NUM_MAX值
-#define IP_TTL_DEFAULT   64 //* 缺省TTL值
-#define ROUTE_ITEM_NUM   8  //* Ipv4系统路由表数量
-#if SUPPORT_IPV6
-#define ROUTE_IPv6_ITEM_NUM   8  //* Ipv6系统路由表数量
-#endif
 //* ===============================================================================================
 
 //* 网络工具配置项

@@ -32,7 +32,8 @@ typedef enum {
 	ICMPv6_NR		= 140,	//* ICMP Node Response，节点信息应答
 	ICMPv6_INDS		= 141,	//* Inverse Neighbor Discovery Solicitation，反向邻居探索请求
 	ICMPv6_INDA		= 142,	//* Inverse Neighbor Discovery Advertisement，反向邻居探索通告
-    ICMP_MAX		= 255
+	ICMPv6_MLRMv2	= 143,	//* Multicast Listener Report Message v2，组播侦听报告消息版本2，该类型用于支持MLDv2的侦听节点即时声明自己对哪些特定组播地址感兴趣
+    ICMPv6_MAX		= 255
 } EN_ICMPv6TYPE;
 
 //* ICMPv6_ERRDST，目标不可达错误报文携带的具体错误值定义
@@ -44,20 +45,20 @@ typedef enum {
     ERRDST_PU				= 4, //* Port unreachable， 端口不可达，目标设备未开启目的端口时发送该错误
     ERRDST_SAFIEP			= 5, //* Source address failed ingress/egress policy，源地址未通过出入站策略的检查
     ERRDST_RR				= 6, //* Reject route to destination，当数据包匹配某条拒绝路由条目时发送这个错误。其实就是路由器上配置的地址前缀黑名单，数据包目的地址前缀在黑名单中的都将被丢弃，同时发送该错误
-} EN_ERRDST;
+} EN_ICMPv6ERRDST;
 
 //* ICMPv6_ERRTE，超时错误报文携带的具体错误值定义
 typedef enum {
     ERRTE_HLE = 0, //* Hop limit exceeded in transit，超出跳数限制，发送或到达的报文其IPv6头部中的跳数限制字段值减为0
 	ERRTE_FR  = 1, //* Fragment reassembly time exceeded，目的主机分片重组超时
-} EN_ERRSRC;
+} EN_ICMPv6ERRSRC;
 
 //* ICMPv6_ERRPP，参数问题
 typedef enum {
 	ERRPP_EHF  = 0, //* Erroneous header field encountered，遇到IPv6头部或扩展头部中的某字段错误
     ERRPP_UNHT = 1, //* Unrecognized Next Header type encountered，Next Header字段的值无法识别
     ERRPP_UOPT = 2, //* Unrecognized IPv6 option encountered，无法识别的IPv6可选项
-} EN_ERRREDIRECT;
+} EN_ICMPv6ERRREDIRECT;
 
 //* icmpv6消息报文携带option类型值定义
 #define ICMPV6OPT_SLLA	1	//* Source link-layer address，源链路层地址可选项
@@ -98,9 +99,9 @@ typedef struct _ST_ICMPv6_NA_HDR_ {
 			UINT bitOverride : 1;	//* 覆盖标记，置1，表示报文携带的TLLA选项中的链路层地址应该覆盖IPv6 To Link layer addr映射表中已缓存的条目；置0，则表示不覆盖，除非缓存条目中不存在该链路层地址映射，此时需要新增条目
 			UINT bitSolicited : 1;	//* 请求标记，置1表示这是对NS消息的响应，对于组播邻居节点通告及未发送过NS消息的单播NA，该位置0，该位还可以用来执行邻居不可达性检测确认
 			UINT bitRouter : 1;		//* 路由器标记，标记当前NA消息发送方是否位路由器，置1位路由器，置0则否，在邻居不可达检测中检测路由器是否变成主机
-		} stb32; 
+		} PACKED stb32;
 		UINT unVal; 
-	} uniFlag;
+	} PACKED uniFlag;
 	UCHAR ubaTargetAddr[16]; //* 目标地址，对NS消息响应时，此地址应为NS消息中携带的目标地址字段值，非NS消息响应时，此应为链路层地址发生变换的IPv6地址。该字段说白了就是NA要通告的IPv6地址，其携带的目标链路层地址可选项值与之对应
 } PACKED ST_ICMPv6_NA_HDR, *PST_ICMPv6_NA_HDR;
 PACKED_END
