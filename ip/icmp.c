@@ -239,7 +239,7 @@ static void icmp_send_echo_reply(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR
     buf_list_put_head(&sBufListHead, sDataNode); 
 
     //* 发送数据
-    if (!icmp_send(pstNetif, pubDstMacAddr, pstReqIpHdr->unDstIP, htonl(pstReqIpHdr->unSrcIP), ICMP_ECHOREPLY, 0, IP_TTL_DEFAULT, sBufListHead, &enErr))
+    if (icmp_send(pstNetif, pubDstMacAddr, pstReqIpHdr->unDstIP, htonl(pstReqIpHdr->unSrcIP), ICMP_ECHOREPLY, 0, IP_TTL_DEFAULT, sBufListHead, &enErr) < 0)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX

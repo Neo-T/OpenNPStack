@@ -230,7 +230,7 @@ static void ppp_recv_handler(INT nPPPIdx, UCHAR *pubPacket, INT nPacketLen)
     {
         if (pubPacket[1] == PPP_IP
 #if SUPPORT_IPV6
-            || pstcbNetif->ubaFrameBuf[1] == PPP_IPV6 //* 系统仅支持IP协议族，其它如IPX之类的协议族不提供支持
+            || pubPacket[1] == PPP_IPV6 //* 系统仅支持IP协议族，其它如IPX之类的协议族不提供支持
 #endif
             )
         {

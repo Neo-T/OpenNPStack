@@ -277,7 +277,7 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 	stHdr.ipv6_ecn = 0;
 	stHdr.ipv6_flow_label = unFlowLabel & 0x000FFFFF; 
 	stHdr.ipv6_flag = htonl(stHdr.ipv6_flag); 
-	stHdr.usPayloadLen = htons(sizeof(ST_IPv6_HDR) + (USHORT)buf_list_get_len(sBufListHead)); 
+	stHdr.usPayloadLen = htons((USHORT)buf_list_get_len(sBufListHead)); 
 	stHdr.ubNextHdr = ubNextHeader; 
 	stHdr.ubHopLimit = ubHopLimit; 
 	memcpy(stHdr.ubaSrcIpv6, ubaSrcIpv6, 16);
@@ -293,6 +293,8 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 		return -1;
 	}
 	buf_list_put_head(&sBufListHead, sHdrNode); 
+
+	printf_hex_ext(sBufListHead, 16); 
 
 #if SUPPORT_ETHERNET
 	//* 如果网络接口类型为ethernet，需要先获取目标mac地址

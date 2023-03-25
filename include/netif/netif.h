@@ -43,15 +43,18 @@ typedef struct _ST_IPV4_ {
 } ST_IPV4, *PST_IPV4;
 
 #if SUPPORT_IPV6
+typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 typedef struct _ST_IPV6_ {
-	UCHAR ubaUniAddr[16];	//* 单播地址，与PC不同的是，为了节省内存协议栈只允许一个固定Ipv6地址（手动或自动配置——自动配置先icmpv6，如失败再dhcpv6）
-	UCHAR ubaTmpAddr[16];	//* 临时地址
-	UCHAR ubaLnkAddr[16];	//* 链路本地地址
-	UCHAR ubaGateway[16];	//* 网关地址 
-	UCHAR ubUAPrefixBitLen;	//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
-	UCHAR ubTAPrefixBitLen;	//* 临时地址前缀长度
-	UCHAR ubLAPrefixBitLen;	//* 链路本地地址前缀长度
-	//UCHAR ubGAPrefixLen;	//* 网关地址前缀长度
+	UCHAR ubaUniAddr[16];		//* 单播地址，与PC不同的是，为了节省内存协议栈只允许一个固定Ipv6地址（手动或自动配置——自动配置先icmpv6，如失败再dhcpv6）
+	UCHAR ubaTmpAddr[16];		//* 临时地址
+	UCHAR ubaLnkAddr[16];		//* 链路本地地址
+	UCHAR ubaGateway[16];		//* 网关地址 
+	UCHAR ubUAPrefixBitLen;		//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
+	UCHAR ubTAPrefixBitLen;		//* 临时地址前缀长度
+	UCHAR ubLAPrefixBitLen;		//* 链路本地地址前缀长度
+	UCHAR bitState     : 3;		//* ipv6地址当前配置状态			
+	UCHAR bitTimingCnt : 5;		//* 用于应答等待计时
+	PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } ST_IPV6, *PST_IPV6;
 #endif
 

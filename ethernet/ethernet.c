@@ -63,6 +63,9 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
     }
     os_exit_critical();    
 
+	if (penErr)
+		*penErr = ERRNO;
+
     if (!pstExtra)
     {
         if (penErr)
@@ -153,7 +156,18 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 
 #if SUPPORT_IPV6
 		//* 开启自动配置
-		icmpv6_start_config(pstNetif, penErr); 
+		if (!icmpv6_start_config(pstNetif, penErr))
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("icmpv6_start_config() failed, %s\r\n", onps_error(*penErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
 #endif
     }
     else
