@@ -36,7 +36,7 @@ typedef struct _STCB_ETHARP_ {
 
 //* 等待arp查询结束后重新发送ip报文的控制块
 typedef struct _STCB_ETH_ARP_WAIT_ {
-    PST_ONESHOTTIMER pstTimer; 
+    //PST_ONESHOTTIMER pstTimer; 
     PST_NETIF pstNetif;
     PST_SLINKEDLIST_NODE pstNode; 
 	UINT unIpv4;

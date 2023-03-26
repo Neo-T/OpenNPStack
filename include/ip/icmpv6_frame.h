@@ -105,6 +105,12 @@ typedef struct _ST_ICMPv6_NA_HDR_ {
 	UCHAR ubaTargetAddr[16]; //* 目标地址，对NS消息响应时，此地址应为NS消息中携带的目标地址字段值，非NS消息响应时，此应为链路层地址发生变换的IPv6地址。该字段说白了就是NA要通告的IPv6地址，其携带的目标链路层地址可选项值与之对应
 } PACKED ST_ICMPv6_NA_HDR, *PST_ICMPv6_NA_HDR;
 PACKED_END
+
+#define icmpv6_na_flag_o uniFlag.stb32.bitOverride
+#define icmpv6_na_flag_s uniFlag.stb32.bitSolicited
+#define icmpv6_na_flag_r uniFlag.stb32.bitRouter
+#define icmpv6_na_flag   uniFlag.unVal
+
 #endif
 
 #endif

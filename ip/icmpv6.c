@@ -39,7 +39,43 @@ static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
 //* icmpv6支持的无状态(stateless)地址配置定时器溢出函数
 static void ipv6_addr_cfg_timeout_handler(void *pvParam)
 {
+	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
+	switch ((EN_IPv6CFGSTATE)pstNetif->stIPv6.bitState)
+	{
+	case IPv6CFG_LATENT:
+		pstNetif->stIPv6.bitTimingCnt++; 
+		if (pstNetif->stIPv6.bitTimingCnt < 4)
+		{
+			//* 存在冲突则重新生成地址继续试探
+			if (pstNetif->stIPv6.bitIsLAConflict)
+			{
+				UINT unNewTailAddr = rand_big();
+				memcpy(&pstNetif->stIPv6.ubaLnkAddr[13], (UCHAR *)&unNewTailAddr, 3);
+				pstNetif->stIPv6.bitTimingCnt = 0;
+				pstNetif->stIPv6.bitIsLAConflict = FALSE; 
 
+				CHAR szIpv6[40]; 
+				os_thread_mutex_lock(o_hMtxPrintf);
+				printf("Conflict: %s\r\n", inet6_ntoa(pstNetif->stIPv6.ubaLnkAddr, szIpv6)); 
+				os_thread_mutex_unlock(o_hMtxPrintf);
+			}
+
+			//* 继续发送试探报文，确保所有节点都能收到
+			icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, NULL); 
+
+			one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1); 
+		}
+		else
+		{
+			os_thread_mutex_lock(o_hMtxPrintf);
+			printf("Not conflict!\r\n");
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		}
+		break; 
+
+	default:
+		break;
+	}
 }
 
 //* 等待邻居节点回馈的NA（Neighbor Advertisement）应答报文定时器溢出函数，其实就是实现ipv4的arp定时器相同的功能，通过ipv6地址得到mac地址
@@ -99,7 +135,7 @@ void ipv6_mac_ctl_block_free(PSTCB_ETHIPv6MAC pstcbIpv6Mac)
 	pstcbIpv6Mac->bIsUsed = FALSE; 
 }
 
-void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], BOOL blIsOverride)
 {	
 	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac; 
 
@@ -111,13 +147,16 @@ void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[
 	{			
 		if (!ipv6_addr_cmp(ubaIpv6, pstcbIpv6Mac->staEntry[i].ubaIpv6, 128)) //* 匹配
 		{
-			//* 更新mac地址
-			os_enter_critical();
+			if (blIsOverride)
 			{
-				memcpy(pstcbIpv6Mac->staEntry[i].ubaMac, ubaMacAddr, ETH_MAC_ADDR_LEN); 
-				pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
-			}
-			os_exit_critical();
+				//* 更新mac地址
+				os_enter_critical();
+				{
+					memcpy(pstcbIpv6Mac->staEntry[i].ubaMac, ubaMacAddr, ETH_MAC_ADDR_LEN);
+					pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
+				}
+				os_exit_critical();
+			}			
 			return;
 		}
 	}
@@ -218,7 +257,7 @@ __lblSend:
 	os_exit_critical();
 }
 
-void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], BOOL blIsOverride)
 {
 	os_critical_init();
 
@@ -228,13 +267,17 @@ void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UC
 	{		
 		if (!ipv6_addr_cmp(ubaIpv6, pstcbIpv6Mac->staEntry[i].ubaIpv6, 128)) //* 匹配
 		{
-			//* 更新mac地址
-			os_enter_critical();
+			if (blIsOverride)
 			{
-				memcpy(pstcbIpv6Mac->staEntry[i].ubaMac, ubaMacAddr, ETH_MAC_ADDR_LEN);
-				pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
-			}
-			os_exit_critical();
+				//* 更新mac地址
+				os_enter_critical();
+				{
+					memcpy(pstcbIpv6Mac->staEntry[i].ubaMac, ubaMacAddr, ETH_MAC_ADDR_LEN);
+					pstcbIpv6Mac->staEntry[i].unUpdateTime = os_get_system_secs();
+				}
+				os_exit_critical();
+			}			
+
 			return;
 		}		
 	}
@@ -440,18 +483,19 @@ const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 
 BOOL icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
-	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+	//* 冲突标志清零
+	pstNetif->stIPv6.bitIsLAConflict = pstNetif->stIPv6.bitIsUAConflict = pstNetif->stIPv6.bitIsTAConflict = 0; 
 
 	//* 生成试探性的链路本地地址（Tentative Link Local Address）
-	icmpv6_lnk_addr_get(pstNetif, pstNetif->stIPv6.ubaLnkAddr); 
-	//memcpy(pstNetif->stIPv6.ubaLnkAddr, "\x24\x08\x82\x15\x04\x1B\xC0\x00\xD4\xA1\x48\x96\x6B\x3B\x00\x03", 16); //* 测试ipv6链路本地地址冲突逻辑用，使用网络其它节点已经成功配置的地址来验证协议栈DAD逻辑是否正确
-	pstNetif->stIPv6.ubLAPrefixBitLen = IPv6LLA_PREFIXBITLEN; 
+	//icmpv6_lnk_addr_get(pstNetif, pstNetif->stIPv6.ubaLnkAddr); 
+	memcpy(pstNetif->stIPv6.ubaLnkAddr, "\xfe\x80\x00\x00\x00\x00\x00\x00\xdd\x62\x1a\x01\xfa\xa0\xd0\xe3", 16); //* 测试ipv6链路本地地址冲突逻辑用，使用网络其它节点已经成功配置的地址来验证协议栈DAD逻辑是否正确
+	pstNetif->stIPv6.bitLAPrefixBitLen = IPv6LLA_PREFIXBITLEN; 
 
-	//* 开启one-shot定时器，步长：1秒
-	pstNetif->stIPv6.pstTimer = one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1); 
-	if (pstNetif->stIPv6.pstTimer)
+	//* 开启one-shot定时器，步长：1秒	
+	if (one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1))
 	{
-		pstNetif->stIPv6.bitState = 0; 		
+		pstNetif->stIPv6.bitState = IPv6CFG_LATENT;
+		pstNetif->stIPv6.bitTimingCnt = 0; 		
 	}
 	else
 	{
@@ -459,8 +503,6 @@ BOOL icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 			*penErr = ERRNOIDLETIMER;
 		return FALSE; 
 	}
-
-	printf(">>>>>>>>>>>>>>>>%d\r\n", sizeof(pstNetif->stIPv6));
 
 	//* 开始重复地址检测DAD（Duplicate Address Detect）以确定这个试探地址没有被其它节点使用
 	if (icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, penErr) > 0)
@@ -550,8 +592,10 @@ static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR uba
 	buf_list_free(sIcmpv6HdrNode); 
 
 	CHAR szIpv6[40]; 
+	os_thread_mutex_lock(o_hMtxPrintf);
 	printf("ns_src_addr: %s\r\n", inet6_ntoa(stPseudoHdr.ubaSrcIpv6, szIpv6));
 	printf("ns_dst_addr: %s\r\n", inet6_ntoa(stPseudoHdr.ubaDstIpv6, szIpv6));
+	os_thread_mutex_unlock(o_hMtxPrintf);
 
 	return nRtnVal; 
 }
@@ -590,6 +634,42 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	return nRtnVal; 
 }
 
+//* 收到的NA（Neighbor Advertisement，邻居通告）报文处理函数
+void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
+{
+	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+	PST_ICMPv6_NA_HDR pstNeiAdvHdr = (PST_ICMPv6_NA_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR));
+	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NA_HDR)); 
+	pstNeiAdvHdr->icmpv6_na_flag = htonl(pstNeiAdvHdr->icmpv6_na_flag);
+
+	//* 首先看看Solicited标志是否置位，是，意味着这是NS报文的应答报文
+	if (pstNeiAdvHdr->icmpv6_na_flag_s)
+	{
+		//* Override标志置位？，更新ipv6 to mac缓存映射表，注意只有主动请求的响应报文才会操作缓存映射表，这样可避免频繁的通告导致缓存表无法保持相对稳定的问题
+		if (pstNeiAdvHdr->icmpv6_na_flag_o)
+			ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, TRUE);
+		else
+			ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, FALSE); //* 只增加或覆盖老的条目，已有条目不更新
+
+		//* 收到请求通告，icmpv6_na_wait_timeout_handler()溢出函数不必执行溢出操作了
+	}
+	else
+	{
+		//* 这是一个邻居节点通告，且是面向链路上所有节点（目标地址为FF02::1），所以只要是仍在地址自动配置阶段就需要判断是否存在地址冲突，因为
+		//* 存在某个节点响应很慢的情形，导致DAD检测结束才收到冲突报文，虽然概率很低，但为了可靠必须处理这种情况
+		if (pstNetif->stIPv6.bitState < IPv6CFG_END)
+		{
+			if (pstNetif->stIPv6.ubaTmpAddr[0] && !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaTmpAddr, 16) && !pstNetif->stIPv6.bitIsTAConflict)
+				pstNetif->stIPv6.bitIsTAConflict = TRUE;
+			else if (pstNetif->stIPv6.ubaUniAddr[0] && !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaUniAddr, 16) && !pstNetif->stIPv6.bitIsUAConflict)
+				pstNetif->stIPv6.bitIsUAConflict = TRUE;
+			else if (!memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaLnkAddr, 16) && !pstNetif->stIPv6.bitIsLAConflict)
+				pstNetif->stIPv6.bitIsLAConflict = TRUE;
+			else; //* 其它节点地址冲突导致的全节点通告，不用理会
+		}		
+	}
+}
+
 void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)
 {
 	ST_IPv6_PSEUDOHDR stPseudoHdr; //* 用于校验和计算
@@ -600,9 +680,9 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 
 	//* 校验收到的整个报文确定其完整、可靠
 	//* =================================================================================
-	//* 申请ip伪报头并将其挂载到链表头部以便计算icmpv6校验和
+	//* 申请一个buf list节点将icmpv6报文挂载到链表上
 	SHORT sBufListHead = -1; 
-	SHORT sIpv6PayloadNode = buf_list_get_ext(pubPacket + sizeof(ST_IPv6_HDR), (UINT)usIpv6PayloadLen, &enErr);
+	SHORT sIpv6PayloadNode = buf_list_get_ext(pubIcmpv6, (UINT)usIpv6PayloadLen, &enErr);
 	if (sIpv6PayloadNode < 0)
 	{
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 0		
@@ -610,7 +690,6 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
 		printf("icmpv6_recv() failed, %s\r\n", onps_error(enErr)); 
-		printf_hex(pubPacket, nPacketLen, 48);
 	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_unlock(o_hMtxPrintf);
 	#endif
@@ -630,8 +709,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
-		printf("icmpv6_recv() failed, %s\r\n", onps_error(enErr));
-		printf_hex(pubPacket, nPacketLen, 48);
+		printf("icmpv6_recv() failed, %s\r\n", onps_error(enErr));		
 	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_unlock(o_hMtxPrintf);
 	#endif
@@ -643,7 +721,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 	//* 封装ipv6伪报头
 	memcpy(stPseudoHdr.ubaSrcIpv6, pstIpv6Hdr->ubaSrcIpv6, 16); 
 	memcpy(stPseudoHdr.ubaDstIpv6, pstIpv6Hdr->ubaDstIpv6, 16); 
-	stPseudoHdr.unIpv6PayloadLen = (UINT)usIpv6PayloadLen;
+	stPseudoHdr.unIpv6PayloadLen = htonl((UINT)usIpv6PayloadLen);
 	stPseudoHdr.ubaMustBeZero[0] = stPseudoHdr.ubaMustBeZero[1] = stPseudoHdr.ubaMustBeZero[2] = 0;
 	stPseudoHdr.ubProto = IPPROTO_ICMPv6; 		
 
@@ -679,7 +757,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		break; 
 
 	case ICMPv6_NA:
-		printf("++++++++recv NA packet\r\n");
+		icmpv6_na_handler(pstNetif, pubIcmpv6);
 		break; 
 
 	default: 

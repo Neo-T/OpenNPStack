@@ -397,16 +397,14 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 	if (NIF_ETHERNET == pstNetif->enType)
 	{
 		CHAR szIpv6[40];
+		os_thread_mutex_lock(o_hMtxPrintf);
 		printf("%s -> ", inet6_ntoa(pstHdr->ubaSrcIpv6, szIpv6));
 		printf("%s\r\n", inet6_ntoa(pstHdr->ubaDstIpv6, szIpv6));
+		os_thread_mutex_unlock(o_hMtxPrintf);
 
 		// ip地址不匹配，直接丢弃当前报文
 		if (!ethernet_ipv6_addr_matched(pstNetif, pstHdr->ubaDstIpv6))
 			return; 
-
-		// 更新ipv6 mac地址映射缓存表
-		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-		ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstHdr->ubaSrcIpv6, pubDstMacAddr);
 	}
 #endif
 

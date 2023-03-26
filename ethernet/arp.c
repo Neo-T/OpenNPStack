@@ -137,9 +137,9 @@ static void arp_wait_timeout_handler(void *pvParam)
 		}
 	}
 
-__lblEnd:
-	//* 不再占用网卡
-	netif_freed(pstNetif);
+__lblEnd:	
+	if (1 != pstcbArpWait->ubSndStatus)
+		netif_freed(pstNetif); //* 不再占用网卡
 
 	os_enter_critical();
 	{
@@ -473,9 +473,8 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
 		pstcbArpWait->ubSndStatus = 0;
         pstcbArpWait->pstNode = NULL; 
 
-        //* 启动一个1秒定时器，等待查询完毕
-        pstcbArpWait->pstTimer = one_shot_timer_new(arp_wait_timeout_handler, pstcbArpWait, 1);
-        if (pstcbArpWait->pstTimer)
+        //* 启动一个1秒定时器，等待查询完毕        
+        if (one_shot_timer_new(arp_wait_timeout_handler, pstcbArpWait, 1))
         {
             *pblNetifFreedEn = FALSE; 
 
@@ -516,11 +515,12 @@ INT arp_get_mac_ext(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, U
 			return -1;
 
 		//* 发送一条arp报文问问谁拥有这个IP地址
-		if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
-		{
-			one_shot_timer_free(pstcbArpWait->pstTimer);
-			return -1;
-		}
+		arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr); 
+		//if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
+		//{
+		//	one_shot_timer_free(pstcbArpWait->pstTimer);
+		//	return -1;
+		//}
 
 		return 1; 
 	}

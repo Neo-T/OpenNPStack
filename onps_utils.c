@@ -346,6 +346,17 @@ CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr)
     return pszItem;
 }
 
+UINT rand_big(void)
+{
+	UINT unRandomVal; 
+	((UCHAR *)&unRandomVal)[0] = (UCHAR)(rand() % 256); 
+	((UCHAR *)&unRandomVal)[1] = (UCHAR)(rand() % 256);
+	((UCHAR *)&unRandomVal)[2] = (UCHAR)(rand() % 256);
+	((UCHAR *)&unRandomVal)[3] = (UCHAR)(rand() % 256);
+
+	return unRandomVal; 
+}
+
 const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase)
 {
 	szDst[0] = ubVal >> 4;

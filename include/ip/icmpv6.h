@@ -33,6 +33,14 @@ typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 
 #if SUPPORT_ETHERNET
+typedef enum {
+	IPv6CFG_LATENT = 0, //* 链路本地地址重复地址检测阶段
+	IPv6CFG_RS     = 1, //* 路由请求阶段
+	IPv6CFG_TATENT = 2, //* 链路本地地址重复地址检测阶段
+	IPv6CFG_UATENT = 3, //* 链路本地地址重复地址检测阶段
+	IPv6CFG_END
+} EN_IPv6CFGSTATE;
+
 //* IPv6地址到以太网Mac地址映射表存储结构体
 typedef struct _ST_ENTRY_ETHIPv6MAC_ {
 	UINT unUpdateTime;	//* 条目更新（读取/缓存）时间
@@ -68,8 +76,8 @@ typedef struct _STCB_ETHIPv6MAC_WAIT_ {
 ICMPv6_EXT void ipv6_mac_mapping_tbl_init(void); 
 ICMPv6_EXT PSTCB_ETHIPv6MAC ipv6_mac_ctl_block_new(void); 
 ICMPv6_EXT void ipv6_mac_ctl_block_free(PSTCB_ETHIPv6MAC pstcbIpv6Mac); 
-ICMPv6_EXT void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]); 
-ICMPv6_EXT void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN]); 
+ICMPv6_EXT void ipv6_mac_add_entry(PST_NETIF pstNetif, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], BOOL blIsOverride); 
+ICMPv6_EXT void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], BOOL blIsOverride);
 ICMPv6_EXT INT ipv6_mac_get(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr); 
 ICMPv6_EXT INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr); 
 ICMPv6_EXT const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16]);

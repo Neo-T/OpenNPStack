@@ -49,12 +49,15 @@ typedef struct _ST_IPV6_ {
 	UCHAR ubaTmpAddr[16];		//* 临时地址
 	UCHAR ubaLnkAddr[16];		//* 链路本地地址
 	UCHAR ubaGateway[16];		//* 网关地址 
-	UCHAR ubUAPrefixBitLen;		//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
-	UCHAR ubTAPrefixBitLen;		//* 临时地址前缀长度
-	UCHAR ubLAPrefixBitLen;		//* 链路本地地址前缀长度
-	UCHAR bitState     : 3;		//* ipv6地址当前配置状态			
-	UCHAR bitTimingCnt : 5;		//* 用于应答等待计时
-	PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
+	UINT bitUAPrefixBitLen : 7;	//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
+	UINT bitIsUAConflict   : 1;	//* 单播地址是否冲突
+	UINT bitTAPrefixBitLen : 7; //* 临时地址前缀长度
+	UINT bitIsTAConflict   : 1;	//* 临时地址是否冲突
+	UINT bitLAPrefixBitLen : 7; //* 链路本地地址前缀长度
+	UINT bitIsLAConflict   : 1;	//* 链路本地地址是否冲突	
+	UINT bitState          : 4;	//* ipv6地址当前配置状态			
+	UINT bitTimingCnt      : 3; //* 用于应答等待计时	
+	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } ST_IPV6, *PST_IPV6;
 #endif
 
