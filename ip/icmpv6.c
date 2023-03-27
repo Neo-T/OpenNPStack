@@ -39,6 +39,10 @@ static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
 //* icmpv6支持的无状态(stateless)地址配置定时器溢出函数
 static void ipv6_addr_cfg_timeout_handler(void *pvParam)
 {
+	os_thread_mutex_lock(o_hMtxPrintf);
+	printf(">>>>>%d!\r\n", os_get_system_secs()); 
+	os_thread_mutex_unlock(o_hMtxPrintf);
+
 	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
 	switch ((EN_IPv6CFGSTATE)pstNetif->stIPv6.bitState)
 	{
@@ -49,28 +53,30 @@ static void ipv6_addr_cfg_timeout_handler(void *pvParam)
 			//* 存在冲突则重新生成地址继续试探
 			if (pstNetif->stIPv6.bitIsLAConflict)
 			{
+				//* 重新生成尾部地址再次进行DAD
 				UINT unNewTailAddr = rand_big();
 				memcpy(&pstNetif->stIPv6.ubaLnkAddr[13], (UCHAR *)&unNewTailAddr, 3);
 				pstNetif->stIPv6.bitTimingCnt = 0;
-				pstNetif->stIPv6.bitIsLAConflict = FALSE; 
-
-				CHAR szIpv6[40]; 
-				os_thread_mutex_lock(o_hMtxPrintf);
-				printf("Conflict: %s\r\n", inet6_ntoa(pstNetif->stIPv6.ubaLnkAddr, szIpv6)); 
-				os_thread_mutex_unlock(o_hMtxPrintf);
+				pstNetif->stIPv6.bitIsLAConflict = FALSE; 				
 			}
 
 			//* 继续发送试探报文，确保所有节点都能收到
-			icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, NULL); 
-
-			one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1); 
+			icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, NULL); 			
 		}
 		else
 		{
-			os_thread_mutex_lock(o_hMtxPrintf);
-			printf("Not conflict!\r\n");
-			os_thread_mutex_unlock(o_hMtxPrintf);
+			pstNetif->stIPv6.bitState = IPv6CFG_RS; 
+			pstNetif->stIPv6.bitTimingCnt = 0;
+
+			//* 发送RS路由器请求报文
+			icmpv6_send_rs(pstNetif, pstNetif->stIPv6.ubaLnkAddr, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), NULL); 			
 		}
+
+		//* 再次开启定时器
+		one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1);
+		break;
+
+	case IPv6CFG_RS:
 		break; 
 
 	default:
@@ -591,12 +597,6 @@ static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR uba
 	INT nRtnVal = ipv6_send(pstNetif, NULL, stPseudoHdr.ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, IPPROTO_ICMPv6, sBufListHead, unFlowLabel, ubHopLimit, penErr);
 	buf_list_free(sIcmpv6HdrNode); 
 
-	CHAR szIpv6[40]; 
-	os_thread_mutex_lock(o_hMtxPrintf);
-	printf("ns_src_addr: %s\r\n", inet6_ntoa(stPseudoHdr.ubaSrcIpv6, szIpv6));
-	printf("ns_dst_addr: %s\r\n", inet6_ntoa(stPseudoHdr.ubaDstIpv6, szIpv6));
-	os_thread_mutex_unlock(o_hMtxPrintf);
-
 	return nRtnVal; 
 }
 
@@ -615,7 +615,7 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 		return -1;
 	buf_list_put_head(&sBufListHead, sIcmpv6NeiSolNode);
 
-	//* 封装icmpv6 ns报文
+	//* 封装icmpv6 neighbor solicitation报文
 	//* ================================================================================	
 	pstNeiSolHdr->unReserved = 0; 
 	memcpy(pstNeiSolHdr->ubaTargetAddr, ubaDstIpv6, 16); 
@@ -634,8 +634,39 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	return nRtnVal; 
 }
 
+INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr)
+{
+	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+
+	UCHAR ubaRSolicitation[sizeof(ST_ICMPv6_RS_HDR) + sizeof(ST_ICMPv6_OPT_LLA)];
+	PST_ICMPv6_RS_HDR pstRouSolHdr = (PST_ICMPv6_RS_HDR)ubaRSolicitation;
+	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)&ubaRSolicitation[sizeof(ST_ICMPv6_RS_HDR)];
+
+	//* 申请一个buf list节点
+	SHORT sBufListHead = -1;
+	SHORT sIcmpv6RouSolNode = buf_list_get_ext(ubaRSolicitation, sizeof(ubaRSolicitation), penErr);
+	if (sIcmpv6RouSolNode < 0)
+		return -1;
+	buf_list_put_head(&sBufListHead, sIcmpv6RouSolNode); 
+
+
+	//* 封装icmpv6 router solicitation报文
+	//* ================================================================================	
+	pstRouSolHdr->unReserved = 0; 
+	pstOptLnkAddr->ubType = ICMPV6OPT_SLLA;
+	pstOptLnkAddr->ubLen = 1; //* 单位：8字节
+	memcpy(pstOptLnkAddr->ubaAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
+	//* ================================================================================
+	
+	//* 完成实际的发送并释放占用的buf list节点
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, 0, 255, penErr);
+	buf_list_free(sIcmpv6RouSolNode);
+
+	return nRtnVal;
+}
+
 //* 收到的NA（Neighbor Advertisement，邻居通告）报文处理函数
-void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
+static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 {
 	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
 	PST_ICMPv6_NA_HDR pstNeiAdvHdr = (PST_ICMPv6_NA_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR));
@@ -645,11 +676,8 @@ void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 	//* 首先看看Solicited标志是否置位，是，意味着这是NS报文的应答报文
 	if (pstNeiAdvHdr->icmpv6_na_flag_s)
 	{
-		//* Override标志置位？，更新ipv6 to mac缓存映射表，注意只有主动请求的响应报文才会操作缓存映射表，这样可避免频繁的通告导致缓存表无法保持相对稳定的问题
-		if (pstNeiAdvHdr->icmpv6_na_flag_o)
-			ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, TRUE);
-		else
-			ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, FALSE); //* 只增加或覆盖老的条目，已有条目不更新
+		//* 更新ipv6 to mac缓存映射表，注意只有主动请求的响应报文才会操作缓存映射表，这样可避免频繁的通告导致缓存表无法保持相对稳定的问题，另外只有override标志置1才会更新已存在条目，否则只增加新条目
+		ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, pstNeiAdvHdr->icmpv6_na_flag_o);
 
 		//* 收到请求通告，icmpv6_na_wait_timeout_handler()溢出函数不必执行溢出操作了
 	}
@@ -665,9 +693,25 @@ void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 				pstNetif->stIPv6.bitIsUAConflict = TRUE;
 			else if (!memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaLnkAddr, 16) && !pstNetif->stIPv6.bitIsLAConflict)
 				pstNetif->stIPv6.bitIsLAConflict = TRUE;
-			else; //* 其它节点地址冲突导致的全节点通告，不用理会
+			else; //* 其它节点地址冲突导致的全链路节点通告，不用理会
 		}		
 	}
+}
+
+//* 收到的RA（Router Advertisement，邻居通告）报文处理函数
+/*
+60 00 00 00 00 58 3A FF FE 80 00 00 00 00 00 00
+D6 A1 48 FF FE 96 6B 3B FF 02 00 00 00 00 00 00
+00 00 00 00 00 00 00 01 86 00 00 00 40 C8 07 08
+00 00 00 00 00 00 00 00 03 04 40 C0 00 00 1C 20
+00 00 0E 10 00 00 00 00 24 08 82 14 04 19 F2 05
+00 00 00 00 00 00 00 00 19 03 00 00 00 00 04 B0
+FE 80 00 00 00 00 00 00 D6 A1 48 FF FE 96 6B 3B
+05 01 00 00 00 00 05 D4 01 01 D4 A1 48 96 6B 3B
+*/
+static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
+{
+
 }
 
 void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)
@@ -758,6 +802,10 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 
 	case ICMPv6_NA:
 		icmpv6_na_handler(pstNetif, pubIcmpv6);
+		break; 
+
+	case ICMPv6_RA:
+		icmpv6_ra_handler(pstNetif, pubIcmpv6);
 		break; 
 
 	default: 

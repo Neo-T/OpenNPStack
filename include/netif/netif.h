@@ -57,6 +57,19 @@ typedef struct _ST_IPV6_ {
 	UINT bitIsLAConflict   : 1;	//* 链路本地地址是否冲突	
 	UINT bitState          : 4;	//* ipv6地址当前配置状态			
 	UINT bitTimingCnt      : 3; //* 用于应答等待计时	
+	UCHAR ubHopLimit;			//* 路由器给出的跳数限制
+	union {
+		struct { //* 为了方便操作，位序与icmpv6中的RA报文完全一致，参见icmpv6_frame.h中ST_ICMPv6_RA_HDR结构体定义
+			UCHAR bitValid    : 1; //* 状态值是否有效，其实就是是否已经收到路由器通告报文，收到则该位置1，否则一直为0
+			UCHAR bitReserved : 1; //* 保留
+			UCHAR bitProxy    : 1;
+			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
+			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
+			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
+			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
+		} stb8;
+		UCHAR ubVal; 
+	} uniRAFlag;	
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } ST_IPV6, *PST_IPV6;
 #endif

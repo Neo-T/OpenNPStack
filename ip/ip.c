@@ -292,9 +292,7 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 		netif_freed(pstNetif);
 		return -1;
 	}
-	buf_list_put_head(&sBufListHead, sHdrNode); 
-
-	printf_hex_ext(sBufListHead, 16); 
+	buf_list_put_head(&sBufListHead, sHdrNode); 	
 
 #if SUPPORT_ETHERNET
 	//* 如果网络接口类型为ethernet，需要先获取目标mac地址

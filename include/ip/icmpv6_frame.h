@@ -81,6 +81,13 @@ typedef struct _ST_ICMPv6_NS_HDR_ {
 } PACKED ST_ICMPv6_NS_HDR, *PST_ICMPv6_NS_HDR;
 PACKED_END
 
+//* Router Solicitation，邻居请求消息头部结构体
+PACKED_BEGIN
+typedef struct _ST_ICMPv6_RS_HDR_ {
+	UINT unReserved;		 //* 保留字段
+} PACKED ST_ICMPv6_RS_HDR, *PST_ICMPv6_RS_HDR;
+PACKED_END
+
 //* S/TLLA，Source/Target link-layer address选项
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_OPT_LLA_ {
@@ -95,21 +102,45 @@ PACKED_BEGIN
 typedef struct _ST_ICMPv6_NA_HDR_ {
 	union {
 		struct {
-			UINT bitReserved : 29;	//* 保留
-			UINT bitOverride : 1;	//* 覆盖标记，置1，表示报文携带的TLLA选项中的链路层地址应该覆盖IPv6 To Link layer addr映射表中已缓存的条目；置0，则表示不覆盖，除非缓存条目中不存在该链路层地址映射，此时需要新增条目
-			UINT bitSolicited : 1;	//* 请求标记，置1表示这是对NS消息的响应，对于组播邻居节点通告及未发送过NS消息的单播NA，该位置0，该位还可以用来执行邻居不可达性检测确认
-			UINT bitRouter : 1;		//* 路由器标记，标记当前NA消息发送方是否位路由器，置1位路由器，置0则否，在邻居不可达检测中检测路由器是否变成主机
+			UINT bitReserved  : 29; //* 保留
+			UINT bitOverride  : 1;  //* 覆盖标记，置1，表示报文携带的TLLA选项中的链路层地址应该覆盖IPv6 To Link layer addr映射表中已缓存的条目；置0，则表示不覆盖，除非缓存条目中不存在该链路层地址映射，此时需要新增条目
+			UINT bitSolicited : 1;  //* 请求标记，置1表示这是对NS消息的响应，对于组播邻居节点通告及未发送过NS消息的单播NA，该位置0，该位还可以用来执行邻居不可达性检测确认
+			UINT bitRouter    : 1;  //* 路由器标记，标记当前NA消息发送方是否位路由器，置1位路由器，置0则否，在邻居不可达检测中检测路由器是否变成主机
 		} PACKED stb32;
 		UINT unVal; 
 	} PACKED uniFlag;
 	UCHAR ubaTargetAddr[16]; //* 目标地址，对NS消息响应时，此地址应为NS消息中携带的目标地址字段值，非NS消息响应时，此应为链路层地址发生变换的IPv6地址。该字段说白了就是NA要通告的IPv6地址，其携带的目标链路层地址可选项值与之对应
 } PACKED ST_ICMPv6_NA_HDR, *PST_ICMPv6_NA_HDR;
 PACKED_END
-
 #define icmpv6_na_flag_o uniFlag.stb32.bitOverride
 #define icmpv6_na_flag_s uniFlag.stb32.bitSolicited
 #define icmpv6_na_flag_r uniFlag.stb32.bitRouter
 #define icmpv6_na_flag   uniFlag.unVal
+
+//* Router Advertisement，路由器通告消息头部结构体
+PACKED_BEGIN
+typedef struct _ST_ICMPv6_RA_HDR_ {
+	UCHAR ubHopLimit; 
+	UCHAR bitReserved : 2; 
+	UCHAR bitProxy    : 1; 
+	UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
+	UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
+	UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
+	UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
+	USHORT usLifeTime;	   //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，不能填充网卡网关地址字段
+	UINT unReachableTime;  //* 节点可达时间，为0表示路由器没有指定可达时间
+	UINT unRetransTimer;   //* 重发NS报文的间隔时间，为0表示路由器没有指定
+} PACKED ST_ICMPv6_RA_HDR, *PST_ICMPv6_RA_HDR;
+PACKED_END
+
+//* Prefix information选项
+PACKED_BEGIN
+typedef struct _ST_ICMPv6_OPT_PREFIXINFO_ {
+	UCHAR ubType;		//* 选项类型
+	UCHAR ubLen;		//* 长度，含ubType、ubLen字段
+	UCHAR ubaAddr[6];	//* 源/目标链路层地址（对于ethernet则是mac地址）
+} PACKED ST_ICMPv6_OPT_PREFIXINFO, *PST_ICMPv6_OPT_PREFIXINFO;
+PACKED_END
 
 #endif
 

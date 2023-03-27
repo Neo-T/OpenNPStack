@@ -281,7 +281,7 @@ void thread_one_shot_timer_count(void *pvParam)
 
         if (usTimeCount++ > 999)        
         {
-    #endif
+    #endif			
             os_thread_mutex_lock(l_hMtxOneShotTimer);
             //os_enter_critical();
             {
@@ -290,7 +290,7 @@ void thread_one_shot_timer_count(void *pvParam)
                 pstTimer = NULL;
                 while (pstNextTimer)
                 {
-                    if (pstNextTimer->nTimeoutCount-- <= 0)
+                    if (--pstNextTimer->nTimeoutCount <= 0)
                     {
                         //* 先从计时器队列摘除
                         if (pstPrevTimer)
