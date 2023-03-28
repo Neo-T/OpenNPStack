@@ -43,35 +43,75 @@ typedef struct _ST_IPV4_ {
 } ST_IPV4, *PST_IPV4;
 
 #if SUPPORT_IPV6
-typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
-typedef struct _ST_IPV6_ {
-	UCHAR ubaUniAddr[16];		//* 单播地址，与PC不同的是，为了节省内存协议栈只允许一个固定Ipv6地址（手动或自动配置——自动配置先icmpv6，如失败再dhcpv6）
-	UCHAR ubaTmpAddr[16];		//* 临时地址
-	UCHAR ubaLnkAddr[16];		//* 链路本地地址
-	UCHAR ubaGateway[16];		//* 网关地址 
-	UINT bitUAPrefixBitLen : 7;	//* 单播地址前缀长度，前缀长度的单位位：数据位，指定Ipv6地址的前多少位作为地址前缀，下同
-	UINT bitIsUAConflict   : 1;	//* 单播地址是否冲突
-	UINT bitTAPrefixBitLen : 7; //* 临时地址前缀长度
-	UINT bitIsTAConflict   : 1;	//* 临时地址是否冲突
-	UINT bitLAPrefixBitLen : 7; //* 链路本地地址前缀长度
-	UINT bitIsLAConflict   : 1;	//* 链路本地地址是否冲突	
-	UINT bitState          : 4;	//* ipv6地址当前配置状态			
-	UINT bitTimingCnt      : 3; //* 用于应答等待计时	
+//typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
+
+//* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
+typedef enum {
+	IPv6ADDR_TENTATIVE  = 0, //* 试探
+	IPv6ADDR_PREFERRED  = 1, //* 选用
+	IPv6ADDR_DEPRECATED = 2, //* 弃用
+	IPv6ADDR_CONFLICT   = 3  //* 冲突
+} EN_IPv6ADDRSTATE;
+
+//* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
+PACKED_BEGIN
+typedef struct _ST_IPv6_DYNAMIC_ { 
+	UCHAR ubaAddr[16]; 
+	UINT unValidLifetime;		//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
+	INT nPreferredLifetime;		//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地址可建立新的连接，到期后则只能维持现有连接不再建立新的连接，有效生存时间到期则现有连接亦无效，该地址将被释放结束使用
+	USHORT bitPrefixBitLen : 7;	//* 前缀长度
+	USHORT bitState        : 2; //* 当前状态
+	USHORT bitRouter       : 4; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持15个路由器）
+	USHORT bitTimingCnt    : 3;	//* 操作计时
+	CHAR bNextAddr;				//* 指向下一个ipv6动态地址
+} PACKED ST_IPv6_DYNAMIC, *PST_IPv6_DYNAMIC;
+PACKED_END
+
+//* 链路本地地址
+PACKED_BEGIN
+typedef struct _ST_IPv6_LNKLOCAL_ {
+	UCHAR ubaAddr[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现
+	UCHAR bitState     : 2;	//* 链路本地地址当前状态
+	UCHAR bitTimingCnt : 3;	//* 操作计时
+	UCHAR bitReserved  : 3; //* 保留
+} PACKED ST_IPv6_LNKLOCAL, *PST_IPv6_LNKLOCAL;
+PACKED_END
+
+//* 路由器
+PACKED_BEGIN
+typedef struct _ST_IPv6_ROUTER_ { 
+	UCHAR ubaAddr[16];			//* 路由器地址	
 	UCHAR ubHopLimit;			//* 路由器给出的跳数限制
 	union {
-		struct { //* 为了方便操作，位序与icmpv6中的RA报文完全一致，参见icmpv6_frame.h中ST_ICMPv6_RA_HDR结构体定义
-			UCHAR bitValid    : 1; //* 状态值是否有效，其实就是是否已经收到路由器通告报文，收到则该位置1，否则一直为0
-			UCHAR bitReserved : 1; //* 保留
+		struct { //* 为了方便操作，位序与icmpv6中的RA报文完全一致，参见icmpv6_frame.h中ST_ICMPv6_RA_HDR结构体定义			
+			UCHAR bitReserved : 2; //* 保留
 			UCHAR bitProxy    : 1;
 			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
 			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
 			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
 			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
-		} stb8;
+		} PACKED stb8; 
 		UCHAR ubVal; 
-	} uniRAFlag;	
+	} PACKED uniFlag; 
+	SHORT sLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
+	struct {
+		UCHAR ubaAddr[16]; //* dns服务器地址
+		INT nLifetime;	   //* 生存时间
+	} PACKED stDNSSrv;
+	USHORT usMtu; 
+	UCHAR ubaMacAddr[6]; 
+	CHAR bDynamicIpv6; //* 由该路由器配置的动态Ipv6地址链表
+} PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
+PACKED_END
+
+PACKED_BEGIN
+typedef struct _ST_IPV6_ {	
+	ST_IPv6_LNKLOCAL stLnkAddr;	//* 链路本地地址
+	CHAR bDynamicAddr;			//* 自动配置生成的ipv6地址
+	CHAR bRouter;				//* 通过RA或DHCPv6获得的链路内可用的路由器
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
-} ST_IPV6, *PST_IPV6;
+} PACKED ST_IPV6, *PST_IPV6; 
+PACKED_END
 #endif
 
 //* 存储具体网卡信息的结构体

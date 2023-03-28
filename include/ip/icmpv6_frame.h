@@ -127,7 +127,7 @@ typedef struct _ST_ICMPv6_RA_HDR_ {
 	UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
 	UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
 	UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
-	USHORT usLifeTime;	   //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，不能填充网卡网关地址字段
+	USHORT usLifeTime;	   //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
 	UINT unReachableTime;  //* 节点可达时间，为0表示路由器没有指定可达时间
 	UINT unRetransTimer;   //* 重发NS报文的间隔时间，为0表示路由器没有指定
 } PACKED ST_ICMPv6_RA_HDR, *PST_ICMPv6_RA_HDR;
