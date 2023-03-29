@@ -50,31 +50,33 @@ typedef enum {
 	IPv6ADDR_TENTATIVE  = 0, //* 试探
 	IPv6ADDR_PREFERRED  = 1, //* 选用
 	IPv6ADDR_DEPRECATED = 2, //* 弃用
-	IPv6ADDR_CONFLICT   = 3  //* 冲突
+	IPv6ADDR_INVALID    = 3  //* 无效
 } EN_IPv6ADDRSTATE;
 
 //* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
 PACKED_BEGIN
-typedef struct _ST_IPv6_DYNAMIC_ { 
-	UCHAR ubaAddr[16]; 
-	UINT unValidLifetime;		//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
+typedef struct _ST_IPv6_DYNADDR_ { 
+	UCHAR ubaAddr[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址
+	INT nValidLifetime;			//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
 	INT nPreferredLifetime;		//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地址可建立新的连接，到期后则只能维持现有连接不再建立新的连接，有效生存时间到期则现有连接亦无效，该地址将被释放结束使用
 	USHORT bitPrefixBitLen : 7;	//* 前缀长度
 	USHORT bitState        : 2; //* 当前状态
-	USHORT bitRouter       : 4; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持15个路由器）
+	USHORT bitConflict     : 1; //* 是否收到地址冲突报文
+	USHORT bitRouter       : 3; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持8个路由器）
 	USHORT bitTimingCnt    : 3;	//* 操作计时
 	CHAR bNextAddr;				//* 指向下一个ipv6动态地址
-} PACKED ST_IPv6_DYNAMIC, *PST_IPv6_DYNAMIC;
+} PACKED ST_IPv6_DYNADDR, *PST_IPv6_DYNADDR;
 PACKED_END
 
 //* 链路本地地址
 PACKED_BEGIN
-typedef struct _ST_IPv6_LNKLOCAL_ {
-	UCHAR ubaAddr[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现
+typedef struct _ST_IPv6_LNKADDR_ {
+	UCHAR ubaAddr[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现，注意，同ST_IPv6_DYNADDR必须放在首部，目的与之相同
 	UCHAR bitState     : 2;	//* 链路本地地址当前状态
+	UCHAR bitConflict  : 1; //* 是否收到地址冲突报文
 	UCHAR bitTimingCnt : 3;	//* 操作计时
-	UCHAR bitReserved  : 3; //* 保留
-} PACKED ST_IPv6_LNKLOCAL, *PST_IPv6_LNKLOCAL;
+	UCHAR bitReserved  : 2; //* 保留
+} PACKED ST_IPv6_LNKADDR, *PST_IPv6_LNKADDR;
 PACKED_END
 
 //* 路由器
@@ -99,18 +101,20 @@ typedef struct _ST_IPv6_ROUTER_ {
 		INT nLifetime;	   //* 生存时间
 	} PACKED stDNSSrv;
 	USHORT usMtu; 
-	UCHAR ubaMacAddr[6]; 
-	CHAR bDynamicIpv6; //* 由该路由器配置的动态Ipv6地址链表
+	UCHAR ubaMacAddr[6];
+	PST_NETIF pstNetif; 
+	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
 PACKED_END
 
 PACKED_BEGIN
-typedef struct _ST_IPV6_ {	
-	ST_IPv6_LNKLOCAL stLnkAddr;	//* 链路本地地址
-	CHAR bDynamicAddr;			//* 自动配置生成的ipv6地址
+typedef struct _ST_IPv6_ {	
+	ST_IPv6_LNKADDR stLnkAddr;	//* 链路本地地址
+	CHAR bDynAddr;				//* 自动配置生成的拥有生存时间限制的动态ipv6地址
 	CHAR bRouter;				//* 通过RA或DHCPv6获得的链路内可用的路由器
+	CHAR bCfgSate;				//* 地址配置状态
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
-} PACKED ST_IPV6, *PST_IPV6; 
+} PACKED ST_IPv6, *PST_IPv6; 
 PACKED_END
 #endif
 
@@ -123,7 +127,7 @@ typedef struct _ST_NETIF_ {
     PFUN_NETIF_SEND pfunSend;
     ST_IPV4 stIPv4;
 #if SUPPORT_IPV6
-	ST_IPV6 stIPv6; 
+	ST_IPv6 stIPv6; 
 #endif
     void *pvExtra; //* 附加信息，不同的网卡类型需要携带某些特定的信息供上层业务逻辑使用，在这里使用该字段提供访问路径
 } ST_NETIF, *PST_NETIF;

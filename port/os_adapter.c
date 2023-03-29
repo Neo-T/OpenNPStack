@@ -3,8 +3,8 @@
  *
  */
 #include "port/datatype.h"
-#include "onps_errors.h"
 #include "port/sys_config.h"
+#include "onps_errors.h"
 #include "port/os_datatype.h"
 #include "one_shot_timer.h"
 #include "onps_utils.h"

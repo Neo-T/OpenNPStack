@@ -3,10 +3,10 @@
  *
  */
 #include "port/datatype.h"
+#include "port/sys_config.h"
 #define SYMBOL_GLOBALS
 #include "onps_errors.h"
 #undef SYMBOL_GLOBALS
-#include "port/sys_config.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 
@@ -81,7 +81,11 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRDNSNOTRESOLVED, "not resolved to ip address" }, 
     { ERRNOUDPLINKNODE, "the udp link list is empty" }, 
     { ERRTCPLINKCBNULL, "the tcp link control block is NULL" }, 
+#if SUPPORT_IPV6
 	{ ERRNEWIPv6MACCTLBLOCK, "The control block of the ipv6 to mac address mapping table is empty" }, 
+	{ ERRNOIPv6DYNADDRNODE, "the ipv6 dynamic addr list is empty" }, 
+	{ ERRNOIPv6ROUTERNODE, "the ipv6 router list is empty" }, 
+#endif
     { ERRUNKNOWN, "unknown error" }
 }; 
 

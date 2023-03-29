@@ -3,8 +3,8 @@
  *
  */
 #include "port/datatype.h"
-#include "onps_errors.h"
 #include "port/sys_config.h"
+#include "onps_errors.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "one_shot_timer.h"
@@ -19,6 +19,7 @@
 #define SYMBOL_GLOBALS
 #include "ip/icmpv6.h"
 #undef SYMBOL_GLOBALS
+#include "ip/ipv6_configure.h"
 
 #define MULTICAST_ADDR_NUMM 5 //* 协议栈支持的组播地址数量
 static const UCHAR l_ubaNetifNodesMcAddr[16] = { 0xFF, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };			 //* FF01::1，接口本地范围内所有节点组播地址
@@ -33,7 +34,7 @@ static const UCHAR l_ubaLinkLocalAddrPrefix[IPv6LLA_PREFIXBITLEN / 8] = { 0xFE, 
 
 
 #if SUPPORT_ETHERNET
- //* ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
+//* ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
 static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
 
 //* icmpv6支持的无状态(stateless)地址配置定时器溢出函数

@@ -16,8 +16,8 @@
 	#define ONPS_EXT extern
 #endif //* SYMBOL_GLOBALS
 #include "port/datatype.h"
-#include "onps_errors.h"
 #include "port/sys_config.h"
+#include "onps_errors.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "mmu/buddy.h"

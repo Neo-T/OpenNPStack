@@ -3,8 +3,8 @@
  *
  */
 #include "port/datatype.h"
-#include "onps_errors.h"
 #include "port/sys_config.h"
+#include "onps_errors.h"
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "one_shot_timer.h"
@@ -18,6 +18,7 @@
 #if SUPPORT_ETHERNET
 #if SUPPORT_IPV6
 #include "ip/icmpv6.h"
+#include "ip/ipv6_configure.h"
 #endif
 
 #include "ethernet/arp.h" 
@@ -156,7 +157,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 
 #if SUPPORT_IPV6
 		//* 开启自动配置
-		if (!icmpv6_start_config(pstNetif, penErr))
+		if (!ipv6_cfg_start(pstNetif, penErr))
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
 		#if PRINTF_THREAD_MUTEX
