@@ -44,90 +44,36 @@ static void ipv6_cfg_init(void)
 
 PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(EN_ONPSERR *penErr)
 {
-	PST_IPv6_DYNADDR pstFreeNode;
-
-	os_critical_init();
-	os_enter_critical();
+	PST_IPv6_DYNADDR pstFreeNode = (PST_IPv6_DYNADDR)array_linked_list_get(&l_bFreeIpv6DynAddrList, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr)); 
+	if (!pstFreeNode)
 	{
-		if (l_bFreeIpv6DynAddrList < 0)
-		{
-			os_exit_critical();
-
-			if (penErr)
-				*penErr = ERRNOIPv6DYNADDRNODE; 
-
-			return NULL; 
-		}
-
-		pstFreeNode = &l_staIpv6DynAddrs[l_bFreeIpv6DynAddrList]; 
-		l_bFreeIpv6DynAddrList = l_staIpv6DynAddrs[l_bFreeIpv6DynAddrList].bNextAddr;  
+		if (penErr)
+			*penErr = ERRNOIPv6DYNADDRNODE;
 	}
-	os_exit_critical(); 
 
 	return pstFreeNode; 
 }
 
 void ipv6_dyn_addr_node_free(PST_IPv6_DYNADDR pstDynAddrNode)
 {
-	os_critical_init();
-	os_enter_critical();
-	{
-		CHAR i; 
-		for (i = 0; i < IPV6_CFG_ADDR_NUM; i++)
-		{
-			if (pstDynAddrNode == &l_staIpv6DynAddrs[i])
-			{
-				pstDynAddrNode->bNextAddr = l_bFreeIpv6DynAddrList; 
-				l_bFreeIpv6DynAddrList = i; 
-				break; 
-			}
-		}		
-	}
-	os_exit_critical(); 
+	array_linked_list_put(pstDynAddrNode, &l_bFreeIpv6DynAddrList, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
 }
 
 PST_IPv6_ROUTER ipv6_router_node_get(EN_ONPSERR *penErr)
 {
-	PST_IPv6_ROUTER pstFreeNode;
-
-	os_critical_init();
-	os_enter_critical();
+	PST_IPv6_ROUTER pstFreeNode = (PST_IPv6_ROUTER)array_linked_list_get(&l_bFreeIpv6RouterList, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter));
+	if (!pstFreeNode)
 	{
-		if (l_bFreeIpv6RouterList < 0)
-		{
-			os_exit_critical();
-
-			if (penErr)
-				*penErr = ERRNOIPv6ROUTERNODE;
-
-			return NULL;
-		}
-
-		pstFreeNode = &l_staIpv6Routers[l_bFreeIpv6RouterList];
-		l_bFreeIpv6RouterList = l_staIpv6Routers[l_bFreeIpv6RouterList].bNextRouter; 
+		if (penErr)
+			*penErr = ERRNOIPv6ROUTERNODE;
 	}
-	os_exit_critical();
 
 	return pstFreeNode;
 }
 
 void ipv6_router_node_free(PST_IPv6_ROUTER pstRouterNode)
 {
-	os_critical_init();
-	os_enter_critical();
-	{
-		CHAR i;
-		for (i = 0; i < IPV6_ROUTER_NUM; i++)
-		{
-			if (pstRouterNode == &l_staIpv6Routers[i])
-			{
-				pstRouterNode->bNextRouter = l_bFreeIpv6RouterList;
-				l_bFreeIpv6RouterList = i; 
-				break; 
-			}
-		}
-	}
-	os_exit_critical();
+	array_linked_list_put(pstRouterNode, &l_bFreeIpv6RouterList, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM, offsetof(ST_IPv6_ROUTER, bNextRouter));
 }
 
 PST_IPv6_DYNADDR ipv6_dyn_addr_get(CHAR bDynAddr)
@@ -146,48 +92,40 @@ PST_IPv6_ROUTER ipv6_router_get(CHAR bRouter)
 		return NULL;
 }
 
+void netif_ipv6_dyn_addr_add(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
+{	
+	array_linked_list_put(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
+}
+
+void netif_ipv6_dyn_addr_del(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
+{	
+	array_linked_list_del(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr)); 	
+}
+
+void netif_ipv6_router_add(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter)
+{
+	array_linked_list_put(pstRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM, offsetof(ST_IPv6_ROUTER, bNextRouter));
+}
+
+void netif_ipv6_router_del(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter)
+{
+	array_linked_list_del(pstRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter));	
+}
+
+PST_IPv6_DYNADDR netif_ipv6_dyn_addr_get(PST_NETIF pstNetif, CHAR *pbNextAddr)
+{
+	return (PST_IPv6_DYNADDR)array_linked_list_get_next(pbNextAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr)); 
+}
+
+PST_IPv6_ROUTER netif_ipv6_router_get(PST_NETIF pstNetif, CHAR *pbNextRouter)
+{
+	return (PST_IPv6_ROUTER)array_linked_list_get_next(pbNextRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter)); 
+}
+
 //* icmpv6支持的无状态(stateless)地址配置定时器溢出函数
-static void ipv6_addr_cfg_timeout_handler(void *pvParam)
+static void ipv6_cfg_timeout_handler(void *pvParam)
 {
 	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
-	switch ((EN_IPv6CFGSTATE)pstNetif->stIPv6.bitState)
-	{
-	case IPv6CFG_LATENT:
-		pstNetif->stIPv6.bitTimingCnt++; 
-		if (pstNetif->stIPv6.bitTimingCnt < 4)
-		{
-			//* 存在冲突则重新生成地址继续试探
-			if (pstNetif->stIPv6.bitIsLAConflict)
-			{
-				//* 重新生成尾部地址再次进行DAD
-				UINT unNewTailAddr = rand_big();
-				memcpy(&pstNetif->stIPv6.ubaLnkAddr[13], (UCHAR *)&unNewTailAddr, 3);
-				pstNetif->stIPv6.bitTimingCnt = 0;
-				pstNetif->stIPv6.bitIsLAConflict = FALSE; 				
-			}
-
-			//* 继续发送试探报文，确保所有节点都能收到
-			icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, NULL); 			
-		}
-		else
-		{
-			pstNetif->stIPv6.bitState = IPv6CFG_RS; 
-			pstNetif->stIPv6.bitTimingCnt = 0;
-
-			//* 发送RS路由器请求报文
-			icmpv6_send_rs(pstNetif, pstNetif->stIPv6.ubaLnkAddr, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), NULL); 			
-		}
-
-		//* 再次开启定时器
-		one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1);
-		break;
-
-	case IPv6CFG_RS:
-		break; 
-
-	default:
-		break;
-	}
 }
 
 //* 地址冲突检测（DAD）计时函数
@@ -195,57 +133,18 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 {
 	PST_NETIF pstNetif; 
 
+	PST_IPv6_DYNADDR pstTentAddr = (PST_IPv6_DYNADDR)pvParam;
 	UCHAR *pubAddr = (UCHAR *)pvParam; 
 	if (IPv6LNKADDR_FLAG == pubAddr[15])
-	{
-		PST_IPv6_LNKADDR pstLnkAddr = (PST_IPv6_LNKADDR)pvParam;
-		PST_IPv6 pstIpv6 = (PST_IPv6)((UCHAR *)pstLnkAddr - offsetof(ST_IPv6, stLnkAddr));
-		pstNetif = (PST_NETIF)((UCHAR *)pstIpv6 - offsetof(ST_NETIF, stIPv6));
-		switch (pstLnkAddr->bitState)
-		{
-
-		}
+	{		
+		PST_IPv6 pstIpv6 = (PST_IPv6)(pubAddr - offsetof(ST_IPv6, stLnkAddr));
+		pstNetif = (PST_NETIF)((UCHAR *)pstIpv6 - offsetof(ST_NETIF, stIPv6)); 
 	}
 	else
-	{
-		PST_IPv6_DYNADDR pstTentAddr = (PST_IPv6_DYNADDR)pvParam;
+	{		
 		PST_IPv6_ROUTER pstRouter = (PST_IPv6_ROUTER)ipv6_router_get((CHAR)pstTentAddr->bitRouter);
-		if (pstRouter)
-		{
-			pstNetif = pstRouter->pstNetif;
-			switch (pstTentAddr->bitState)
-			{
-			case IPv6ADDR_TENTATIVE:
-				pstTentAddr->bitTimingCnt++;
-				if (pstTentAddr->bitTimingCnt < IPv6_DAD_TIMEOUT)
-				{
-					//* 存在冲突则重新生成地址继续试探
-					if (pstTentAddr->bitConflict)
-					{
-						//* 重新生成尾部地址再次进行DAD
-						UINT unNewTailAddr = rand_big();
-						memcpy(&pstTentAddr->ubaAddr[13], (UCHAR *)&unNewTailAddr, 3);
-						pstTentAddr->bitTimingCnt = 0;
-						pstTentAddr->bitConflict = FALSE;
-					}
-
-					icmpv6_send_ns(pstNetif, NULL, pstTentAddr->ubaAddr, NULL);   //* 继续发送试探报文，确保所有节点都能收到
-					one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pvParam, 1); //* 再次开启定时器
-				}
-				else
-				{
-					pstTentAddr->bitState = IPv6ADDR_PREFERRED;
-
-					//* 作为有效地址挂接到网卡上，开始生存周期倒计时
-					………………………………
-				}
-
-				break;
-
-			default:
-				return;
-			}
-		}
+		if (pstRouter)		
+			pstNetif = pstRouter->pstNetif;					
 		else
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -257,7 +156,43 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif
 	#endif
+			return; 
 		}
+	}
+
+	//* 整套算法得以正常工作的基础是ST_IPv6_LNKADDR与ST_IPv6_DYNADDR的头部字段位长于存储顺序完全一致，覆盖结构体前17个字节
+	switch (pstTentAddr->bitState)
+	{
+	case IPv6ADDR_TENTATIVE:
+		pstTentAddr->bitTimingCnt++;
+		if (pstTentAddr->bitTimingCnt < IPv6_DAD_TIMEOUT)
+		{
+			//* 存在冲突则重新生成地址继续试探
+			if (pstTentAddr->bitConflict)
+			{
+				//* 重新生成尾部地址再次进行DAD
+				UINT unNewTailAddr = rand_big();
+				memcpy(pubAddr + 13, (UCHAR *)&unNewTailAddr, 3);
+				pstTentAddr->bitTimingCnt = 0;
+				pstTentAddr->bitConflict = FALSE;
+			}
+
+			icmpv6_send_ns(pstNetif, NULL, pstTentAddr->ubaAddr, NULL);   //* 继续发送试探报文，确保所有节点都能收到
+			one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pvParam, 1); //* 再次开启定时器
+		}
+		else
+		{
+			pstTentAddr->bitState = IPv6ADDR_PREFERRED;
+			
+			//* 如果是动态地址配置成功后需要挂接到网卡上并开始生存周期倒计时
+			if (IPv6LNKADDR_FLAG != pubAddr[15])
+				ipv6_dyn_addr_add_to_netif(pstNetif, pstTentAddr);
+		}
+
+		break;
+
+	default:
+		return;
 	}
 }
 
@@ -274,7 +209,7 @@ BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 	pstNetif->stIPv6.stLnkAddr.bitState = IPv6ADDR_TENTATIVE;
 
 	//* 开启one-shot定时器，步长：1秒	
-	if (one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1))			
+	if (one_shot_timer_new(ipv6_cfg_timeout_handler, pstNetif, 1))			
 		pstNetif->stIPv6.stLnkAddr.bitTimingCnt = 0; 
 	else
 	{
@@ -283,27 +218,19 @@ BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 		return FALSE; 
 	}
 
-	//* 显式地通知ipv6_cfg_dad()函数这是链路本地地址不是根据路由器发布的前缀生成或dhcpv6服务器分配的动态地址
+	//* 显式地通知后续的处理函数这是链路本地地址不是根据路由器发布的前缀生成或dhcpv6服务器分配的动态地址
 	pstNetif->stIPv6.stLnkAddr.ubaAddr[15] = IPv6LNKADDR_FLAG;	
 	return ipv6_cfg_dad(pstNetif, &pstNetif->stIPv6.stLnkAddr, penErr);	
 }
 
+//* 开启重复地址检测
 BOOL ipv6_cfg_dad(PST_NETIF pstNetif, void *pstTentAddr, EN_ONPSERR *penErr)
 {
-	UCHAR *pubAddr = (UCHAR *)pstTentAddr;
-	if (IPv6LNKADDR_FLAG == pubAddr[15])
-	{
-		pstNetif->stIPv6.stLnkAddr.bitState = IPv6ADDR_TENTATIVE;
-		pstNetif->stIPv6.stLnkAddr.bitConflict = FALSE;
-		pstNetif->stIPv6.stLnkAddr.bitTimingCnt = 0;		
-	}
-	else
-	{
-		PST_IPv6_DYNADDR pstDynAddr = (PST_IPv6_DYNADDR)pstTentAddr; 
-		pstDynAddr->bitState = IPv6ADDR_TENTATIVE; 
-		pstDynAddr->bitConflict = FALSE; 
-		pstDynAddr->bitTimingCnt = 0; 
-	}
+	//* 接下来要操作的字段PST_IPv6_LNKADDR与PST_IPv6_DYNADDR存储位置完全相同，所以这里直接使用其中一个作为参数pstTentAddr的确定的数据类型
+	PST_IPv6_DYNADDR pstDynAddr = (PST_IPv6_DYNADDR)pstTentAddr;
+	pstDynAddr->bitState = IPv6ADDR_TENTATIVE;
+	pstDynAddr->bitConflict = FALSE;
+	pstDynAddr->bitTimingCnt = 0;
 
 	//* 开启DAD检测定时器，步长：1秒	
 	if (!one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pstTentAddr, 1))
@@ -313,8 +240,8 @@ BOOL ipv6_cfg_dad(PST_NETIF pstNetif, void *pstTentAddr, EN_ONPSERR *penErr)
 		return FALSE;
 	}
 
-	//* 开始重复地址检测DAD（Duplicate Address Detect）以确定这个试探地址没有被其它节点使用
-	if (icmpv6_send_ns(pstNetif, NULL, pubAddr, penErr) > 0)
+	//* 发送邻居节点请求报文开启重复地址检测DAD（Duplicate Address Detect）以确定这个试探地址没有被其它节点使用
+	if (icmpv6_send_ns(pstNetif, NULL, pstDynAddr->ubaAddr, penErr) > 0)
 		return TRUE;
 	else
 		return FALSE;

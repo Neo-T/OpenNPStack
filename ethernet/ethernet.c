@@ -367,16 +367,30 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 	//* 看看是否是单播地址
 	if (ubaTargetIpv6[0] != 0xFF)
 	{
-		//* 先看看临时地址是否匹配
-		if (pstNetif->stIPv6.ubaTmpAddr[0] && !memcmp(ubaTargetIpv6, pstNetif->stIPv6.ubaTmpAddr, 16))
-			return TRUE; 
+		os_critical_init();
 
-		//* 单播地址是否匹配
-		if (pstNetif->stIPv6.ubaUniAddr[0] && !memcmp(ubaTargetIpv6, pstNetif->stIPv6.ubaUniAddr, 16))
-			return TRUE; 
+		os_enter_critical();
+		{
+			PST_IPv6_DYNADDR pstNextAddr;
+			CHAR bNextAddr = -1;
+			do {
+				pstNextAddr = netif_ipv6_dyn_addr_get(pstNetif, &bNextAddr);
+				if (pstNextAddr)
+				{
+					if (!memcmp(ubaTargetIpv6, pstNextAddr->ubaAddr, 16))
+					{
+						os_exit_critical();
+						return TRUE;
+					}
+				}
+				else									
+					break;				
+			} while (bNextAddr >= 0);
+		}
+		os_exit_critical(); 
 
 		//* 链路本地地址是否匹配
-		if (!memcmp(ubaTargetIpv6, pstNetif->stIPv6.ubaLnkAddr, 16)) 
+		if (!memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaAddr, 16)) 
 			return TRUE;
 	}
 	else //* 组播地址，需要逐个判断组播地址是否匹配

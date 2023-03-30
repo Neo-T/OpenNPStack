@@ -100,6 +100,12 @@ ONPS_UTILS_EXT void sllist_del_node_ext(PST_SLINKEDLIST *ppstSLList, void *pvDat
 ONPS_UTILS_EXT void sllist_put_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode);      //* 归还一个节点，其直接将该节点挂接到链表头部
 ONPS_UTILS_EXT void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode); //* 同上，只不过该函数是将该节点挂接到链表尾部
 
+ONPS_UTILS_EXT CHAR array_linked_list_get_index(void *pvUnit, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum);
+ONPS_UTILS_EXT void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit);  
+ONPS_UTILS_EXT void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit);
+ONPS_UTILS_EXT void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit);
+ONPS_UTILS_EXT void *array_linked_list_get_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit); 
+
 ONPS_UTILS_EXT in_addr_t inet_addr(const char *pszIP);   //* 点分十进制IPv4地址转换为4字节无符号整型地址
 ONPS_UTILS_EXT in_addr_t inet_addr_small(const char *pszIP); 
 ONPS_UTILS_EXT char *inet_ntoa(struct in_addr stInAddr);

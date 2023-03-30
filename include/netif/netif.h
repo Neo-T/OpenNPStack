@@ -56,14 +56,14 @@ typedef enum {
 //* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
 PACKED_BEGIN
 typedef struct _ST_IPv6_DYNADDR_ { 
-	UCHAR ubaAddr[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址
+	UCHAR ubaAddr[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址		
+	USHORT bitState        : 2; //* 当前状态
+	USHORT bitConflict     : 1; //* 是否收到地址冲突报文	
+	USHORT bitTimingCnt    : 3;	//* 操作计时
+	USHORT bitRouter       : 3; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持8个路由器）
+	USHORT bitPrefixBitLen : 7;	//* 前缀长度
 	INT nValidLifetime;			//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
 	INT nPreferredLifetime;		//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地址可建立新的连接，到期后则只能维持现有连接不再建立新的连接，有效生存时间到期则现有连接亦无效，该地址将被释放结束使用
-	USHORT bitPrefixBitLen : 7;	//* 前缀长度
-	USHORT bitState        : 2; //* 当前状态
-	USHORT bitConflict     : 1; //* 是否收到地址冲突报文
-	USHORT bitRouter       : 3; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持8个路由器）
-	USHORT bitTimingCnt    : 3;	//* 操作计时
 	CHAR bNextAddr;				//* 指向下一个ipv6动态地址
 } PACKED ST_IPv6_DYNADDR, *PST_IPv6_DYNADDR;
 PACKED_END

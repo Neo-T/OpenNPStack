@@ -300,6 +300,100 @@ void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstN
     pstNode->pstNext = NULL; 
 }
 
+CHAR array_linked_list_get_index(void *pvUnit, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum)
+{
+	CHAR i;
+	for (i = 0; i < bUnitNum; i++)
+	{		
+		if ((UCHAR *)pvUnit == ((UCHAR *)pvArray + i * ubUnitSize))
+			return i;
+	}
+
+	return -1;
+}
+
+void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+{
+	void *pvUnit;
+
+	os_critical_init();
+	os_enter_critical();
+	{
+		if (*pbListHead < 0)
+		{
+			os_exit_critical(); 
+			return NULL;
+		}
+		 
+		pvUnit = (UCHAR *)pvArray + (*pbListHead) * ubUnitSize; 
+		*pbListHead = *((CHAR *)pvArray + (*pbListHead) * ubUnitSize + bOffsetNextUnit);
+	}
+	os_exit_critical();
+
+	return pvUnit;
+}
+
+void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit)
+{
+	os_critical_init();
+	
+	CHAR bNodeIdx = array_linked_list_get_index(pvUnit, pvArray, ubUnitSize, bUnitNum);
+	if (bNodeIdx >= 0)
+	{
+		os_enter_critical();
+		{
+			*((CHAR *)pvUnit + bOffsetNextUnit) = *pbListHead;
+			*pbListHead = bNodeIdx;
+		}
+		os_exit_critical();
+	}
+}
+
+void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+{
+	os_critical_init();
+
+	os_enter_critical();
+	{
+		CHAR bNextNode = *pbListHead;
+		CHAR bPrevNode = -1;
+		while (bNextNode >= 0)
+		{
+			//* 找到要摘除的节点并摘除之
+			if ((UCHAR *)pvUnit == (UCHAR *)pvArray + bNextNode * ubUnitSize)
+			{
+				if (bPrevNode >= 0)
+					*((CHAR *)pvArray + bPrevNode * ubUnitSize + bOffsetNextUnit) = *((CHAR *)pvUnit + bOffsetNextUnit); 
+				else
+					*pbListHead = *((CHAR *)pvUnit + bOffsetNextUnit); 
+
+				break;
+			}
+
+			bPrevNode = bNextNode;
+			bNextNode = *((CHAR *)pvArray + bNextNode * ubUnitSize + bOffsetNextUnit); 
+		}
+	}
+	os_exit_critical();
+}
+
+void *array_linked_list_get_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+{
+	if (*pbListHead >= 0)
+	{
+		CHAR bUnit;
+		if (*pbNextUnit >= 0)
+			bUnit = *pbNextUnit;
+		else
+			bUnit = *pbListHead;
+
+		*pbNextUnit = *((CHAR *)pvArray + bUnit * ubUnitSize + bOffsetNextUnit);
+		return (CHAR *)pvArray + bUnit * ubUnitSize;
+	}
+	else
+		return NULL; 
+}
+
 CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr)
 {
     if (NULL == *ppszStart)
