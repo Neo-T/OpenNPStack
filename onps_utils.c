@@ -377,7 +377,7 @@ void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR 
 	os_exit_critical();
 }
 
-void *array_linked_list_get_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+void *array_linked_list_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
 {
 	if (*pbListHead >= 0)
 	{
@@ -392,6 +392,36 @@ void *array_linked_list_get_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArr
 	}
 	else
 		return NULL; 
+}
+
+void *array_linked_list_next_ext(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+{
+	if (pvUnit)
+	{
+		CHAR bNextUnit = *pbListHead;
+		void *pvNextUnit;
+		while (bNextUnit >= 0)
+		{
+			pvNextUnit = (UCHAR *)pvArray + bNextUnit * ubUnitSize;
+			if (pvUnit == (void *)pvNextUnit) //* 找到当前节点
+			{
+				//* 取下一个节点
+				bNextUnit = *((CHAR *)pvArray + bNextUnit * ubUnitSize + bOffsetNextUnit);
+				if (bNextUnit >= 0)
+					return (CHAR *)pvArray + bNextUnit * ubUnitSize;
+				break;
+			}
+
+			bNextUnit = *((CHAR *)pvArray + bNextUnit * ubUnitSize + bOffsetNextUnit); ;
+		}
+	}
+	else
+	{
+		if(*pbListHead >= 0)
+			return (CHAR *)pvArray + (*pbListHead) * ubUnitSize; 
+	}
+
+	return NULL; 
 }
 
 CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr)

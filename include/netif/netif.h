@@ -59,7 +59,7 @@ typedef struct _ST_IPv6_DYNADDR_ {
 	UCHAR ubaAddr[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址		
 	USHORT bitState        : 2; //* 当前状态
 	USHORT bitConflict     : 1; //* 是否收到地址冲突报文	
-	USHORT bitTimingCnt    : 3;	//* 操作计时
+	USHORT bitOptCnt       : 3;	//* 操作计数
 	USHORT bitRouter       : 3; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持8个路由器）
 	USHORT bitPrefixBitLen : 7;	//* 前缀长度
 	INT nValidLifetime;			//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
@@ -67,6 +67,7 @@ typedef struct _ST_IPv6_DYNADDR_ {
 	CHAR bNextAddr;				//* 指向下一个ipv6动态地址
 } PACKED ST_IPv6_DYNADDR, *PST_IPv6_DYNADDR;
 PACKED_END
+#define i6a_ref_cnt bitOptCnt
 
 //* 链路本地地址
 PACKED_BEGIN
@@ -74,7 +75,7 @@ typedef struct _ST_IPv6_LNKADDR_ {
 	UCHAR ubaAddr[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现，注意，同ST_IPv6_DYNADDR必须放在首部，目的与之相同
 	UCHAR bitState     : 2;	//* 链路本地地址当前状态
 	UCHAR bitConflict  : 1; //* 是否收到地址冲突报文
-	UCHAR bitTimingCnt : 3;	//* 操作计时
+	UCHAR bitOptCnt    : 3;	//* 操作计数
 	UCHAR bitReserved  : 2; //* 保留
 } PACKED ST_IPv6_LNKADDR, *PST_IPv6_LNKADDR;
 PACKED_END
@@ -106,6 +107,7 @@ typedef struct _ST_IPv6_ROUTER_ {
 	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
 PACKED_END
+#define i6r_ref_cnt uniFlag.ubVal
 
 PACKED_BEGIN
 typedef struct _ST_IPv6_ {	

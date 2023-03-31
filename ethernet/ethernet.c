@@ -31,7 +31,6 @@
 static ST_NETIFEXTRA_ETH l_staExtraOfEth[ETHERNET_NUM]; 
 
 #if SUPPORT_IPV6
-ETHERNET_EXT BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]);
 static const UCHAR l_ubaInputMcAddrs[] = { IPv6MCA_NETIFNODES, IPv6MCA_ALLNODES, IPv6MCA_SOLNODE }; //* 以太网接口允许通讯的组播地址白名单，这里如果添加新的名单，需要修改ethernet_ipv6_addr_matched()函数增加新名单的处理代码
 #endif
 
@@ -369,25 +368,22 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 	{
 		os_critical_init();
 
-		os_enter_critical();
-		{
-			PST_IPv6_DYNADDR pstNextAddr;
-			CHAR bNextAddr = -1;
-			do {
-				pstNextAddr = netif_ipv6_dyn_addr_get(pstNetif, &bNextAddr);
-				if (pstNextAddr)
+		//* 到达的报文不需要判断地址当前状态，即使处于“IPv6ADDR_DEPRECATED”（弃用）状态也可以接受到达的报文
+		PST_IPv6_DYNADDR pstNextAddr = NULL; 
+		do {
+			//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+			pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
+			if (pstNextAddr)
+			{
+				if (!memcmp(ubaTargetIpv6, pstNextAddr->ubaAddr, 16))
 				{
-					if (!memcmp(ubaTargetIpv6, pstNextAddr->ubaAddr, 16))
-					{
-						os_exit_critical();
-						return TRUE;
-					}
+					//* 处理完毕释放当前地址节点，其实就是引用计数减一
+					netif_ipv6_dyn_addr_release(pstNextAddr); 
+
+					return TRUE;
 				}
-				else									
-					break;				
-			} while (bNextAddr >= 0);
-		}
-		os_exit_critical(); 
+			}
+		} while (pstNextAddr);  
 
 		//* 链路本地地址是否匹配
 		if (!memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaAddr, 16)) 
