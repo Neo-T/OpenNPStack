@@ -42,7 +42,8 @@ IPv6CFG_EXT PST_IPv6_DYNADDR netif_ipv6_dyn_addr_next(PST_NETIF pstNetif, CHAR *
 IPv6CFG_EXT PST_IPv6_DYNADDR netif_ipv6_dyn_addr_next_safe(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstPrevDynAddr, BOOL blIsRefCnt);
 IPv6CFG_EXT void netif_ipv6_dyn_addr_release(PST_IPv6_DYNADDR pstDynAddr); 
 IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next(PST_NETIF pstNetif, CHAR *pbNextRouter); 
-IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next_safe(PST_NETIF pstNetif, PST_IPv6_ROUTER pstPrevRouter, BOOL blIsRefCnt);
+IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next_safe(PST_NETIF pstNetif, PST_IPv6_ROUTER pstPrevRouter, BOOL blIsRefCnt); 
+IPv6CFG_EXT void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter); 
 
 
 IPv6CFG_EXT BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr);

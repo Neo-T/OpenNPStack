@@ -349,6 +349,39 @@ void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR 
 	}
 }
 
+void array_linked_list_put_tail(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit)
+{
+	os_critical_init();
+
+	CHAR bNodeIdx = array_linked_list_get_index(pvUnit, pvArray, ubUnitSize, bUnitNum);
+	if (bNodeIdx >= 0)
+	{
+		os_enter_critical();
+		{
+			CHAR bNode = *pbListHead; 
+			if (bNode >= 0)
+			{
+				CHAR bNextNode; 
+				do {
+					bNextNode = *((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit);
+					if (bNextNode < 0) //* 到了尾部
+					{
+						*((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit) = bNodeIdx; 						
+						break;
+					}
+
+					bNode = bNextNode;
+				} while (TRUE); 
+			}
+			else
+				*pbListHead = bNodeIdx;
+			
+			*((CHAR *)pvUnit + bOffsetNextUnit) = -1;						
+		}
+		os_exit_critical();
+	}
+}
+
 void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
 {
 	os_critical_init();

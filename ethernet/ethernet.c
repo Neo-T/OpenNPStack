@@ -143,6 +143,8 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 				arp_ctl_block_free(pstcbArp);				//* 释放前面刚才申请的arp控制块
                 os_thread_sem_uninit(pstExtra->hSem);		//* 归还占用的信号量资源                				
                 pstExtra->bIsUsed = FALSE;					//* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
+
+				goto __lblEnd; 
             }
         }
 		else
@@ -180,6 +182,7 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
 		pstExtra->bIsUsed = FALSE;				//* 归还刚刚占用的附加信息节点，不需要关中断进行保护，获取节点的时候需要
     }
 
+__lblEnd: 
     return pstNetif;
 }
 
@@ -365,9 +368,7 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 {
 	//* 看看是否是单播地址
 	if (ubaTargetIpv6[0] != 0xFF)
-	{
-		os_critical_init();
-
+	{	
 		//* 到达的报文不需要判断地址当前状态，即使处于“IPv6ADDR_DEPRECATED”（弃用）状态也可以接受到达的报文
 		PST_IPv6_DYNADDR pstNextAddr = NULL; 
 		do {

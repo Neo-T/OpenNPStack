@@ -94,7 +94,7 @@ PST_IPv6_ROUTER ipv6_router_get(CHAR bRouter)
 
 void netif_ipv6_dyn_addr_add(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
 {	
-	array_linked_list_put(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
+	array_linked_list_put_tail(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
 }
 
 void netif_ipv6_dyn_addr_del(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
@@ -104,7 +104,7 @@ void netif_ipv6_dyn_addr_del(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
 
 void netif_ipv6_router_add(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter)
 {
-	array_linked_list_put(pstRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM, offsetof(ST_IPv6_ROUTER, bNextRouter));
+	array_linked_list_put_tail(pstRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM, offsetof(ST_IPv6_ROUTER, bNextRouter));
 }
 
 void netif_ipv6_router_del(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter)
@@ -209,6 +209,16 @@ PST_IPv6_ROUTER netif_ipv6_router_next_safe(PST_NETIF pstNetif, PST_IPv6_ROUTER 
 	return pstNextRouter;
 }
 
+void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter)
+{
+	os_enter_critical();
+	{
+		if (pstRouter->i6r_ref_cnt > 0)
+			pstRouter->i6r_ref_cnt--; 
+	}
+	os_exit_critical();
+}
+
 //* icmpv6支持的无状态(stateless)地址配置定时器溢出函数
 static void ipv6_cfg_timeout_handler(void *pvParam)
 {
@@ -272,7 +282,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 			if (IPv6LNKADDR_FLAG != pubAddr[15])
 			{
 				pstTentAddr->i6a_ref_cnt = 0; //* 引用计数清0，注意引用计数与bitOptCnt字段复用，此后其被用于显式地通知动态地址生存计时器当前地址是否正在被使用
-				ipv6_dyn_addr_add_to_netif(pstNetif, pstTentAddr);
+				netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
 		}
 
