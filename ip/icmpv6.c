@@ -40,7 +40,139 @@ static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
 //* 等待邻居节点回馈的NA（Neighbor Advertisement）应答报文定时器溢出函数，其实就是实现ipv4的arp定时器相同的功能，通过ipv6地址得到mac地址
 static void icmpv6_na_wait_timeout_handler(void *pvParam)
 {
+	PSTCB_ETHIPv6MAC_WAIT pstcbIpv6MacWait = (PSTCB_ETHIPv6MAC_WAIT)pvParam;
+	PST_NETIF pstNetif = pstcbIpv6MacWait->pstNetif;
+	EN_ONPSERR enErr;
+	UCHAR *pubIpPacket;
+	PST_IPv6_HDR pstIpv6Hdr;
+	UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];
+	INT nRtnVal;
 
+	os_critical_init();
+
+	//* 尚未发送
+	if (!pstcbIpv6MacWait->ubSndStatus)
+	{
+		//* 查询计数，如果超出限值，则不再查询直接丢弃该报文
+		pstcbIpv6MacWait->ubCount++;
+		if (pstcbIpv6MacWait->ubCount > 5)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("The neighbor solicitation times out and the packet will be dropped\r\n"); 
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			goto __lblEnd;
+		}
+	}
+	else //* 已经处于发送中或发送完成状态，直接跳到函数尾部
+		goto __lblEnd; 
+
+	//* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
+	pubIpPacket = ((UCHAR *)pstcbIpv6MacWait) + sizeof(STCB_ETHIPv6MAC_WAIT);
+	pstIpv6Hdr = (PST_IPv6_HDR)pubIpPacket;	         
+	nRtnVal = ipv6_mac_get(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pstcbIpv6MacWait->ubaIpv6, ubaDstMac, &enErr);
+	if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
+	{
+		os_enter_critical();
+		{
+			//* 尚未发送，则首先摘除这个节点
+			if (pstcbIpv6MacWait->pstNode)
+			{
+				PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac;
+				sllist_del_node(&pstcbIpv6Mac->pstSListWaitQueue, pstcbIpv6MacWait->pstNode);       //* 从队列中删除
+				sllist_put_node(&pstcbIpv6Mac->pstSListWaitQueueFreed, pstcbIpv6MacWait->pstNode);  //* 放入空闲资源队列
+				pstcbIpv6MacWait->pstNode = NULL; //* 清空，显式地告知后续地处理代码这个节点已经被释放
+			}
+			else //* 已经发送，则没必要重复发送
+			{
+				os_exit_critical();
+				goto __lblEnd;
+			}
+		}
+		os_exit_critical();
+
+		//* 申请一个buf list节点并将ipv6报文挂载到list上
+		SHORT sBufListHead = -1;
+		SHORT sIpPacketNode = buf_list_get_ext(pubIpPacket, (UINT)pstcbIpv6MacWait->usIpPacketLen, &enErr);
+		if (sIpPacketNode < 0)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("icmpv6_na_wait_timeout_handler() failed, %s\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			goto __lblEnd;
+		}
+		buf_list_put_head(&sBufListHead, sIpPacketNode);
+
+		//* 完成实际地发送   
+		nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaDstMac, &enErr);
+		if (nRtnVal < 0)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("icmpv6_na_wait_timeout_handler() failed, %s\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
+		buf_list_free(sIpPacketNode); //* 释放buf list节点
+	}
+	else
+	{
+		//* 说明还是没有得到mac地址，需要再次开启一个定时器等1秒后再发送一次试试
+		if (nRtnVal > 0 && one_shot_timer_new(icmpv6_na_wait_timeout_handler, pstcbIpv6MacWait, 1))
+			return;
+		else
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("icmpv6_na_wait_timeout_handler() failed, %s\r\n", nRtnVal < 0 ? onps_error(enErr) : onps_error(ERRNOIDLETIMER));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
+	}
+
+
+__lblEnd:	
+	//* 必须在判断发送状态值之前摘除节点，否则会出现icmpv6的接收线程在收到mac解析地址后重新发送数据过程中网卡及内存被释放的情形
+	os_enter_critical();
+	{
+		//* 超时或者出错了，不再继续请求了，直接摘除这个节点，至此ipv6_mac_add_entry()函数不再会取到这个节点，接下来释放网卡及内存的操作才会安全
+		if (pstcbIpv6MacWait->pstNode)
+		{
+			PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac; 			
+			sllist_del_node(&pstcbIpv6Mac->pstSListWaitQueue, pstcbIpv6MacWait->pstNode);       //* 从队列中删除
+			sllist_put_node(&pstcbIpv6Mac->pstSListWaitQueueFreed, pstcbIpv6MacWait->pstNode);  //* 放入空闲资源队列
+			pstcbIpv6MacWait->pstNode = NULL; 
+		}
+	}
+	os_exit_critical();
+
+	//* 经过了上面的再次摘除操作，在这里再次判断发送状态，如果不处于发送状态则直接释放内存，否则再次开启定时器以待发送完成后释放占用的内存
+	if (1 == pstcbIpv6MacWait->ubSndStatus)
+		one_shot_timer_new(icmpv6_na_wait_timeout_handler, pstcbIpv6MacWait, 1);
+	else
+	{
+		netif_freed(pstNetif); //* 不再占用网卡		
+		buddy_free(pvParam);   //* 归还报文占用的内存
+	}
 }
 
 void ipv6_mac_mapping_tbl_init(void)
@@ -190,7 +322,7 @@ __lblSend:
 				buf_list_put_head(&sBufListHead, sIpPacketNode);
 
 				//* 完成实际地发送
-				if (pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaMacAddr, &enErr) < 0)
+				if (pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaMacAddr, &enErr) < 0)
 				{
 			#if SUPPORT_PRINTF && DEBUG_LEVEL
 				#if PRINTF_THREAD_MUTEX
@@ -600,25 +732,38 @@ static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 	//* 首先看看Solicited标志是否置位，是，意味着这是NS报文的应答报文
 	if (pstNeiAdvHdr->icmpv6_na_flag_s)
 	{
-		//* 更新ipv6 to mac缓存映射表，注意只有主动请求的响应报文才会操作缓存映射表，这样可避免频繁的通告导致缓存表无法保持相对稳定的问题，另外只有override标志置1才会更新已存在条目，否则只增加新条目
-		ipv6_mac_add_entry_ext(pstExtra->pstcbIpv6Mac, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, pstNeiAdvHdr->icmpv6_na_flag_o);
-
-		//* 收到请求通告，icmpv6_na_wait_timeout_handler()溢出函数不必执行溢出操作了
+		//* 更新ipv6 to mac缓存映射表，注意只有主动请求的响应报文才会操作缓存映射表，这样可避免频繁的通告导致缓存表无法保持相对稳定的问题，另外只有override标志置1才会更新已存在条目，否则只增加新条目		
+		ipv6_mac_add_entry(pstNetif, pstNeiAdvHdr->ubaTargetAddr, pstOptLnkAddr->ubaAddr, pstNeiAdvHdr->icmpv6_na_flag_o);
 	}
 	else
 	{
 		//* 这是一个邻居节点通告，且是面向链路上所有节点（目标地址为FF02::1），所以只要是仍在地址自动配置阶段就需要判断是否存在地址冲突，因为
 		//* 存在某个节点响应很慢的情形，导致DAD检测结束才收到冲突报文，虽然概率很低，但为了可靠必须处理这种情况
-		if (pstNetif->stIPv6.bitState < IPv6CFG_END)
+		if (pstNetif->stIPv6.bitCfgState == IPv6CFG_LNKADDR)
 		{
-			if (pstNetif->stIPv6.ubaTmpAddr[0] && !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaTmpAddr, 16) && !pstNetif->stIPv6.bitIsTAConflict)
-				pstNetif->stIPv6.bitIsTAConflict = TRUE;
-			else if (pstNetif->stIPv6.ubaUniAddr[0] && !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaUniAddr, 16) && !pstNetif->stIPv6.bitIsUAConflict)
-				pstNetif->stIPv6.bitIsUAConflict = TRUE;
-			else if (!memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.ubaLnkAddr, 16) && !pstNetif->stIPv6.bitIsLAConflict)
-				pstNetif->stIPv6.bitIsLAConflict = TRUE;
-			else; //* 其它节点地址冲突导致的全链路节点通告，不用理会
-		}		
+			if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_TENTATIVE 
+				&& !pstNetif->stIPv6.stLnkAddr.bitConflict
+				&& !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.stLnkAddr.ubaVal, 16))
+				pstNetif->stIPv6.stLnkAddr.bitConflict = TRUE; 
+		}
+		else if(pstNetif->stIPv6.bitCfgState == IPv6CFG_DYNADDR)
+		{
+			PST_IPv6_DYNADDR pstNextAddr = NULL; 
+			do {
+				//* 逐个读取已挂载到网卡上的动态地址节点，只要是正处于试探阶段的地址都要判断下看是否其已经被其它节点使用
+				pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
+				if (pstNextAddr && pstNextAddr->bitState == IPv6ADDR_TENTATIVE)
+				{
+					if (!pstNextAddr->bitConflict && !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNextAddr->ubaVal, 16))
+					{
+						pstNextAddr->bitConflict = TRUE; 						
+						netif_ipv6_dyn_addr_release(pstNextAddr); //* 释放当前地址节点
+						break; 
+					}
+				}
+			} while (pstNextAddr); 
+		}
+		else; //* 其它节点地址冲突导致的全链路节点通告，不用理会
 	}
 }
 

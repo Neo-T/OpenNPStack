@@ -307,15 +307,15 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 			one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pvParam, 1); //* 再次开启定时器
 		}
 		else
-		{
-			pstTentAddr->bitState = IPv6ADDR_PREFERRED;
-			
-			//* 如果是动态地址配置成功后需要挂接到网卡上并开始生存周期倒计时
+		{						
+			//* 如果是动态地址配置成功后还需要一些操作才能将地址状态迁移到“选用”
 			if (IPv6LNKADDR_FLAG != pubAddr[15])
 			{
 				pstTentAddr->i6a_ref_cnt = 0; //* 引用计数清0，注意引用计数与bitOptCnt字段复用，此后其被用于显式地通知动态地址生存计时器当前地址是否正在被使用
-				netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
+				//netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
+
+			pstTentAddr->bitState = IPv6ADDR_PREFERRED;
 		}
 
 		break;

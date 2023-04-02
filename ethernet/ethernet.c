@@ -117,6 +117,9 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
         pstExtra->pstIPList = NULL;
         pstExtra->pstcbArp = pstcbArp; 
 #if SUPPORT_IPV6
+		//* 以太网接收启动之前必须先初始化配置状态，这样可确保网卡开启地址自动配置后才开始处理到达的ipv6报文，这之前的将直接丢掉
+		//* 之所以在这里而不是在netif_add()函数内部初始这个状态值，原因是不同类型的网卡可能存在初始值值不同的情形，比如ppp网卡
+		pstNetif->stIPv6.bitCfgState = IPv6CFG_INIT; 
 		pstExtra->pstcbIpv6Mac = pstcbIpv6Mac; 
 #endif
         pstExtra->pfunEmacSend = pfunEmacSend; 
@@ -347,7 +350,7 @@ static BOOL ipv6_sol_mc_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]
 	do {
 		//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
 		pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
-		if (pstNextAddr)
+		if (pstNextAddr && (pstNextAddr->bitState == IPv6ADDR_PREFERRED || pstNextAddr->bitState == IPv6ADDR_DEPRECATED))
 		{
 			if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNextAddr->ubaVal, ubaSolMcAddr), 16)) 
 			{
@@ -375,7 +378,7 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 		do {
 			//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
 			pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
-			if (pstNextAddr)
+			if (pstNextAddr && (pstNextAddr->bitState == IPv6ADDR_PREFERRED || pstNextAddr->bitState == IPv6ADDR_DEPRECATED))
 			{
 				if (!memcmp(ubaTargetIpv6, pstNextAddr->ubaVal, 16))
 				{

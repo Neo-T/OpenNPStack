@@ -17,16 +17,32 @@
 
 #if SUPPORT_IPV6
 #if SUPPORT_ETHERNET
-#define IPv6_DAD_TIMEOUT 4		//* 等待多少秒即可确定当前试探地址没有任何节点在使用
+#define IPv6_DAD_TIMEOUT 6		//* 等待多少秒即可确定当前试探地址没有任何节点在使用
 #define IPv6LNKADDR_FLAG 0x52	//* 链路本地标志，用于dad检测时区分是链路本地地址还是从路由器得到的具有生存时间的动态地址
 
+//* 其最大定义范围不能超过ST_IPv6::bitCfgState字段指定的位宽限制
 typedef enum {
-	IPv6CFG_LNKADDR = 0, //* 生成链路本地地址
-	IPv6CFG_RS      = 1, //* 路由请求阶段
-	IPv6CFG_TATENT  = 2, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_UATENT  = 3, //* 链路本地地址重复地址检测阶段
+	IPv6CFG_INIT    = 0, //* 初始
+	IPv6CFG_LNKADDR = 1, //* 生成链路本地地址
+	IPv6CFG_RS      = 2, //* 路由请求
+	IPv6CFG_DYNADDR = 3, //* 动态地址
+	IPv6CFG_UATENT  = 4, //* 链路本地地址重复地址检测阶段
 	IPv6CFG_END
 } EN_IPv6CFGSTATE;
+
+//* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
+typedef enum {
+	IPv6ADDR_TENTATIVE = 0, //* 试探
+	IPv6ADDR_PREFERRED,		//* 选用
+	IPv6ADDR_DEPRECATED,	//* 弃用
+	IPv6ADDR_INVALID		//* 无效
+} EN_IPv6ADDRSTATE;
+
+typedef enum {
+	IPv6SVVTMR_INVALID = 0, //* 无效，未启动
+	IPv6SVVTMR_RUN, 		//* 运行
+	IPv6SVVTMR_END			//* 结束
+} EN_IPv6SVVTIMERSTATE;
 
 IPv6CFG_EXT PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(EN_ONPSERR *penErr);
 IPv6CFG_EXT void ipv6_dyn_addr_node_free(PST_IPv6_DYNADDR pstDynAddrNode); 

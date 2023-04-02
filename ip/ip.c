@@ -22,6 +22,7 @@
 #include "ip/icmp.h"
 #if SUPPORT_IPV6
 #include "ip/icmpv6.h"
+#include "ip/ipv6_configure.h"
 #endif
 #include "ip/tcp.h"
 #include "ip/udp.h"
@@ -385,6 +386,10 @@ INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader
 
 void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
 {
+	if (pstNetif->stIPv6.bitCfgState < IPv6CFG_LNKADDR)
+		return; 
+
+
 	PST_IPv6_HDR pstHdr = (PST_IPv6_HDR)pubPacket;	
 	USHORT usPayloadLen = htons(pstHdr->usPayloadLen); 
 	if (nPacketLen < (INT)usPayloadLen) //* 指定的报文长度与实际收到的字节数不匹配，直接丢弃该报文

@@ -45,20 +45,6 @@ typedef struct _ST_IPV4_ {
 #if SUPPORT_IPV6
 //typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 
-//* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
-typedef enum {
-	IPv6ADDR_TENTATIVE = 0, //* 试探
-	IPv6ADDR_PREFERRED,		//* 选用
-	IPv6ADDR_DEPRECATED,	//* 弃用
-	IPv6ADDR_INVALID		//* 无效
-} EN_IPv6ADDRSTATE;
-
-typedef enum {
-	IPv6SVVTMR_INVALID = 0, //* 无效，未启动
-	IPv6SVVTMR_RUN, 		//* 运行
-	IPv6SVVTMR_END			//* 结束
-} EN_IPv6SVVTIMERSTATE;
-
 //* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
 PACKED_BEGIN
 typedef struct _ST_IPv6_DYNADDR_ { 

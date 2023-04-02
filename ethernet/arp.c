@@ -103,7 +103,9 @@ static void arp_wait_timeout_handler(void *pvParam)
 			goto __lblEnd;
 		}
 		buf_list_put_head(&sBufListHead, sIpPacketNode);
-		nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, &enErr); //* 完成实际地发送   
+
+		//* 完成实际地发送   
+		nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, &enErr); 
 		if (nRtnVal < 0)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -129,7 +131,7 @@ static void arp_wait_timeout_handler(void *pvParam)
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
 		#endif
-			printf("arp_wait_timeout_handler() failed, %s\r\n", onps_error(ERRNOIDLETIMER));
+			printf("arp_wait_timeout_handler() failed, %s\r\n", nRtnVal < 0 ? onps_error(enErr) : onps_error(ERRNOIDLETIMER));
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif
@@ -138,26 +140,31 @@ static void arp_wait_timeout_handler(void *pvParam)
 	}
 
 __lblEnd:	
-	if (1 != pstcbArpWait->ubSndStatus)
-		netif_freed(pstNetif); //* 不再占用网卡
+	//if (1 != pstcbArpWait->ubSndStatus)
+	//	netif_freed(pstNetif); //* 不再占用网卡
 
+	//* 必须在判断发送状态值之前摘除节点，否则会出现arp接收线程在收到mac解析地址后重新发送数据过程中网卡及内存被释放的情形
 	os_enter_critical();
 	{
-		//* 尚未发送，则首先摘除这个节点
+		//* 超时或者出错了，不再继续请求了，直接摘除这个节点，至此arp_add_ethii_ipv4()函数不再会取到这个节点，接下来释放网卡及内存的操作才会安全
 		if (pstcbArpWait->pstNode)
 		{
 			PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp;
 			sllist_del_node(&pstcbArp->pstSListWaitQueue, pstcbArpWait->pstNode);       //* 从队列中删除
 			sllist_put_node(&pstcbArp->pstSListWaitQueueFreed, pstcbArpWait->pstNode);  //* 放入空闲资源队列            
+			pstcbArpWait->pstNode = NULL; 
 		}
 	}
 	os_exit_critical();
 
-	//* 如果不处于发送状态则直接释放内存，否则再次开启定时器以待发送完成后释放占用的内存
+	//* 经过了上面的再次摘除操作，在这里再次判断发送状态，如果不处于发送状态则直接释放内存，否则再次开启定时器以待发送完成后释放占用的内存
 	if (1 == pstcbArpWait->ubSndStatus)
 		one_shot_timer_new(arp_wait_timeout_handler, pstcbArpWait, 1);
 	else
-		buddy_free(pvParam);
+	{
+		netif_freed(pstNetif); //* 不再占用网卡		
+		buddy_free(pvParam);   //* 归还报文占用的内存
+	}
 }
 
 //* arp初始化
