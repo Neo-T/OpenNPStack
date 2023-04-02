@@ -21,10 +21,10 @@
 #define IPv6LNKADDR_FLAG 0x52	//* 链路本地标志，用于dad检测时区分是链路本地地址还是从路由器得到的具有生存时间的动态地址
 
 typedef enum {
-	IPv6CFG_LATENT = 0, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_RS     = 1, //* 路由请求阶段
-	IPv6CFG_TATENT = 2, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_UATENT = 3, //* 链路本地地址重复地址检测阶段
+	IPv6CFG_LNKADDR = 0, //* 生成链路本地地址
+	IPv6CFG_RS      = 1, //* 路由请求阶段
+	IPv6CFG_TATENT  = 2, //* 链路本地地址重复地址检测阶段
+	IPv6CFG_UATENT  = 3, //* 链路本地地址重复地址检测阶段
 	IPv6CFG_END
 } EN_IPv6CFGSTATE;
 

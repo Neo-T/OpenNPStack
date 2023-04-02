@@ -445,7 +445,7 @@ void *array_linked_list_next_ext(void *pvUnit, CHAR *pbListHead, void *pvArray, 
 				break;
 			}
 
-			bNextUnit = *((CHAR *)pvArray + bNextUnit * ubUnitSize + bOffsetNextUnit); ;
+			bNextUnit = *((CHAR *)pvArray + bNextUnit * ubUnitSize + bOffsetNextUnit);
 		}
 	}
 	else

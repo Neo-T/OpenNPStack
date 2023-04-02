@@ -37,54 +37,6 @@ static const UCHAR l_ubaLinkLocalAddrPrefix[IPv6LLA_PREFIXBITLEN / 8] = { 0xFE, 
 //* ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
 static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
 
-//* icmpv6支持的无状态(stateless)地址配置定时器溢出函数
-static void ipv6_addr_cfg_timeout_handler(void *pvParam)
-{
-	os_thread_mutex_lock(o_hMtxPrintf);
-	printf(">>>>>%d!\r\n", os_get_system_secs()); 
-	os_thread_mutex_unlock(o_hMtxPrintf);
-
-	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
-	switch ((EN_IPv6CFGSTATE)pstNetif->stIPv6.bitState)
-	{
-	case IPv6CFG_LATENT:
-		pstNetif->stIPv6.bitTimingCnt++; 
-		if (pstNetif->stIPv6.bitTimingCnt < 4)
-		{
-			//* 存在冲突则重新生成地址继续试探
-			if (pstNetif->stIPv6.bitIsLAConflict)
-			{
-				//* 重新生成尾部地址再次进行DAD
-				UINT unNewTailAddr = rand_big();
-				memcpy(&pstNetif->stIPv6.ubaLnkAddr[13], (UCHAR *)&unNewTailAddr, 3);
-				pstNetif->stIPv6.bitTimingCnt = 0;
-				pstNetif->stIPv6.bitIsLAConflict = FALSE; 				
-			}
-
-			//* 继续发送试探报文，确保所有节点都能收到
-			icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, NULL); 			
-		}
-		else
-		{
-			pstNetif->stIPv6.bitState = IPv6CFG_RS; 
-			pstNetif->stIPv6.bitTimingCnt = 0;
-
-			//* 发送RS路由器请求报文
-			icmpv6_send_rs(pstNetif, pstNetif->stIPv6.ubaLnkAddr, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), NULL); 			
-		}
-
-		//* 再次开启定时器
-		one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1);
-		break;
-
-	case IPv6CFG_RS:
-		break; 
-
-	default:
-		break;
-	}
-}
-
 //* 等待邻居节点回馈的NA（Neighbor Advertisement）应答报文定时器溢出函数，其实就是实现ipv4的arp定时器相同的功能，通过ipv6地址得到mac地址
 static void icmpv6_na_wait_timeout_handler(void *pvParam)
 {
@@ -488,35 +440,6 @@ const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 	return ubaLnkAddr; 
 }
 
-BOOL icmpv6_start_config(PST_NETIF pstNetif, EN_ONPSERR *penErr)
-{
-	//* 冲突标志清零
-	pstNetif->stIPv6.bitIsLAConflict = pstNetif->stIPv6.bitIsUAConflict = pstNetif->stIPv6.bitIsTAConflict = 0; 
-
-	//* 生成试探性的链路本地地址（Tentative Link Local Address）
-	//icmpv6_lnk_addr_get(pstNetif, pstNetif->stIPv6.ubaLnkAddr); 
-	memcpy(pstNetif->stIPv6.ubaLnkAddr, "\xfe\x80\x00\x00\x00\x00\x00\x00\xdd\x62\x1a\x01\xfa\xa0\xd0\xe3", 16); //* 测试ipv6链路本地地址冲突逻辑用，使用网络其它节点已经成功配置的地址来验证协议栈DAD逻辑是否正确
-	pstNetif->stIPv6.bitLAPrefixBitLen = IPv6LLA_PREFIXBITLEN; 
-
-	//* 开启one-shot定时器，步长：1秒	
-	if (one_shot_timer_new(ipv6_addr_cfg_timeout_handler, pstNetif, 1))
-	{
-		pstNetif->stIPv6.bitState = IPv6CFG_LATENT;
-		pstNetif->stIPv6.bitTimingCnt = 0; 		
-	}
-	else
-	{
-		if (penErr)
-			*penErr = ERRNOIDLETIMER;
-		return FALSE; 
-	}
-
-	//* 开始重复地址检测DAD（Duplicate Address Detect）以确定这个试探地址没有被其它节点使用
-	if (icmpv6_send_ns(pstNetif, NULL, pstNetif->stIPv6.ubaLnkAddr, penErr) > 0)
-		return TRUE;
-	else
-		return FALSE; 
-}
 #endif
 
 const UCHAR *ipv6_mc_addr(EN_IPv6MCADDR_TYPE enType)
@@ -635,7 +558,7 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	return nRtnVal; 
 }
 
-INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr)
+INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], EN_ONPSERR *penErr)
 {
 	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
 
@@ -660,7 +583,7 @@ INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	//* ================================================================================
 	
 	//* 完成实际的发送并释放占用的buf list节点
-	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, 0, 255, penErr);
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), sBufListHead, 0, 255, penErr);
 	buf_list_free(sIcmpv6RouSolNode);
 
 	return nRtnVal;

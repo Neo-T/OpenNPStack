@@ -343,22 +343,23 @@ BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
 static BOOL ipv6_sol_mc_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 {
 	UCHAR ubaSolMcAddr[16];
+	PST_IPv6_DYNADDR pstNextAddr = NULL;
+	do {
+		//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+		pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
+		if (pstNextAddr)
+		{
+			if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNextAddr->ubaVal, ubaSolMcAddr), 16)) 
+			{
+				//* 处理完毕释放当前地址节点，其实就是引用计数减一
+				netif_ipv6_dyn_addr_release(pstNextAddr);
+				return TRUE;
+			}
+		}
+	} while (pstNextAddr);
 
-	//* 如果临时地址不为空
-	if (pstNetif->stIPv6.ubaTmpAddr[0])
-	{
-		if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.ubaTmpAddr, ubaSolMcAddr), 16))
-			return TRUE; 
-	}
 
-	//* 如果单播地址不为空
-	if (pstNetif->stIPv6.ubaUniAddr[0])
-	{
-		if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.ubaUniAddr, ubaSolMcAddr), 16))
-			return TRUE;
-	}
-
-	if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.ubaLnkAddr, ubaSolMcAddr), 16))
+	if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.stLnkAddr.ubaVal, ubaSolMcAddr), 16))
 		return TRUE;
 
 	return FALSE;
@@ -376,7 +377,7 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 			pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
 			if (pstNextAddr)
 			{
-				if (!memcmp(ubaTargetIpv6, pstNextAddr->ubaAddr, 16))
+				if (!memcmp(ubaTargetIpv6, pstNextAddr->ubaVal, 16))
 				{
 					//* 处理完毕释放当前地址节点，其实就是引用计数减一
 					netif_ipv6_dyn_addr_release(pstNextAddr); 
@@ -387,7 +388,7 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 		} while (pstNextAddr);  
 
 		//* 链路本地地址是否匹配
-		if (!memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaAddr, 16)) 
+		if (!memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaVal, 16)) 
 			return TRUE;
 	}
 	else //* 组播地址，需要逐个判断组播地址是否匹配

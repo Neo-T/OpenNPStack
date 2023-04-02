@@ -47,16 +47,22 @@ typedef struct _ST_IPV4_ {
 
 //* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
 typedef enum {
-	IPv6ADDR_TENTATIVE  = 0, //* 试探
-	IPv6ADDR_PREFERRED  = 1, //* 选用
-	IPv6ADDR_DEPRECATED = 2, //* 弃用
-	IPv6ADDR_INVALID    = 3  //* 无效
+	IPv6ADDR_TENTATIVE = 0, //* 试探
+	IPv6ADDR_PREFERRED,		//* 选用
+	IPv6ADDR_DEPRECATED,	//* 弃用
+	IPv6ADDR_INVALID		//* 无效
 } EN_IPv6ADDRSTATE;
+
+typedef enum {
+	IPv6SVVTMR_INVALID = 0, //* 无效，未启动
+	IPv6SVVTMR_RUN, 		//* 运行
+	IPv6SVVTMR_END			//* 结束
+} EN_IPv6SVVTIMERSTATE;
 
 //* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
 PACKED_BEGIN
 typedef struct _ST_IPv6_DYNADDR_ { 
-	UCHAR ubaAddr[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址		
+	UCHAR ubaVal[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址		
 	USHORT bitState        : 2; //* 当前状态
 	USHORT bitConflict     : 1; //* 是否收到地址冲突报文	
 	USHORT bitOptCnt       : 3;	//* 操作计数
@@ -72,7 +78,7 @@ PACKED_END
 //* 链路本地地址
 PACKED_BEGIN
 typedef struct _ST_IPv6_LNKADDR_ {
-	UCHAR ubaAddr[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现，注意，同ST_IPv6_DYNADDR必须放在首部，目的与之相同
+	UCHAR ubaVal[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现，注意，同ST_IPv6_DYNADDR必须放在首部，目的与之相同
 	UCHAR bitState     : 2;	//* 链路本地地址当前状态
 	UCHAR bitConflict  : 1; //* 是否收到地址冲突报文
 	UCHAR bitOptCnt    : 3;	//* 操作计数
@@ -111,10 +117,12 @@ PACKED_END
 
 PACKED_BEGIN
 typedef struct _ST_IPv6_ {	
-	ST_IPv6_LNKADDR stLnkAddr;	//* 链路本地地址
-	CHAR bDynAddr;				//* 自动配置生成的拥有生存时间限制的动态ipv6地址
-	CHAR bRouter;				//* 通过RA或DHCPv6获得的链路内可用的路由器
-	CHAR bCfgSate;				//* 地址配置状态
+	ST_IPv6_LNKADDR stLnkAddr; //* 链路本地地址
+	CHAR bDynAddr;			   //* 自动配置生成的拥有生存时间限制的动态ipv6地址
+	CHAR bRouter;			   //* 通过RA或DHCPv6获得的链路内可用的路由器
+	CHAR bitCfgState      : 4; //* 地址配置状态
+	CHAR bitSvvTimerState : 2; //* 生存计时器状态
+	CHAR bitReserved      : 2; //* 保留
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } PACKED ST_IPv6, *PST_IPv6; 
 PACKED_END
