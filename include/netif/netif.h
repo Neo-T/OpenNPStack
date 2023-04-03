@@ -79,8 +79,7 @@ typedef struct _ST_IPv6_ROUTER_ {
 	UCHAR ubHopLimit;			//* 路由器给出的跳数限制
 	union {
 		struct { //* 为了方便操作，位序与icmpv6中的RA报文完全一致，参见icmpv6_frame.h中ST_ICMPv6_RA_HDR结构体定义			
-			UCHAR bitReserved : 2; //* 保留
-			UCHAR bitProxy    : 1;
+			UCHAR bitReserved : 3; //* 保留，为了节省内存在这里用作引用计数
 			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
 			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
 			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
@@ -99,7 +98,14 @@ typedef struct _ST_IPv6_ROUTER_ {
 	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
 PACKED_END
-#define i6r_ref_cnt uniFlag.ubVal
+#define i6r_flag_prf		uniFlag.stb8.bitPrf
+#define i6r_flag_a			uniFlag.stb8.bitAgent
+#define i6r_flag_o			uniFlag.stb8.bitOther
+#define i6r_flag_m			uniFlag.stb8.bitManaged
+#define i6r_flag			uniFlag.ubVal
+#define i6r_ref_cnt_mask	0x07 //* ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
+#define i6r_flag_mask		0xF8 //* 8 - ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
+#define i6r_ref_cnt			uniFlag.stb8.bitReserved 
 
 PACKED_BEGIN
 typedef struct _ST_IPv6_ {	

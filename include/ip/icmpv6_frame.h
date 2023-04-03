@@ -1,8 +1,9 @@
 /*
  * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
  *
- * ICMPv6帧结构定义
- *
+ * ICMPv6帧结构定义，结构体各字段来源特别是消息类型及选项类型参见：
+ * https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml
+ * 
  * Neo-T, 创建于2023.03.12 09:40
  *
  */
@@ -73,6 +74,7 @@ typedef struct _ST_ICMPv6_HDR_ {
 } PACKED ST_ICMPv6_HDR, *PST_ICMPv6_HDR; 
 PACKED_END
 
+//* Ipv6邻居发现协议Neighbor Discovery for IP version 6 (IPv6)详见：https://www.rfc-editor.org/rfc/rfc4861.html
 //* Neighbor Solicitation，邻居请求消息头部结构体
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_NS_HDR_ {
@@ -121,25 +123,48 @@ PACKED_END
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_RA_HDR_ {
 	UCHAR ubHopLimit; 
-	UCHAR bitReserved : 2; 
-	UCHAR bitProxy    : 1; 
-	UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
-	UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
-	UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
-	UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
-	USHORT usLifeTime;	   //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
+	union 
+	{
+		struct {
+			UCHAR bitReserved : 2;
+			UCHAR bitProxy    : 1;
+			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
+			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
+			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
+			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
+		} PACKED stb8;
+		UCHAR ubVal; 
+	} PACKED uniFlag;
+	SHORT sLifeTime;	   //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
 	UINT unReachableTime;  //* 节点可达时间，为0表示路由器没有指定可达时间
 	UINT unRetransTimer;   //* 重发NS报文的间隔时间，为0表示路由器没有指定
 } PACKED ST_ICMPv6_RA_HDR, *PST_ICMPv6_RA_HDR;
 PACKED_END
+#define icmpv6_ra_flag_prf uniFlag.stb8.bitPrf
+#define icmpv6_ra_flag_a   uniFlag.stb8.bitAgent
+#define icmpv6_ra_flag_o   uniFlag.stb8.bitOther
+#define icmpv6_ra_flag_m   uniFlag.stb8.bitManaged
+#define icmpv6_ra_flag     uniFlag.ubVal
 
-//* Prefix information选项
+//* 邻居发现（Neighbor Discovery for IP version 6）相关选项类型，详细的类型定义参见（IPv6 Neighbor Discovery Option Formats）：
+//* https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-5
+#define ICMPv6NDOPT_SRCLNKADDR	1  //* Source Link-layer Address
+#define ICMPv6NDOPT_TRGLNKADDR	2  //* Target Link-layer Address
+#define ICMPv6NDOPT_PREFIXINFO	3  //* Prefix Information
+#define ICMPv6NDOPT_REDIRECTHDR	4  //* Redirected Header
+#define ICMPv6NDOPT_MTU			5  //* mtu，确保链路上的所有节点采用相同的mtu
+#define ICMPv6NDOPT_ROUTERINFO	24 //* Route Information，参见[RFC4191] 2.3节，其存在的目的就是代替传统的Prefix Information Option
+#define ICMPv6NDOPT_RDNSSRV		25 //* Recursive DNS Server Option，其由[RFC8106]/[RFC5006] "IPv6 Router Advertisement Option for DNS Configuration"定义，专门用于dns配置
+#define ICMPv6NDOPT_DNSSCHLIST	31 //* DNS Search List Option，参见[RFC8106]
+
+
+//* 邻居发现（Neighbor Discovery for IP version 6）相关的选项：Prefix information
 PACKED_BEGIN
-typedef struct _ST_ICMPv6_OPT_PREFIXINFO_ {
+typedef struct _ST_ICMPv6_NDOPT_PREFIXINFO_ {
 	UCHAR ubType;		//* 选项类型
 	UCHAR ubLen;		//* 长度，含ubType、ubLen字段
 	UCHAR ubaAddr[6];	//* 源/目标链路层地址（对于ethernet则是mac地址）
-} PACKED ST_ICMPv6_OPT_PREFIXINFO, *PST_ICMPv6_OPT_PREFIXINFO;
+} PACKED ST_ICMPv6_NDOPT_PREFIXINFO, *PST_ICMPv6_NDOPT_PREFIXINFO;
 PACKED_END
 
 #endif

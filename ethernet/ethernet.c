@@ -391,7 +391,7 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 		} while (pstNextAddr);  
 
 		//* 链路本地地址是否匹配
-		if (!memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaVal, 16)) 
+		if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED && !memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaVal, 16))
 			return TRUE;
 	}
 	else //* 组播地址，需要逐个判断组播地址是否匹配

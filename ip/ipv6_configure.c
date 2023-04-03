@@ -28,6 +28,7 @@ static ST_IPv6_ROUTER l_staIpv6Routers[IPV6_ROUTER_NUM];     //* ipv6路由器�
 static CHAR l_bFreeIpv6DynAddrList = -1;  
 static CHAR l_bFreeIpv6RouterList = -1; 
 
+//* 动态地址及路由器相关存储单元链表初始化，其必须在进行实际的ipv6地址自动配置之前调用以准备好相关基础数据结构
 static void ipv6_cfg_init(void)
 {
 	CHAR i; 
@@ -217,6 +218,21 @@ void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter)
 			pstRouter->i6r_ref_cnt--; 
 	}
 	os_exit_critical();
+}
+
+//* 通过指定的ipv6地址查找已绑定到网卡上的路由器
+PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRouterIpv6Addr)
+{
+	PST_IPv6_ROUTER pstNextRouter = NULL;
+	do {
+		//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+		pstNextRouter = netif_ipv6_router_next_safe(pstNetif, pstNextRouter, TRUE);
+		if (pstNextRouter)
+		{			
+			if (!memcmp(pstNextRouter->ubaAddr, ubaRouterIpv6Addr, 16))
+				return pstNextRouter; 
+		}
+	} while (pstNextRouter);
 }
 
 //* ipv6地址自动配置状态机（one-shot定时器方式实现，每隔一秒检查一次状态并依据配置规则进行状态迁移），该定时器

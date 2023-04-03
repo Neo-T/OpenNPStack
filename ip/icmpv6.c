@@ -723,8 +723,7 @@ INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], EN_ONPSERR *penErr)
 
 //* 收到的NA（Neighbor Advertisement，邻居通告）报文处理函数
 static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
-{
-	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+{	
 	PST_ICMPv6_NA_HDR pstNeiAdvHdr = (PST_ICMPv6_NA_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR));
 	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NA_HDR)); 
 	pstNeiAdvHdr->icmpv6_na_flag = htonl(pstNeiAdvHdr->icmpv6_na_flag);
@@ -767,20 +766,37 @@ static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 	}
 }
 
-//* 收到的RA（Router Advertisement，邻居通告）报文处理函数
-/*
-60 00 00 00 00 58 3A FF FE 80 00 00 00 00 00 00
-D6 A1 48 FF FE 96 6B 3B FF 02 00 00 00 00 00 00
-00 00 00 00 00 00 00 01 86 00 00 00 40 C8 07 08
-00 00 00 00 00 00 00 00 03 04 40 C0 00 00 1C 20
-00 00 0E 10 00 00 00 00 24 08 82 14 04 19 F2 05
-00 00 00 00 00 00 00 00 19 03 00 00 00 00 04 B0
-FE 80 00 00 00 00 00 00 D6 A1 48 FF FE 96 6B 3B
-05 01 00 00 00 00 05 D4 01 01 D4 A1 48 96 6B 3B
-*/
-static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
+static void icmpv6_ra_option_handler(PST_IPv6_ROUTER pstRouter, UCHAR *pubIcmpv6)
 {
+	
+}
 
+//* 收到的RA（Router Advertisement，邻居通告）报文处理函数
+static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR *pubIcmpv6)
+{
+	PST_ICMPv6_RA_HDR pstRouterAdvHdr = (PST_ICMPv6_RA_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR));
+
+	os_critical_init();
+
+	//* 先看该路由器是否已经被添加到链表中
+	PST_IPv6_ROUTER pstRouter = netif_ipv6_router_get_by_addr(pstNetif, ubaRouterIpv6); 
+	if (pstRouter)
+	{
+		//* 更新相关标志
+		pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 		
+
+		//* 更新生存时间，必须临界访问保护，因为生存计时器会以步长1秒的间隔递减这个值
+		os_enter_critical();
+		pstRouter->sLifetime = pstRouterAdvHdr->sLifeTime; 
+		os_exit_critical();
+
+		//* 释放占用的路由器（删除保护）
+		netif_ipv6_router_release(pstRouter); 
+	}
+
+
+	PST_ICMPv6_OPT_LLA pstOptLnkAddr = (PST_ICMPv6_OPT_LLA)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_NA_HDR));
+	pstNeiAdvHdr->icmpv6_na_flag = htonl(pstNeiAdvHdr->icmpv6_na_flag);
 }
 
 void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)
@@ -874,7 +890,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		break; 
 
 	case ICMPv6_RA:
-		icmpv6_ra_handler(pstNetif, pubIcmpv6);
+		icmpv6_ra_handler(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pubIcmpv6);
 		break; 
 
 	default: 
