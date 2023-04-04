@@ -766,6 +766,8 @@ static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 	}
 }
 
+static void icmpv6_nd_opt_handler(UCHAR *pubOption, )
+
 static void icmpv6_ra_option_handler(PST_IPv6_ROUTER pstRouter, UCHAR *pubIcmpv6)
 {
 	

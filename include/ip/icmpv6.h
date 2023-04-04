@@ -72,6 +72,13 @@ typedef struct _STCB_ETHIPv6MAC_WAIT_ {
 } STCB_ETHIPv6MAC_WAIT, *PSTCB_ETHIPv6MAC_WAIT;
 #endif
 
+//* 邻居发现协议携带的选项处理器结构体
+typedef UCHAR *(*PFUN_ICMPv6NDOPT_HANDLER)(UCHAR ubLen, UCHAR *pubOption, );
+typedef struct _ST_ICMPv6NDOPT_HANDLER_ {
+	UCHAR ubType; 
+	PFUN_ICMPv6NDOPT_HANDLER pfunHandler;
+} ST_ICMPv6NDOPT_HANDLER, *PST_ICMPv6NDOPT_HANDLER;
+
 #if SUPPORT_ETHERNET
 ICMPv6_EXT void ipv6_mac_mapping_tbl_init(void); 
 ICMPv6_EXT PSTCB_ETHIPv6MAC ipv6_mac_ctl_block_new(void); 

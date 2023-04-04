@@ -48,14 +48,20 @@ typedef struct _ST_IPV4_ {
 //* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
 PACKED_BEGIN
 typedef struct _ST_IPv6_DYNADDR_ { 
-	UCHAR ubaVal[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址		
+	UCHAR ubaVal[16];			//* 必须放在结构体的首部，因为其还承担着dad检测标识地址类型的任务，其最后一个字节为0标识这是动态地
+	                            //* 址，为IPv6LNKADDR_FLAG值（参见ipv6_configure.h文件）则代表这是链路本地地址
+
 	USHORT bitState        : 2; //* 当前状态
 	USHORT bitConflict     : 1; //* 是否收到地址冲突报文	
 	USHORT bitOptCnt       : 3;	//* 操作计数
 	USHORT bitRouter       : 3; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持8个路由器）
 	USHORT bitPrefixBitLen : 7;	//* 前缀长度
 	INT nValidLifetime;			//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
-	INT nPreferredLifetime;		//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地址可建立新的连接，到期后则只能维持现有连接不再建立新的连接，有效生存时间到期则现有连接亦无效，该地址将被释放结束使用
+
+	INT nPreferredLifetime;		//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地
+	                            //* 址可建立新的连接，到期后则只能维持现有连接不再建立新的连接，有效生存时间到期则现有连接亦无效，该地址
+	                            //* 将被释放结束使用
+
 	CHAR bNextAddr;				//* 指向下一个ipv6动态地址
 } PACKED ST_IPv6_DYNADDR, *PST_IPv6_DYNADDR;
 PACKED_END
@@ -80,18 +86,33 @@ typedef struct _ST_IPv6_ROUTER_ {
 	union {
 		struct { //* 为了方便操作，位序与icmpv6中的RA报文完全一致，参见icmpv6_frame.h中ST_ICMPv6_RA_HDR结构体定义			
 			UCHAR bitReserved : 3; //* 保留，为了节省内存在这里用作引用计数
-			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
+
+			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能
+			                       //* 成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
+
 			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
-			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
-			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
+
+			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且
+			                       //* icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
+
+			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行
+			                       //* 地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
 		} PACKED stb8; 
 		UCHAR ubVal; 
 	} PACKED uniFlag; 
+
 	SHORT sLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
-	struct {
-		UCHAR ubaAddr[16]; //* dns服务器地址
+
+	struct { //* 主dns服务器
+		UCHAR ubaAddr[16]; //* 地址
 		INT nLifetime;	   //* 生存时间
-	} PACKED stDNSSrv;
+	} PACKED stMasterDNSSrv; 
+
+	struct { //* 从dns服务器
+		UCHAR ubaAddr[16]; 
+		INT nLifetime;
+	} PACKED stSlaveDNSSrv;    
+
 	USHORT usMtu; 
 	UCHAR ubaMacAddr[6];
 	PST_NETIF pstNetif; 

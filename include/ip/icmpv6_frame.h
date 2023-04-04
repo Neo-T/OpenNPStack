@@ -27,8 +27,8 @@ typedef enum {
     ICMPv6_RA		= 134,	//* Router Advertisement，路由器通告
 	ICMPv6_NS		= 135,	//* Neighbor Solicitation，邻居请求
 	ICMPv6_NA		= 136,	//* Neighbor Advertisement，邻居通告
-	ICMPv6_RM		= 137,	//* Redirect Message，重定向
-	ICMPv6_RR		= 138,	//* Router Renumbering，路由器重编号
+	ICMPv6_RR		= 137,	//* Router Redirect Message，重定向
+	ICMPv6_RN		= 138,	//* Router Renumbering，路由器重编号
 	ICMPv6_NI		= 139,	//* ICMP Node Information，节点信息查询
 	ICMPv6_NR		= 140,	//* ICMP Node Response，节点信息应答
 	ICMPv6_INDS		= 141,	//* Inverse Neighbor Discovery Solicitation，反向邻居探索请求
@@ -90,15 +90,6 @@ typedef struct _ST_ICMPv6_RS_HDR_ {
 } PACKED ST_ICMPv6_RS_HDR, *PST_ICMPv6_RS_HDR;
 PACKED_END
 
-//* S/TLLA，Source/Target link-layer address选项
-PACKED_BEGIN
-typedef struct _ST_ICMPv6_OPT_LLA_ {
-	UCHAR ubType;		//* 选项类型
-	UCHAR ubLen;		//* 长度，含ubType、ubLen字段
-	UCHAR ubaAddr[6];	//* 源/目标链路层地址（对于ethernet则是mac地址）
-} PACKED ST_ICMPv6_OPT_LLA, *PST_ICMPv6_OPT_LLA;
-PACKED_END
-
 //* Neighbor Advertisement，邻居通告消息头部结构体
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_NA_HDR_ {
@@ -119,7 +110,7 @@ PACKED_END
 #define icmpv6_na_flag_r uniFlag.stb32.bitRouter
 #define icmpv6_na_flag   uniFlag.unVal
 
-//* Router Advertisement，路由器通告消息头部结构体
+//* Router Advertisement，路由器通告（RA）消息头部结构体
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_RA_HDR_ {
 	UCHAR ubHopLimit; 
@@ -128,16 +119,16 @@ typedef struct _ST_ICMPv6_RA_HDR_ {
 		struct {
 			UCHAR bitReserved : 2;
 			UCHAR bitProxy    : 1;
-			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
+			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，为保留值，如果收到则将其视为00值处理
 			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
 			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
 			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
 		} PACKED stb8;
 		UCHAR ubVal; 
 	} PACKED uniFlag;
-	SHORT sLifeTime;	   //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
-	UINT unReachableTime;  //* 节点可达时间，为0表示路由器没有指定可达时间
-	UINT unRetransTimer;   //* 重发NS报文的间隔时间，为0表示路由器没有指定
+	SHORT sLifetime;      //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，同时按照[RFC4191]2.2节的规定bitPref位也应为00，bitPrf值将被接收者忽略，该路由器将从缺省路由器列表中被删除
+	UINT unReachableTime; //* 节点可达时间，为0表示路由器没有指定可达时间
+	UINT unRetransTimer;  //* 重发NS报文的间隔时间，为0表示路由器没有指定
 } PACKED ST_ICMPv6_RA_HDR, *PST_ICMPv6_RA_HDR;
 PACKED_END
 #define icmpv6_ra_flag_prf uniFlag.stb8.bitPrf
@@ -157,15 +148,103 @@ PACKED_END
 #define ICMPv6NDOPT_RDNSSRV		25 //* Recursive DNS Server Option，其由[RFC8106]/[RFC5006] "IPv6 Router Advertisement Option for DNS Configuration"定义，专门用于dns配置
 #define ICMPv6NDOPT_DNSSCHLIST	31 //* DNS Search List Option，参见[RFC8106]
 
-
-//* 邻居发现（Neighbor Discovery for IP version 6）相关的选项：Prefix information
+//* 邻居发现协议携带的选项头
 PACKED_BEGIN
-typedef struct _ST_ICMPv6_NDOPT_PREFIXINFO_ {
-	UCHAR ubType;		//* 选项类型
-	UCHAR ubLen;		//* 长度，含ubType、ubLen字段
-	UCHAR ubaAddr[6];	//* 源/目标链路层地址（对于ethernet则是mac地址）
-} PACKED ST_ICMPv6_NDOPT_PREFIXINFO, *PST_ICMPv6_NDOPT_PREFIXINFO;
+typedef struct _ST_ICMPv6NDOPT_HDR_ {
+	UCHAR ubType; //* 选项类型
+	UCHAR ubLen;  //* 长度，含ubType、ubLen字段，单位：8字节	
+} PACKED ST_ICMPv6NDOPT_HDR, *PST_ICMPv6NDOPT_HDR;
 PACKED_END
+
+//* S/TLLA，Source/Target link-layer address option，SLLA用于NS、RS、RA报文，TLLA用于NA、RR报文
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_LLA_ {
+	ST_ICMPv6NDOPT_HDR stHdr; 
+	UCHAR ubaAddr[6]; //* 源/目标链路层地址（对于ethernet则是mac地址）
+} PACKED ST_ICMPv6NDOPT_LLA, *PST_ICMPv6NDOPT_LLA;
+PACKED_END
+
+//* Prefix information option，仅用于RA报文，其它类型报文出现应直接丢弃
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_PREFIXINFO_ {
+	ST_ICMPv6NDOPT_HDR stHdr;
+	UCHAR ubPrefixBitLen;  //* 前缀位长
+	union {
+		struct {
+			UCHAR bitReserved    : 6; //* 保留字段 
+			UCHAR bitAutoAddrCfg : 1; //* 地址配置
+			UCHAR bitOnLink      : 1; //* 在线标志
+		} PACKED stb8;
+		UCHAR ubVal; 
+	} PACKED uniFlag; 
+	INT nValidLifetime;     //* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
+	INT nPreferredLifetime; //* 推荐给节点选用的生存时间，单位：秒，全1表示无限长，这个时间小于等于有效生存时间
+	UINT unReserved;		//* 保留，但必须全零
+	UCHAR ubaPrefix[16];	//* 注意，如果路由器发布了链路本地地址前缀（FE80::），直接忽略即可，另外，非前缀数据位必须清零
+} PACKED ST_ICMPv6NDOPT_PREFIXINFO, *PST_ICMPv6_NDOPT_PREFIXINFO;
+PACKED_END
+
+//* Redirected Header option，仅用于RR报文
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_REDIRECTED_HDR_ {
+	ST_ICMPv6NDOPT_HDR stHdr; 
+	USHORT usReserved; //* 这之后为IP头加上层协议报文
+} ST_ICMPv6NDOPT_REDIRECTED_HDR, *PST_ICMPv6NDOPT_REDIRECTED_HDR;
+PACKED_END
+
+//* MTU option，仅用于RA报文，以确保链路上的所有节点使用相同的MTU值
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_MTU_ {
+	ST_ICMPv6NDOPT_HDR stHdr; 
+	USHORT usReserved; 
+	UINT unMtu; //* 通告的路由器mtu值 
+} ST_ICMPv6NDOPT_MTU, *PST_ICMPv6NDOPT_MTU;
+PACKED_END
+
+//* Route Information option，仅用于RA报文，其被设计用于替代Prefix Infomation选项
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_ROUTERINFO_ {
+	ST_ICMPv6NDOPT_HDR stHdr;
+	UCHAR ubPrefixBitLen;  //* 前缀位长
+	union {
+		struct {
+			UCHAR bitReserved : 3; //* 保留字段 
+			UCHAR bitPrf      : 2; //* 路由器优先级，如果存在多个拥有相同前缀的路由器时，该字段指定优先选用哪个路由器，参见ST_ICMPv6_RA_HDR::uniFlag::stb8::bitPrf字段值说明
+			                       //* 唯一的不同是当收到保留的值10时，该Router information选项将被接收端忽略
+			UCHAR bitReserved : 3; //* 保留字段 
+		} PACKED stb8;
+		UCHAR ubVal;
+	} PACKED uniFlag;
+	INT nLifetime; //* 路由器生存时间，0xFFFFFFFF为无限长
+	/* …… *///* 可变长度的前缀数据，其长度为0，8或16字节，这取决于ubPrefixBitLen字段值
+} ST_ICMPv6NDOPT_ROUTERINFO, *PST_ICMPv6NDOPT_ROUTERINFO;
+PACKED_END
+
+//* Recursive DNS Server Option，仅用于RA报文
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_RDNSSRV_HDR_ {
+	ST_ICMPv6NDOPT_HDR stHdr;	
+	USHORT usReserved; 
+	INT nLifetime; //* RDNS服务器生存时间，0xFFFFFFFF为无限长
+	/* …… *///*递归DNS服务器地址列表，一个或多个Ipv6地址，其数量等于(stHdr.ubLen - 1) / 2
+} ST_ICMPv6NDOPT_RDNSSRV_HDR, *PST_ICMPv6NDOPT_RDNSSRV_HDR;
+PACKED_END
+
+//* DNS Search List option, DNSSL，DNS搜索列表，限于RA报文，目前仅定义协议栈暂不支持
+//* 关于DNSSL：http://ipv6hawaii.org/?p=506
+//* DNS搜索列表是在键入长FQDN（完全限定域名，Fully Qualified Domain Names）时保存的快捷方式或方法。例如，如果我家里的服务器有DNS名称：nas.example.com、router.example.com
+//* 和music.example.com，而没有搜索列表，那么每次我想访问每台服务器时，我都必须键入FQDN。但是使用example.com的搜索列表，DNS客户端会自动将example.com附加到我的每个查询中。
+//* 这样，我只需要键入nas，DNS客户端就会查询nas.example.com，与DNS服务的地址一样，DNSSL是通过类似的方法分发的，使用DHCPv4、DHCPv6和RA DNSSL选项（RFC 8106 Sect 5.2）。
+//* 不幸的是，目前并不是所有主机都支持RA中的DNSSL。例如，ChromeOS会忽略RA DNSSL选项，并且必须键入FQDN。
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_RDNSSRV_HDR_ {
+	ST_ICMPv6NDOPT_HDR stHdr;
+	USHORT usReserved;
+	INT nLifetime; //* RDNS服务器生存时间，0xFFFFFFFF为无限长	
+	/* …… *///* 一个或多个域名，每个域名其实就是以0结尾的标签序列，每个标签之间也就是"."之间用一个字节表示标签长度（实际只使用了前6位，剩下的高两位必须为0，所以标签最大长度63字节），0填充不足8字节倍数的部分
+} ST_ICMPv6NDOPT_RDNSSRV_HDR, *PST_ICMPv6NDOPT_RDNSSRV_HDR;
+PACKED_END
+
 
 #endif
 
