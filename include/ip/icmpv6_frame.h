@@ -126,9 +126,9 @@ typedef struct _ST_ICMPv6_RA_HDR_ {
 		} PACKED stb8;
 		UCHAR ubVal; 
 	} PACKED uniFlag;
-	SHORT sLifetime;      //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，同时按照[RFC4191]2.2节的规定bitPref位也应为00，bitPrf值将被接收者忽略，该路由器将从缺省路由器列表中被删除
+	USHORT usLifetime;    //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，同时按照[RFC4191]2.2节的规定bitPref位也应为00，bitPrf值将被接收者忽略，该路由器将从缺省路由器列表中被删除
 	UINT unReachableTime; //* 节点可达时间，为0表示路由器没有指定可达时间
-	UINT unRetransTimer;  //* 重发NS报文的间隔时间，为0表示路由器没有指定
+	UINT unRetransTimer;  //* 重发RS报文的间隔时间，为0表示路由器没有指定
 } PACKED ST_ICMPv6_RA_HDR, *PST_ICMPv6_RA_HDR;
 PACKED_END
 #define icmpv6_ra_flag_prf uniFlag.stb8.bitPrf
@@ -173,16 +173,20 @@ typedef struct _ST_ICMPv6NDOPT_PREFIXINFO_ {
 		struct {
 			UCHAR bitReserved    : 6; //* 保留字段 
 			UCHAR bitAutoAddrCfg : 1; //* 地址配置
-			UCHAR bitOnLink      : 1; //* 在线标志
+			UCHAR bitOnLink      : 1; //* 在链路标志，如果置位，则这个前缀可以用于确定所有属于该前缀的地址（分布在不同主机）的on-link（在链路）状态，否则不能确定其
+			                          //* 是否on-link还是off-link，比如该前缀用于地址配置时，存在一些前缀地址在链路上，另一些可能正在配置处于链路外
 		} PACKED stb8;
 		UCHAR ubVal; 
 	} PACKED uniFlag; 
-	INT nValidLifetime;     //* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
-	INT nPreferredLifetime; //* 推荐给节点选用的生存时间，单位：秒，全1表示无限长，这个时间小于等于有效生存时间
-	UINT unReserved;		//* 保留，但必须全零
-	UCHAR ubaPrefix[16];	//* 注意，如果路由器发布了链路本地地址前缀（FE80::），直接忽略即可，另外，非前缀数据位必须清零
+	UINT unValidLifetime;     //* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
+	UINT unPreferredLifetime; //* 推荐给节点选用的生存时间，单位：秒，全1表示无限长，这个时间小于等于有效生存时间
+	UINT unReserved;		  //* 保留，但必须全零
+	UCHAR ubaPrefix[16];	  //* 注意，如果路由器发布了链路本地地址前缀（FE80::），直接忽略即可，另外，非前缀数据位必须清零
 } PACKED ST_ICMPv6NDOPT_PREFIXINFO, *PST_ICMPv6_NDOPT_PREFIXINFO;
 PACKED_END
+#define icmpv6ndopt_pi_flag_A uniFlag.stb8.bitAutoAddrCfg
+#define icmpv6ndopt_pi_flag_L uniFlag.stb8.bitOnLink
+#define icmpv6ndopt_pi_flag uniFlag.ubVal
 
 //* Redirected Header option，仅用于RR报文
 PACKED_BEGIN
@@ -215,7 +219,7 @@ typedef struct _ST_ICMPv6NDOPT_ROUTERINFO_ {
 		} PACKED stb8;
 		UCHAR ubVal;
 	} PACKED uniFlag;
-	INT nLifetime; //* 路由器生存时间，0xFFFFFFFF为无限长
+	UINT unLifetime; //* 路由器生存时间，0xFFFFFFFF为无限长
 	/* …… *///* 可变长度的前缀数据，其长度为0，8或16字节，这取决于ubPrefixBitLen字段值
 } ST_ICMPv6NDOPT_ROUTERINFO, *PST_ICMPv6NDOPT_ROUTERINFO;
 PACKED_END

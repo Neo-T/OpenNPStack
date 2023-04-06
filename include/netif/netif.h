@@ -56,9 +56,9 @@ typedef struct _ST_IPv6_DYNADDR_ {
 	USHORT bitOptCnt       : 3;	//* 操作计数
 	USHORT bitRouter       : 3; //* 通过哪个路由器通告得到的这个地址，其为访问这个路由器相关配置信息的索引值（协议栈最多支持8个路由器）
 	USHORT bitPrefixBitLen : 7;	//* 前缀长度
-	INT nValidLifetime;			//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
+	UINT unValidLifetime;		//* 有效生存时间，单位：秒，全1表示无限长，否则到期则地址失效，将不再使用
 
-	INT nPreferredLifetime;		//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地
+	UINT unPreferredLifetime;	//* 推荐给节点选用的生存时间，单位：秒，全1表示无限长。这个时间小于等于有效生存时间，其生存时间段内该地
 	                            //* 址可建立新的连接，到期后则只能维持现有连接不再建立新的连接，有效生存时间到期则现有连接亦无效，该地址
 	                            //* 将被释放结束使用
 
@@ -101,16 +101,16 @@ typedef struct _ST_IPv6_ROUTER_ {
 		UCHAR ubVal; 
 	} PACKED uniFlag; 
 
-	SHORT sLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
+	USHORT usLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
 
 	struct { //* 主dns服务器
 		UCHAR ubaAddr[16]; //* 地址
-		INT nLifetime;	   //* 生存时间
+		UINT unLifetime;	   //* 生存时间
 	} PACKED stMasterDNSSrv; 
 
 	struct { //* 从dns服务器
 		UCHAR ubaAddr[16]; 
-		INT nLifetime;
+		UINT unLifetime;
 	} PACKED stSlaveDNSSrv;    
 
 	USHORT usMtu; 
