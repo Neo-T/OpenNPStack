@@ -70,7 +70,7 @@ PACKED_END
 //* 链路本地地址
 PACKED_BEGIN
 typedef struct _ST_IPv6_LNKADDR_ {
-	UCHAR ubaVal[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr_get()函数实现，注意，同ST_IPv6_DYNADDR必须放在首部，目的与之相同
+	UCHAR ubaVal[16];		//* 地址组成形式为：FE80::/64 + EUI-64地址，参见icmpv6.c文件icmpv6_lnk_addr()函数实现，注意，同ST_IPv6_DYNADDR必须放在首部，目的与之相同
 	UCHAR bitState     : 2;	//* 链路本地地址当前状态
 	UCHAR bitConflict  : 1; //* 是否收到地址冲突报文
 	UCHAR bitOptCnt    : 3;	//* 操作计数

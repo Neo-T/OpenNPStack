@@ -514,6 +514,15 @@ UINT rand_big(void)
 	return unRandomVal; 
 }
 
+UCHAR *rand_any_bytes(UCHAR *pubRandSeq, UINT unSeqLen)
+{
+	UINT i; 
+	for (i = 0; i < unSeqLen; i++)	
+		pubRandSeq[i] = (UCHAR)(rand() % 256); 
+
+	return pubRandSeq; 
+}
+
 const CHAR *hex_to_str_8(UCHAR ubVal, CHAR szDst[3], BOOL blIsUppercase)
 {
 	szDst[0] = ubVal >> 4;

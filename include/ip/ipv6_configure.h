@@ -50,6 +50,7 @@ IPv6CFG_EXT PST_IPv6_ROUTER ipv6_router_node_get(EN_ONPSERR *penErr);
 IPv6CFG_EXT void ipv6_router_node_free(PST_IPv6_ROUTER pstRouterNode);
 IPv6CFG_EXT PST_IPv6_DYNADDR ipv6_dyn_addr_get(CHAR bDynAddr); 
 IPv6CFG_EXT PST_IPv6_ROUTER ipv6_router_get(CHAR bRouter); 
+IPv6CFG_EXT CHAR ipv6_router_get_index(PST_IPv6_ROUTER pstRouter);
 IPv6CFG_EXT void netif_ipv6_dyn_addr_add(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr);
 IPv6CFG_EXT void netif_ipv6_dyn_addr_del(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr);
 IPv6CFG_EXT void netif_ipv6_router_add(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter);

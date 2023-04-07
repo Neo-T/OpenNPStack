@@ -551,7 +551,8 @@ INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[
 		return 0;
 }
 
-const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
+//* 生成链路本地地址：FE80::/64 + EUI-64地址
+const UCHAR *icmpv6_lnk_addr(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 {
 	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
 
@@ -561,6 +562,7 @@ const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 	//* 复制以太网mac地址前24位
 	UCHAR ubUField = pstExtra->ubaMacAddr[0];
 	memcpy(&ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix)], pstExtra->ubaMacAddr, 3);
+
 	//* 按照惯例在这里将mac地址U/L位取反以提供最大程度的可压缩性（mac地址U位为1时取反为0则可提高ipv6地址连续全0字段的概率，因为
 	//* 协议栈运行环境基本都是自行指定mac地址，此时U位应为1以显式地告知这是本地mac地址）
 	ubUField = (ubUField & 0xFD) | (~ubUField & 0x02);
@@ -570,6 +572,37 @@ const UCHAR *icmpv6_lnk_addr_get(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 	memcpy(&ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix) + 5], &pstExtra->ubaMacAddr[3], 3); 
 
 	return ubaLnkAddr; 
+}
+
+const UCHAR *icmpv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], UCHAR *pubPrefix, UCHAR ubPrefixBitLen)
+{
+	UCHAR ubPrefixBytes = ubPrefixBitLen / 8 + (ubPrefixBitLen % 8 ? 1 : 0); 
+	memcpy(ubaDynAddr, pubPrefix, ubPrefixBitLen); 
+
+	//* 如果前缀长度为64位，则直接使用EUI-64编码方式生成后面的接口标识符，及动态地址为：前缀::/64 + EUI-64地址，否则随机生成接口标识符
+	if (ubPrefixBitLen == 64)
+	{
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+
+		//* 复制以太网mac地址前24位
+		UCHAR ubUField = pstExtra->ubaMacAddr[0];
+		memcpy(&ubaDynAddr[8], pstExtra->ubaMacAddr, 3);
+
+		//* 按照惯例在这里将mac地址U/L位取反以提供最大程度的可压缩性（mac地址U位为1时取反为0则可提高ipv6地址连续全0字段的概率，因为
+		//* 协议栈运行环境基本都是自行指定mac地址，此时U位应为1以显式地告知这是本地mac地址）
+		ubUField = (ubUField & 0xFD) | (~ubUField & 0x02);
+		ubaDynAddr[8] = ubUField;
+		ubaDynAddr[11] = 0xFF;
+		ubaDynAddr[12] = 0xFE;
+		memcpy(&ubaDynAddr[13], &pstExtra->ubaMacAddr[3], 3); 
+	}
+	else
+	{
+		//* 生成随机的接口标识符
+		rand_any_bytes(&ubaDynAddr[ubPrefixBytes], 16 - ubPrefixBytes); 
+	}
+
+	return ubaDynAddr; 
 }
 
 #endif
@@ -800,14 +833,14 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	}
 
 	//* 首先看看这个前缀是否已经生成地址
-	PST_IPv6_DYNADDR pstNextAddr = NULL; 
+	PST_IPv6_DYNADDR pstAddr = NULL; 
 	do {
 		//* 读取地址节点
-		pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE); 
-		if (pstNextAddr)
+		pstAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstAddr, TRUE); 
+		if (pstAddr)
 		{
 			//* 前缀长度一致，且前缀匹配，则不再生成地址
-			if (pstNextAddr->bitPrefixBitLen == pstPrefixInfo->ubPrefixBitLen && !ipv6_addr_cmp(pstPrefixInfo->ubaPrefix, pstNextAddr->ubaVal, pstNextAddr->bitPrefixBitLen))
+			if (pstAddr->bitPrefixBitLen == pstPrefixInfo->ubPrefixBitLen && !ipv6_addr_cmp(pstPrefixInfo->ubaPrefix, pstAddr->ubaVal, pstAddr->bitPrefixBitLen))
 			{			
 				//* 更新地址有效时间，这个地方按照[RFC4862] 5.5.3节P19的描述，应当按照如下规则更新：
 				//* 1. 如果报文中的有效生存时间大于2小时或大于地址节点当前的剩余有效生存时间，则用报文中的有效生存时间覆盖当前剩余生存时间；
@@ -817,26 +850,52 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 				//* 上述规则主要是避免非法RA报文携带短生存时间前缀导致拒绝服务问题的出现。
 				os_enter_critical(); 
 				{
-					if(pstPrefixInfo->unValidLifetime > 7200 || pstPrefixInfo->unValidLifetime > pstNextAddr->unValidLifetime)
-						pstNextAddr->unValidLifetime = pstPrefixInfo->unValidLifetime; 
+					if(pstPrefixInfo->unValidLifetime > 7200 || pstPrefixInfo->unValidLifetime > pstAddr->unValidLifetime)
+						pstAddr->unValidLifetime = pstPrefixInfo->unValidLifetime; 
 					else
 					{
-						if (pstNextAddr->unValidLifetime > 7200)
-							pstNextAddr->unValidLifetime = 7200; 
+						if (pstAddr->unValidLifetime > 7200)
+							pstAddr->unValidLifetime = 7200; 
 					}
 					
-					//* 路由器管理员有可能通过很短的首选生存时间主动弃用某个地址，所以这个选项必须无条件更新（显然相对于将很短的有效生存时间视为非法的规则，该规则重点考虑了网络管理的便利性）
-					pstNextAddr->unPreferredLifetime = pstPrefixInfo->unPreferredLifetime;  
+					//* 路由器管理员有可能通过很短的首选生存时间来主动弃用某个地址，所以这个选项必须无条件更新（显然相对于将很短的有效生存时间视为非法的规则，该规则重点考虑了网络管理的便利性）
+					pstAddr->unPreferredLifetime = pstPrefixInfo->unPreferredLifetime;  
 				}
 				os_exit_critical(); 
 
-				netif_ipv6_dyn_addr_release(pstNextAddr); //* 处理完毕释放当前地址节点，其实就是引用计数减一
+				netif_ipv6_dyn_addr_release(pstAddr); //* 处理完毕释放当前地址节点，其实就是引用计数减一
 				return;
 			}
 		}
-	} while (pstNextAddr);
+	} while (pstAddr);
 
-	//* 生成
+	//* 申请一个动态地址节点
+	EN_ONPSERR enErr; 
+	pstAddr = ipv6_dyn_addr_node_get(&enErr); 
+	if (pstAddr)
+	{
+		//* 生成试探ipv6地址
+		icmpv6_dyn_addr(pstNetif, pstAddr->ubaVal, pstPrefixInfo->ubaPrefix, pstPrefixInfo->ubPrefixBitLen);
+		pstAddr->bitRouter = ipv6_router_get_index(pstRouter);
+		pstAddr->bitPrefixBitLen = pstPrefixInfo->ubPrefixBitLen;
+		pstAddr->unValidLifetime = pstPrefixInfo->unValidLifetime;
+		pstAddr->unPreferredLifetime = pstPrefixInfo->unPreferredLifetime;
+		netif_ipv6_dyn_addr_add(pstNetif, pstAddr);
+
+		//* 开启重复地址检测
+		if (ipv6_cfg_dad(pstNetif, pstAddr, &enErr))
+			return; 
+	}	
+
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+	printf("icmpv6_ra_opt_prefix_info_handler() failed, %s\r\n", onps_error(enErr));
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+#endif
 }
 
 static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, UCHAR *pubOpt, SHORT sOptLen)
@@ -893,7 +952,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		//* 更新相关标志
 		pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 		
 
-		//* 更新生存时间，必须临界访问保护，因为生存计时器会以步长1秒的间隔递减这个值
+		//* 更新生存时间，必须临界保护，因为生存计时器会以步长1秒的间隔递减这个值
 		os_enter_critical();
 		pstRouter->usLifetime = pstRouterAdvHdr->usLifetime; 
 		os_exit_critical();		
@@ -955,6 +1014,10 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 	//* 不为NULL说明这是已经添加到网卡中的路由器节点
 	if(pstRouter->pstNetif)
 		netif_ipv6_router_release(pstRouter); //* 释放占用的路由器（取消删除保护）
+	else
+	{
+		pstRouter->pstNetif = pstNetif; 
+	}
 }
 
 void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)

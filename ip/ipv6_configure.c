@@ -93,6 +93,11 @@ PST_IPv6_ROUTER ipv6_router_get(CHAR bRouter)
 		return NULL;
 }
 
+CHAR ipv6_router_get_index(PST_IPv6_ROUTER pstRouter)
+{
+	return array_linked_list_get_index(pstRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM);
+}
+
 void netif_ipv6_dyn_addr_add(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
 {	
 	array_linked_list_put_tail(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
@@ -351,7 +356,7 @@ BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 	pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_INVALID; 
 
 	//* 生成试探性的链路本地地址（Tentative Link Local Address）
-	//icmpv6_lnk_addr_get(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaAddr); 
+	//icmpv6_lnk_addr(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaAddr); 
 
 	//* 测试ipv6链路本地地址冲突逻辑用，使用网络其它节点已经成功配置的地址来验证协议栈DAD逻辑是否正确
 	memcpy(pstNetif->stIPv6.stLnkAddr.ubaVal, "\xfe\x80\x00\x00\x00\x00\x00\x00\xdd\x62\x1a\x01\xfa\xa0\xd0\xe3", 16); 	

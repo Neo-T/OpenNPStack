@@ -173,7 +173,7 @@ typedef struct _ST_ICMPv6NDOPT_PREFIXINFO_ {
 		struct {
 			UCHAR bitReserved    : 6; //* 保留字段 
 			UCHAR bitAutoAddrCfg : 1; //* 地址配置
-			UCHAR bitOnLink      : 1; //* 在链路标志，如果置位，则这个前缀可以用于确定所有属于该前缀的地址（分布在不同主机）的on-link（在链路）状态，否则不能确定其
+			UCHAR bitOnLink      : 1; //* 在链路标志，如果置位，则这个前缀可以用于确定所有属于该前缀的地址（可能分布在不同主机）的on-link（在链路）状态，否则不能确定其
 			                          //* 是否on-link还是off-link，比如该前缀用于地址配置时，存在一些前缀地址在链路上，另一些可能正在配置处于链路外
 		} PACKED stb8;
 		UCHAR ubVal; 

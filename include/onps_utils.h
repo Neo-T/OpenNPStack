@@ -41,6 +41,7 @@ ONPS_UTILS_EXT CHAR *mem_char(CHAR *pszMem, CHAR ch, UINT unMemSize);
 ONPS_UTILS_EXT CHAR *mem_str(CHAR *pszMem, CHAR *pszStr, UINT unStrSize, UINT unMemSize);
 ONPS_UTILS_EXT CHAR *strtok_safe(CHAR **ppszStart, const CHAR *pszSplitStr); 
 ONPS_UTILS_EXT UINT rand_big(void); 
+ONPS_UTILS_EXT UCHAR *rand_any_bytes(UCHAR *pubRandSeq, UINT unSeqLen); 
 
 #define hex_to_char(val, is_uppercase) (val += val < 10 ? '0' : (is_uppercase ? 'A' - 10 : 'a' - 10))
 #define hex_to_char_no_lz(prev_val, next_val, is_uppercase) (prev_val = next_val + (next_val < 10 ? '0' : (is_uppercase ? 'A' - 10 : 'a' - 10)))
