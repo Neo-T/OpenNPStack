@@ -110,7 +110,7 @@ PACKED_END
 #define icmpv6_na_flag_r uniFlag.stb32.bitRouter
 #define icmpv6_na_flag   uniFlag.unVal
 
-//* Router Advertisement，路由器通告（RA）消息头部结构体
+//* Router Advertisement，路由器通告（RA）消息头部结构体，详见[RFC4861] 4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_RA_HDR_ {
 	UCHAR ubHopLimit; 
@@ -119,7 +119,7 @@ typedef struct _ST_ICMPv6_RA_HDR_ {
 		struct {
 			UCHAR bitReserved : 2;
 			UCHAR bitProxy    : 1;
-			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，为保留值，如果收到则将其视为00值处理
+			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，为保留值，如果收到则将其视为00值处理，详见[RFC4191] 2.2节：https://www.rfc-editor.org/rfc/rfc4191.html
 			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
 			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
 			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
@@ -205,7 +205,7 @@ typedef struct _ST_ICMPv6NDOPT_MTU_ {
 } ST_ICMPv6NDOPT_MTU, *PST_ICMPv6NDOPT_MTU;
 PACKED_END
 
-//* Route Information option，仅用于RA报文，其被设计用于替代Prefix Infomation选项
+//* Route Information option，仅用于RA报文，其被设计用于替代Prefix Infomation选项，详见[RFC4191] 2.2及2.3节：https://www.rfc-editor.org/rfc/rfc4191.html#section-2.2
 PACKED_BEGIN
 typedef struct _ST_ICMPv6NDOPT_ROUTERINFO_ {
 	ST_ICMPv6NDOPT_HDR stHdr;

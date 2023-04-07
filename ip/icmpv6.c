@@ -551,6 +551,7 @@ INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[
 		return 0;
 }
 
+//* 关于链路本地地址前缀的说明：https://www.rfc-editor.org/rfc/rfc3513#section-2.5.6
 //* 生成链路本地地址：FE80::/64 + EUI-64地址
 const UCHAR *icmpv6_lnk_addr(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 {
@@ -801,13 +802,16 @@ static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 
 static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, PST_ICMPv6_NDOPT_PREFIXINFO pstPrefixInfo) 
 {
-	if (pstPrefixInfo->unValidLifetime < pstPrefixInfo->unPreferredLifetime)
+	UINT unValidLifetime = htonl(pstPrefixInfo->unValidLifetime); 
+	UINT unPreferredLifetime = htonl(pstPrefixInfo->unPreferredLifetime); 
+
+	if (unValidLifetime < unPreferredLifetime)
 	{
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
 	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_lock(o_hMtxPrintf);
 	#endif
-		printf("The valid lifetime (%d) is less than the preferred lifetime (%d).\r\n", pstPrefixInfo->unValidLifetime, pstPrefixInfo->unPreferredLifetime);
+		printf("The valid lifetime (%d) is less than the preferred lifetime (%d).\r\n", unValidLifetime, unPreferredLifetime);
 	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_unlock(o_hMtxPrintf);
 	#endif
@@ -850,8 +854,8 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 				//* 上述规则主要是避免非法RA报文携带短生存时间前缀导致拒绝服务问题的出现。
 				os_enter_critical(); 
 				{
-					if(pstPrefixInfo->unValidLifetime > 7200 || pstPrefixInfo->unValidLifetime > pstAddr->unValidLifetime)
-						pstAddr->unValidLifetime = pstPrefixInfo->unValidLifetime; 
+					if(unValidLifetime > 7200 || unValidLifetime > pstAddr->unValidLifetime)
+						pstAddr->unValidLifetime = unValidLifetime; 
 					else
 					{
 						if (pstAddr->unValidLifetime > 7200)
@@ -859,7 +863,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 					}
 					
 					//* 路由器管理员有可能通过很短的首选生存时间来主动弃用某个地址，所以这个选项必须无条件更新（显然相对于将很短的有效生存时间视为非法的规则，该规则重点考虑了网络管理的便利性）
-					pstAddr->unPreferredLifetime = pstPrefixInfo->unPreferredLifetime;  
+					pstAddr->unPreferredLifetime = unPreferredLifetime;  
 				}
 				os_exit_critical(); 
 
@@ -874,12 +878,12 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	pstAddr = ipv6_dyn_addr_node_get(&enErr); 
 	if (pstAddr)
 	{
-		//* 生成试探ipv6地址
+		//* 生成试探ipv6地址、初始地址相关控制字段并加入网卡
 		icmpv6_dyn_addr(pstNetif, pstAddr->ubaVal, pstPrefixInfo->ubaPrefix, pstPrefixInfo->ubPrefixBitLen);
 		pstAddr->bitRouter = ipv6_router_get_index(pstRouter);
 		pstAddr->bitPrefixBitLen = pstPrefixInfo->ubPrefixBitLen;
-		pstAddr->unValidLifetime = pstPrefixInfo->unValidLifetime;
-		pstAddr->unPreferredLifetime = pstPrefixInfo->unPreferredLifetime;
+		pstAddr->unValidLifetime = unValidLifetime;
+		pstAddr->unPreferredLifetime = unPreferredLifetime;
 		netif_ipv6_dyn_addr_add(pstNetif, pstAddr);
 
 		//* 开启重复地址检测
@@ -911,11 +915,18 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 			break; 
 
 		case ICMPv6NDOPT_PREFIXINFO:
-			//* 按照[rfc4862]5.5.3节给出的算法说明，A标志未置位或者前缀为链路本地地址则直接丢弃Prefix information选项
-			//* 关于链路本地地址前缀的说明：https://www.rfc-editor.org/rfc/rfc3513#section-2.5.6
+			//* 按照[rfc4862]5.5.3节给出的算法说明，A标志未置位或者前缀为链路本地地址则直接丢弃Prefix information选项			
 			if(((PST_ICMPv6_NDOPT_PREFIXINFO)pstOptHdr)->icmpv6ndopt_pi_flag_A 
 				&& ipv6_addr_cmp(((PST_ICMPv6_NDOPT_PREFIXINFO)pstOptHdr)->ubaPrefix, l_ubaLinkLocalAddrPrefix, 64))
 				icmpv6_ra_opt_prefix_info_handler(pstNetif, pstRouter, (PST_ICMPv6_NDOPT_PREFIXINFO)pstOptHdr); 
+			break; 
+
+		case ICMPv6NDOPT_MTU:
+			pstRouter->usMtu = (USHORT)htonl(((PST_ICMPv6NDOPT_MTU)pstOptHdr)->unMtu);
+			break; 
+
+		case ICMPv6NDOPT_ROUTERINFO:
+
 			break; 
 
 		default: 
@@ -950,12 +961,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 	if (pstRouter)
 	{
 		//* 更新相关标志
-		pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 		
-
-		//* 更新生存时间，必须临界保护，因为生存计时器会以步长1秒的间隔递减这个值
-		os_enter_critical();
-		pstRouter->usLifetime = pstRouterAdvHdr->usLifetime; 
-		os_exit_critical();		
+		pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 
 	}
 	else 
 	{
@@ -1003,21 +1009,30 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 	pstRouter->i6r_flag = pstRouterAdvHdr->icmpv6_ra_flag; 
 
 	os_enter_critical();
-	pstRouter->usLifetime = pstRouterAdvHdr->usLifetime; 
+	pstRouter->usLifetime = htons(pstRouterAdvHdr->usLifetime); 
 	os_exit_critical(); 	
 	//* =================================================================
-
-	//* 处理携带的icmpv6选项
-	UCHAR ubHdrLen = sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_RA_HDR); 
-	icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));
-
+	
+	
+	UCHAR ubHdrLen = sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_RA_HDR);
 	//* 不为NULL说明这是已经添加到网卡中的路由器节点
-	if(pstRouter->pstNetif)
-		netif_ipv6_router_release(pstRouter); //* 释放占用的路由器（取消删除保护）
+	if (pstRouter->pstNetif)
+	{
+		//* 处理携带的icmpv6选项		
+		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));
+
+		//* 释放占用的路由器（取消删除保护）
+		netif_ipv6_router_release(pstRouter); 
+	}
 	else
 	{
-		pstRouter->pstNetif = pstNetif; 
-	}
+		//* 处理携带的icmpv6选项之前先赋值ST_IPv6_ROUTER::pstNetif字段，后续DAD检测需要用到（如果存在前缀或路由器信息选项且可以进行无状态地址配置）
+		pstRouter->pstNetif = pstNetif; 						
+		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));
+
+		//* 添加到网卡
+		netif_ipv6_router_add(pstNetif, pstRouter);
+	}	
 }
 
 void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)
