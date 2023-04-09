@@ -103,15 +103,10 @@ typedef struct _ST_IPv6_ROUTER_ {
 
 	USHORT usLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
 
-	struct { //* 主dns服务器
+	struct { //* dns服务器，支持主从两个地址
 		UCHAR ubaAddr[16]; //* 地址
-		UINT unLifetime;	   //* 生存时间
-	} PACKED stMasterDNSSrv; 
-
-	struct { //* 从dns服务器
-		UCHAR ubaAddr[16]; 
-		UINT unLifetime;
-	} PACKED stSlaveDNSSrv;    
+		UINT unLifetime;   //* 生存时间
+	} PACKED staDNSSrv[2];    
 
 	USHORT usMtu; 
 	UCHAR ubaMacAddr[6];
@@ -132,10 +127,10 @@ PACKED_BEGIN
 typedef struct _ST_IPv6_ {	
 	ST_IPv6_LNKADDR stLnkAddr; //* 链路本地地址
 	CHAR bDynAddr;			   //* 自动配置生成的拥有生存时间限制的动态ipv6地址
-	CHAR bRouter;			   //* 通过RA或DHCPv6获得的链路内可用的路由器
-	CHAR bitCfgState      : 4; //* 地址配置状态
+	CHAR bRouter;              //* 通过RA或DHCPv6获得的链路内可用的路由器，这里比ST_IPv6_DYNADDR::bitRouter多一位的目的是利用第4位来标识其是否已挂接一个有效路由器节点，即bitRouter > 7 代表尚未挂接任何路由器	
+	CHAR bitCfgState      : 3; //* 地址配置状态
+	CHAR bitOptCnt        : 3; //* 操作计数
 	CHAR bitSvvTimerState : 2; //* 生存计时器状态
-	CHAR bitReserved      : 2; //* 保留
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } PACKED ST_IPv6, *PST_IPv6; 
 PACKED_END

@@ -206,6 +206,8 @@ typedef struct _ST_ICMPv6NDOPT_MTU_ {
 PACKED_END
 
 //* Route Information option，仅用于RA报文，其被设计用于替代Prefix Infomation选项，详见[RFC4191] 2.2及2.3节：https://www.rfc-editor.org/rfc/rfc4191.html#section-2.2
+//* 关于其中的prf字段与RA报文头部prf字段同时存在时如何处理的说明，参见：https://www.rfc-editor.org/rfc/rfc4191.html#section-3
+//* 在这里协议栈选择了Type B处理方式，路由器信息选项将被忽略，详见[RFC4191]第三节：Conceptual Model of a Host及第4节：Router Configuration
 PACKED_BEGIN
 typedef struct _ST_ICMPv6NDOPT_ROUTERINFO_ {
 	ST_ICMPv6NDOPT_HDR stHdr;
@@ -229,24 +231,24 @@ PACKED_BEGIN
 typedef struct _ST_ICMPv6NDOPT_RDNSSRV_HDR_ {
 	ST_ICMPv6NDOPT_HDR stHdr;	
 	USHORT usReserved; 
-	INT nLifetime; //* RDNS服务器生存时间，0xFFFFFFFF为无限长
+	UINT unLifetime; //* RDNS服务器生存时间，0xFFFFFFFF为无限长
 	/* …… *///*递归DNS服务器地址列表，一个或多个Ipv6地址，其数量等于(stHdr.ubLen - 1) / 2
 } ST_ICMPv6NDOPT_RDNSSRV_HDR, *PST_ICMPv6NDOPT_RDNSSRV_HDR;
 PACKED_END
 
-//* DNS Search List option, DNSSL，DNS搜索列表，限于RA报文，目前仅定义协议栈暂不支持
+//* DNS Search List option, DNSSL，DNS搜索列表，限于RA报文，目前仅在这里先定义,协议栈暂不支持
 //* 关于DNSSL：http://ipv6hawaii.org/?p=506
 //* DNS搜索列表是在键入长FQDN（完全限定域名，Fully Qualified Domain Names）时保存的快捷方式或方法。例如，如果我家里的服务器有DNS名称：nas.example.com、router.example.com
 //* 和music.example.com，而没有搜索列表，那么每次我想访问每台服务器时，我都必须键入FQDN。但是使用example.com的搜索列表，DNS客户端会自动将example.com附加到我的每个查询中。
 //* 这样，我只需要键入nas，DNS客户端就会查询nas.example.com，与DNS服务的地址一样，DNSSL是通过类似的方法分发的，使用DHCPv4、DHCPv6和RA DNSSL选项（RFC 8106 Sect 5.2）。
 //* 不幸的是，目前并不是所有主机都支持RA中的DNSSL。例如，ChromeOS会忽略RA DNSSL选项，并且必须键入FQDN。
 PACKED_BEGIN
-typedef struct _ST_ICMPv6NDOPT_RDNSSRV_HDR_ {
+typedef struct _ST_ICMPv6NDOPT_DNSSL_HDR_ {
 	ST_ICMPv6NDOPT_HDR stHdr;
 	USHORT usReserved;
-	INT nLifetime; //* RDNS服务器生存时间，0xFFFFFFFF为无限长	
+	UINT unLifetime; //* RDNS服务器生存时间，0xFFFFFFFF为无限长	
 	/* …… *///* 一个或多个域名，每个域名其实就是以0结尾的标签序列，每个标签之间也就是"."之间用一个字节表示标签长度（实际只使用了前6位，剩下的高两位必须为0，所以标签最大长度63字节），0填充不足8字节倍数的部分
-} ST_ICMPv6NDOPT_RDNSSRV_HDR, *PST_ICMPv6NDOPT_RDNSSRV_HDR;
+} ST_ICMPv6NDOPT_DNSSL_HDR, *PST_ICMPv6NDOPT_DNSSL_HDR; 
 PACKED_END
 
 

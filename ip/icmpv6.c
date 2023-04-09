@@ -802,6 +802,19 @@ static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 
 static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, PST_ICMPv6_NDOPT_PREFIXINFO pstPrefixInfo) 
 {
+	if (pstPrefixInfo->stHdr.ubLen != 4)
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
+#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+		printf("Prefix information option length (%d bytes) error.\r\n", pstPrefixInfo->stHdr.ubLen * 8);
+#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+#endif
+	}
+
 	UINT unValidLifetime = htonl(pstPrefixInfo->unValidLifetime); 
 	UINT unPreferredLifetime = htonl(pstPrefixInfo->unPreferredLifetime); 
 
@@ -902,6 +915,112 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 #endif
 }
 
+static void icmpv6_ra_opt_rdnssrv_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, PST_ICMPv6NDOPT_RDNSSRV_HDR pstOption)
+{
+	if (pstOption->stHdr.ubLen < 3)
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
+#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+		printf("Recursive DNS Server Option length (%d bytes) too small\r\n", pstOption->stHdr.ubLen * 8);
+#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+#endif
+		return; 
+	}
+
+	//* 携带的dns服务器地址数量
+	CHAR i;
+	CHAR bSrvNum = ((pstOption->stHdr.ubLen * 8) - 8) / 16; 	
+	UCHAR *pubIpv6 = (UCHAR *)pstOption + sizeof(ST_ICMPv6NDOPT_RDNSSRV_HDR); 
+
+	bSrvNum = bSrvNum > 2 ? 2 : bSrvNum; 
+	i = bSrvNum; 
+
+	os_critical_init(); 
+
+	//* 只有生存期比现有生存期还大才会更新
+	if (pstOption->unLifetime > pstRouter->staDNSSrv[0].unLifetime)
+	{	
+		//* 已经得到dns服务器地址
+		if (pstRouter->staDNSSrv[0].ubaAddr[0])
+		{
+			//* 需要看看新的RA报文是否携带了完全不同的dns服务器地址，如果不是则仅更新生存时间即可
+			for (i = 0; i < bSrvNum; i++)
+			{
+				if (!memcmp(pubIpv6 + i * 16, pstRouter->staDNSSrv[0].ubaAddr, 16))
+				{
+					os_enter_critical();
+					pstRouter->staDNSSrv[0].unLifetime = pstOption->unLifetime;
+					os_exit_critical();
+					goto __lblSlave;
+				}
+			}
+		}		
+
+		os_enter_critical();
+		{			
+			//* 直接用第一个地址更新主dns服务器地址，同时更新生存时间
+			i = 0; 
+			memcpy(pstRouter->staDNSSrv[0].ubaAddr, pubIpv6, 16);
+			pstRouter->staDNSSrv[0].unLifetime = pstOption->unLifetime;
+		}
+		os_exit_critical(); 
+	}
+
+
+__lblSlave: 
+	//* 存在两个地址，则判断从服务器地址是否需要更新，依然是生存期比较
+	if (bSrvNum == 2 && pstOption->unLifetime > pstRouter->staDNSSrv[1].unLifetime)
+	{
+		CHAR bAddrIdx = i;
+
+		if (pstRouter->staDNSSrv[1].ubaAddr[0])
+		{			
+			for (i = 0; i < bSrvNum; i++)
+			{
+				if (!memcmp(pubIpv6 + i * 16, pstRouter->staDNSSrv[1].ubaAddr, 16))
+				{
+					//* 说明主从地址相等，那么从地址将直接清零
+					if (bAddrIdx == i)
+					{
+						os_enter_critical();
+						{
+							pstRouter->staDNSSrv[1].ubaAddr[0] = 0; 
+							pstRouter->staDNSSrv[1].unLifetime = 0;
+						}
+						os_exit_critical();
+						return;
+					}
+
+					//* 匹配，则只更新生存时间
+					os_enter_critical();
+					pstRouter->staDNSSrv[1].unLifetime = pstOption->unLifetime;
+					os_exit_critical();
+
+					return;
+				}
+			}
+		}		
+
+		//* 主地址存在匹配的，需要用通告的另一个地址作为从dns服务器地址
+		if (bAddrIdx < bSrvNum)
+			bAddrIdx = bAddrIdx ? 0 : 1; 
+		else
+			bAddrIdx = 0; 
+
+		os_enter_critical();
+		{
+			//* 直接用第一个地址更新主dns服务器地址，同时更新生存时间				
+			memcpy(pstRouter->staDNSSrv[1].ubaAddr, pubIpv6 + bAddrIdx * 16, 16); 
+			pstRouter->staDNSSrv[1].unLifetime = pstOption->unLifetime;
+		}
+		os_exit_critical();
+	}
+}
+
 static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, UCHAR *pubOpt, SHORT sOptLen)
 {
 	PST_ICMPv6NDOPT_HDR pstOptHdr = (PST_ICMPv6NDOPT_HDR)pubOpt; 
@@ -915,7 +1034,7 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 			break; 
 
 		case ICMPv6NDOPT_PREFIXINFO:
-			//* 按照[rfc4862]5.5.3节给出的算法说明，A标志未置位或者前缀为链路本地地址则直接丢弃Prefix information选项			
+			//* 按照[rfc4862]5.5.3节给出的算法说明，A标志未置位或者前缀为链路本地地址则直接丢弃Prefix information选项
 			if(((PST_ICMPv6_NDOPT_PREFIXINFO)pstOptHdr)->icmpv6ndopt_pi_flag_A 
 				&& ipv6_addr_cmp(((PST_ICMPv6_NDOPT_PREFIXINFO)pstOptHdr)->ubaPrefix, l_ubaLinkLocalAddrPrefix, 64))
 				icmpv6_ra_opt_prefix_info_handler(pstNetif, pstRouter, (PST_ICMPv6_NDOPT_PREFIXINFO)pstOptHdr); 
@@ -925,10 +1044,11 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 			pstRouter->usMtu = (USHORT)htonl(((PST_ICMPv6NDOPT_MTU)pstOptHdr)->unMtu);
 			break; 
 
-		case ICMPv6NDOPT_ROUTERINFO:
-
+		case ICMPv6NDOPT_RDNSSRV: 
+			icmpv6_ra_opt_rdnssrv_handler(pstNetif, pstRouter, (PST_ICMPv6NDOPT_RDNSSRV_HDR)pstOptHdr); 
 			break; 
 
+		case ICMPv6NDOPT_ROUTERINFO: //* Type B Host，忽略该选项，参见[RFC4191]第3节“Conceptual Model of a Host”：https://www.rfc-editor.org/rfc/rfc4191.html#section-3
 		default: 
 	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
 		#if PRINTF_THREAD_MUTEX
@@ -1000,13 +1120,15 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 
 		//* 保存路由器地址
 		memcpy(pstRouter->ubaAddr, ubaRouterIpv6, 16); 
+		pstRouter->i6r_flag = pstRouterAdvHdr->icmpv6_ra_flag; 
+		pstRouter->i6r_ref_cnt = 0; 
 		pstRouter->pstNetif = NULL;  
+		memset(&pstRouter->staDNSSrv, 0, sizeof(pstRouter->staDNSSrv)); 		
 	}
 
 	//* 赋值
 	//* =================================================================
-	pstRouter->ubHopLimit = pstRouterAdvHdr->ubHopLimit; 
-	pstRouter->i6r_flag = pstRouterAdvHdr->icmpv6_ra_flag; 
+	pstRouter->ubHopLimit = pstRouterAdvHdr->ubHopLimit; 	
 
 	os_enter_critical();
 	pstRouter->usLifetime = htons(pstRouterAdvHdr->usLifetime); 

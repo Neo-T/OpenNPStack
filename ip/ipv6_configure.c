@@ -256,7 +256,20 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 		}
 		break; 
 
-	case IPv6CFG_RS: 
+	case IPv6CFG_RS: 		
+		if (pstNetif->stIPv6.bRouter < 0) //* 尚未收到任何路由器通告（RA）报文
+		{
+			pstNetif->stIPv6.bitOptCnt++; 
+			if (pstNetif->stIPv6.bitOptCnt < 3)
+			{
+				//* 继续发送路由器请求（RS）报文
+				icmpv6_send_rs(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaVal, NULL);
+			}
+		}
+		else
+		{
+			//* 看看路由器m和o标志
+		}
 		break; 
 
 	default:
