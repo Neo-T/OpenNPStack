@@ -116,7 +116,7 @@ typedef struct _ST_ICMPv6_RA_HDR_ {
 	UCHAR ubHopLimit; 
 	union 
 	{
-		struct {
+		struct { //* icmpv6_ra_flag_m和icmpv6_ra_flag_o标记的详细说明参见[RFC4861]4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
 			UCHAR bitReserved : 2;
 			UCHAR bitProxy    : 1;
 			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，为保留值，如果收到则将其视为00值处理，详见[RFC4191] 2.2节：https://www.rfc-editor.org/rfc/rfc4191.html
@@ -126,7 +126,7 @@ typedef struct _ST_ICMPv6_RA_HDR_ {
 		} PACKED stb8;
 		UCHAR ubVal; 
 	} PACKED uniFlag;
-	USHORT usLifetime;    //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，同时按照[RFC4191]2.2节的规定bitPref位也应为00，bitPrf值将被接收者忽略，该路由器将从缺省路由器列表中被删除
+	USHORT usLifetime;    //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关，同时按照[RFC4191]2.2节的规定bitPref位也应为00，bitPrf值将被接收者忽略，该路由器将从缺省路由器列表中被删除，详见[RFC2461]4.2节：https://www.rfc-editor.org/rfc/rfc2461#section-4.2
 	UINT unReachableTime; //* 节点可达时间，为0表示路由器没有指定可达时间
 	UINT unRetransTimer;  //* 重发RS报文的间隔时间，为0表示路由器没有指定
 } PACKED ST_ICMPv6_RA_HDR, *PST_ICMPv6_RA_HDR;

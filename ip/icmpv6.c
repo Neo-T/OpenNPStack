@@ -970,7 +970,6 @@ static void icmpv6_ra_opt_rdnssrv_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER ps
 		os_exit_critical(); 
 	}
 
-
 __lblSlave: 
 	//* 存在两个地址，则判断从服务器地址是否需要更新，依然是生存期比较
 	if (bSrvNum == 2 && pstOption->unLifetime > pstRouter->staDNSSrv[1].unLifetime)
@@ -1024,6 +1023,7 @@ __lblSlave:
 static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, UCHAR *pubOpt, SHORT sOptLen)
 {
 	PST_ICMPv6NDOPT_HDR pstOptHdr = (PST_ICMPv6NDOPT_HDR)pubOpt; 
+	USHORT usMtu; 
 		
 	while (sOptLen)
 	{
@@ -1041,7 +1041,9 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 			break; 
 
 		case ICMPv6NDOPT_MTU:
-			pstRouter->usMtu = (USHORT)htonl(((PST_ICMPv6NDOPT_MTU)pstOptHdr)->unMtu);
+			usMtu = (USHORT)htonl(((PST_ICMPv6NDOPT_MTU)pstOptHdr)->unMtu);
+			if(usMtu > 1200 && usMtu < 1500)
+				pstRouter->usMtu = usMtu; 
 			break; 
 
 		case ICMPv6NDOPT_RDNSSRV: 
@@ -1067,7 +1069,9 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 	}	
 }
 
-//* 收到的RA（Router Advertisement，邻居通告）报文处理函数：https://www.rfc-editor.org/rfc/rfc4862#section-5.5.3
+//* 
+//* 收到的RA（Router Advertisement，邻居通告）报文处理函数，算法实现依据来自[RFC4861]6.3.4节：https://www.rfc-editor.org/rfc/rfc4861#section-6.3.4
+//* 关于收到的前缀信息选项如何处理，详见[RFC4862]5.5.3节：https://www.rfc-editor.org/rfc/rfc4862#section-5.5.3
 static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR *pubIcmpv6, USHORT usIcmpv6PktLen)
 {
 	PST_ICMPv6_RA_HDR pstRouterAdvHdr = (PST_ICMPv6_RA_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR));
@@ -1081,7 +1085,8 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 	if (pstRouter)
 	{
 		//* 更新相关标志
-		pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 
+		//pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 
+		pstRouter->i6r_flag_prf = pstRouterAdvHdr->icmpv6_ra_flag_prf; 
 	}
 	else 
 	{
@@ -1120,15 +1125,17 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 
 		//* 保存路由器地址
 		memcpy(pstRouter->ubaAddr, ubaRouterIpv6, 16); 
-		pstRouter->i6r_flag = pstRouterAdvHdr->icmpv6_ra_flag; 
+		pstRouter->i6r_flag_prf = pstRouterAdvHdr->icmpv6_ra_flag_prf;
 		pstRouter->i6r_ref_cnt = 0; 
+		pstRouter->usMtu = 1492; 
+		pstRouter->ubHopLimit = 255; 
 		pstRouter->pstNetif = NULL;  
 		memset(&pstRouter->staDNSSrv, 0, sizeof(pstRouter->staDNSSrv)); 		
 	}
 
 	//* 赋值
 	//* =================================================================
-	pstRouter->ubHopLimit = pstRouterAdvHdr->ubHopLimit; 	
+	pstRouter->ubHopLimit = pstRouterAdvHdr->ubHopLimit ? pstRouterAdvHdr->ubHopLimit : pstRouter->ubHopLimit; //* 非零值才会更新该字段，否则保留原值
 
 	os_enter_critical();
 	pstRouter->usLifetime = htons(pstRouterAdvHdr->usLifetime); 
@@ -1153,7 +1160,11 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));
 
 		//* 添加到网卡
+		pstRouter->bitDv6CfgState = Dv6CFG_INIT;
 		netif_ipv6_router_add(pstNetif, pstRouter);
+
+		//* 根据m和o标志确定是否发送dhcpv6请求包，参见[RFC4861]4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
+
 	}	
 }
 

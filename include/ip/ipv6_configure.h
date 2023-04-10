@@ -22,27 +22,35 @@
 
 //* 其最大定义范围不能超过ST_IPv6::bitCfgState字段指定的位宽限制
 typedef enum {
-	IPv6CFG_INIT    = 0, //* 初始
-	IPv6CFG_LNKADDR = 1, //* 生成链路本地地址
-	IPv6CFG_RS      = 2, //* 路由请求
-	IPv6CFG_DYNADDR = 3, //* 动态地址
-	IPv6CFG_UATENT  = 4, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_END
+	IPv6CFG_INIT                = 0, //* 初始
+	IPv6CFG_LNKADDR             = 1, //* 生成链路本地地址
+	IPv6CFG_RS                  = 2, //* 路由请求
+	IPv6CFG_WAIT_DYNADDRCFG_END = 3, //* 等待无状态（stateless）地址自动配置结束
+	IPv6CFG_WAIT_Dv6CFG_END     = 4, //* 等待有状态和无状态Dhcpv6配置结束，如果存在Dhcpv6主机的话
+	IPv6CFG_END = 5, 
 } EN_IPv6CFGSTATE;
 
 //* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
 typedef enum {
-	IPv6ADDR_TENTATIVE = 0, //* 试探
-	IPv6ADDR_PREFERRED,		//* 选用
-	IPv6ADDR_DEPRECATED,	//* 弃用
-	IPv6ADDR_INVALID		//* 无效
+	IPv6ADDR_TENTATIVE  = 0, //* 试探
+	IPv6ADDR_PREFERRED  = 1, //* 选用
+	IPv6ADDR_DEPRECATED = 2, //* 弃用
+	IPv6ADDR_INVALID    = 3	 //* 无效
 } EN_IPv6ADDRSTATE;
 
 typedef enum {
 	IPv6SVVTMR_INVALID = 0, //* 无效，未启动
-	IPv6SVVTMR_RUN, 		//* 运行
-	IPv6SVVTMR_END			//* 结束
+	IPv6SVVTMR_RUN = 1,     //* 运行	
+	IPv6SVVTMR_STOP = 2,    //* 结束运行，这个由ethernet_del()函数发出，通知定时器结束运行，释放相关资源，另外两个状态定时器改变
+	IPv6SVVTMR_RELEASED = 3 
 } EN_IPv6SVVTIMERSTATE;
+
+//* stateful/stateless DHCPv6配置状态定义
+typedef enum {
+	Dv6CFG_INIT = 0, 
+	Dv6CFG_SENDREQ = 1, 
+	Dv6CFG_END = 2
+} EN_DHCPv6CFGSTATE;
 
 IPv6CFG_EXT PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(EN_ONPSERR *penErr);
 IPv6CFG_EXT void ipv6_dyn_addr_node_free(PST_IPv6_DYNADDR pstDynAddrNode); 

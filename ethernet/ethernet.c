@@ -189,7 +189,7 @@ __lblEnd:
     return pstNetif;
 }
 
-//* 删除ethernet网卡
+//* 删除ethernet网卡，注意这个函数为阻塞型，如果协议栈支持ipv6的选项被打开的话
 void ethernet_del(PST_NETIF *ppstNetif)
 {
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)(*ppstNetif)->pvExtra; 
@@ -199,7 +199,24 @@ void ethernet_del(PST_NETIF *ppstNetif)
     pstExtra->bIsUsed = FALSE; 
 
     //* 先从路由表删除
-    route_del_ext(*ppstNetif); 
+    route_del_ext(*ppstNetif);
+
+#if SUPPORT_IPV6	
+	//* 首先等待Ipv6动态地址及缺省路由器的生存期计时器正常启动，因为资源的回收工作由这个计时器完成，否则会造成资源泄露
+	while ((*ppstNetif)->stIPv6.bitSvvTimerState == IPv6SVVTMR_INVALID)
+		os_sleep_secs(1);
+
+	//* 通知生存计时器回收资源并结束运行
+	(*ppstNetif)->stIPv6.bitSvvTimerState = IPv6SVVTMR_STOP;
+
+	//* 等待生存计时器回收完全部资源后结束运行
+	while (TRUE)
+	{
+		if ((*ppstNetif)->stIPv6.bitSvvTimerState == IPv6SVVTMR_RELEASED)
+			break; 
+		os_sleep_secs(1);
+	}		
+#endif
 
     //* 再从网卡链表删除
     netif_del_ext(*ppstNetif); 

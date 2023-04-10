@@ -81,25 +81,13 @@ PACKED_END
 //* 路由器
 PACKED_BEGIN
 typedef struct _ST_IPv6_ROUTER_ { 
-	UCHAR ubaAddr[16];			//* 路由器地址	
-	UCHAR ubHopLimit;			//* 路由器给出的跳数限制
-	union {
-		struct { //* 为了方便操作，位序与icmpv6中的RA报文完全一致，参见icmpv6_frame.h中ST_ICMPv6_RA_HDR结构体定义			
-			UCHAR bitReserved : 3; //* 保留，为了节省内存在这里用作引用计数
+	UCHAR ubaAddr[16]; //* 路由器地址	
+	UCHAR ubHopLimit;  //* 路由器给出的跳数限制
 
-			UCHAR bitPrf      : 2; //* 默认路由器优先级，01：高；00：中；11低；10，强制路由器生存时间字段值为0，发出通告的路由器不能
-			                       //* 成为默认路由器。优先级字段用于有两台路由器的子网环境，主辅路由器互为备份（主无法使用是辅上）
-
-			UCHAR bitAgent    : 1; //* RFC 3775为移动ipv6准备
-
-			UCHAR bitOther    : 1; //* Other Configuration，O标志，当M标志为0时该位才会被启用，也就是此时程序才会去关注这个标志。当其置位，且
-			                       //* icmpv6 option - Prefix information中A标志置位则协议栈将通过DHCPv6获得其它参数，否则不通过DHCPv6获得其它参数
-
-			UCHAR bitManaged  : 1; //* Managed address configuration，M标志，指示是否配置有状态ipv6地址。置位：无状态配置结束后可以通过DHCPv6进行
-			                       //* 地址配置（获得的ipv6地址及dns等）；反之则不支持通过DHCPv6进行地址配置
-		} PACKED stb8; 
-		UCHAR ubVal; 
-	} PACKED uniFlag; 
+	UCHAR bitRefCnt      : 3; //* 引用计数
+	UCHAR bitReserved    : 1; //* 保留
+	UCHAR bitDv6CfgState : 2; //* stateful/stateless DHCPv6配置状态
+	UCHAR bitPrf         : 2; //* 默认路由器优先级，01：高；00：中；11低；10，未指定，发送端不应该发送此值，收到则视作00处理	
 
 	USHORT usLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
 
@@ -114,14 +102,10 @@ typedef struct _ST_IPv6_ROUTER_ {
 	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
 PACKED_END
-#define i6r_flag_prf		uniFlag.stb8.bitPrf
-#define i6r_flag_a			uniFlag.stb8.bitAgent
-#define i6r_flag_o			uniFlag.stb8.bitOther
-#define i6r_flag_m			uniFlag.stb8.bitManaged
-#define i6r_flag			uniFlag.ubVal
-#define i6r_ref_cnt_mask	0x07 //* ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
-#define i6r_flag_mask		0xF8 //* 8 - ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
-#define i6r_ref_cnt			uniFlag.stb8.bitReserved 
+#define i6r_flag_prf		bitPrf
+//#define i6r_ref_cnt_mask	0x07 //* ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
+//#define i6r_flag_mask		0xF8 //* 8 - ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
+#define i6r_ref_cnt			bitRefCnt
 
 PACKED_BEGIN
 typedef struct _ST_IPv6_ {	
@@ -130,7 +114,7 @@ typedef struct _ST_IPv6_ {
 	CHAR bRouter;              //* 通过RA或DHCPv6获得的链路内可用的路由器，这里比ST_IPv6_DYNADDR::bitRouter多一位的目的是利用第4位来标识其是否已挂接一个有效路由器节点，即bitRouter > 7 代表尚未挂接任何路由器	
 	CHAR bitCfgState      : 3; //* 地址配置状态
 	CHAR bitOptCnt        : 3; //* 操作计数
-	CHAR bitSvvTimerState : 2; //* 生存计时器状态
+	CHAR bitSvvTimerState : 2; //* 生存计时器状态（Survival timer）
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } PACKED ST_IPv6, *PST_IPv6; 
 PACKED_END

@@ -240,6 +240,185 @@ PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRoute
 	} while (pstNextRouter);
 }
 
+//* 检查网卡的所有地址节点，看看其是否已完成无状态地址自动配置
+static BOOL netif_ipv6_dyn_addr_cfg_ended(PST_NETIF pstNetif)
+{
+}
+
+static BOOL netif_ipv6_dhcpv6_cfg_ended(PST_NETIF pstNetif)
+{
+}
+
+static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
+{	
+	PST_IPv6_DYNADDR pstNextAddr;
+	CHAR bNext = -1;
+
+	os_critical_init(); 
+
+	//* 不需要保护，因为只有增加是在其它线程，但是增加操作是将地址增加到链表的尾部，完全不受影响，删除操作仅在本定时器，即使网卡DOWN操作，这里也会根据网卡状态清空地址列表后再结束使命
+	do {
+		pstNextAddr = netif_ipv6_dyn_addr_next(pstNetif, &bNext);
+		if (pstNextAddr)
+		{
+			os_enter_critical();
+			{
+				//* 既不是永生又不是寿命已到，此时需要对寿命进行递减
+				if (pstNextAddr->unPreferredLifetime != 0xFFFFFFFF && pstNextAddr->unPreferredLifetime != 0)
+				{
+					pstNextAddr->unPreferredLifetime--;
+					if (!pstNextAddr->unPreferredLifetime)
+						pstNextAddr->bitState = IPv6ADDR_DEPRECATED; 
+				}
+
+				if (pstNextAddr->unValidLifetime != 0xFFFFFFFF && pstNextAddr->unValidLifetime != 0)				
+					pstNextAddr->unValidLifetime--; 
+			}			
+			os_exit_critical();
+
+			//* 先离开一次临界区，然后再进入后再判断是否需要删除，这样允许CPU被其它线程或中断抢占，特别是此时如果恰好有RA报文到达更新有效生存时间的话那就不用删除当前这个节点了
+			os_enter_critical();
+			{								
+				if (!pstNextAddr->unValidLifetime && !pstNextAddr->i6a_ref_cnt) //* 地址已经无效了且未在使用，摘除并归还
+				{					
+					netif_ipv6_dyn_addr_del(pstNetif, pstNextAddr);
+					ipv6_dyn_addr_node_free(pstNextAddr);
+				}
+			}
+			os_exit_critical();
+		}
+		else
+			break;
+	} while (bNext >= 0);
+}
+
+static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
+{
+	PST_IPv6_ROUTER pstNextRouter;
+	CHAR bNext = -1;
+
+	os_critical_init();
+
+	//* 同样不需要保护，参见netif_ipv6_dyn_addr_lifetime_decrement()函数注释
+	do {
+		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext);
+		if (pstNextRouter)
+		{
+			os_enter_critical();
+			{
+				if (pstNextRouter->usLifetime != 0)
+					pstNextRouter->usLifetime--; 
+			}
+			os_exit_critical(); 
+
+			//*同样先离开再入临界区
+			os_enter_critical(); 
+			{
+				if (!pstNextRouter->usLifetime && !pstNextRouter->i6r_ref_cnt) //* 路由器生存时间到期且未在使用，摘除并归还
+				{
+					netif_ipv6_router_del(pstNetif, pstNextRouter);
+					ipv6_router_node_free(pstNextRouter); 
+				}
+			}
+			os_exit_critical(); 
+		}
+		else
+			break; 
+	} while (bNext >= 0);
+}
+
+static BOOL netif_ipv6_svv_timer_end(PST_NETIF pstNetif)
+{
+	PST_IPv6_DYNADDR pstNextAddr;
+	PST_IPv6_ROUTER pstNextRouter;
+	CHAR bNext = -1;
+	CHAR bIsFreedOK = TRUE; 
+
+	os_critical_init();
+
+	//* 先归还地址节点
+	do {
+		pstNextAddr = netif_ipv6_dyn_addr_next(pstNetif, &bNext);
+		if (pstNextAddr)
+		{			
+			os_enter_critical();
+			{
+				if (!pstNextAddr->i6a_ref_cnt)
+				{
+					netif_ipv6_dyn_addr_del(pstNetif, pstNextAddr);
+					ipv6_dyn_addr_node_free(pstNextAddr);
+				}
+				else
+					bIsFreedOK = FALSE; 
+			}
+			os_exit_critical();
+		}
+		else
+			break;
+	} while (bNext >= 0); 
+
+	//* 归还路由器节点
+	do {
+		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext);
+		if (pstNextRouter)
+		{			
+			os_enter_critical();
+			{
+				if (!pstNextRouter->i6r_ref_cnt)
+				{
+					netif_ipv6_router_del(pstNetif, pstNextRouter);
+					ipv6_router_node_free(pstNextRouter);
+				}
+				else
+					bIsFreedOK = FALSE; 
+			}
+			os_exit_critical();
+		}
+		else
+			break;
+	} while (bNext >= 0);
+
+	return bIsFreedOK; 
+}
+
+static void ipv6_svv_timeout_handler(void *pvParam)
+{
+	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
+	
+
+	if(pstNetif->stIPv6.bitSvvTimerState == IPv6SVVTMR_INVALID) 
+		pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_RUN; 
+
+	//* 允许运行的状态
+	if (pstNetif->stIPv6.bitSvvTimerState == IPv6SVVTMR_RUN)
+	{
+		//* 动态地址及缺省路由器生存计时器递减
+		netif_ipv6_dyn_addr_lifetime_decrement(pstNetif); 
+		netif_ipv6_router_lifetime_decrement(pstNetif); 
+	}
+	else //* 迁移到IPv6SVVTMR_STOP状态，回收所有已占用的地址及路由器节点资源并归还生存定时器
+	{
+		if (netif_ipv6_svv_timer_end(pstNetif))
+		{
+			pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_RELEASED; 
+			return; 
+		}
+	}
+
+	if (!one_shot_timer_new(ipv6_svv_timeout_handler, pstNetif, 1))
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("ipv6_svv_timeout_handler() failed, %s\r\n", onps_error(ERRNOIDLETIMER));
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+	}
+}
+
 //* ipv6地址自动配置状态机（one-shot定时器方式实现，每隔一秒检查一次状态并依据配置规则进行状态迁移），该定时器
 //* 全权负责进行状态迁移操作，其它线程不会进行任何迁移操作
 static void ipv6_cfg_timeout_handler(void *pvParam)
@@ -252,14 +431,14 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 		{
 			//* 迁移到路由器请求（RS）状态，发送路由器请求报文
 			pstNetif->stIPv6.bitCfgState = IPv6CFG_RS; 
-			icmpv6_send_rs(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaVal, NULL); 
+			icmpv6_send_rs(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaVal, NULL); 			
 		}
 		break; 
 
 	case IPv6CFG_RS: 		
 		if (pstNetif->stIPv6.bRouter < 0) //* 尚未收到任何路由器通告（RA）报文
 		{
-			pstNetif->stIPv6.bitOptCnt++; 
+			pstNetif->stIPv6.bitOptCnt++;
 			if (pstNetif->stIPv6.bitOptCnt < 3)
 			{
 				//* 继续发送路由器请求（RS）报文
@@ -267,14 +446,42 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 			}
 		}
 		else
+			pstNetif->stIPv6.bitCfgState = IPv6CFG_WAIT_DYNADDRCFG_END; //* 迁移到等待无状态地址配置结束，其实就是检索所有动态地址节点，所有节点地址状态非EN_IPv6ADDRSTATE::IPv6ADDR_TENTATIVE状态即可
+		break; 
+
+	case IPv6CFG_WAIT_DYNADDRCFG_END: 
+		if (netif_ipv6_dyn_addr_cfg_ended(pstNetif))
+			pstNetif->stIPv6.bitCfgState = IPv6CFG_WAIT_Dv6CFG_END; //* 迁移到等待所有路由器Dhcpv6配置结束的状态，同样检索所有缺省路由器节点，等待其配置状态为EN_DHCPv6CFGSTATE::Dv6CFG_END
+		break; 
+
+	case IPv6CFG_WAIT_Dv6CFG_END: 
+		if (netif_ipv6_dhcpv6_cfg_ended(pstNetif))
 		{
-			//* 看看路由器m和o标志
+			pstNetif->stIPv6.bitCfgState = IPv6CFG_END; //* 至此配置结束，定时器的使命亦结束
+			return; 
 		}
 		break; 
 
 	default:
 		return; 
 	}
+
+	//* 启动生存时间定时器，放在这里的目的是必须确保这个定时器启动成功，否则占用的资源无法被回收，ethernet_del()函数也无法正常运行
+	if (pstNetif->stIPv6.bitSvvTimerState == IPv6SVVTMR_INVALID)
+	{		
+		if (!one_shot_timer_new(ipv6_svv_timeout_handler, pstNetif, 1))
+		{		
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("Ipv6 survival timer failed to start, %s\r\n", onps_error(ERRNOIDLETIMER));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
+	}	
 
 	if (!one_shot_timer_new(ipv6_cfg_timeout_handler, pstNetif, 1)) 
 	{
