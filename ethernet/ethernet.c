@@ -209,7 +209,7 @@ void ethernet_del(PST_NETIF *ppstNetif)
 	//* 通知生存计时器回收资源并结束运行
 	(*ppstNetif)->stIPv6.bitSvvTimerState = IPv6SVVTMR_STOP;
 
-	//* 等待生存计时器回收完全部资源后结束运行
+	//* 等待生存计时器回收完全部资源后才可以删除网卡
 	while (TRUE)
 	{
 		if ((*ppstNetif)->stIPv6.bitSvvTimerState == IPv6SVVTMR_RELEASED)

@@ -33,14 +33,6 @@ typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
 typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
 
 #if SUPPORT_ETHERNET
-typedef enum {
-	IPv6CFG_LATENT = 0, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_RS     = 1, //* 路由请求阶段
-	IPv6CFG_TATENT = 2, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_UATENT = 3, //* 链路本地地址重复地址检测阶段
-	IPv6CFG_END
-} EN_IPv6CFGSTATE;
-
 //* IPv6地址到以太网Mac地址映射表存储结构体
 typedef struct _ST_ENTRY_ETHIPv6MAC_ {
 	UINT unUpdateTime;	//* 条目更新（读取/缓存）时间

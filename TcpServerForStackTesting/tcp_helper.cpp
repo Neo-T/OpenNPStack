@@ -4,6 +4,7 @@
 #include <time.h>
 #include <windows.h>
 #include <winsock2.h>
+#include <ws2ipdef.h>
 #define SYMBOL_GLOBALS
 #include "tcp_helper.h"
 #undef SYMBOL_GLOBALS
@@ -11,7 +12,11 @@
 #pragma comment(lib,"ws2_32.lib")
 #pragma comment(lib,"mswsock.lib")
 
+#if SUPPORT_IPv6
+typedef struct sockaddr_in6 ST_SOCKADDR6, *PST_SOCKADDR6;
+#else
 typedef struct sockaddr_in ST_SOCKADDR, *PST_SOCKADDR; 
+#endif
 
 INT load_socket_lib(USHORT usVer, CHAR *pbLoadNum)
 {
@@ -79,23 +84,37 @@ void unload_socket_lib(void)
 
 SOCKET start_tcp_server(USHORT usPort, UINT unListenNum)
 {
-    SOCKET hSocket;
-    ST_SOCKADDR stSockAddr;
+    SOCKET hSocket;    
     INT nOn;
     INT nErrCode = 0;
 
+#if SUPPORT_IPv6
+	ST_SOCKADDR6 stSockAddr6; 
+	if ((hSocket = socket(AF_INET6, SOCK_STREAM, 0)) == INVALID_SOCKET)
+		return INVALID_SOCKET;
+#else
+	ST_SOCKADDR stSockAddr; 
     if ((hSocket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
         return INVALID_SOCKET;
+#endif
 
     nOn = 1;
     setsockopt(hSocket, SOL_SOCKET, SO_REUSEADDR, (CHAR*)&nOn, sizeof(INT));
 
+#if SUPPORT_IPv6
+	memset(&stSockAddr6, 0, sizeof(ST_SOCKADDR6)); 
+	stSockAddr6.sin6_family = AF_INET6; 
+	stSockAddr6.sin6_port = htons(usPort); 
+	stSockAddr6.sin6_addr = in6addr_any; 
+	if (bind(hSocket, (struct sockaddr*)&stSockAddr6, sizeof(ST_SOCKADDR6)) == SOCKET_ERROR)
+#else
     //* 绑定IP地址和端口号
     memset(&stSockAddr, 0, sizeof(ST_SOCKADDR));
     stSockAddr.sin_family = AF_INET;
     stSockAddr.sin_port = htons(usPort);
     stSockAddr.sin_addr.S_un.S_addr = INADDR_ANY;/*inet_addr("192.168.0.2")*/;
     if (bind(hSocket, (struct sockaddr*)&stSockAddr, sizeof(ST_SOCKADDR)) == SOCKET_ERROR)
+#endif
     {
         switch (WSAGetLastError())
         {

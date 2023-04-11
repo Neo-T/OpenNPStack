@@ -225,17 +225,17 @@ void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter)
 	os_exit_critical();
 }
 
-//* 通过指定的ipv6地址查找已绑定到网卡上的路由器
+//* 通过指定的ipv6地址查找已绑定到网卡上的路由器，注意这个函数的调用者在使用完这个路由器节点后需要调用netif_ipv6_router_release()函数释放掉
 PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRouterIpv6Addr)
 {
 	PST_IPv6_ROUTER pstNextRouter = NULL;
 	do {
-		//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+		//* 采用线程安全的函数读取路由器节点，直至调用netif_ipv6_router_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
 		pstNextRouter = netif_ipv6_router_next_safe(pstNetif, pstNextRouter, TRUE);
 		if (pstNextRouter)
 		{			
 			if (!memcmp(pstNextRouter->ubaAddr, ubaRouterIpv6Addr, 16))
-				return pstNextRouter; 
+				return pstNextRouter;			
 		}
 	} while (pstNextRouter);
 }
@@ -243,10 +243,42 @@ PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRoute
 //* 检查网卡的所有地址节点，看看其是否已完成无状态地址自动配置
 static BOOL netif_ipv6_dyn_addr_cfg_ended(PST_NETIF pstNetif)
 {
+	PST_IPv6_DYNADDR pstNextAddr = NULL; 
+	CHAR bIsCfgEnded = TRUE; 
+
+	do {
+		//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+		pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
+		if (pstNextAddr && pstNextAddr->bitState == IPv6ADDR_TENTATIVE)
+		{
+			//* 处理完毕释放当前地址节点，其实就是引用计数减一
+			netif_ipv6_dyn_addr_release(pstNextAddr);				
+
+			bIsCfgEnded = FALSE; 
+			break; 
+		}
+	} while (pstNextAddr); 
+
+	return bIsCfgEnded; 
 }
 
 static BOOL netif_ipv6_dhcpv6_cfg_ended(PST_NETIF pstNetif)
 {
+	PST_IPv6_ROUTER pstNextRouter = NULL;
+	CHAR bIsCfgEnded = TRUE;
+
+	do {		
+		pstNextRouter = netif_ipv6_router_next_safe(pstNetif, pstNextRouter, TRUE);
+		if (pstNextRouter && pstNextRouter->bitDv6CfgState != Dv6CFG_END)
+		{			
+			netif_ipv6_router_release(pstNextRouter);
+
+			bIsCfgEnded = FALSE;
+			break;
+		}
+	} while (pstNextRouter);
+
+	return bIsCfgEnded; 
 }
 
 static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
@@ -327,7 +359,7 @@ static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
 	} while (bNext >= 0);
 }
 
-static BOOL netif_ipv6_svv_timer_end(PST_NETIF pstNetif)
+static BOOL netif_ipv6_addr_and_router_released(PST_NETIF pstNetif)
 {
 	PST_IPv6_DYNADDR pstNextAddr;
 	PST_IPv6_ROUTER pstNextRouter;
@@ -384,10 +416,6 @@ static BOOL netif_ipv6_svv_timer_end(PST_NETIF pstNetif)
 static void ipv6_svv_timeout_handler(void *pvParam)
 {
 	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
-	
-
-	if(pstNetif->stIPv6.bitSvvTimerState == IPv6SVVTMR_INVALID) 
-		pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_RUN; 
 
 	//* 允许运行的状态
 	if (pstNetif->stIPv6.bitSvvTimerState == IPv6SVVTMR_RUN)
@@ -396,10 +424,12 @@ static void ipv6_svv_timeout_handler(void *pvParam)
 		netif_ipv6_dyn_addr_lifetime_decrement(pstNetif); 
 		netif_ipv6_router_lifetime_decrement(pstNetif); 
 	}
-	else //* 迁移到IPv6SVVTMR_STOP状态，回收所有已占用的地址及路由器节点资源并归还生存定时器
+	else //* 已被迁移到IPv6SVVTMR_STOP状态，此时将立即回收所有已占用的地址及路由器节点资源并归还生存定时器
 	{
-		if (netif_ipv6_svv_timer_end(pstNetif))
+		//* 确定所有地址和路由器节点已被释放
+		if (netif_ipv6_addr_and_router_released(pstNetif))
 		{
+			//* 所有节点已被释放，状态迁移到IPv6SVVTMR_RELEASED态，通知将状态迁移到IPv6SVVTMR_STOP态的“操作者”可以继续网卡的删除操作了，这里则直接结束当前计时器的使命
 			pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_RELEASED; 
 			return; 
 		}
@@ -466,10 +496,12 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 		return; 
 	}
 
-	//* 启动生存时间定时器，放在这里的目的是必须确保这个定时器启动成功，否则占用的资源无法被回收，ethernet_del()函数也无法正常运行
+	//* 启动生存时间定时器，放在这里的目的是必须确保这个定时器启动成功，否则占用的资源无法被回收，网卡删除操作相关的函数如ethernet_del()将被阻塞
 	if (pstNetif->stIPv6.bitSvvTimerState == IPv6SVVTMR_INVALID)
 	{		
-		if (!one_shot_timer_new(ipv6_svv_timeout_handler, pstNetif, 1))
+		if (one_shot_timer_new(ipv6_svv_timeout_handler, pstNetif, 1))
+			pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_RUN; 
+		else
 		{		
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
 		#if PRINTF_THREAD_MUTEX
@@ -545,7 +577,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 			}
 
 			icmpv6_send_ns(pstNetif, NULL, pstTentAddr->ubaVal, NULL);    //* 继续发送试探报文，确保所有节点都能收到
-			one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pvParam, 1); //* 再次开启定时器
+			one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pvParam, 1); //* 再次开启定时器继续“试探”
 		}
 		else
 		{						
@@ -556,7 +588,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 				//netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
 
-			pstTentAddr->bitState = IPv6ADDR_PREFERRED;
+			pstTentAddr->bitState = IPv6ADDR_PREFERRED; //* 地址状态迁移到“可用”状态
 		}
 
 		break;

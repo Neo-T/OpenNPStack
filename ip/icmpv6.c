@@ -779,7 +779,7 @@ static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 				&& !memcmp(pstNeiAdvHdr->ubaTargetAddr, pstNetif->stIPv6.stLnkAddr.ubaVal, 16))
 				pstNetif->stIPv6.stLnkAddr.bitConflict = TRUE; 
 		}
-		else if(pstNetif->stIPv6.bitCfgState == IPv6CFG_DYNADDR)
+		else if(IPv6CFG_LNKADDR < pstNetif->stIPv6.bitCfgState < IPv6CFG_END)
 		{
 			PST_IPv6_DYNADDR pstNextAddr = NULL; 
 			do {
@@ -877,6 +877,8 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 					
 					//* 路由器管理员有可能通过很短的首选生存时间来主动弃用某个地址，所以这个选项必须无条件更新（显然相对于将很短的有效生存时间视为非法的规则，该规则重点考虑了网络管理的便利性）
 					pstAddr->unPreferredLifetime = unPreferredLifetime;  
+					if (unPreferredLifetime)
+						pstAddr->bitState = IPv6ADDR_PREFERRED; //* 再次调整为地址“可用”状态
 				}
 				os_exit_critical(); 
 
@@ -1159,12 +1161,18 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		pstRouter->pstNetif = pstNetif; 						
 		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));
 
-		//* 添加到网卡
-		pstRouter->bitDv6CfgState = Dv6CFG_INIT;
-		netif_ipv6_router_add(pstNetif, pstRouter);
-
 		//* 根据m和o标志确定是否发送dhcpv6请求包，参见[RFC4861]4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
+		if (pstRouterAdvHdr->icmpv6_ra_flag_m || pstRouterAdvHdr->icmpv6_ra_flag_o)
+		{
+			pstRouter->bitDv6CfgState = Dv6CFG_INIT; 
 
+			//* 开启DHCPv6配置请求流程
+		}
+		else
+			pstRouter->bitDv6CfgState = Dv6CFG_END; 
+
+		//* 添加到网卡		
+		netif_ipv6_router_add(pstNetif, pstRouter);				
 	}	
 }
 
