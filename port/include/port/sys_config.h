@@ -55,9 +55,6 @@
 
 #define NETIF_NUM		(PPP_NETLINK_NUM + ETHERNET_NUM)    //* 系统支持的网卡数量
 #define ROUTE_ITEM_NUM	8									//* Ipv4系统路由表数量
-#if SUPPORT_IPV6
-	#define ROUTE_IPv6_ITEM_NUM	8  //* Ipv6系统路由表数量
-#endif
  //* ===============================================================================================
 
 //* 内存管理单元(mmu)相关配置项，其直接影响协议栈能分配多少个socket给用户使用

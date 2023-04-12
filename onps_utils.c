@@ -980,4 +980,43 @@ INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCo
 
 	return nRtnVal;
 }
+
+INT bit8_matched_from_left(UCHAR ch1, UCHAR ch2, UCHAR ubCmpBits)
+{
+	UCHAR i;
+	UCHAR ubMask = 0x80;
+	for (i = 0; i < ubCmpBits; i++)
+	{
+		if ((ch1 & ubMask) != (ch2 & ubMask))
+			break;
+		ubMask >>= 1;
+	}
+
+	return i;
+}
+
+INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16], UCHAR ubPrefixBitsLen)
+{
+	UCHAR ubCmpBytes = ubPrefixBitsLen / 8;
+	UCHAR ubCmpBits = ubPrefixBitsLen % 8;
+	UCHAR i, bMatchedBytes = 0;
+
+	for (i = 0; i < ubCmpBytes; i++)
+	{
+		if (ubaAddr1[i] != ubaAddr2[i])
+			goto __lblMacthedBits;
+		bMatchedBytes++;
+	}
+
+	if (ubCmpBits)
+	{
+		return ubPrefixBitsLen - ubCmpBits + bit8_matched_from_left(ubaAddr1[i], ubaAddr2[i], ubCmpBits);
+	}
+	else
+		return ubPrefixBitsLen;
+
+__lblMacthedBits:
+	return bMatchedBytes * 8 + bit8_matched_from_left(ubaAddr1[i], ubaAddr2[i], 8);
+}
+
 #endif

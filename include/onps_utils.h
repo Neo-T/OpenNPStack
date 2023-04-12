@@ -127,10 +127,14 @@ ONPS_UTILS_EXT BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr);
 //* 返回值为域名级数，其实就是这个域名分了几段
 ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg); 
 
+//* 返回两个8位字节匹配的位数，从左侧开始比较（高到低）
+ONPS_UTILS_EXT INT bit8_matched_from_left(UCHAR ch1, UCHAR ch2, UCHAR ubCmpBits); 
+
 #if SUPPORT_IPV6
 ONPS_UTILS_EXT const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
 ONPS_UTILS_EXT const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16]); 
-ONPS_UTILS_EXT INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCompare); //* 参数ubBitsToCompare指定要比较的数据位数，最长即为ipv6地址的128位长
+ONPS_UTILS_EXT INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCompare); //* 参数ubBitsToCompare指定要比较的数据位数，最长即为ipv6地址的128位长，返回值为0则相等，1则前者大于后者，-1则后者大于前者
+ONPS_UTILS_EXT INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16], UCHAR ubPrefixBitsLen); //* 给出两个地址前缀匹配的数据位数，返回值为匹配的位数，0为不匹配
 #endif
 
 #endif

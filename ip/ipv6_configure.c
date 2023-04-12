@@ -291,7 +291,7 @@ static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
 	//* 不需要保护，因为只有增加是在其它线程，但是增加操作是将地址增加到链表的尾部，完全不受影响，删除操作仅在本定时器，即使网卡DOWN操作，这里也会根据网卡状态清空地址列表后再结束使命
 	do {
 		pstNextAddr = netif_ipv6_dyn_addr_next(pstNetif, &bNext);
-		if (pstNextAddr)
+		if (pstNextAddr && pstNextAddr->bitState != IPv6ADDR_TENTATIVE)
 		{
 			os_enter_critical();
 			{
@@ -303,8 +303,12 @@ static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
 						pstNextAddr->bitState = IPv6ADDR_DEPRECATED; 
 				}
 
-				if (pstNextAddr->unValidLifetime != 0xFFFFFFFF && pstNextAddr->unValidLifetime != 0)				
-					pstNextAddr->unValidLifetime--; 
+				if (pstNextAddr->unValidLifetime != 0xFFFFFFFF && pstNextAddr->unValidLifetime != 0)
+				{					
+					pstNextAddr->unValidLifetime--;					
+					if (pstNextAddr->unValidLifetime == IPv6ADDR_INVALID_TIME)
+						pstNextAddr->bitState = IPv6ADDR_INVALID;
+				}
 			}			
 			os_exit_critical();
 
@@ -334,7 +338,7 @@ static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
 	//* 同样不需要保护，参见netif_ipv6_dyn_addr_lifetime_decrement()函数注释
 	do {
 		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext);
-		if (pstNextRouter)
+		if (pstNextRouter && pstNextRouter->bitDv6CfgState == Dv6CFG_END) //* 只有配置完毕的才开始计时
 		{
 			os_enter_critical();
 			{
@@ -457,7 +461,7 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 	switch (pstNetif->stIPv6.bitCfgState)
 	{
 	case IPv6CFG_LNKADDR: 
-		if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED) //* 配置完成？
+		if (pstNetif->stIPv6.stLnkAddr.bitState != IPv6ADDR_TENTATIVE) //* 配置完成？
 		{
 			//* 迁移到路由器请求（RS）状态，发送路由器请求报文
 			pstNetif->stIPv6.bitCfgState = IPv6CFG_RS; 
@@ -588,7 +592,16 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 				//netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
 
-			pstTentAddr->bitState = IPv6ADDR_PREFERRED; //* 地址状态迁移到“可用”状态
+			os_critical_init();
+
+			os_enter_critical();
+			{
+				if (pstTentAddr->unPreferredLifetime)
+					pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“可用”状态
+				else
+					pstTentAddr->bitState = IPv6ADDR_DEPRECATED; //* 地址状态迁移到“弃用”状态
+			}
+			os_exit_critical(); 
 		}
 
 		break;

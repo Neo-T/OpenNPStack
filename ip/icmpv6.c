@@ -815,7 +815,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 #endif
 	}
 
-	UINT unValidLifetime = htonl(pstPrefixInfo->unValidLifetime); 
+	UINT unValidLifetime = htonl(pstPrefixInfo->unValidLifetime);
 	UINT unPreferredLifetime = htonl(pstPrefixInfo->unPreferredLifetime); 
 
 	if (unValidLifetime < unPreferredLifetime)
@@ -830,7 +830,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	#endif
 #endif
 		return; 
-	}
+	}	
 
 	os_critical_init();
 
@@ -868,16 +868,16 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 				os_enter_critical(); 
 				{
 					if(unValidLifetime > 7200 || unValidLifetime > pstAddr->unValidLifetime)
-						pstAddr->unValidLifetime = unValidLifetime; 
+						pstAddr->unValidLifetime = unValidLifetime + IPv6ADDR_INVALID_TIME;
 					else
 					{
 						if (pstAddr->unValidLifetime > 7200)
-							pstAddr->unValidLifetime = 7200; 
+							pstAddr->unValidLifetime = 7200 + IPv6ADDR_INVALID_TIME;
 					}
 					
 					//* 路由器管理员有可能通过很短的首选生存时间来主动弃用某个地址，所以这个选项必须无条件更新（显然相对于将很短的有效生存时间视为非法的规则，该规则重点考虑了网络管理的便利性）
 					pstAddr->unPreferredLifetime = unPreferredLifetime;  
-					if (unPreferredLifetime)
+					if (unPreferredLifetime && pstAddr->bitState > IPv6ADDR_PREFERRED)
 						pstAddr->bitState = IPv6ADDR_PREFERRED; //* 再次调整为地址“可用”状态
 				}
 				os_exit_critical(); 
@@ -897,7 +897,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 		icmpv6_dyn_addr(pstNetif, pstAddr->ubaVal, pstPrefixInfo->ubaPrefix, pstPrefixInfo->ubPrefixBitLen);
 		pstAddr->bitRouter = ipv6_router_get_index(pstRouter);
 		pstAddr->bitPrefixBitLen = pstPrefixInfo->ubPrefixBitLen;
-		pstAddr->unValidLifetime = unValidLifetime;
+		pstAddr->unValidLifetime = unValidLifetime ? unValidLifetime + IPv6ADDR_INVALID_TIME : IPv6ADDR_INVALID_TIME + 1; 
 		pstAddr->unPreferredLifetime = unPreferredLifetime;
 		netif_ipv6_dyn_addr_add(pstNetif, pstAddr);
 

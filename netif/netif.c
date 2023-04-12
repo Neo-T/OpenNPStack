@@ -14,6 +14,12 @@
 #include "netif/netif.h"
 #undef SYMBOL_GLOBALS
 
+#if SUPPORT_IPV6
+#include "ip/icmpv6.h"
+#include "ip/ipv6_configure.h"
+#endif
+
+
 static ST_NETIF_NODE l_staNetifNode[NETIF_NUM]; 
 static PST_NETIF_NODE l_pstFreeNode = NULL; 
 static PST_NETIF_NODE l_pstNetifLink = NULL; 
@@ -300,7 +306,7 @@ PST_NETIF netif_get_by_name(const CHAR *pszIfName)
 }
 
 #if SUPPORT_ETHERNET
-PST_NETIF netif_get_eth_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsForSending)
+PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsForSending)
 {
     PST_NETIF pstNetif = NULL;
 
@@ -429,24 +435,13 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
     return pstNetif->stIPv4.unAddr;
 }
 
-#if SUPPORT_IPV6
-UCHAR *netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestination[16])
+#if SUPPORT_IPV6 
+//* https://www.rfc-editor.org/rfc/rfc3484#section-5
+PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, BOOL blIsForSending)
 {
-	//* 临时地址不为空，且匹配则返回临时地址
-	if (pstNetif->stIPv6.ubaTmpAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNetif->stIPv6.ubaTmpAddr, pstNetif->stIPv6.bitTAPrefixBitLen))
-		return pstNetif->stIPv6.ubaTmpAddr; 
-
-	//* 单播地址不为空，且匹配则返回单播地址
-	if (pstNetif->stIPv6.ubaUniAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNetif->stIPv6.ubaUniAddr, pstNetif->stIPv6.bitUAPrefixBitLen))
-		return pstNetif->stIPv6.ubaUniAddr;
-
-	//* 都不匹配则返回由协议栈自己生成的链路本地地址
-	return pstNetif->stIPv6.ubaLnkAddr; 
-}
-
-PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, BOOL blIsForSending)
-{
-	PST_NETIF pstNetif = NULL;
+	PST_NETIF pstNetif, pstMatchedNetif = NULL;
+	UCHAR *pubNetifIpv6 = NULL; 
+	UCHAR ubMatchedBitsMax = 0;
 
 	os_thread_mutex_lock(l_hMtxNetif);
 	{
@@ -455,32 +450,64 @@ PST_NETIF netif_get_eth_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 		{
 			if (NIF_ETHERNET == pstNextNode->stIf.enType)
 			{
-				//* 临时地址不为空，且匹配则返回临时地址
-				if (pstNextNode->stIf.stIPv6.ubaTmpAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaTmpAddr, pstNextNode->stIf.stIPv6.bitTAPrefixBitLen))
+				UCHAR ubMatchedBits; 
+
+				pstNetif = &pstNextNode->stIf;
+
+				//* 先检索生成的动态地址
+				PST_IPv6_DYNADDR pstNextAddr = NULL;
+				do {
+					//* 采用线程安全的函数读取地址节点，如果遍历所有节点，则不需要调用netif_ipv6_dyn_addr_release()函数释放该地址节点，调用下一个地址节点时上一个节点会被释放，这里选择
+					//* 处于有效生存期间的地址节点，在这里不用担心有效生存时间到期后节点资源会被立即释放，这之后还会有IPv6ADDR_INVALID_TIME时间确保资源不会被立即回收，足够循环处理结束
+					pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
+					if (pstNextAddr && (pstNextAddr->bitState == IPv6ADDR_PREFERRED || pstNextAddr->bitState == IPv6ADDR_DEPRECATED))
+					{
+						ubMatchedBits = ipv6_prefix_matched_bits(ubaDestination, pstNextAddr->ubaVal, pstNextAddr->bitPrefixBitLen);
+						if (ubMatchedBits == pstNextAddr->bitPrefixBitLen) //* 前缀完全匹配则直接返回即可
+						{					
+							if (pubSource)
+								memcpy(pubSource, pstNextAddr->ubaVal, 16); 							
+
+							if (blIsForSending)
+								pstNetif->bUsedCount++;
+
+							os_thread_mutex_unlock(l_hMtxNetif);
+
+							netif_ipv6_dyn_addr_release(pstNextAddr); 
+
+							return pstNetif;
+						}
+						else
+						{
+							if (ubMatchedBits > ubMatchedBitsMax)
+							{
+								ubMatchedBitsMax = ubMatchedBits;
+								pubNetifIpv6 = pstNextAddr->ubaVal; 
+								pstMatchedNetif = pstNetif;  
+							}
+						}						
+					}
+				} while (pstNextAddr);
+
+
+				//* 再比较本地链路地址是否前缀匹配
+				ubMatchedBits = ipv6_prefix_matched_bits(ubaDestination, pstNetif->stIPv6.stLnkAddr.ubaVal, 64);
+				if (ubMatchedBits < 64)
 				{
-					pstNetif = &pstNextNode->stIf;
+					if (ubMatchedBits > ubMatchedBitsMax)
+					{
+						ubMatchedBitsMax = ubMatchedBits;
+						pubNetifIpv6 = pstNetif->stIPv6.stLnkAddr.ubaVal; 
+						pstMatchedNetif = pstNetif;
+					}
+				}
+				else
+				{
 					if (pubSource)
-						memcpy(pubSource, pstNetif->stIPv6.ubaTmpAddr, 16);
+						memcpy(pubSource, pstNetif->stIPv6.stLnkAddr.ubaVal, 16); 
+					 
 					break; 
-				}
-
-				//* 单播地址不为空，且匹配则返回单播地址
-				if (pstNextNode->stIf.stIPv6.ubaUniAddr[0] && !ipv6_addr_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaUniAddr, pstNextNode->stIf.stIPv6.bitUAPrefixBitLen))
-				{
-					pstNetif = &pstNextNode->stIf;
-					if (pubSource)
-						memcpy(pubSource, pstNetif->stIPv6.ubaUniAddr, 16);
-					break;
-				}
-
-				//* 到这里则只有链路本地地址需要确定是否匹配了
-				if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stIf.stIPv6.ubaLnkAddr, pstNextNode->stIf.stIPv6.bitLAPrefixBitLen))
-				{
-					pstNetif = &pstNextNode->stIf;
-					if (pubSource)
-						memcpy(pubSource, pstNetif->stIPv6.ubaLnkAddr, 16);
-					break;
-				}
+				}					
 			}
 
 			pstNextNode = pstNextNode->pstNext;

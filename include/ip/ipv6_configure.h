@@ -31,6 +31,7 @@ typedef enum {
 } EN_IPv6CFGSTATE;
 
 //* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
+#define IPv6ADDR_INVALID_TIME	10 //* 地址变为无效后的静止时间确保这个地址不会被立即释放，避免地址资源被回收后导致的协议栈崩溃问题的发生
 typedef enum {
 	IPv6ADDR_TENTATIVE  = 0, //* 试探
 	IPv6ADDR_PREFERRED  = 1, //* 选用

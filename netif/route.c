@@ -19,10 +19,6 @@ static PST_ROUTE_NODE l_pstFreeNode = NULL;
 static PST_ROUTE_NODE l_pstRouteLink = NULL;
 static HMUTEX l_hMtxRoute = INVALID_HMUTEX;
 
-static ST_ROUTE_IPv6_NODE l_staRouteIpv6Node[ROUTE_IPv6_ITEM_NUM];
-static PST_ROUTE_IPv6_NODE l_pstFreeNodeIpv6 = NULL;
-static PST_ROUTE_IPv6_NODE l_pstRouteIpv6Link = NULL;
-static HMUTEX l_hMtxRouteIpv6 = INVALID_HMUTEX;
 BOOL route_table_init(EN_ONPSERR *penErr)
 {
     //* 路由表清零
@@ -33,29 +29,10 @@ BOOL route_table_init(EN_ONPSERR *penErr)
     for (i = 1; i < ROUTE_ITEM_NUM; i++)
         l_staRouteNode[i - 1].pstNext = &l_staRouteNode[i];
     l_pstFreeNode = &l_staRouteNode[0];
-
-#if SUPPORT_IPV6
-	for (i = 1; i < ROUTE_IPv6_ITEM_NUM; i++)
-		l_staRouteIpv6Node[i - 1].pstNext = &l_staRouteIpv6Node[i];
-	l_pstFreeNodeIpv6 = &l_staRouteIpv6Node[0];
-
-	l_hMtxRouteIpv6 = os_thread_mutex_init();
-	if (INVALID_HMUTEX == l_hMtxRouteIpv6)
-	{
-		if (penErr)
-			*penErr = ERRMUTEXINITFAILED;
-		return FALSE; 
-	}
-#endif
 	
     l_hMtxRoute = os_thread_mutex_init();
     if (INVALID_HMUTEX != l_hMtxRoute)
         return TRUE;
-
-#if SUPPORT_IPV6
-	//* 失败了，归还刚才占用的资源
-	os_thread_mutex_uninit(l_hMtxRouteIpv6); 
-#endif
 
     if (penErr)
         *penErr = ERRMUTEXINITFAILED;
@@ -70,14 +47,6 @@ void route_table_uninit(void)
 
     if (INVALID_HMUTEX != l_hMtxRoute)
         os_thread_mutex_uninit(l_hMtxRoute);
-
-#if SUPPORT_IPV6
-	l_pstRouteIpv6Link = NULL;
-	l_pstFreeNodeIpv6 = NULL;
-
-	if (INVALID_HMUTEX != l_hMtxRoute)
-		os_thread_mutex_uninit(l_hMtxRouteIpv6);
-#endif
 }
 
 static PST_ROUTE_NODE get_free_node(void)
@@ -265,7 +234,7 @@ PST_NETIF route_get_netif(UINT unDestination, BOOL blIsForSending, in_addr_t *pu
 
 #if SUPPORT_ETHERNET
     //* 先查找ethernet网卡链表（PPP链路不需要，因为这个只能按照既定规则发到拨号网络的对端），看看本地网段是否就可以满足要求，而不是需要查找路由表
-    pstNetif = netif_get_eth_by_genmask(unDestination, punSrcIp, blIsForSending); 
+    pstNetif = netif_eth_get_by_genmask(unDestination, punSrcIp, blIsForSending);
     if (pstNetif)
         return pstNetif; 
 #endif
@@ -347,7 +316,7 @@ UINT route_get_netif_ip(UINT unDestination)
 
 #if SUPPORT_ETHERNET
     //* 查找本地ethernet网卡链表，先看看是否目标地址在同一个网段
-    PST_NETIF pstNetif = netif_get_eth_by_genmask(unDestination, &unNetifIp, FALSE);
+    PST_NETIF pstNetif = netif_eth_get_by_genmask(unDestination, &unNetifIp, FALSE);
     if (pstNetif)    
         return unNetifIp;
 #endif
@@ -383,179 +352,6 @@ UINT route_get_netif_ip(UINT unDestination)
 }
 
 #if SUPPORT_IPV6
-static PST_ROUTE_IPv6_NODE route_ipv6_get_free_node(void)
-{
-	PST_ROUTE_IPv6_NODE pstNode;
-	os_thread_mutex_lock(l_hMtxRouteIpv6);
-	{
-		pstNode = l_pstFreeNodeIpv6;
-		if (l_pstFreeNodeIpv6)
-			l_pstFreeNodeIpv6 = l_pstFreeNodeIpv6->pstNext;
-	}
-	os_thread_mutex_unlock(l_hMtxRouteIpv6);
-
-	memset(&pstNode->stRoute, 0, sizeof(pstNode->stRoute));
-	return pstNode;
-}
-
-static void route_ipv6_put_free_node(PST_ROUTE_IPv6_NODE pstNode)
-{
-	os_thread_mutex_lock(l_hMtxRouteIpv6);
-	{
-		pstNode->pstNext = l_pstFreeNodeIpv6;
-		l_pstFreeNodeIpv6 = pstNode;
-	}
-	os_thread_mutex_unlock(l_hMtxRouteIpv6);
-}
-
-BOOL route_ipv6_add(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaGateway[16], UCHAR ubDestPrefixBitLen, EN_ONPSERR *penErr)
-{
-	PST_ROUTE_IPv6_NODE pstNode;
-
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-	CHAR szIpv6[40]; 
-#endif
-
-	//* 先看看是否已经存在这个目标网段
-	os_thread_mutex_lock(l_hMtxRouteIpv6);
-	{
-		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteIpv6Link;
-		while (pstNextNode)
-		{
-			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixBitLen)) //* 目标网段相等，则只更新不增加新条目
-			{
-				memcpy(pstNextNode->stRoute.ubaSource, netif_get_source_ipv6_by_destination(pstNetif, ubaDestination), 16);
-				memcpy(pstNextNode->stRoute.ubaGateway, ubaGateway, 16);
-				pstNextNode->stRoute.ubDestPrefixBitLen = ubDestPrefixBitLen;
-				pstNextNode->stRoute.pstNetif = pstNetif;
-				pstNextNode->stRoute.pstNetif->bUsedCount = 0;
-				pstNode = pstNextNode;
-				os_thread_mutex_unlock(l_hMtxRouteIpv6);
-				goto __lblEnd;
-			}
-
-			pstNextNode = pstNextNode->pstNext;
-		}
-	}
-	os_thread_mutex_unlock(l_hMtxRouteIpv6);
-
-	//* 执行到这里意味着没找到对应的Ipv6路由条目，需要新增一个
-	pstNode = route_ipv6_get_free_node();
-	if (NULL == pstNode)
-	{
-		if (penErr)
-			*penErr = ERRNOROUTENODE;
-
-		return FALSE;
-	}
-
-	//* 保存路由相关信息
-	memcpy(pstNode->stRoute.ubaSource, netif_get_source_ipv6_by_destination(pstNetif, ubaDestination), 16);
-	memcpy(pstNode->stRoute.ubaDestination, ubaDestination, 16);
-	memcpy(pstNode->stRoute.ubaGateway, ubaGateway, 16);
-	pstNode->stRoute.ubDestPrefixBitLen = ubDestPrefixBitLen;
-	pstNode->stRoute.pstNetif = pstNetif;
-
-	//* 加入链表
-	os_thread_mutex_lock(l_hMtxRouteIpv6);
-	{
-		pstNode->pstNext = l_pstRouteIpv6Link;
-		l_pstRouteIpv6Link = pstNode;
-	}
-	os_thread_mutex_unlock(l_hMtxRouteIpv6);
-	pstNode->stRoute.pstNetif->bUsedCount = 0;
-
-__lblEnd:
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 1	
-#if PRINTF_THREAD_MUTEX
-	os_thread_mutex_lock(o_hMtxPrintf);
-#endif
-	printf("Add/Update network interface <%s> to IPv6 routing table\r\n[", pstNode->stRoute.pstNetif->szName);
-	if (pstNode->stRoute.ubaDestination[0]) //* 缺省路由的地址为全零：::/0
-	{
-		printf("destination %s/%d", inet6_ntoa(pstNode->stRoute.ubaDestination, szIpv6), pstNode->stRoute.ubDestPrefixBitLen); 
-	}
-	else
-		printf("destination default");	
-	printf(", gateway %s]\r\n", inet6_ntoa(pstNode->stRoute.ubaGateway, szIpv6)); 
-#if PRINTF_THREAD_MUTEX
-	os_thread_mutex_unlock(o_hMtxPrintf);
-#endif
-#endif
-
-	return TRUE;
-}
-
-void route_ipv6_del(UCHAR ubaDestination[16])
-{
-	PST_ROUTE_IPv6_NODE pstNode = NULL;
-
-	//* 从路由表删除
-	os_thread_mutex_lock(l_hMtxRouteIpv6);
-	{
-		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteIpv6Link;
-		PST_ROUTE_IPv6_NODE pstPrevNode = NULL;
-		while (pstNextNode)
-		{
-			if (!ipv6_addr_cmp(ubaDestination, pstNextNode->stRoute.ubaDestination, pstNextNode->stRoute.ubDestPrefixBitLen))
-			{
-				if (pstPrevNode)
-					pstPrevNode->pstNext = pstNextNode->pstNext;
-				else
-					l_pstRouteIpv6Link = pstNextNode->pstNext;
-				pstNode = pstNextNode;
-				break;
-			}
-			pstPrevNode = pstNextNode;
-			pstNextNode = pstNextNode->pstNext;
-		}
-	}
-	os_thread_mutex_unlock(l_hMtxRouteIpv6);
-
-	if (pstNode)
-		route_ipv6_put_free_node(pstNode);
-}
-
-void route_ipv6_del_ext(PST_NETIF pstNetif)
-{
-	PST_ROUTE_IPv6_NODE pstNode = NULL; 
-
-	//* 从路由表删除
-	os_thread_mutex_lock(l_hMtxRouteIpv6);
-	{
-		//* 等待网络接口使用计数清零，只有清零才可删除当前网络接口在路由表中的所有条目
-		while (pstNetif->bUsedCount)
-			os_sleep_ms(10);
-
-		PST_ROUTE_IPv6_NODE pstNextNode = l_pstRouteIpv6Link;
-		PST_ROUTE_IPv6_NODE pstPrevNode = NULL;
-		while (pstNextNode)
-		{
-			if (pstNextNode->stRoute.pstNetif == pstNetif)
-			{
-				if (pstPrevNode)
-					pstPrevNode->pstNext = pstNextNode->pstNext;
-				else
-					l_pstRouteIpv6Link = pstNextNode->pstNext;
-				pstNode = pstNextNode->pstNext;
-
-				//* 归还节点
-				pstNextNode->pstNext = l_pstFreeNodeIpv6;
-				l_pstFreeNodeIpv6 = pstNextNode;
-
-				//* 继续查找，因为路由表中同一个网络接口可能存在一个以上的路由条目
-				pstNextNode = pstNode;
-			}
-			else
-			{
-				pstPrevNode = pstNextNode;
-				pstNextNode = pstNextNode->pstNext;
-			}
-		}
-	}
-	os_thread_mutex_unlock(l_hMtxRouteIpv6);
-}
-
 PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr)
 {
 	PST_ROUTE_IPv6 pstRoute = NULL;
