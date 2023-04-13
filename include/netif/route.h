@@ -43,8 +43,7 @@ ROUTE_EXT UINT route_get_netif_ip(UINT unDestination);
 
 #if SUPPORT_IPV6
 ROUTE_EXT PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr); 
-ROUTE_EXT PST_NETIF route_ipv6_get_default(void); 
-ROUTE_EXT UCHAR *route_ipv6_get_netif_ip(UCHAR ubaDestination[16], UCHAR ubaNetifIpv6[16]);
+ROUTE_EXT UCHAR *route_ipv6_get_source_ip(UCHAR ubaDestination[16], UCHAR *pubSource); //* 同route_get_netif_ip()函数，确定源地址，用于tcp/udp校验和计算伪ipv6报头
 #endif 
 
 #endif

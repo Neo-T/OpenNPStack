@@ -37,7 +37,11 @@ static const UCHAR l_ubaInputMcAddrs[] = { IPv6MCA_NETIFNODES, IPv6MCA_ALLNODES,
 void ethernet_init(void)
 {
     arp_init(); 
+
+#if SUPPORT_IPV6
 	ipv6_mac_mapping_tbl_init(); 
+#endif
+
     memset(l_staExtraOfEth, 0, sizeof(l_staExtraOfEth)); 
 }
 
@@ -245,9 +249,11 @@ INT ethernet_ii_send(PST_NETIF pstNetif, UCHAR ubProtocol, SHORT sBufListHead, v
         stEthIIHdr.usProtoType = htons(ETHII_ARP);
         break; 
 
+#if SUPPORT_IPV6
 	case IPV6:
 		stEthIIHdr.usProtoType = htons(ETHII_IPV6);
 		break;
+#endif
 
     default: 
         if (penErr)

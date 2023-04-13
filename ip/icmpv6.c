@@ -1032,7 +1032,8 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 		switch (pstOptHdr->ubType)
 		{
 		case ICMPv6NDOPT_SRCLNKADDR: 
-			memcpy(pstRouter->ubaMacAddr, ((PST_ICMPv6NDOPT_LLA)pstOptHdr)->ubaAddr, ETH_MAC_ADDR_LEN); 
+			ipv6_mac_add_entry_ext(((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac, pstRouter->ubaAddr, ((PST_ICMPv6NDOPT_LLA)pstOptHdr)->ubaAddr, TRUE);
+			//memcpy(pstRouter->ubaMacAddr, ((PST_ICMPv6NDOPT_LLA)pstOptHdr)->ubaAddr, ETH_MAC_ADDR_LEN); 
 			break; 
 
 		case ICMPv6NDOPT_PREFIXINFO:
@@ -1088,7 +1089,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 	{
 		//* 更新相关标志
 		//pstRouter->i6r_flag = (pstRouter->i6r_flag & i6r_ref_cnt_mask) | (pstRouterAdvHdr->icmpv6_ra_flag & i6r_flag_mask); 
-		pstRouter->i6r_flag_prf = pstRouterAdvHdr->icmpv6_ra_flag_prf; 
+		pstRouter->i6r_flag_prf = i6r_prf_converter((pstRouterAdvHdr->icmpv6_ra_flag_prf != 2) ? pstRouterAdvHdr->icmpv6_ra_flag_prf : 0);
 	}
 	else 
 	{
@@ -1116,7 +1117,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
 		#endif
-			printf("icmpv6_ra_handler() failed, %s\r\n", onps_error(&enErr)); 
+			printf("icmpv6_ra_handler() failed, %s\r\n", onps_error(enErr)); 
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif
@@ -1127,7 +1128,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 
 		//* 保存路由器地址
 		memcpy(pstRouter->ubaAddr, ubaRouterIpv6, 16); 
-		pstRouter->i6r_flag_prf = pstRouterAdvHdr->icmpv6_ra_flag_prf;
+		pstRouter->i6r_flag_prf = i6r_prf_converter((pstRouterAdvHdr->icmpv6_ra_flag_prf != 2) ? pstRouterAdvHdr->icmpv6_ra_flag_prf : 0);
 		pstRouter->i6r_ref_cnt = 0; 
 		pstRouter->usMtu = 1492; 
 		pstRouter->ubHopLimit = 255; 

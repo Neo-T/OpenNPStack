@@ -93,6 +93,14 @@ PST_IPv6_ROUTER ipv6_router_get(CHAR bRouter)
 		return NULL;
 }
 
+const UCHAR *ipv6_router_get_addr(CHAR bRouter)
+{
+	if (bRouter >= 0 && bRouter < IPV6_ROUTER_NUM)
+		return l_staIpv6Routers[bRouter].ubaAddr;
+	else
+		return NULL;
+}
+
 CHAR ipv6_router_get_index(PST_IPv6_ROUTER pstRouter)
 {
 	return array_linked_list_get_index(pstRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM);
@@ -178,6 +186,8 @@ PST_IPv6_DYNADDR netif_ipv6_dyn_addr_next_safe(PST_NETIF pstNetif, PST_IPv6_DYNA
 
 void netif_ipv6_dyn_addr_release(PST_IPv6_DYNADDR pstDynAddr)
 {
+	os_critical_init(); 
+
 	os_enter_critical();
 	{
 		if (pstDynAddr->i6a_ref_cnt > 0)
@@ -217,6 +227,8 @@ PST_IPv6_ROUTER netif_ipv6_router_next_safe(PST_NETIF pstNetif, PST_IPv6_ROUTER 
 
 void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter)
 {
+	os_critical_init();
+
 	os_enter_critical();
 	{
 		if (pstRouter->i6r_ref_cnt > 0)
@@ -226,7 +238,7 @@ void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter)
 }
 
 //* 通过指定的ipv6地址查找已绑定到网卡上的路由器，注意这个函数的调用者在使用完这个路由器节点后需要调用netif_ipv6_router_release()函数释放掉
-PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRouterIpv6Addr)
+PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRouterIpv6Addr[16])
 {
 	PST_IPv6_ROUTER pstNextRouter = NULL;
 	do {
@@ -238,6 +250,8 @@ PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRoute
 				return pstNextRouter;			
 		}
 	} while (pstNextRouter);
+
+	return NULL; 
 }
 
 //* 检查网卡的所有地址节点，看看其是否已完成无状态地址自动配置
@@ -585,23 +599,26 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 		}
 		else
 		{						
-			//* 如果是动态地址配置成功后还需要一些操作才能将地址状态迁移到“选用”
+			//* 如果是动态地址，配置成功后还需要一些处理才能迁移地址状态
 			if (IPv6LNKADDR_FLAG != pubAddr[15])
 			{
 				pstTentAddr->i6a_ref_cnt = 0; //* 引用计数清0，注意引用计数与bitOptCnt字段复用，此后其被用于显式地通知动态地址生存计时器当前地址是否正在被使用
+
+				//* 这里临界保护的原因是读取这个值并进行状态迁移时存在携带前缀信息的RA报文被再次收到的情况，临界保护避免出现状态迁移冲突的问题
+				os_critical_init();
+				os_enter_critical();
+				{
+					if (pstTentAddr->unPreferredLifetime)
+						pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“可用”状态
+					else
+						pstTentAddr->bitState = IPv6ADDR_DEPRECATED; //* 地址状态迁移到“弃用”状态
+				}
+				os_exit_critical();
+
 				//netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
-
-			os_critical_init();
-
-			os_enter_critical();
-			{
-				if (pstTentAddr->unPreferredLifetime)
-					pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“可用”状态
-				else
-					pstTentAddr->bitState = IPv6ADDR_DEPRECATED; //* 地址状态迁移到“弃用”状态
-			}
-			os_exit_critical(); 
+			else
+				pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“可用”状态			
 		}
 
 		break;
@@ -614,6 +631,8 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 //* 开始ipv6地址自动配置
 BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
+	ipv6_cfg_init();
+
 	//* 初始ST_IPv6各关键字段状态
 	pstNetif->stIPv6.bDynAddr = -1; 
 	pstNetif->stIPv6.bRouter = -1; 

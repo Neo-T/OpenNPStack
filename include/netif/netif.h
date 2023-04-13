@@ -78,7 +78,11 @@ typedef struct _ST_IPv6_LNKADDR_ {
 } PACKED ST_IPv6_LNKADDR, *PST_IPv6_LNKADDR;
 PACKED_END
 
-//* 路由器
+//* 路由器，路由器路由器优先级进行了重新定义，方便程序比较
+#define IPv6ROUTER_PRF_LOW    0 //* 自定义的路由器优先级：低
+#define IPv6ROUTER_PRF_MEDIUM 1 //* 自定义的路由器优先级：中
+#define IPv6ROUTER_PRF_HIGH   2 //* 自定义的路由器优先级：高
+#define i6r_prf_converter(router_prf) ((router_prf) ? ((router_prf) > 1 ? 0 : 2) : 1)
 PACKED_BEGIN
 typedef struct _ST_IPv6_ROUTER_ { 
 	UCHAR ubaAddr[16]; //* 路由器地址	
@@ -87,7 +91,7 @@ typedef struct _ST_IPv6_ROUTER_ {
 	UCHAR bitRefCnt      : 3; //* 引用计数
 	UCHAR bitReserved    : 1; //* 保留
 	UCHAR bitDv6CfgState : 2; //* stateful/stateless DHCPv6配置状态
-	UCHAR bitPrf         : 2; //* 默认路由器优先级，01：高；00：中；11低；10，未指定，发送端不应该发送此值，收到则视作00处理	
+	UCHAR bitPrf         : 2; //* 默认路由器优先级，01：高；00：中；11；低；10，未指定，发送端不应该发送此值，收到则视作00处理	
 
 	USHORT usLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
 
@@ -97,7 +101,7 @@ typedef struct _ST_IPv6_ROUTER_ {
 	} PACKED staDNSSrv[2];    
 
 	USHORT usMtu; 
-	UCHAR ubaMacAddr[6];
+	//UCHAR ubaMacAddr[6];
 	PST_NETIF pstNetif; 
 	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
@@ -160,7 +164,9 @@ typedef struct _ST_NETIFEXTRA_ETH_ {
     UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];     //* mac地址   
     PST_NETIF_ETH_IP_NODE pstIPList;        //* 绑定到该网卡的IP地址
     PSTCB_ETHARP pstcbArp; 
+#if SUPPORT_IPV6
 	PSTCB_ETHIPv6MAC pstcbIpv6Mac; 
+#endif
     PFUN_EMAC_SEND pfunEmacSend; 
     PST_SLINKEDLIST pstRcvedPacketList;
     HSEM hSem;
@@ -170,6 +176,7 @@ typedef struct _ST_NETIFEXTRA_ETH_ {
 NETIF_EXT BOOL netif_init(EN_ONPSERR *penErr);
 NETIF_EXT void netif_uninit(void);
 NETIF_EXT PST_NETIF_NODE netif_add(EN_NETIF enType, const CHAR *pszIfName, PST_IPV4 pstIPv4, PFUN_NETIF_SEND pfunSend, void *pvExtra, EN_ONPSERR *penErr); 
+NETIF_EXT void netif_set_default(PST_NETIF pstNetif); 
 NETIF_EXT void netif_del(PST_NETIF_NODE pstNode); 
 NETIF_EXT void netif_del_ext(PST_NETIF pstNetif);
 NETIF_EXT PST_NETIF netif_get_first(BOOL blIsForSending);
@@ -185,9 +192,8 @@ NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName);
 NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway);
 
 #if SUPPORT_IPV6
-NETIF_EXT void netif_get_source_ipv6_by_destination(PST_NETIF pstNetif, UCHAR ubaDestination[16], UCHAR ubaSource[16]); 
 #if SUPPORT_ETHERNET
-NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, BOOL blIsForSending);
+NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending);
 #endif
 #endif
 
