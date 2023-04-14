@@ -65,7 +65,7 @@ typedef enum {
 #define ICMPV6OPT_SLLA	1	//* Source link-layer address，源链路层地址可选项
 #define ICMPV6OPT_TLLA	2	//* Target link-layer address，目标链路层地址可选项
 
- //* Icmpv6帧头部结构体
+//* Icmpv6帧头部结构体
 PACKED_BEGIN
 typedef struct _ST_ICMPv6_HDR_ {
     UCHAR ubType; 
