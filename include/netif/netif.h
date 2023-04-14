@@ -83,6 +83,7 @@ PACKED_END
 #define IPv6ROUTER_PRF_MEDIUM 1 //* 自定义的路由器优先级：中
 #define IPv6ROUTER_PRF_HIGH   2 //* 自定义的路由器优先级：高
 #define i6r_prf_converter(router_prf) ((router_prf) ? ((router_prf) > 1 ? 0 : 2) : 1)
+#define i6r_prf_desc(router_prf)      ((router_prf) ? ((router_prf) > 1 ? "High" : "Medium") : "Low")
 PACKED_BEGIN
 typedef struct _ST_IPv6_ROUTER_ { 
 	UCHAR ubaAddr[16]; //* 路由器地址	

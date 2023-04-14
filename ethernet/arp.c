@@ -45,15 +45,15 @@ static void arp_wait_timeout_handler(void *pvParam)
 		pstcbArpWait->ubCount++;
 		if (pstcbArpWait->ubCount > 5)
 		{
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-#if PRINTF_THREAD_MUTEX
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
-#endif
+		#endif
 			printf("The arp query times out and the packet will be dropped\r\n");
-#if PRINTF_THREAD_MUTEX
+		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
-#endif
-#endif
+		#endif
+	#endif
 			goto __lblEnd;
 		}
 	}

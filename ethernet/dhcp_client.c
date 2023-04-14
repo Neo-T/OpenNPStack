@@ -422,9 +422,12 @@ __lblSend:
             {
                 *penErr = ERRWAITACKTIMEOUT;                
                 break; 
-            }
+            }			
             pstIPv4->unPrimaryDNS = pstDns->unPrimary; 
-            pstIPv4->unSecondaryDNS = pstDns->unSecondary; 
+			if(pstDns->stHdr.ubLen >= 8)
+				pstIPv4->unSecondaryDNS = pstDns->unSecondary; 
+			else
+				pstIPv4->unSecondaryDNS = 0; 
 
             //* 取出租约信息
             PST_DHCPOPT_LEASETIME pstLeaseTime = (PST_DHCPOPT_LEASETIME)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_LEASETIME); 

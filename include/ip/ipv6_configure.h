@@ -38,6 +38,7 @@ typedef enum {
 	IPv6ADDR_DEPRECATED = 2, //* 弃用
 	IPv6ADDR_INVALID    = 3	 //* 无效
 } EN_IPv6ADDRSTATE;
+#define ipv6_addr_state(enIpv6AddrState) (enIpv6AddrState ? ((enIpv6AddrState == 1) ? "Preferred" : ((enIpv6AddrState == 2) ? "Deprecated" : "Invalid")) : "Tentative")
 
 typedef enum {
 	IPv6SVVTMR_INVALID = 0, //* 无效，未启动

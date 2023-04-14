@@ -277,7 +277,10 @@ static INT dhcp_request_ack_handler(PSTCB_RENEWAL_INFO pstcbRenewalInfo, UCHAR *
     if (!pstDns)
         return -1; 
     pstcbRenewalInfo->stReqAddr.stIPv4.unPrimaryDNS = pstDns->unPrimary; 
-    pstcbRenewalInfo->stReqAddr.stIPv4.unSecondaryDNS = pstDns->unSecondary; 
+	if (pstDns->stHdr.ubLen >= 8)
+		pstcbRenewalInfo->stReqAddr.stIPv4.unSecondaryDNS = pstDns->unSecondary;
+	else	
+		pstcbRenewalInfo->stReqAddr.stIPv4.unSecondaryDNS = 0; 
 
     //* 取出租约信息
     PST_DHCPOPT_LEASETIME pstLeaseTime = (PST_DHCPOPT_LEASETIME)dhcp_get_option(pubOptions, usOptionsLen, DHCPOPT_LEASETIME);

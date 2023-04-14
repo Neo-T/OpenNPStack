@@ -30,7 +30,7 @@ static const UCHAR l_ubaAllMLDv2RoutersMcAddr[16] = { 0xFF, 0x02, 0x00, 0x00, 0x
 static const UCHAR *l_pubaMcAddr[MULTICAST_ADDR_NUMM] = { l_ubaNetifNodesMcAddr, l_ubaAllNodesMcAddr, l_ubaSolNodeMcAddrPrefix, l_ubaAllRoutersMcAddr, l_ubaAllMLDv2RoutersMcAddr }; //* 存储顺序必须与EN_MCADDR_TYPE的定义顺序一致
 
 //* 关于链路本地地址及其它ipv6地址分类详见：https://www.rfc-editor.org/rfc/rfc3513 链路本地地址详见section-2.5.6
-static const UCHAR l_ubaLinkLocalAddrPrefix[IPv6LLA_PREFIXBITLEN / 8] = { 0xFE, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //* FE80::/64，链路本地地址前缀，其组成形式为：FE80::/64 + EUI-64地址
+static const UCHAR l_ubaLinkLocalAddrPrefix[8] = { 0xFE, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //* FE80::/64，链路本地地址前缀，其组成形式为：FE80::/64 + EUI-64地址
 
 
 #if SUPPORT_ETHERNET
@@ -553,29 +553,32 @@ INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[
 
 //* 关于链路本地地址前缀的说明：https://www.rfc-editor.org/rfc/rfc3513#section-2.5.6
 //* 生成链路本地地址：FE80::/64 + EUI-64地址
-const UCHAR *icmpv6_lnk_addr(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
+const UCHAR *ipv6_lnk_addr(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 {
 	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
 
 	//* 生成链路本地地址，首先复制地址前缀
-	memcpy(ubaLnkAddr, l_ubaLinkLocalAddrPrefix, sizeof(l_ubaLinkLocalAddrPrefix));
+	memcpy(ubaLnkAddr, l_ubaLinkLocalAddrPrefix, 8);
 
 	//* 复制以太网mac地址前24位
 	UCHAR ubUField = pstExtra->ubaMacAddr[0];
-	memcpy(&ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix)], pstExtra->ubaMacAddr, 3);
+	memcpy(&ubaLnkAddr[8], pstExtra->ubaMacAddr, 3);
 
 	//* 按照惯例在这里将mac地址U/L位取反以提供最大程度的可压缩性（mac地址U位为1时取反为0则可提高ipv6地址连续全0字段的概率，因为
 	//* 协议栈运行环境基本都是自行指定mac地址，此时U位应为1以显式地告知这是本地mac地址）
 	ubUField = (ubUField & 0xFD) | (~ubUField & 0x02);
-	ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix)] = ubUField; 
-	ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix) + 3] = 0xFF; 
-	ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix) + 4] = 0xFE; 
-	memcpy(&ubaLnkAddr[sizeof(l_ubaLinkLocalAddrPrefix) + 5], &pstExtra->ubaMacAddr[3], 3); 
+	ubaLnkAddr[8] = ubUField; 
+	ubaLnkAddr[11] = 0xFF; 
+	ubaLnkAddr[12] = 0xFE; 
+	memcpy(&ubaLnkAddr[13], &pstExtra->ubaMacAddr[3], 2); 
+
+	//* 显式地通知后续的处理函数这是链路本地地址不是根据路由器发布的前缀生成或dhcpv6服务器分配的动态地址
+	pstNetif->stIPv6.stLnkAddr.ubaVal[15] = IPv6LNKADDR_FLAG;
 
 	return ubaLnkAddr; 
 }
 
-const UCHAR *icmpv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], UCHAR *pubPrefix, UCHAR ubPrefixBitLen)
+const UCHAR *ipv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], UCHAR *pubPrefix, UCHAR ubPrefixBitLen)
 {
 	UCHAR ubPrefixBytes = ubPrefixBitLen / 8 + (ubPrefixBitLen % 8 ? 1 : 0); 
 	memcpy(ubaDynAddr, pubPrefix, ubPrefixBitLen); 
@@ -595,13 +598,15 @@ const UCHAR *icmpv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], UCHAR *pu
 		ubaDynAddr[8] = ubUField;
 		ubaDynAddr[11] = 0xFF;
 		ubaDynAddr[12] = 0xFE;
-		memcpy(&ubaDynAddr[13], &pstExtra->ubaMacAddr[3], 3); 
+		memcpy(&ubaDynAddr[13], &pstExtra->ubaMacAddr[3], 2); 
 	}
 	else
 	{
 		//* 生成随机的接口标识符
-		rand_any_bytes(&ubaDynAddr[ubPrefixBytes], 16 - ubPrefixBytes); 
+		rand_any_bytes(&ubaDynAddr[ubPrefixBytes], 16 - ubPrefixBytes - 1); 
 	}
+
+	ubaDynAddr[15] = IPv6LNKADDR_FLAG + 1;
 
 	return ubaDynAddr; 
 }
@@ -805,13 +810,26 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	if (pstPrefixInfo->stHdr.ubLen != 4)
 	{
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
-#if PRINTF_THREAD_MUTEX
+	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_lock(o_hMtxPrintf);
-#endif
+	#endif
 		printf("Prefix information option length (%d bytes) error.\r\n", pstPrefixInfo->stHdr.ubLen * 8);
-#if PRINTF_THREAD_MUTEX
+	#if PRINTF_THREAD_MUTEX
 		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
 #endif
+	}
+
+	if (pstPrefixInfo->ubPrefixBitLen > 104)
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("The prefix is too long, and the maximum acceptable length for the protocol stack is 104.\r\n");
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
 #endif
 	}
 
@@ -894,7 +912,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	if (pstAddr)
 	{
 		//* 生成试探ipv6地址、初始地址相关控制字段并加入网卡
-		icmpv6_dyn_addr(pstNetif, pstAddr->ubaVal, pstPrefixInfo->ubaPrefix, pstPrefixInfo->ubPrefixBitLen);
+		ipv6_dyn_addr(pstNetif, pstAddr->ubaVal, pstPrefixInfo->ubaPrefix, pstPrefixInfo->ubPrefixBitLen);
 		pstAddr->bitRouter = ipv6_router_get_index(pstRouter);
 		pstAddr->bitPrefixBitLen = pstPrefixInfo->ubPrefixBitLen;
 		pstAddr->unValidLifetime = unValidLifetime ? unValidLifetime + IPv6ADDR_INVALID_TIME : IPv6ADDR_INVALID_TIME + 1; 
@@ -1111,7 +1129,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 
 		//* 申请一个路由器节点用于保存当前路由器相关信息
 		pstRouter = ipv6_router_node_get(&enErr); 
-		if (pstRouter)
+		if (!pstRouter)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL > 0		
 		#if PRINTF_THREAD_MUTEX
@@ -1165,7 +1183,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		//* 根据m和o标志确定是否发送dhcpv6请求包，参见[RFC4861]4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
 		if (pstRouterAdvHdr->icmpv6_ra_flag_m || pstRouterAdvHdr->icmpv6_ra_flag_o)
 		{
-			pstRouter->bitDv6CfgState = Dv6CFG_INIT; 
+			pstRouter->bitDv6CfgState = Dv6CFG_END /*Dv6CFG_INIT*/;
 
 			//* 开启DHCPv6配置请求流程
 		}
@@ -1260,7 +1278,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 	switch ((EN_ICMPv6TYPE)pstIcmpv6Hdr->ubType)
 	{
 	case ICMPv6_NS: 
-		printf("++++++++recv NS packet\r\n"); 
+		//printf("++++++++recv NS packet\r\n"); 
 		break; 
 
 	case ICMPv6_NA:

@@ -431,6 +431,66 @@ static BOOL netif_ipv6_addr_and_router_released(PST_NETIF pstNetif)
 	return bIsFreedOK; 
 }
 
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+//* 输出ipv6配置信息
+static void print_ipv6_cfg_info(PST_NETIF pstNetif)
+{
+	//* 链路本地地址
+	CHAR szIpv6[40];
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+	printf("\r\nConfiguration results of ipv6 for Ethernet adapter %s:\r\n", pstNetif->szName);
+	printf("    Link-local address: %s\r\n", inet6_ntoa(pstNetif->stIPv6.stLnkAddr.ubaVal, szIpv6));	
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+
+	PST_IPv6_DYNADDR pstNextAddr = NULL;
+	do {
+		//* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+		pstNextAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstNextAddr, TRUE);
+		if (pstNextAddr && pstNextAddr->bitState != IPv6ADDR_TENTATIVE)
+		{
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("    configured address: %s (%s, Valid lifetime %d)\r\n", inet6_ntoa(pstNextAddr->ubaVal, szIpv6), ipv6_addr_state(pstNextAddr->bitState), pstNextAddr->unValidLifetime);
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+		}
+	} while (pstNextAddr);
+
+	PST_IPv6_ROUTER pstNextRouter = NULL;
+	do {
+		pstNextRouter = netif_ipv6_router_next_safe(pstNetif, pstNextRouter, TRUE);
+		if (pstNextRouter && pstNextRouter->bitDv6CfgState == Dv6CFG_END)
+		{
+			CHAR bRouter = ipv6_router_get_index(pstNextRouter); 
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("     default router<%d>: %s (%s, Lifetime %d)\r\n", bRouter, inet6_ntoa(pstNextRouter->ubaAddr, szIpv6), i6r_prf_desc(pstNextRouter->bitPrf), pstNextRouter->usLifetime);
+			printf("            dns srv<%d>: %s\r\n", bRouter, inet6_ntoa(pstNextRouter->staDNSSrv[0].ubaAddr, szIpv6));			
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+			if (pstNextRouter->staDNSSrv[1].ubaAddr[0])
+			{
+			#if PRINTF_THREAD_MUTEX
+				os_thread_mutex_lock(o_hMtxPrintf);
+			#endif
+				printf("                          %s\r\n", inet6_ntoa(pstNextRouter->staDNSSrv[1].ubaAddr, szIpv6));
+			#if PRINTF_THREAD_MUTEX
+				os_thread_mutex_unlock(o_hMtxPrintf);
+			#endif
+			}
+		}
+	} while (pstNextRouter);
+}
+#endif
+
 static void ipv6_svv_timeout_handler(void *pvParam)
 {
 	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
@@ -506,6 +566,11 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 		if (netif_ipv6_dhcpv6_cfg_ended(pstNetif))
 		{
 			pstNetif->stIPv6.bitCfgState = IPv6CFG_END; //* 至此配置结束，定时器的使命亦结束
+
+		#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+			print_ipv6_cfg_info(pstNetif); 
+		#endif
+
 			return; 
 		}
 		break; 
@@ -568,7 +633,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
 		#endif
-			printf("ipv6_cfg_dad_timeout_handler() failed, router index out of range (0 - %d): %d\r\n", IPV6_ROUTER_NUM, pstTentAddr->bitRouter);
+			printf("ipv6_cfg_dad_timeout_handler() failed, router index out of range (0 - %d): %d\r\n", IPV6_ROUTER_NUM - 1, pstTentAddr->bitRouter);
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif
@@ -589,7 +654,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 			{
 				//* 重新生成尾部地址再次进行DAD
 				UINT unNewTailAddr = rand_big();
-				memcpy(pubAddr + 13, (UCHAR *)&unNewTailAddr, 3);
+				memcpy(pubAddr + 13, (UCHAR *)&unNewTailAddr, 2);
 				pstTentAddr->bitOptCnt = 0;
 				pstTentAddr->bitConflict = FALSE;
 			}
@@ -609,7 +674,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 				os_enter_critical();
 				{
 					if (pstTentAddr->unPreferredLifetime)
-						pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“可用”状态
+						pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“选用”状态
 					else
 						pstTentAddr->bitState = IPv6ADDR_DEPRECATED; //* 地址状态迁移到“弃用”状态
 				}
@@ -618,7 +683,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 				//netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
 			else
-				pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“可用”状态			
+				pstTentAddr->bitState = IPv6ADDR_PREFERRED;  //* 地址状态迁移到“选用”状态			
 		}
 
 		break;
@@ -639,11 +704,14 @@ BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 	pstNetif->stIPv6.bitCfgState = IPv6CFG_LNKADDR;
 	pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_INVALID; 
 
+#if 1
 	//* 生成试探性的链路本地地址（Tentative Link Local Address）
-	//icmpv6_lnk_addr(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaAddr); 
-
-	//* 测试ipv6链路本地地址冲突逻辑用，使用网络其它节点已经成功配置的地址来验证协议栈DAD逻辑是否正确
+	ipv6_lnk_addr(pstNetif, pstNetif->stIPv6.stLnkAddr.ubaVal); 
+#else
+	//* 测试ipv6链路本地地址冲突逻辑用，使用网络其它节点已经成功配置的地址来验证协议栈DAD逻辑是否正确，注意
+	//* 测试的时候需要把IPv6LNKADDR_FLAG（ipv6_configure.h）值改成测试地址的最后一个字节值，比如在这里就是0xe3
 	memcpy(pstNetif->stIPv6.stLnkAddr.ubaVal, "\xfe\x80\x00\x00\x00\x00\x00\x00\xdd\x62\x1a\x01\xfa\xa0\xd0\xe3", 16); 	
+#endif
 
 	//* 开启one-shot定时器用于地址自动配置，步长：1秒
 	if (one_shot_timer_new(ipv6_cfg_timeout_handler, pstNetif, 1))			
@@ -654,9 +722,7 @@ BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 			*penErr = ERRNOIDLETIMER;
 		return FALSE; 
 	}
-
-	//* 显式地通知后续的处理函数这是链路本地地址不是根据路由器发布的前缀生成或dhcpv6服务器分配的动态地址
-	pstNetif->stIPv6.stLnkAddr.ubaVal[15] = IPv6LNKADDR_FLAG;	
+	
 	return ipv6_cfg_dad(pstNetif, &pstNetif->stIPv6.stLnkAddr, penErr);	
 }
 

@@ -55,7 +55,7 @@ PACKED_END
 
 //* dhcp选项结构体
 //* =====================================================================================
-//* 协议栈支持的dhcp选项定义
+//* 协议栈支持的dhcp选项定义，详见[RFC1533]：https://www.rfc-editor.org/rfc/rfc1533
 typedef enum {
     DHCPOPT_SUBNETMASK = 1,
     DHCPOPT_ROUTER = 3,
