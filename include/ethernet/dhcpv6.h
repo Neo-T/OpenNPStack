@@ -17,6 +17,6 @@
 #include "dhcpv6_frame.h"
 
 #if SUPPORT_IPV6 && SUPPORT_ETHERNET
-
+DHCPv6_EXT INT dhcpv6_client_start(PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr); 
 #endif
 #endif

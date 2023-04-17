@@ -104,6 +104,7 @@ typedef struct _ST_IPv6_ROUTER_ {
 	USHORT usMtu; 
 	//UCHAR ubaMacAddr[6];
 	PST_NETIF pstNetif; 
+	INT nDHCPv6CltInput; //* DHCPv6客户端句柄
 	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
 PACKED_END

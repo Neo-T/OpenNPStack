@@ -26,7 +26,11 @@ typedef INT SOCKET;         //* socket句柄
 //* =================================================
 
 //* Supported address families.
-#define AF_INET 2   //* internetwork: UDP, TCP, etc.
+#define AF_INET  2  //* internetwork: UDP, TCP, etc.
+
+#if SUPPORT_IPV6
+#define AF_INET6 23 // Internetwork Version 6
+#endif
 
 //* Socket types.
 #define SOCK_STREAM 1   //* TCP, stream (connection) socket

@@ -16,6 +16,8 @@
 #endif //* SYMBOL_GLOBALS
 #include "ip/ip.h"
 
+#define INVALID_INPUT -1 //* 无效的输入控制块
+
 //* 协议栈支持的输入控制块相关配置项定义
 typedef enum {    
     IOPT_SETICMPECHOID = 0,     //* 设置icmp echo请求ID

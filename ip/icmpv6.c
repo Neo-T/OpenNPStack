@@ -1151,6 +1151,7 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		pstRouter->usMtu = 1492; 
 		pstRouter->ubHopLimit = 255; 
 		pstRouter->pstNetif = NULL;  
+		pstRouter->nDHCPv6CltInput = INVALID_INPUT; 
 		memset(&pstRouter->staDNSSrv, 0, sizeof(pstRouter->staDNSSrv)); 		
 	}
 
