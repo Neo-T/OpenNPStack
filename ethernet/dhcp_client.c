@@ -157,12 +157,20 @@ UCHAR *dhcp_get_option(UCHAR *pubOptions, USHORT usOptionsLen, UCHAR ubOptionCod
 //* dhcp客户端启动
 static INT dhcp_client_start(EN_ONPSERR *penErr)
 {
-    INT nInput = onps_input_new(IPPROTO_UDP, penErr);
+#if SUPPORT_IPV6
+    INT nInput = onps_input_new(AF_INET, IPPROTO_UDP, penErr);
+#else
+	INT nInput = onps_input_new(IPPROTO_UDP, penErr);
+#endif
     if (nInput < 0)
         return nInput; 
 
     //* 首先看看指定的端口是否已被使用
+#if SUPPORT_IPV6
+	if (onps_input_port_used(AF_INET, IPPROTO_UDP, DHCP_CLT_PORT))
+#else
     if (onps_input_port_used(IPPROTO_UDP, DHCP_CLT_PORT))
+#endif
     {
         if(penErr)
             *penErr = ERRPORTOCCUPIED;
@@ -171,7 +179,7 @@ static INT dhcp_client_start(EN_ONPSERR *penErr)
 
     //* 设置地址
     ST_TCPUDP_HANDLE stHandle;    
-    stHandle.unNetifIp = 0; //* 作为udp服务器启动，不绑定任何地址，当然也无法绑定因为还没获得合法ip地址
+    stHandle.saddr_ipv4 = 0; //* 作为udp服务器启动，不绑定任何地址，当然也无法绑定因为还没获得合法ip地址
     stHandle.usPort = DHCP_CLT_PORT;
     if (onps_input_set(nInput, IOPT_SETTCPUDPADDR, &stHandle, penErr))
         return nInput; 

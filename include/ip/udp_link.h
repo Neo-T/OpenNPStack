@@ -15,15 +15,35 @@
 	#define UDP_LINK_EXT extern
 #endif //* SYMBOL_GLOBALS
 
+#if SUPPORT_IPV6
+typedef struct _ST_SOCKADDR_  ST_SOCKADDR, *PST_SOCKADDR;
+#endif
+
 typedef struct _ST_UDPLINK_ {
     CHAR bIdx;
     CHAR bNext;
 
-    struct {
-        USHORT usPort;  //* 端口
-        in_addr_t unIp; //* 地址            
-    } stPeerAddr;
+#if SUPPORT_IPV6
+	ST_SOCKADDR stPeerAddr; 
+#else
+	struct {
+		USHORT usPort;  //* 端口
+		in_addr_t unIp; //* 地址            
+	} stPeerAddr;
+#endif    
 } ST_UDPLINK, *PST_UDPLINK;
+#if SUPPORT_IPV6
+#ifndef saddr_ipv4
+#define saddr_ipv4 uniIp.unVal
+#endif
+#ifndef saddr_ipv6
+#define saddr_ipv6 uniIp.ubaVal
+#endif
+#else
+#ifndef saddr_ipv4
+#define saddr_ipv4 unIp
+#endif
+#endif
 
 //* 到达的udp报文
 typedef struct _ST_RCVED_UDP_PACKET_ ST_RCVED_UDP_PACKET, *PST_RCVED_UDP_PACKET;

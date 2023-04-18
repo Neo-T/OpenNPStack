@@ -24,7 +24,7 @@ IP_EXT void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, 
 
 #if SUPPORT_IPV6
 IP_EXT INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr); 
-IP_EXT INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr); 
+IP_EXT INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr); 
 IP_EXT void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen); 
 #endif
 

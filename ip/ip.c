@@ -355,7 +355,7 @@ INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UC
 	return netif_ipv6_send(pstNetifUsed, pubDstMacAddr, ubaSrcIpv6Used, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
 }
 
-INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
+INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr)
 {
 	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16];	
 	memcpy(ubaDstIpv6ToMac, ubaDstIpv6, 16);

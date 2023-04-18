@@ -85,7 +85,10 @@ static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNEWIPv6MACCTLBLOCK, "The control block of the ipv6 to mac address mapping table is empty" }, 
 	{ ERRNOIPv6DYNADDRNODE, "the ipv6 dynamic addr list is empty" }, 
 	{ ERRNOIPv6ROUTERNODE, "the ipv6 router list is empty" }, 
+	{ ERRIPV4FLOWLABEL, "Ipv4 does not support flow label fields" }, 
 #endif
+	{ ERRFAMILYINCONSISTENT, "The address family of the target and source addresses is inconsistent" }, 
+	{ ERRUNSUPPORTEDFAMILY, "Unsupported address family" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

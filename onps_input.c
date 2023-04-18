@@ -25,7 +25,7 @@ typedef struct _STCB_ONPS_INPUT_ {
             USHORT usIdentifier;
         } stIcmp; //* icmp层句柄
 
-        ST_TCPUDP_HANDLE stAddr; //* 句柄，使用IP地址和端口就可以唯一的标识一个tcp/udp通讯链路
+        ST_TCPUDP_HANDLE stTcpUdp; //* 句柄，使用IP地址和端口就可以唯一的标识一个tcp/udp通讯链路
     } uniHandle;
 
     UCHAR ubIPProto;    //* IP上层协议定义，目前支持icmp/tcp/udp接收，其值来自于ip_frame.h中EN_IPPROTO枚举定义
@@ -116,7 +116,11 @@ void onps_input_uninit(void)
     tcp_link_uninit(); 
 }
 
+#if !SUPPORT_IPV6
 INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
+#else
+INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
+#endif
 {
     HSEM hSem = os_thread_sem_init(0, 100000);
     if (INVALID_HSEM == hSem)
@@ -177,9 +181,15 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
             pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
         else
         {
-            pstcbInput->uniHandle.stAddr.bType = TCP_TYPE_LCLIENT; 
-            pstcbInput->uniHandle.stAddr.unNetifIp = 0;
-            pstcbInput->uniHandle.stAddr.usPort = 0;            
+            pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
+	#if SUPPORT_IPV6
+			pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily = (CHAR)family;
+			pstcbInput->uniHandle.stTcpUdp.unIpv6FlowLbl = 0; 
+			memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
+	#else
+			pstcbInput->uniHandle.stTcpUdp.ipv4_addr = 0;
+	#endif
+            pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = 0;
             pstcbInput->pvAttach = NULL;
         }
 
@@ -253,16 +263,16 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstcbInput->pubRcvBuf = pubRcvBuf;
         pstcbInput->unRcvBufSize = unSize;
         pstcbInput->unRcvedBytes = 0;
-        pstcbInput->uniHandle.stAddr.bType = TCP_TYPE_RCLIENT;
-        pstcbInput->uniHandle.stAddr.unNetifIp = unSrvIp;
-        pstcbInput->uniHandle.stAddr.usPort = usSrvPort;
+        pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_RCLIENT;
+        pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = unSrvIp;
+        pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = usSrvPort;
         pstcbInput->pvAttach = pstLink;
 
         pstLink->bState = TLSRCVEDSYN;
 
         pstLink->stLocal.usWndSize = pstcbInput->unRcvBufSize;
         pstLink->stLocal.bIsZeroWnd = FALSE;
-        pstLink->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr;        
+        pstLink->stLocal.pstTcp = &pstcbInput->uniHandle.stTcpUdp;
                 
         pstLink->stPeer.stAddr.unIp = unCltIp; 
         pstLink->stPeer.stAddr.usPort = usCltPort;      
@@ -319,7 +329,7 @@ void onps_input_free(INT nInput)
                     if (IPPROTO_TCP == pstcbInput->ubIPProto)
                     {
                     #if SUPPORT_ETHERNET
-                        if(TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+                        if(TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
                             tcpsrv_input_attach_free((PST_INPUTATTACH_TCPSRV)pstcbInput->pvAttach); 
                         else                    
                             tcp_link_free((PST_TCPLINK)pstcbInput->pvAttach);
@@ -337,7 +347,7 @@ void onps_input_free(INT nInput)
                 }
                 if (INVALID_HSEM != pstcbInput->hSem)
                 {
-                    if (TCP_TYPE_RCLIENT != pstcbInput->uniHandle.stAddr.bType) //* 服务器和本地客户端（连接远端tcp服务器）用到了semaphore，所以这里需要释放掉
+                    if (TCP_TYPE_RCLIENT != pstcbInput->uniHandle.stTcpUdp.bType) //* 服务器和本地客户端（连接远端tcp服务器）用到了semaphore，所以这里需要释放掉
                         os_thread_sem_uninit(pstcbInput->hSem); 
                     pstcbInput->hSem = INVALID_HSEM;
                 }
@@ -376,10 +386,10 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     case IOPT_SETTCPUDPADDR:
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
-            pstcbInput->uniHandle.stAddr = *((PST_TCPUDP_HANDLE)pvVal);
+            pstcbInput->uniHandle.stTcpUdp = *((PST_TCPUDP_HANDLE)pvVal);
 
             //* tcp服务器不需要接收缓冲区，每个远程客户端均单独分配了一个接收缓冲区，所以这个分支的作用就是释放掉input模块申请的缓冲区
-            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
             {
                 if (pstcbInput->pubRcvBuf)
                 {
@@ -407,11 +417,11 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         pstcbInput->pvAttach = pvVal; 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
-            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stAddr.bType)
+            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stTcpUdp.bType)
             {
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.usWndSize = pstcbInput->unRcvBufSize;
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.bIsZeroWnd = FALSE;
-                ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstAddr = &pstcbInput->uniHandle.stAddr;
+                ((PST_TCPLINK)pstcbInput->pvAttach)->stLocal.pstTcp = &pstcbInput->uniHandle.stTcpUdp;
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.bRcvTimeout = -1/*pstcbInput->bRcvTimeout*/; //* 缺省所有发送操作都需要等待对端的应答
                 ((PST_TCPLINK)pstcbInput->pvAttach)->stcbWaitAck.nInput = nInput; 
             }            
@@ -444,13 +454,27 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
                 return FALSE;
             }
 
-            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stAddr.bType)
+            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stTcpUdp.bType)
                 ((PST_TCPLINK)pstcbInput->pvAttach)->uniFlags.usVal = *((USHORT *)pvVal); 
         }
         else
             goto __lblIpProtoNotMatched;
 
         break; 
+#if SUPPORT_IPV6
+	case IOPT_SET_IPV6_FLOW_LABEL: 
+		if (AF_INET6 == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily)
+		{
+			pstcbInput->uniHandle.stTcpUdp.unIpv6FlowLbl = *((UINT *)pvVal); 
+		}
+		else
+		{
+			if (penErr)
+				*penErr = ERRIPV4FLOWLABEL;
+			return FALSE; 
+		}
+		break; 
+#endif
 
     default:
         if (penErr)
@@ -482,14 +506,14 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_UDP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
             if (sizeof(pvVal) == 4)
-                *((UINT *)pvVal) = (UINT)&pstcbInput->uniHandle.stAddr;
+                *((UINT *)pvVal) = (UINT)&pstcbInput->uniHandle.stTcpUdp;
             else
-                *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stAddr;
+                *((ULONGLONG *)pvVal) = (ULONGLONG)&pstcbInput->uniHandle.stTcpUdp;
         }
         else
         {
             if (penErr)
-                *penErr = ERRTCSNONTCP;
+                *penErr = ERRIPROTOMATCH;
             return FALSE;
         }
         break; 
@@ -528,14 +552,14 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     case IOPT_GETTCPUDPLINK: 
         if (sizeof(pvVal) == 4)
         {
-            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
                 *((UINT *)pvVal) = 0/*(UINT)((PST_INPUTATTACH_TCPSRV)pstcbInput->pvAttach)->pstClients*/;
             else
                 *((UINT *)pvVal) = (UINT)pstcbInput->pvAttach;
         }
         else
         {
-            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+            if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
                 *((ULONGLONG *)pvVal) = 0/*(ULONGLONG)((PST_INPUTATTACH_TCPSRV)pstcbInput->pvAttach)->pstClients*/; 
             else
                 *((ULONGLONG *)pvVal) = (ULONGLONG)pstcbInput->pvAttach;
@@ -596,7 +620,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
                 return FALSE;
             }
 
-            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stAddr.bType)
+            if (TCP_TYPE_SERVER != pstcbInput->uniHandle.stTcpUdp.bType)
                 *((USHORT *)pvVal) = ((PST_TCPLINK)pstcbInput->pvAttach)->uniFlags.usVal;
         }
         else
@@ -607,6 +631,21 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         }
 
         break; 
+
+#if SUPPORT_IPV6
+	case IOPT_GET_IPV6_FLOW_LABEL: 
+		if (AF_INET6 == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily)
+		{
+			*((UINT *)pvVal) = pstcbInput->uniHandle.stTcpUdp.unIpv6FlowLbl;
+		}
+		else
+		{
+			if (penErr)
+				*penErr = ERRIPV4FLOWLABEL;
+			return FALSE;
+		}
+		break; 
+#endif
 
     default:
         if (penErr)
@@ -682,7 +721,7 @@ void onps_input_sem_post_tcpsrv_accept(INT nSrvInput, INT nCltInput, UINT unLoca
         goto __lblErr; 
 
     //* 如果不是tcp协议或者并不是tcp服务器链路则不投递tcp链路已建立信号量
-    if (IPPROTO_TCP != (EN_IPPROTO)l_stcbaInput[nSrvInput].ubIPProto || TCP_TYPE_SERVER != l_stcbaInput[nSrvInput].uniHandle.stAddr.bType)
+    if (IPPROTO_TCP != (EN_IPPROTO)l_stcbaInput[nSrvInput].ubIPProto || TCP_TYPE_SERVER != l_stcbaInput[nSrvInput].uniHandle.stTcpUdp.bType)
         goto __lblErr;
 
     //* 取出已经准备好的backlog，加入请求队列然后投递给accept()用户
@@ -878,7 +917,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
         {
         #if SUPPORT_ETHERNET
             PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = NULL; 
-            if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
+            if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stTcpUdp.bType)
             {
                 //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
                 if(NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
@@ -959,7 +998,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     if (blIsOK)
     {       		
         //* 在这里，除了本地客户端显式地指定需要等待数据到达semaphore之外，tcp远端客户端也会投递一个semaphore用于标准的poll操作
-		if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)		
+		if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stTcpUdp.bType)		
 			os_thread_sem_post(l_stcbaInput[nInput].hSem); 
     }    
 
@@ -999,7 +1038,7 @@ INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONP
     {
 #if SUPPORT_ETHERNET
         PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = NULL;
-        if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
+        if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stTcpUdp.bType)
         {
             //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
             if (NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
@@ -1038,7 +1077,7 @@ INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONP
     if (blIsOK)
     {
         //* 在这里，除了本地客户端显式地指定需要等待数据到达semaphore之外，tcp远端客户端也会投递一个semaphore用于标准的poll操作
-        if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stAddr.bType)
+        if (l_stcbaInput[nInput].bRcvTimeout || TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stTcpUdp.bType)
             os_thread_sem_post(l_stcbaInput[nInput].hSem);
 
         return (INT)unCpyBytes; 
@@ -1244,7 +1283,11 @@ void onps_set_last_error(INT nInput, EN_ONPSERR enErr)
     os_exit_critical();
 }
 
+#if SUPPORT_IPV6
+BOOL onps_input_port_used(INT nFamily, EN_IPPROTO enProtocol, USHORT usPort)
+#else
 BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
+#endif
 {
     BOOL blIsUsed = FALSE;
     os_thread_mutex_lock(l_hMtxInput);
@@ -1254,7 +1297,11 @@ BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
-            if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stAddr.usPort)
+		#if SUPPORT_IPV6
+            if ((CHAR)nFamily == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily && enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort)
+		#else
+			if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stAddr.usPort)
+		#endif
             {
                 blIsUsed = TRUE;
                 break;
@@ -1268,7 +1315,11 @@ BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
     return blIsUsed; 
 }
 
+#if SUPPORT_IPV6
+USHORT onps_input_port_new(INT nFamily, EN_IPPROTO enProtocol)
+#else
 USHORT onps_input_port_new(EN_IPPROTO enProtocol)
+#endif
 {
     USHORT usPort;
 
@@ -1276,7 +1327,11 @@ __lblPortNew:
     usPort = 65535 - (USHORT)(rand() % (TCPUDP_PORT_START + 1));
 
     //* 确定是否正在使用，如果未使用则没问题
-    if (onps_input_port_used(enProtocol, usPort))
+#if SUPPORT_IPV6
+    if (onps_input_port_used(nFamily, enProtocol, usPort))
+#else
+	if (onps_input_port_used(enProtocol, usPort))
+#endif
         goto __lblPortNew;
     else
         return usPort;
@@ -1293,11 +1348,11 @@ INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT un
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
-            if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT == pstcbInput->uniHandle.stAddr.bType && pstcbInput->pvAttach)
+            if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT == pstcbInput->uniHandle.stTcpUdp.bType && pstcbInput->pvAttach)
             {                
                 PST_TCPLINK pstLink = (PST_TCPLINK)pstcbInput->pvAttach; 
-                if (unSrvIp == pstcbInput->uniHandle.stAddr.unNetifIp 
-                    && usSrvPort == pstcbInput->uniHandle.stAddr.usPort 
+                if (unSrvIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4
+                    && usSrvPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort
                     && unCltIp == pstLink->stPeer.stAddr.unIp
                     && usCltPort == pstLink->stPeer.stAddr.usPort)
                 {
@@ -1329,26 +1384,26 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, v
             if (enIpProto == pstcbInput->ubIPProto/* == IPPROTO_TCP || pstcbInput->ubIPProto == IPPROTO_UDP*/)
             {                
                 //* 端口必须匹配，地址则根据不同情况另说
-                if (usPort == pstcbInput->uniHandle.stAddr.usPort)
+                if (usPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort)
                 {
                     //* 未指定地址（地址为0，则当前绑定所有网络接口，此为对外提供服务端口）；指定地址则必须完全匹配
-                    if (pstcbInput->uniHandle.stAddr.unNetifIp == 0 || unNetifIp == pstcbInput->uniHandle.stAddr.unNetifIp)
+                    if (pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 == 0 || unNetifIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4)
                     {
                         //* 仅找出本地tcp客户端和tcp服务器（TCP_TYPE_SERVER、TCP_TYPE_LCLIENT）类型的input节点
-                        if (IPPROTO_UDP == pstcbInput->ubIPProto || (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT != pstcbInput->uniHandle.stAddr.bType))
+                        if (IPPROTO_UDP == pstcbInput->ubIPProto || (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT != pstcbInput->uniHandle.stTcpUdp.bType))
                         {
                             nInput = pstNextNode->uniData.nVal;                            
 
                             if (sizeof(pvAttach) == 4)
                             {
-                                if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+                                if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
                                     *((UINT *)pvAttach) = (UINT)0; 
                                 else
                                     *((UINT *)pvAttach) = (UINT)pstcbInput->pvAttach;
                             }
                             else
                             {
-                                if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stAddr.bType)
+                                if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
                                     *((ULONGLONG *)pvAttach) = (ULONGLONG)0; 
                                 else
                                     *((ULONGLONG *)pvAttach) = (ULONGLONG)pstcbInput->pvAttach;

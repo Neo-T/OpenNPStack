@@ -25,17 +25,6 @@ typedef INT SOCKET;         //* socket句柄
 #define TLF_NO_DELAY_ACK 0x0001 //* 立即回馈应答而不是等一小段时间或有数据需要发送时（200毫秒）再回馈
 //* =================================================
 
-//* Supported address families.
-#define AF_INET  2  //* internetwork: UDP, TCP, etc.
-
-#if SUPPORT_IPV6
-#define AF_INET6 23 // Internetwork Version 6
-#endif
-
-//* Socket types.
-#define SOCK_STREAM 1   //* TCP, stream (connection) socket
-#define SOCK_DGRAM  2   //* UDP, datagram (conn.less) socket
-
 //* 参数family仅支持AF_INET，其它不支持，type仅支持SOCK_STREAM、SOCK_DGRAM两种协议，protocol固定为0
 SOCKET_EXT SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr); 
 SOCKET_EXT void close(SOCKET socket);

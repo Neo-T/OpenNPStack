@@ -18,7 +18,11 @@
 
 SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr)
 {
-    if (AF_INET != family)
+    if (AF_INET != family
+#if SUPPORT_IPV6
+		&& AF_INET6 != family
+#endif
+		)
     {
         if (penErr)
             *penErr = ERRADDRFAMILIES;
@@ -30,11 +34,19 @@ SOCKET socket(INT family, INT type, INT protocol, EN_ONPSERR *penErr)
     switch (type)
     {
     case SOCK_STREAM: 
+#if !SUPPORT_IPV6
         nInput = onps_input_new(IPPROTO_TCP, &enErr);
+#else
+		nInput = onps_input_new(family, IPPROTO_TCP, &enErr);
+#endif
         break; 
 
     case SOCK_DGRAM: 
+#if !SUPPORT_IPV6
         nInput = onps_input_new(IPPROTO_UDP, &enErr);
+#else
+		nInput = onps_input_new(family, IPPROTO_UDP, &enErr); 
+#endif
         break; 
 
     default: 
@@ -218,7 +230,7 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
         PST_UDPLINK pstLink = udp_link_get(&enErr); 
         if (pstLink)
         {
-            pstLink->stPeerAddr.unIp = (UINT)inet_addr(srv_ip); 
+            pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip); 
             pstLink->stPeerAddr.usPort = srv_port; 
 
             //* 附加到input
@@ -683,30 +695,59 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-        goto __lblErr;    
-
-    //* 首先看看指定的端口是否已被使用
-    if (onps_input_port_used(enProto, usPort))
-    {
-        enErr = ERRPORTOCCUPIED; 
         goto __lblErr; 
-    }
 
-    //* 设置地址
-    ST_TCPUDP_HANDLE stHandle;     
-    if (pszNetifIp) 
-        stHandle.unNetifIp = (UINT)inet_addr(pszNetifIp);
-    else
-        stHandle.unNetifIp = 0; 
-    stHandle.usPort = usPort;  
+#if SUPPORT_IPV6
+	PST_TCPUDP_HANDLE pstHandle;
+	if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+		goto __lblErr;
 
-    //* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
-    if(IPPROTO_TCP == enProto)
-        stHandle.bType = TCP_TYPE_SERVER;
-    
-    //* 更新句柄
-    if (onps_input_set((INT)socket, IOPT_SETTCPUDPADDR, &stHandle, &enErr))
-        return 0; 
+	//* 首先看看指定的端口是否已被使用
+	if (onps_input_port_used(pstHandle->bFamily, enProto, usPort))
+	{
+		enErr = ERRPORTOCCUPIED;
+		goto __lblErr;
+	}
+	
+	//* 更新地址
+	if (pszNetifIp)
+	{
+		if (AF_INET6 == pstHandle->bFamily)
+			memcpy(pstHandle->saddr_ipv6, pszNetifIp, 16);
+		else
+			pstHandle->saddr_ipv4 = (UINT)inet_addr(pszNetifIp);
+	}
+	else			
+		pstHandle->saddr_ipv4 = 0; //* 直接按照ipv4地址赋零即可
+	pstHandle->usPort = usPort; 
+
+	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
+	if (IPPROTO_TCP == enProto)
+		pstHandle->bType = TCP_TYPE_SERVER;
+#else
+	//* 首先看看指定的端口是否已被使用
+	if (onps_input_port_used(enProto, usPort))
+	{
+		enErr = ERRPORTOCCUPIED;
+		goto __lblErr;
+	}
+
+	//* 设置地址
+	ST_TCPUDP_HANDLE stHandle;
+	if (pszNetifIp)
+		stHandle.ipv4_addr = (UINT)inet_addr(pszNetifIp);
+	else
+		stHandle.ipv4_addr = 0;
+	stHandle.usPort = usPort;
+
+	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
+	if (IPPROTO_TCP == enProto)
+		stHandle.bType = TCP_TYPE_SERVER;
+
+	//* 更新句柄
+	if (onps_input_set((INT)socket, IOPT_SETTCPUDPADDR, &stHandle, &enErr))
+		return 0;
+#endif
 
 __lblErr:
     onps_set_last_error((INT)socket, enErr);

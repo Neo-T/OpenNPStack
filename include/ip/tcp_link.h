@@ -100,7 +100,7 @@ typedef struct _ST_TCPLINK_ {
         CHAR bIsZeroWnd;
         CHAR bDataSendState;
 #endif
-        PST_TCPUDP_HANDLE pstAddr;
+        PST_TCPUDP_HANDLE pstTcp;
     } PACKED stLocal;
 
     struct {

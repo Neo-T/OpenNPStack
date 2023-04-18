@@ -18,11 +18,24 @@
 
 #define INVALID_INPUT -1 //* 无效的输入控制块
 
+ //* Supported address families.
+#define AF_INET  2  //* internetwork: UDP, TCP, etc.
+#if SUPPORT_IPV6
+#define AF_INET6 23 // Internetwork Version 6
+#endif
+
+ //* Socket types.
+#define SOCK_STREAM 1   //* TCP, stream (connection) socket
+#define SOCK_DGRAM  2   //* UDP, datagram (conn.less) socket
+
 //* 协议栈支持的输入控制块相关配置项定义
 typedef enum {    
     IOPT_SETICMPECHOID = 0,     //* 设置icmp echo请求ID
     IOPT_SETTCPUDPADDR,         //* 设置TCP/UDP本地分配的地址
     IOPT_SET_TCP_LINK_FLAGS,    //* 设置tcp链路标志
+#if SUPPORT_IPV6
+	IOPT_SET_IPV6_FLOW_LABEL,   //* 设置ipv6流表签
+#endif
     IOPT_GETTCPUDPADDR,         //* 获取TCP/UDP本地分配的地址
     IOPT_GETSEM,                //* 获取input用到的semaphore
     IOPT_GETIPPROTO,            //* 获取当前input绑定的ip上层协议
@@ -36,16 +49,42 @@ typedef enum {
     IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
     IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度        
     IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志
+#if SUPPORT_IPV6
+	IOPT_GET_IPV6_FLOW_LABEL,   //* 读取ipv6流表签
+#endif
 } ONPSIOPT;
 
-#define TCP_TYPE_LCLIENT 0  //* 连接远端服务器的tcp客户端
-#define TCP_TYPE_RCLIENT 1  //* 连接本地服务器的tcp客户端
+#if SUPPORT_IPV6
+typedef struct _ST_SOCKADDR_ {
+	CHAR bFamily;  //* 协议族标识，这里用于区分底层协议族为ipv4还是ipv6
+	USHORT usPort; 
+	union
+	{
+		UINT unVal;
+		UCHAR ubaVal[16];
+	} uniIp;
+} ST_SOCKADDR, *PST_SOCKADDR;
+#endif
+
+#define TCP_TYPE_LCLIENT 0  //* 连接远端服务器的本地tcp客户端
+#define TCP_TYPE_RCLIENT 1  //* 连接本地服务器的远端tcp客户端
 #define TCP_TYPE_SERVER  2  //* 本地tcp服务器
 typedef struct _ST_TCPUDP_HANDLE_ {
     CHAR bType;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器、连接本地服务器的客户端、连接远端服务器的客户端（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）    
-    USHORT usPort;
-    UINT unNetifIp;         
+#if SUPPORT_IPV6
+	ST_SOCKADDR stSockAddr; 	
+	UINT unIpv6FlowLbl; 
+#else	
+	USHORT usPort;
+    UINT unIp;         
+#endif
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
+#if SUPPORT_IPV6
+#define saddr_ipv4 uniIp.unVal
+#define saddr_ipv6 uniIp.ubaVal
+#else
+#define saddr_ipv4 unIp
+#endif
 
 typedef struct _ST_TCPLINK_ ST_TCPLINK, *PST_TCPLINK; 
 
@@ -56,7 +95,11 @@ ONPSINPUT_EXT BOOL onps_input_init(EN_ONPSERR *penErr);
 ONPSINPUT_EXT void onps_input_uninit(void); 
 
 //* 建立一个新的输入控制块
+#if !SUPPORT_IPV6
 ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr); 
+#else
+ONPSINPUT_EXT INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr);
+#endif
 #if SUPPORT_ETHERNET
 ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
 #endif
@@ -99,11 +142,19 @@ ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDa
 //* 等待接收icmp层对端发送的数据
 ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
 
-//* 检查要某个端口是否已被使用              
+//* 检查要某个端口是否已被使用   
+#if SUPPORT_IPV6
+ONPSINPUT_EXT BOOL onps_input_port_used(INT nFamily, EN_IPPROTO enProtocol, USHORT usPort);
+#else
 ONPSINPUT_EXT BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort);
+#endif
 
 //* 分配一个动态端口
+#if SUPPORT_IPV6
+ONPSINPUT_EXT USHORT onps_input_port_new(INT nFamily, EN_IPPROTO enProtocol);
+#else
 ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
+#endif
 
 //* 根据ip地址和端口号获取input句柄
 #if SUPPORT_ETHERNET
