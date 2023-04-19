@@ -183,8 +183,7 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         {
             pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
 	#if SUPPORT_IPV6
-			pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily = (CHAR)family;
-			pstcbInput->uniHandle.stTcpUdp.unIpv6FlowLbl = 0; 
+			pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily = (CHAR)family;			
 			memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
 	#else
 			pstcbInput->uniHandle.stTcpUdp.ipv4_addr = 0;
@@ -461,20 +460,6 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             goto __lblIpProtoNotMatched;
 
         break; 
-#if SUPPORT_IPV6
-	case IOPT_SET_IPV6_FLOW_LABEL: 
-		if (AF_INET6 == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily)
-		{
-			pstcbInput->uniHandle.stTcpUdp.unIpv6FlowLbl = *((UINT *)pvVal); 
-		}
-		else
-		{
-			if (penErr)
-				*penErr = ERRIPV4FLOWLABEL;
-			return FALSE; 
-		}
-		break; 
-#endif
 
     default:
         if (penErr)
@@ -631,21 +616,6 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         }
 
         break; 
-
-#if SUPPORT_IPV6
-	case IOPT_GET_IPV6_FLOW_LABEL: 
-		if (AF_INET6 == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily)
-		{
-			*((UINT *)pvVal) = pstcbInput->uniHandle.stTcpUdp.unIpv6FlowLbl;
-		}
-		else
-		{
-			if (penErr)
-				*penErr = ERRIPV4FLOWLABEL;
-			return FALSE;
-		}
-		break; 
-#endif
 
     default:
         if (penErr)

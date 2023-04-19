@@ -179,8 +179,8 @@ static INT dhcp_client_start(EN_ONPSERR *penErr)
 
     //* 设置地址
     ST_TCPUDP_HANDLE stHandle;    
-    stHandle.saddr_ipv4 = 0; //* 作为udp服务器启动，不绑定任何地址，当然也无法绑定因为还没获得合法ip地址
-    stHandle.usPort = DHCP_CLT_PORT;
+    stHandle.stSockAddr.saddr_ipv4 = 0; //* 作为udp服务器启动，不绑定任何地址，当然也无法绑定因为还没获得合法ip地址
+    stHandle.stSockAddr.usPort = DHCP_CLT_PORT;
     if (onps_input_set(nInput, IOPT_SETTCPUDPADDR, &stHandle, penErr))
         return nInput; 
 

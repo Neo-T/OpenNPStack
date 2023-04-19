@@ -703,7 +703,7 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 		goto __lblErr;
 
 	//* 首先看看指定的端口是否已被使用
-	if (onps_input_port_used(pstHandle->bFamily, enProto, usPort))
+	if (onps_input_port_used(pstHandle->stSockAddr.bFamily, enProto, usPort))
 	{
 		enErr = ERRPORTOCCUPIED;
 		goto __lblErr;
@@ -712,14 +712,14 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 	//* 更新地址
 	if (pszNetifIp)
 	{
-		if (AF_INET6 == pstHandle->bFamily)
-			memcpy(pstHandle->saddr_ipv6, pszNetifIp, 16);
+		if (AF_INET6 == pstHandle->stSockAddr.bFamily)
+			memcpy(pstHandle->stSockAddr.saddr_ipv6, pszNetifIp, 16);
 		else
-			pstHandle->saddr_ipv4 = (UINT)inet_addr(pszNetifIp);
+			pstHandle->stSockAddr.saddr_ipv4 = (UINT)inet_addr(pszNetifIp);
 	}
 	else			
-		pstHandle->saddr_ipv4 = 0; //* 直接按照ipv4地址赋零即可
-	pstHandle->usPort = usPort; 
+		pstHandle->stSockAddr.saddr_ipv4 = 0; //* 直接按照ipv4地址赋零即可
+	pstHandle->stSockAddr.usPort = usPort;
 
 	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
 	if (IPPROTO_TCP == enProto)
@@ -752,6 +752,39 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 __lblErr:
     onps_set_last_error((INT)socket, enErr);
     return -1;      
+}
+
+INT bind_ipv6(SOCKET socket, const UCHAR ubaIpv6[16], USHORT usPort, UINT unFlowLabel)
+{
+	EN_ONPSERR enErr;
+	EN_IPPROTO enProto;
+	if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
+		goto __lblErr; 
+
+	PST_TCPUDP_HANDLE pstHandle;
+	if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+		goto __lblErr;
+
+	//* 首先看看指定的端口是否已被使用
+	if (onps_input_port_used(pstHandle->stSockAddr.bFamily, enProto, usPort))
+	{
+		enErr = ERRPORTOCCUPIED;
+		goto __lblErr;
+	}
+
+	//* 更新地址
+	pstHandle->stSockAddr.bFamily = AF_INET6; 
+	memcpy(pstHandle->stSockAddr.saddr_ipv6, ubaIpv6, 16);
+	pstHandle->stSockAddr.usPort = usPort; 
+	pstHandle->stSockAddr.unIpv6FlowLbl = unFlowLabel; 
+
+	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
+	if (IPPROTO_TCP == enProto)
+		pstHandle->bType = TCP_TYPE_SERVER;
+
+__lblErr:
+	onps_set_last_error((INT)socket, enErr);
+	return -1; 
 }
 
 const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr)

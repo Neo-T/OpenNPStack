@@ -18,10 +18,9 @@
 
 //* 实现udp发送，使用该函数之前用户应该已经通过connect()函数绑定了目标服务器地址
 UDP_EXT INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen); 
+UDP_EXT INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDstPort, in_addr_t unSrcIp, PST_NETIF pstNetif, EN_ONPSERR *penErr);
 #if SUPPORT_IPV6
-UDP_EXT INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDstPort, in_addr_t unSrcIp, PST_NETIF pstNetif, EN_ONPSERR *penErr);
-#else
-UDP_EXT INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDstPort, in_addr_t unSrcIp, PST_NETIF pstNetif, EN_ONPSERR *penErr);
+UDP_EXT INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, PST_SOCKADDR pstDstAddr, PST_SOCKADDR pstSrcAddr, PST_NETIF pstNetif, EN_ONPSERR *penErr);
 #endif
 UDP_EXT INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, INT nDataLen); 
 UDP_EXT void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen); 

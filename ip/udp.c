@@ -19,7 +19,7 @@
 #undef SYMBOL_GLOBALS
 
 #if SUPPORT_IPV6
-static INT udp_send_packet(PST_SOCKADDR pstSrcAddr, PST_SOCKADDR pstDstAddr, UINT unFlowLabel, UCHAR *pubData, INT nDataLen, EN_ONPSERR *penErr)
+static INT udp_send_packet(PST_SOCKADDR pstSrcAddr, PST_SOCKADDR pstDstAddr, UCHAR *pubData, INT nDataLen, EN_ONPSERR *penErr)
 #else
 static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UCHAR *pubData, INT nDataLen, EN_ONPSERR *penErr)
 #endif
@@ -76,7 +76,7 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     }
     buf_list_put_head(&sBufListHead, sHdrNode);
 		
-	SHORT sPseudoHdrNode;        //* 挂载到链表头部
+	SHORT sPseudoHdrNode; //* 挂载到链表头部
 #if SUPPORT_IPV6
 	if (AF_INET == pstSrcAddr->bFamily)
 	{
@@ -134,7 +134,7 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 	if (AF_INET == pstSrcAddr->bFamily)
 		nRtnVal = ip_send_ext(pstSrcAddr->saddr_ipv4, pstDstAddr->saddr_ipv4, UDP, IP_TTL_DEFAULT, sBufListHead, penErr);
 	else
-		nRtnVal = ipv6_send_ext(pstSrcAddr->saddr_ipv6, pstDstAddr->saddr_ipv6, IPPROTO_UDP, sBufListHead, unFlowLabel, penErr);
+		nRtnVal = ipv6_send_ext(pstSrcAddr->saddr_ipv6, pstDstAddr->saddr_ipv6, IPPROTO_UDP, sBufListHead, pstSrcAddr->unIpv6FlowLbl, penErr);
 #else
     INT nRtnVal = ip_send_ext(unSrcAddr, unDstAddr, UDP, IP_TTL_DEFAULT, sBufListHead, penErr);
 #endif
@@ -221,11 +221,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
 
 #if SUPPORT_IPV6
 	//* 获取流标签
-	UINT unFlowLabel = 0;
-	if (AF_INET6 == pstHandle->stSockAddr.bFamily)
-		onps_input_get(nInput, IOPT_GET_IPV6_FLOW_LABEL, &unFlowLabel, &enErr);
-
-	INT nRtnVal = nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &pstLink->stPeerAddr, unFlowLabel, pubData, nDataLen, &enErr);
+	INT nRtnVal = nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &pstLink->stPeerAddr, pubData, nDataLen, &enErr);
 #else
     INT nRtnVal = udp_send_packet(pstHandle->saddr_ipv4, pstHandle->usPort, pstLink->stPeerAddr.saddr_ipv4, pstLink->stPeerAddr.usPort, pubData, nDataLen, &enErr);
 #endif
@@ -242,7 +238,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
 
 INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDstPort, in_addr_t unSrcIp, PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
-    //* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
+    //* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配或用户手动设置的端口及本地网络接口地址
     PST_TCPUDP_HANDLE pstHandle;
     if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, penErr))            
         return -1;
@@ -258,7 +254,7 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     //* 挂载udp报文头部数据
     USHORT usDataLen = (USHORT)buf_list_get_len(sBufListHead); 
     ST_UDP_HDR stHdr;
-    stHdr.usSrcPort = htons(pstHandle->usPort);
+    stHdr.usSrcPort = htons(pstHandle->stSockAddr.usPort);
     stHdr.usDstPort = htons(usDstPort);
     stHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
     stHdr.usChecksum = 0;
@@ -305,6 +301,56 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     return nRtnVal;
 }
 
+#if SUPPORT_IPV6
+INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, PST_SOCKADDR pstDstAddr, PST_SOCKADDR pstSrcAddr, PST_NETIF pstNetif, EN_ONPSERR *penErr)
+{
+	if (AF_INET6 != pstSrcAddr->bFamily)
+	{
+		if (penErr)
+			*penErr = ERRUNSUPPORTEDFAMILY; 
+
+		return -1; 
+	}
+
+	//* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配或用户手动设置的端口及本地网络接口地址
+	PST_TCPUDP_HANDLE pstHandle;
+	if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
+		return -1;
+
+	//* 这个函数用于udp服务器发送，端口号在初始设置阶段就应该由用户分配才对，所以这里不应该为0
+	if (pstHandle->stSockAddr.usPort == 0)
+	{
+		if (penErr)
+			*penErr = ERRPORTEMPTY;
+		return -1;
+	}
+
+	//* 挂载udp报文头部数据
+	USHORT usDataLen = (USHORT)buf_list_get_len(sBufListHead);
+	ST_UDP_HDR stHdr;
+	stHdr.usSrcPort = htons(pstHandle->stSockAddr.usPort);
+	stHdr.usDstPort = htons(pstDstAddr->usPort); 
+	stHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
+	stHdr.usChecksum = 0;
+
+	//* 挂载到链表头部
+	SHORT sHdrNode;
+	sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
+	if (sHdrNode < 0)
+		return -1;
+	buf_list_put_head(&sBufListHead, sHdrNode); 
+
+	//* 填充用于校验和计算的ipv6伪报头
+	ST_IPv6_PSEUDOHDR stPseudoHdr;
+	memcpy(stPseudoHdr.ubaSrcIpv6, pstSrcAddr->saddr_ipv6, 16);
+	memcpy(stPseudoHdr.ubaDstIpv6, pstDstAddr->saddr_ipv6, 16);
+	stPseudoHdr.unIpv6PayloadLen = htonl(sizeof(ST_UDP_HDR) + usDataLen);
+	stPseudoHdr.ubaMustBeZero[0] = stPseudoHdr.ubaMustBeZero[1] = stPseudoHdr.ubaMustBeZero[2] = 0;
+	stPseudoHdr.ubProto = IPPROTO_UDP;
+	SHORT sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IPv6_PSEUDOHDR), penErr);
+}
+#endif
+
 INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, INT nDataLen)
 {
     EN_ONPSERR enErr;
@@ -318,7 +364,7 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
     }
 
     //* 尚未分配本地地址(一定是IP地址和端口号都为0才可，因为存在UDP服务器只绑定一个端口号的情况)
-    if (pstHandle->saddr_ipv4 == 0 && pstHandle->usPort == 0)
+    if (pstHandle->stSockAddr.saddr_ipv4 == 0 && pstHandle->stSockAddr.usPort == 0)
     {
         //* 寻址，看看使用哪个neiif
         UINT unNetifIp = route_get_netif_ip(unDstIP);
@@ -328,11 +374,15 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
             return -1;
         }
         //* 更新当前input句柄，以便收到应答报文时能够准确找到该链路
-        pstHandle->saddr_ipv4 = unNetifIp;
-        pstHandle->usPort = onps_input_port_new(IPPROTO_UDP);
+        pstHandle->stSockAddr.saddr_ipv4 = unNetifIp;
+        pstHandle->stSockAddr.usPort = onps_input_port_new(AF_INET, IPPROTO_UDP);
     }
 
-    INT nRtnVal = udp_send_packet(pstHandle->saddr_ipv4, pstHandle->usPort, unDstIP, usDstPort, pubData, nDataLen, &enErr);
+	ST_SOCKADDR stDstAddr; 
+	stDstAddr.bFamily = AF_INET; 
+	stDstAddr.saddr_ipv4 = unDstIP;
+	stDstAddr.usPort = usDstPort; 
+    INT nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &stDstAddr, pubData, nDataLen, &enErr);
     if (nRtnVal > 0)
         return nDataLen;
     else
@@ -447,7 +497,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     in_addr_t unFromIP = htonl(unSrcAddr); 
     if (pstLink)
     {
-        if (pstLink->stPeerAddr.unIp != unFromIP || pstLink->stPeerAddr.usPort != usSrcPort)
+        if (pstLink->stPeerAddr.saddr_ipv4 != unFromIP || pstLink->stPeerAddr.usPort != usSrcPort)
         {
     #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
             UCHAR *pubFromAddr = (UCHAR *)&unSrcAddr;

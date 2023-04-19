@@ -33,9 +33,6 @@ typedef enum {
     IOPT_SETICMPECHOID = 0,     //* 设置icmp echo请求ID
     IOPT_SETTCPUDPADDR,         //* 设置TCP/UDP本地分配的地址
     IOPT_SET_TCP_LINK_FLAGS,    //* 设置tcp链路标志
-#if SUPPORT_IPV6
-	IOPT_SET_IPV6_FLOW_LABEL,   //* 设置ipv6流表签
-#endif
     IOPT_GETTCPUDPADDR,         //* 获取TCP/UDP本地分配的地址
     IOPT_GETSEM,                //* 获取input用到的semaphore
     IOPT_GETIPPROTO,            //* 获取当前input绑定的ip上层协议
@@ -48,10 +45,7 @@ typedef enum {
     IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
     IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
     IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度        
-    IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志
-#if SUPPORT_IPV6
-	IOPT_GET_IPV6_FLOW_LABEL,   //* 读取ipv6流表签
-#endif
+    IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志 
 } ONPSIOPT;
 
 #if SUPPORT_IPV6
@@ -63,6 +57,7 @@ typedef struct _ST_SOCKADDR_ {
 		UINT unVal;
 		UCHAR ubaVal[16];
 	} uniIp;
+	UINT unIpv6FlowLbl; //* ipv4地址时忽略该字段 
 } ST_SOCKADDR, *PST_SOCKADDR;
 #endif
 
@@ -72,8 +67,7 @@ typedef struct _ST_SOCKADDR_ {
 typedef struct _ST_TCPUDP_HANDLE_ {
     CHAR bType;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器、连接本地服务器的客户端、连接远端服务器的客户端（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）    
 #if SUPPORT_IPV6
-	ST_SOCKADDR stSockAddr; 	
-	UINT unIpv6FlowLbl; 
+	ST_SOCKADDR stSockAddr; 		
 #else	
 	USHORT usPort;
     UINT unIp;         

@@ -109,6 +109,57 @@ __lblGetNextNode:
     goto __lblGetNextNode; 
 }
 
+USHORT tcpip_checksum_ipv4(in_addr_t unSrcAddr, in_addr_t unDstAddr, USHORT usPayloadLen, UCHAR ubProto, SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+	//* 填充用于校验和计算的ip伪报头
+	ST_IP_PSEUDOHDR stPseudoHdr;
+	stPseudoHdr.unSrcAddr = unSrcAddr;
+	stPseudoHdr.unDstAddr = htonl(unDstAddr);
+	stPseudoHdr.ubMustBeZero = 0;
+	stPseudoHdr.ubProto = ubProto;
+	stPseudoHdr.usPacketLen = htons(usPayloadLen); 	
+	SHORT sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);
+	if (sPseudoHdrNode < 0)
+		return 0;
+	buf_list_put_head(&sBufListHead, sPseudoHdrNode);
+
+	//* 计算校验和
+	USHORT usChecksum = tcpip_checksum_ext(sBufListHead);
+	
+	//* 释放伪报头
+	buf_list_free_head(&sBufListHead, sPseudoHdrNode);
+
+	return usChecksum; 
+}
+
+#if SUPPORT_IPV6
+USHORT tcpip_checksum_ipv6(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UINT unPayloadLen, UCHAR ubProto, SHORT sBufListHead, EN_ONPSERR *penErr)
+{
+	if (penErr)
+		*penErr = ERRNO;  
+
+	//* 填充用于校验和计算的ipv6伪报头
+	ST_IPv6_PSEUDOHDR stPseudoHdr;
+	memcpy(stPseudoHdr.ubaSrcIpv6, ubaSrcAddr, 16);
+	memcpy(stPseudoHdr.ubaDstIpv6, ubaDstAddr, 16);
+	stPseudoHdr.unIpv6PayloadLen = htonl(unPayloadLen);
+	stPseudoHdr.ubaMustBeZero[0] = stPseudoHdr.ubaMustBeZero[1] = stPseudoHdr.ubaMustBeZero[2] = 0;
+	stPseudoHdr.ubProto = ubProto;
+	SHORT sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IPv6_PSEUDOHDR), penErr); 
+	if (sPseudoHdrNode < 0)			
+		return 0;	
+	buf_list_put_head(&sBufListHead, sPseudoHdrNode);
+
+	//* 计算校验和
+	USHORT usChecksum = tcpip_checksum_ext(sBufListHead);	
+
+	//* 释放伪报头
+	buf_list_free_head(&sBufListHead, sPseudoHdrNode); 
+
+	return usChecksum; 
+}
+#endif
+
 void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace)
 {
 	UINT i, unFormatBytes = 0;
