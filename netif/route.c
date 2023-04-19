@@ -352,13 +352,13 @@ UINT route_get_netif_ip(UINT unDestination)
 }
 
 #if SUPPORT_IPV6
-PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr)
+PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr, UCHAR *pubHopLimit)
 {
 	PST_NETIF pstNetif = NULL;
 
 #if SUPPORT_ETHERNET
 	//* 先查找ethernet网卡链表（PPP链路不需要，因为这个只能按照既定规则发到拨号网络的对端），看看以太网是否就可以满足要求，否则就只能通过ppp链路转发了	           
-	pstNetif = netif_eth_get_by_ipv6_prefix(ubaDestination, pubSource, pubNSAddr, blIsForSending);
+	pstNetif = netif_eth_get_by_ipv6_prefix(ubaDestination, pubSource, pubNSAddr, blIsForSending, pubHopLimit);
 	if (pstNetif)
 		return pstNetif;
 #endif
@@ -373,7 +373,7 @@ UCHAR *route_ipv6_get_source_ip(UCHAR ubaDestination[16], UCHAR *pubSource)
 
 #if SUPPORT_ETHERNET
 	//*  同route_ipv6_get_netif()函数	                     
-	PST_NETIF pstNetif = netif_eth_get_by_ipv6_prefix(ubaDestination, pubSource, NULL, FALSE);
+	PST_NETIF pstNetif = netif_eth_get_by_ipv6_prefix(ubaDestination, pubSource, NULL, FALSE, NULL);
 	if (pstNetif)
 		return pubSource;
 #endif

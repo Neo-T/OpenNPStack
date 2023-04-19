@@ -416,13 +416,13 @@ static INT ipv6_to_mac(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv
 	//*       FF05::2，站点本地范围内的所有路由组播地址；
 	//*       最新IANA分配的永久组播地址详见：https://www.iana.org/assignments/ipv6-multicast-addresses
 	//* 
-	//* ipv6组播地址到mac组播地址的转换规则如下（P85 3.5.2）：
+	//* ipv6组播地址到mac组播地址的转换规则如下（P85 3.5.2），其实就是把组播地址的后32为作为mac地址后32位，如下：
 	//*                       96位     104位    112位    120位  127位
 	//*                        :        :        :        :      :
 	//* ipv6组播地址 0xFF.....:|||||||| |||||||| |||||||| ||||||||
 	//*      mac地址 0x33-0x33-||||||||-||||||||-||||||||-||||||||
 
-	//* 如果ip地址为广播地址则填充目标mac地址也为广播地址
+	//* 如果ip地址为广播地址则按照上述规则填充目标mac地址为广播地址
 	if (ubaDstIpv6[0] == 0xFF)
 	{
 		ubaMacAddr[0] = IPv6MCTOMACADDR_PREFIX;
@@ -631,7 +631,7 @@ UCHAR *ipv6_sol_mc_addr(UCHAR ubaUniIpv6[16], UCHAR ubaSolMcAddr[16])
 	return ubaSolMcAddr;
 }
 
-static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
+static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr)
 {
 	ST_IPv6_PSEUDOHDR stPseudoHdr;	
 	ST_ICMPv6_HDR stHdr;
@@ -689,7 +689,7 @@ static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR uba
 	buf_list_free_head(&sBufListHead, sPseudoHdrNode); 
 
 	//* 发送，并释放占用的buf list节点
-	INT nRtnVal = ipv6_send(pstNetif, NULL, stPseudoHdr.ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, IPPROTO_ICMPv6, sBufListHead, unFlowLabel, ubHopLimit, penErr);
+	INT nRtnVal = ipv6_send(pstNetif, NULL, stPseudoHdr.ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, IPPROTO_ICMPv6, sBufListHead, unFlowLabel, penErr);
 	buf_list_free(sIcmpv6HdrNode); 
 
 	return nRtnVal; 
@@ -723,7 +723,7 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	//* ================================================================================
 
 	//* 完成实际的发送并释放占用的buf list节点
-	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, 0, 255, penErr);
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, 0, penErr);
 	buf_list_free(sIcmpv6NeiSolNode); 
 
 	return nRtnVal; 
@@ -754,7 +754,7 @@ INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], EN_ONPSERR *penErr)
 	//* ================================================================================
 	
 	//* 完成实际的发送并释放占用的buf list节点
-	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), sBufListHead, 0, 255, penErr);
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), sBufListHead, 0, penErr);
 	buf_list_free(sIcmpv6RouSolNode);
 
 	return nRtnVal;

@@ -29,7 +29,7 @@ BOOL sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSys
     LONGLONG llTransTimestatmp;
 
     //* 新建一个udp客户端
-    INT nClient = onps_input_new(IPPROTO_UDP, penErr);
+    INT nClient = onps_input_new(AF_INET, IPPROTO_UDP, penErr);
     if (nClient < 0)
         return FALSE;
 

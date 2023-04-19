@@ -113,7 +113,7 @@ USHORT tcpip_checksum_ipv4(in_addr_t unSrcAddr, in_addr_t unDstAddr, USHORT usPa
 {
 	//* 填充用于校验和计算的ip伪报头
 	ST_IP_PSEUDOHDR stPseudoHdr;
-	stPseudoHdr.unSrcAddr = unSrcAddr;
+	stPseudoHdr.unSrcAddr = htonl(unSrcAddr);
 	stPseudoHdr.unDstAddr = htonl(unDstAddr);
 	stPseudoHdr.ubMustBeZero = 0;
 	stPseudoHdr.ubProto = ubProto;

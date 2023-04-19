@@ -59,15 +59,14 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     stHdr.usSrcPort = htons(pstSrcAddr->usPort);
     stHdr.usDstPort = htons(pstDstAddr->usPort); 
 #else
-	stHdr.usSrcPort = usSrcPort;
-	stHdr.usDstPort = usDstPort;
+	stHdr.usSrcPort = htons(usSrcPort);
+	stHdr.usDstPort = htons(usDstPort);
 #endif
     stHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + nDataLen); 
     stHdr.usChecksum = 0; 
 
     //* 挂载到链表头部
-    SHORT sHdrNode;
-    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
+    SHORT sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
     if (sHdrNode < 0)
     {
         if (sDataNode >= 0)
@@ -75,54 +74,28 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
         return -1;
     }
     buf_list_put_head(&sBufListHead, sHdrNode);
-		
-	SHORT sPseudoHdrNode; //* 挂载到链表头部
+			
+	//* 计算校验和
+	EN_ONPSERR enErr; 
 #if SUPPORT_IPV6
 	if (AF_INET == pstSrcAddr->bFamily)
-	{
-		//* 填充用于校验和计算的ip伪报头
-		ST_IP_PSEUDOHDR stPseudoHdr; 
-		stPseudoHdr.unSrcAddr = pstSrcAddr->saddr_ipv4;
-		stPseudoHdr.unDstAddr = htonl(pstDstAddr->saddr_ipv4);
-		stPseudoHdr.ubMustBeZero = 0;
-		stPseudoHdr.ubProto = IPPROTO_UDP; 
-		stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + nDataLen);
-		sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);		
-	}
+		stHdr.usChecksum = tcpip_checksum_ipv4(htonl(pstSrcAddr->saddr_ipv4), pstDstAddr->saddr_ipv4, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
 	else
-	{
-		//* 填充用于校验和计算的ipv6伪报头
-		ST_IPv6_PSEUDOHDR stPseudoHdr; 
-		memcpy(stPseudoHdr.ubaSrcIpv6, pstSrcAddr->saddr_ipv6, 16);
-		memcpy(stPseudoHdr.ubaDstIpv6, pstDstAddr->saddr_ipv6, 16); 
-		stPseudoHdr.unIpv6PayloadLen = htonl(sizeof(ST_UDP_HDR) + nDataLen);
-		stPseudoHdr.ubaMustBeZero[0] = stPseudoHdr.ubaMustBeZero[1] = stPseudoHdr.ubaMustBeZero[2] = 0;
-		stPseudoHdr.ubProto = IPPROTO_UDP; 
-		sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IPv6_PSEUDOHDR), penErr);
-	}
+		stHdr.usChecksum = tcpip_checksum_ipv6(pstSrcAddr->saddr_ipv6, pstDstAddr->saddr_ipv6, (UINT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
 #else
-	//* 填充用于校验和计算的ip伪报头
-	ST_IP_PSEUDOHDR stPseudoHdr; 
-	stPseudoHdr.unSrcAddr = unSrcAddr;
-	stPseudoHdr.unDstAddr = htonl(unDstAddr);
-	stPseudoHdr.ubMustBeZero = 0;
-	stPseudoHdr.ubProto = IPPROTO_UDP;
-	stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + nDataLen);
-	sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);
+	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(pstSrcAddr->saddr_ipv4), pstDstAddr->saddr_ipv4, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);	
 #endif	
-    if (sPseudoHdrNode < 0)
+    if (ERRNO != enErr)
     {
         if (sDataNode >= 0)
             buf_list_free(sDataNode); 
         buf_list_free(sHdrNode);
+
+		if (penErr)
+			*penErr = enErr; 
+
         return -1;
     }
-    buf_list_put_head(&sBufListHead, sPseudoHdrNode);
-
-    //* 计算校验和
-    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
-    //* 用不到了，释放伪报头
-    buf_list_free_head(&sBufListHead, sPseudoHdrNode);
 
     //* 如果校验和为0，根据协议要求必须反转为0xFFFF
     if (0 == stHdr.usChecksum)
@@ -221,7 +194,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
 
 #if SUPPORT_IPV6
 	//* 获取流标签
-	INT nRtnVal = nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &pstLink->stPeerAddr, pubData, nDataLen, &enErr);
+	INT nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &pstLink->stPeerAddr, pubData, nDataLen, &enErr);
 #else
     INT nRtnVal = udp_send_packet(pstHandle->saddr_ipv4, pstHandle->usPort, pstLink->stPeerAddr.saddr_ipv4, pstLink->stPeerAddr.usPort, pubData, nDataLen, &enErr);
 #endif
@@ -260,33 +233,22 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     stHdr.usChecksum = 0;
 
     //* 挂载到链表头部
-    SHORT sHdrNode;
-    sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
+    SHORT sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
     if (sHdrNode < 0)            
         return -1;     
     buf_list_put_head(&sBufListHead, sHdrNode); 
 
-    //* 填充用于校验和计算的ip伪报头
-    ST_IP_PSEUDOHDR stPseudoHdr;
-    stPseudoHdr.unSrcAddr = unSrcIp;
-    stPseudoHdr.unDstAddr = htonl(unDstIp);
-    stPseudoHdr.ubMustBeZero = 0;
-    stPseudoHdr.ubProto = IPPROTO_UDP;
-    stPseudoHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
-    //* 挂载到链表头部
-    SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IP_PSEUDOHDR), penErr);
-    if (sPseudoHdrNode < 0)
+	//* 计算校验和
+	EN_ONPSERR enErr; 
+	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(unSrcIp), unDstIp, (USHORT)(sizeof(ST_UDP_HDR) + usDataLen), IPPROTO_UDP, sBufListHead, &enErr); 
+    if (ERRNO != enErr)
     {        
         buf_list_free(sHdrNode);
+		if (*penErr)
+			*penErr = enErr; 
+
         return -1;
     }
-    buf_list_put_head(&sBufListHead, sPseudoHdrNode); 
-
-    //* 计算校验和
-    stHdr.usChecksum = tcpip_checksum_ext(sBufListHead);
-    //* 用不到了，释放伪报头
-    buf_list_free_head(&sBufListHead, sPseudoHdrNode);
 
     //* 如果校验和为0，根据协议要求必须反转为0xFFFF
     if (0 == stHdr.usChecksum)
@@ -301,56 +263,6 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     return nRtnVal;
 }
 
-#if SUPPORT_IPV6
-INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, PST_SOCKADDR pstDstAddr, PST_SOCKADDR pstSrcAddr, PST_NETIF pstNetif, EN_ONPSERR *penErr)
-{
-	if (AF_INET6 != pstSrcAddr->bFamily)
-	{
-		if (penErr)
-			*penErr = ERRUNSUPPORTEDFAMILY; 
-
-		return -1; 
-	}
-
-	//* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配或用户手动设置的端口及本地网络接口地址
-	PST_TCPUDP_HANDLE pstHandle;
-	if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
-		return -1;
-
-	//* 这个函数用于udp服务器发送，端口号在初始设置阶段就应该由用户分配才对，所以这里不应该为0
-	if (pstHandle->stSockAddr.usPort == 0)
-	{
-		if (penErr)
-			*penErr = ERRPORTEMPTY;
-		return -1;
-	}
-
-	//* 挂载udp报文头部数据
-	USHORT usDataLen = (USHORT)buf_list_get_len(sBufListHead);
-	ST_UDP_HDR stHdr;
-	stHdr.usSrcPort = htons(pstHandle->stSockAddr.usPort);
-	stHdr.usDstPort = htons(pstDstAddr->usPort); 
-	stHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
-	stHdr.usChecksum = 0;
-
-	//* 挂载到链表头部
-	SHORT sHdrNode;
-	sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
-	if (sHdrNode < 0)
-		return -1;
-	buf_list_put_head(&sBufListHead, sHdrNode); 
-
-	//* 填充用于校验和计算的ipv6伪报头
-	ST_IPv6_PSEUDOHDR stPseudoHdr;
-	memcpy(stPseudoHdr.ubaSrcIpv6, pstSrcAddr->saddr_ipv6, 16);
-	memcpy(stPseudoHdr.ubaDstIpv6, pstDstAddr->saddr_ipv6, 16);
-	stPseudoHdr.unIpv6PayloadLen = htonl(sizeof(ST_UDP_HDR) + usDataLen);
-	stPseudoHdr.ubaMustBeZero[0] = stPseudoHdr.ubaMustBeZero[1] = stPseudoHdr.ubaMustBeZero[2] = 0;
-	stPseudoHdr.ubProto = IPPROTO_UDP;
-	SHORT sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (UINT)sizeof(ST_IPv6_PSEUDOHDR), penErr);
-}
-#endif
-
 INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, INT nDataLen)
 {
     EN_ONPSERR enErr;
@@ -363,8 +275,8 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
         return -1;
     }
 
-    //* 尚未分配本地地址(一定是IP地址和端口号都为0才可，因为存在UDP服务器只绑定一个端口号的情况)
-    if (pstHandle->stSockAddr.saddr_ipv4 == 0 && pstHandle->stSockAddr.usPort == 0)
+    //* 端口号为0意味着尚未分配本地地址(端口号是不允许为0的)
+    if (/*pstHandle->stSockAddr.saddr_ipv4 == 0 && */pstHandle->stSockAddr.usPort == 0)
     {
         //* 寻址，看看使用哪个neiif
         UINT unNetifIp = route_get_netif_ip(unDstIP);
@@ -401,17 +313,16 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     //* 如果校验和为0则意味着不需要计算校验和，反之就需要进行校验计算
     if (pstHdr->usChecksum)
     {
-        //* 把完整的tcp报文与tcp伪包头链接到一起，以便计算tcp校验和确保收到的tcp报文正确        
+        //* 把完整的udp报文与ip伪报头链接到一起，以便计算udp校验和确保收到的udp报文正确        
         SHORT sBufListHead = -1;
-        SHORT sUdpPacketNode = -1;
-        sUdpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
+        SHORT sUdpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
         if (sUdpPacketNode < 0)
         {
 #if SUPPORT_PRINTF && DEBUG_LEVEL
     #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-            printf("buf_list_get_ext() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+            printf("buf_list_get_ext() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
     #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
@@ -420,42 +331,30 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         }
         buf_list_put_head(&sBufListHead, sUdpPacketNode);
 
-        //* 填充用于校验和计算的ip伪报头
-        ST_IP_PSEUDOHDR stPseudoHdr;
-        stPseudoHdr.unSrcAddr = unSrcAddr;
-        stPseudoHdr.unDstAddr = unDstAddr;
-        stPseudoHdr.ubMustBeZero = 0;
-        stPseudoHdr.ubProto = IPPROTO_UDP;
-        stPseudoHdr.usPacketLen = htons((USHORT)nPacketLen);
-        //* 挂载到链表头部
-        SHORT sPseudoHdrNode;
-        sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_IP_PSEUDOHDR), &enErr);
-        if (sPseudoHdrNode < 0)
-        {
-    #if SUPPORT_PRINTF && DEBUG_LEVEL
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
-        #endif
-            printf("buf_list_get_ext() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
-        #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-        #endif
-    #endif
-
-            buf_list_free(sUdpPacketNode);
-            return;
-        }
-        buf_list_put_head(&sBufListHead, sPseudoHdrNode);
-
         //* 挂载完毕，可以计算校验和是否正确了
         USHORT usPktChecksum = pstHdr->usChecksum;
-        pstHdr->usChecksum = 0;
-        USHORT usChecksum = tcpip_checksum_ext(sBufListHead);
-        //* 先释放再判断
-        buf_list_free(sUdpPacketNode);
-        buf_list_free(sPseudoHdrNode);
+        pstHdr->usChecksum = 0;		
+		USHORT usChecksum = tcpip_checksum_ipv4(htonl(unSrcAddr), htonl(unDstAddr), (USHORT)nPacketLen, IPPROTO_UDP, sBufListHead, &enErr);
+		if (ERRNO != enErr)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("tcpip_checksum_ipv4() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+
+			buf_list_free(sUdpPacketNode);
+			return;
+		}        
+        buf_list_free(sUdpPacketNode); //* 先释放        		
         if(0 == usChecksum) //* 如果计算结果为0，则校验和反转
             usChecksum = 0xFFFF; 
+
+		//* 判断校验和是否正确
         if (usPktChecksum != usChecksum)
         {
     #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
@@ -594,4 +493,223 @@ __lblErr:
     onps_set_last_error(nInput, enErr);
     return -1;
 }
+
+#if SUPPORT_IPV6
+INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, PST_SOCKADDR pstDstAddr, PST_SOCKADDR pstSrcAddr, PST_NETIF pstNetif, EN_ONPSERR *penErr)
+{
+	if (AF_INET6 != pstSrcAddr->bFamily)
+	{
+		if (penErr)
+			*penErr = ERRUNSUPPORTEDFAMILY;
+
+		return -1;
+	}
+
+	//* 挂载udp报文头部数据
+	USHORT usDataLen = (USHORT)buf_list_get_len(sBufListHead);
+	ST_UDP_HDR stHdr;
+	stHdr.usSrcPort = htons(pstSrcAddr->usPort);
+	stHdr.usDstPort = htons(pstDstAddr->usPort);
+	stHdr.usPacketLen = htons(sizeof(ST_UDP_HDR) + usDataLen);
+	stHdr.usChecksum = 0;
+
+	//* 挂载到链表头部
+	SHORT sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_UDP_HDR), penErr);
+	if (sHdrNode < 0)
+		return -1;
+	buf_list_put_head(&sBufListHead, sHdrNode);
+
+	//* 计算校验和
+	EN_ONPSERR enErr;
+	stHdr.usChecksum = tcpip_checksum_ipv6(pstSrcAddr->saddr_ipv6, pstDstAddr->saddr_ipv6, (UINT)(sizeof(ST_UDP_HDR) + usDataLen), IPPROTO_UDP, sBufListHead, &enErr);
+	if (ERRNO != enErr)
+	{
+		buf_list_free(sHdrNode);
+		if (*penErr)
+			*penErr = enErr;
+
+		return -1;
+	}
+
+	//* 如果校验和为0，根据协议要求必须反转为0xFFFF
+	if (0 == stHdr.usChecksum)
+		stHdr.usChecksum = 0xFFFF;
+
+	//* 发送之    
+	INT nRtnVal = ipv6_send(pstNetif, NULL, pstSrcAddr->saddr_ipv6, pstDstAddr->saddr_ipv6, IPPROTO_UDP, sBufListHead, pstSrcAddr->unIpv6FlowLbl, penErr);
+
+	//* 释放刚才申请的buf list节点    
+	buf_list_free(sHdrNode);
+
+	return nRtnVal;
+}
+
+INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UINT unFlowLabel, UCHAR *pubData, INT nDataLen)
+{
+	EN_ONPSERR enErr;
+
+	//* 获取udp链路句柄访问地址，该地址保存当前udp链路由协议栈自动分配的端口及本地网络接口地址
+	PST_TCPUDP_HANDLE pstHandle;
+	if (!onps_input_get(nInput, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+	{
+		onps_set_last_error(nInput, enErr);
+		return -1;
+	}
+
+	//* 端口号为0意味着尚未分配本地地址(端口号是不允许为0的)
+	if (pstHandle->stSockAddr.usPort == 0)
+	{
+		//* 更新当前input句柄，以便收到应答报文时能够准确找到该链路，首先寻址确定源地址
+		if (NULL == route_ipv6_get_source_ip(ubaDstAddr, pstHandle->stSockAddr.saddr_ipv6))
+		{
+			onps_set_last_error(nInput, ERRADDRESSING);
+			return -1;
+		}
+
+		pstHandle->stSockAddr.usPort = onps_input_port_new(AF_INET6, IPPROTO_UDP);
+	}
+
+	ST_SOCKADDR stDstAddr;
+	stDstAddr.bFamily = AF_INET6;
+	memcpy(stDstAddr.saddr_ipv6, ubaDstAddr, 16);
+	stDstAddr.usPort = usDstPort;
+	stDstAddr.unIpv6FlowLbl = unFlowLabel;
+	INT nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &stDstAddr, pubData, nDataLen, &enErr);
+	if (nRtnVal > 0)
+		return nDataLen;
+	else
+	{
+		if (nRtnVal < 0)
+			onps_set_last_error(nInput, enErr);
+		return nRtnVal;
+	}
+}
+
+void ipv6_udp_recv(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubPacket, INT nPacketLen)
+{
+	EN_ONPSERR enErr;
+	PST_UDP_HDR pstHdr = (PST_UDP_HDR)pubPacket;
+
+	//* 如果校验和为0则意味着不需要计算校验和，反之就需要进行校验计算
+	if (pstHdr->usChecksum)
+	{
+		//* 把完整的udp报文与ip伪报头链接到一起，以便计算udp校验和确保收到的udp报文正确        
+		SHORT sBufListHead = -1;
+		SHORT sUdpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
+		if (sUdpPacketNode < 0)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("buf_list_get_ext() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			return;
+		}
+		buf_list_put_head(&sBufListHead, sUdpPacketNode);
+
+		//* 挂载完毕，可以计算校验和是否正确了
+		USHORT usPktChecksum = pstHdr->usChecksum;
+		pstHdr->usChecksum = 0;
+		USHORT usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, (USHORT)nPacketLen, IPPROTO_UDP, sBufListHead, &enErr);
+		if (ERRNO != enErr)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("tcpip_checksum_ipv6() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+
+			buf_list_free(sUdpPacketNode);
+			return;
+		}
+		buf_list_free(sUdpPacketNode); //* 先释放        		
+		if (0 == usChecksum) //* 如果计算结果为0，则校验和反转
+			usChecksum = 0xFFFF;
+
+		//* 判断校验和是否正确
+		if (usPktChecksum != usChecksum)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
+			pstHdr->usChecksum = usPktChecksum;
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("checksum error (%04X, %04X), the udp packet will be dropped\r\n", usChecksum, usPktChecksum);
+			printf_hex(pubPacket, nPacketLen, 48);
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			return;
+		}
+	}
+
+	//* 校验和计算通过，则查找当前udp链路是否存在
+	USHORT usSrcPort = htons(pstHdr->usSrcPort);
+	USHORT usDstPort = htons(pstHdr->usDstPort);
+	PST_UDPLINK pstLink;
+	INT nInput = onps_input_get_handle(IPPROTO_UDP, ubaDstAddr, usDstPort, &pstLink);
+	if (nInput < 0)
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
+		CHAR szIpv6[40]; 
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif        
+		printf("The udp link of [%s]:%d isn't found, the packet will be dropped\r\n", inet6_ntoa(ubaDstAddr, szIpv6), usDstPort);
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+		return;
+	}
+
+	//* 如果当前链路存在附加信息，意味着这是一个已经与udp服务器绑定的链路，需要判断源地址是否也匹配，不匹配的直接丢弃	
+	if (pstLink)
+	{		
+		if (memcmp(ubaSrcAddr, pstLink->stPeerAddr.saddr_ipv6, 16) || pstLink->stPeerAddr.usPort != usSrcPort)
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL// > 3
+			CHAR szIpv6[40];			
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif        
+			printf("udp packets from address [%s]:%d are not allowed (connected to udp server", inet6_ntoa(ubaSrcAddr, szIpv6), usSrcPort);
+			printf(" [%s]:%d), the packet will be dropped\r\n", inet6_ntoa(pstLink->stPeerAddr.saddr_ipv6, szIpv6), pstLink->stPeerAddr.usPort);
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+			return;
+		}
+	}
+
+	//* 看看有数据吗？            
+	INT nDataLen = nPacketLen - sizeof(ST_UDP_HDR);
+	if (nDataLen)
+	{
+		//* 将数据搬运到input层
+		if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, unFromIP, usSrcPort, &enErr))
+		{
+	#if SUPPORT_PRINTF && DEBUG_LEVEL
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("onps_input_recv() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif            
+		}
+	}
+}
+#endif
 

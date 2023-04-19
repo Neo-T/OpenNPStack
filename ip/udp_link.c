@@ -8,6 +8,7 @@
 #include "port/os_datatype.h"
 #include "port/os_adapter.h"
 #include "one_shot_timer.h"
+#include "onps_input.h"
 #define SYMBOL_GLOBALS
 #include "ip/udp_link.h"
 #undef SYMBOL_GLOBALS
@@ -67,7 +68,10 @@ PST_UDPLINK udp_link_get(EN_ONPSERR *penErr)
     }
     os_thread_mutex_unlock(l_hMtxUdpLinkList);
     
-    pstFreeNode->stPeerAddr.unIp = 0;
+#if SUPPORT_IPV6
+	pstFreeNode->stPeerAddr.bFamily = AF_INET; 
+#endif
+    pstFreeNode->stPeerAddr.saddr_ipv4 = 0;
     pstFreeNode->stPeerAddr.usPort = 0; 
     return pstFreeNode;
 }

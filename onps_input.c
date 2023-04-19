@@ -122,6 +122,13 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 #endif
 {
+	if (AF_INET != family && AF_INET6 != family)
+	{
+		if (penErr)
+			*penErr = ERRUNSUPPORTEDFAMILY;
+		return -1;
+	}
+
     HSEM hSem = os_thread_sem_init(0, 100000);
     if (INVALID_HSEM == hSem)
     {
@@ -184,6 +191,7 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
             pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
 	#if SUPPORT_IPV6
 			pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily = (CHAR)family;			
+			pstcbInput->uniHandle.stTcpUdp.stSockAddr.unIpv6FlowLbl = 0; 
 			memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
 	#else
 			pstcbInput->uniHandle.stTcpUdp.ipv4_addr = 0;

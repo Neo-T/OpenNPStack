@@ -226,12 +226,20 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
     }
     else if (enProto == IPPROTO_UDP)
     {
+		PST_TCPUDP_HANDLE pstHandle;
+		if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+			goto __lblErr;
+
         //* 说明要绑定一个具体的目标服务器，所以这里需要记录下目标服务器的地址
         PST_UDPLINK pstLink = udp_link_get(&enErr); 
         if (pstLink)
         {
-            pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip); 
-            pstLink->stPeerAddr.usPort = srv_port; 
+			if (AF_INET == pstHandle->stSockAddr.bFamily)
+				pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);
+			else
+				inet6_aton(srv_ip, pstLink->stPeerAddr.saddr_ipv6); 
+			pstLink->stPeerAddr.bFamily = pstHandle->stSockAddr.bFamily;
+			pstLink->stPeerAddr.usPort = srv_port;
 
             //* 附加到input
             if (!onps_input_set((INT)socket, IOPT_SETATTACH, pstLink, &enErr))
@@ -562,7 +570,24 @@ INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData,
     //* 只有udp协议才支持指定目标地址的发送操作
     if (IPPROTO_UDP == enProto)
     {
+	#if SUPPORT_IPV6
+		PST_TCPUDP_HANDLE pstHandle;
+		if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+			goto __lblErr; 
+
+		//* 仅支持ipv4/ipv6地址族
+		if (AF_INET == pstHandle->stSockAddr.bFamily)
+			return udp_sendto((INT)socket, inet_addr(dest_ip), dest_port, pubData, nDataLen);
+		else if (AF_INET6 == pstHandle->stSockAddr.bFamily)
+			return ipv6_udp_sendto((INT)socket, (const UCHAR *)dest_ip, dest_port, 0, pubData, nDataLen);
+		else
+		{
+			enErr = ERRUNSUPPORTEDFAMILY;
+			goto __lblErr; 
+		}
+	#else
         return udp_sendto((INT)socket, inet_addr(dest_ip), dest_port, pubData, nDataLen);  
+	#endif
     }
     else
         enErr = ERRIPROTOMATCH;
@@ -713,7 +738,7 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 	if (pszNetifIp)
 	{
 		if (AF_INET6 == pstHandle->stSockAddr.bFamily)
-			memcpy(pstHandle->stSockAddr.saddr_ipv6, pszNetifIp, 16);
+			inet6_aton(pszNetifIp, pstHandle->stSockAddr.saddr_ipv6);			
 		else
 			pstHandle->stSockAddr.saddr_ipv4 = (UINT)inet_addr(pszNetifIp);
 	}
@@ -754,7 +779,8 @@ __lblErr:
     return -1;      
 }
 
-INT bind_ipv6(SOCKET socket, const UCHAR ubaIpv6[16], USHORT usPort, UINT unFlowLabel)
+#if SUPPORT_IPV6
+INT bind_ipv6(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort, UINT unFlowLabel)
 {
 	EN_ONPSERR enErr;
 	EN_IPPROTO enProto;
@@ -774,7 +800,7 @@ INT bind_ipv6(SOCKET socket, const UCHAR ubaIpv6[16], USHORT usPort, UINT unFlow
 
 	//* 更新地址
 	pstHandle->stSockAddr.bFamily = AF_INET6; 
-	memcpy(pstHandle->stSockAddr.saddr_ipv6, ubaIpv6, 16);
+	inet6_aton(pszNetifIp, pstHandle->stSockAddr.saddr_ipv6); 
 	pstHandle->stSockAddr.usPort = usPort; 
 	pstHandle->stSockAddr.unIpv6FlowLbl = unFlowLabel; 
 
@@ -786,6 +812,7 @@ __lblErr:
 	onps_set_last_error((INT)socket, enErr);
 	return -1; 
 }
+#endif
 
 const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr)
 {

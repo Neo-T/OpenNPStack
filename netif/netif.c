@@ -475,7 +475,7 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 //* 2. 选择最长前缀匹配的接口及地址，下一跳地址为前缀所属的路由器地址，函数结束；
 //* 3. 前缀匹配长度为0，则选择缺省网络接口，然后选择该接口下优先级最高的缺省路由。如出现平级，选择剩余生存时间长者。源地址选择由该路由前缀
 //*    生成的动态地址（地址范围且剩余生存时间最大者），下一跳地址选择路由器地址
-PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending)
+PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit)
 {
 	PST_NETIF pstNetif, pstMatchedNetif = NULL;
 	UCHAR *pubNetifIpv6 = NULL; 
@@ -508,7 +508,10 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 							memcpy(pubNSAddr, ubaDestination, 16); //* 下一跳地址为目标地址
 
 						if (pstNetif && blIsForSending)
-							pstNetif->bUsedCount++;
+							pstNetif->bUsedCount++; 
+
+						if (pubHopLimit)
+							*pubHopLimit = 255; 
 
 						os_thread_mutex_unlock(l_hMtxNetif);
 
@@ -535,6 +538,9 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 							if (blIsForSending)
 								pstNetif->bUsedCount++;
 
+							if (pubHopLimit)
+								*pubHopLimit = 255;
+
 							os_thread_mutex_unlock(l_hMtxNetif);
 
 							netif_ipv6_dyn_addr_release(pstNextAddr); 
@@ -549,8 +555,10 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 								ubMatchedBitsMax = ubMatchedBits;
 								pubNetifIpv6 = pstNextAddr->ubaVal; 
 								pubDstIpv6ToMac = ipv6_router_get_addr(pstNextAddr->bitRouter); //* 下一跳地址为路由器地址
+								if (pubHopLimit)
+									*pubHopLimit = ipv6_router_get_hop_limit(pstNextAddr->bitRouter);
 								pstMatchedNetif = pstNetif;  
-								unValidLifetimeMax = pstNextAddr->unValidLifetime; 
+								unValidLifetimeMax = pstNextAddr->unValidLifetime; 								
 							}
 						}						
 					}
@@ -614,6 +622,8 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 						ubScopeMax = pstNextAddr->ubaVal[0]; 
 						unValidLifetimeMax = pstNextAddr->unValidLifetime; 
 						pubNetifIpv6 = pstNextAddr->ubaVal;
+						if (pubHopLimit)
+							*pubHopLimit = pstPreferedRouter->ubHopLimit; 
 					}
 				}
 			} while (pstNextAddr); 
@@ -622,7 +632,11 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 			if (!pubNetifIpv6)
 			{
 				if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED)
+				{
 					pubNetifIpv6 = pstMatchedNetif->stIPv6.stLnkAddr.ubaVal;
+					if (pubHopLimit)
+						*pubHopLimit = 255; 
+				}
 				else
 					return NULL; //* 寻址失败
 			}

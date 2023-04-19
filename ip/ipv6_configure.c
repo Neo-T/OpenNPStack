@@ -101,6 +101,14 @@ const UCHAR *ipv6_router_get_addr(CHAR bRouter)
 		return NULL;
 }
 
+UCHAR ipv6_router_get_hop_limit(CHAR bRouter)
+{
+	if (bRouter >= 0 && bRouter < IPV6_ROUTER_NUM)
+		return l_staIpv6Routers[bRouter].ubHopLimit; 
+	else
+		return 64;
+}
+
 CHAR ipv6_router_get_index(PST_IPv6_ROUTER pstRouter)
 {
 	return array_linked_list_get_index(pstRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM);

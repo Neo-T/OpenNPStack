@@ -330,11 +330,13 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 	return nRtnVal;
 }
 
-INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
+INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr)
 {
 	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16]; 
 	memcpy(ubaSrcIpv6Used, ubaSrcIpv6, 16); 
 	memcpy(ubaDstIpv6ToMac, ubaDstIpv6, 16); 
+
+	UCHAR ubHopLimit = 255; 
 
 	//* 如果未指定netif则通过路由表选择一个适合的netif
 	PST_NETIF pstNetifUsed = pstNetif; 
@@ -342,7 +344,7 @@ INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UC
 		netif_used(pstNetifUsed);
 	else
 	{		
-		pstNetifUsed = route_ipv6_get_netif(ubaDstIpv6ToMac, TRUE, ubaSrcIpv6Used, ubaDstIpv6ToMac); 
+		pstNetifUsed = route_ipv6_get_netif(ubaDstIpv6ToMac, TRUE, ubaSrcIpv6Used, ubaDstIpv6ToMac, &ubHopLimit);
 		if (NULL == pstNetifUsed)
 		{
 			if (penErr)
@@ -360,8 +362,10 @@ INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader
 	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16];	
 	memcpy(ubaDstIpv6ToMac, ubaDstIpv6, 16);
 	     
+	UCHAR ubHopLimit = 255;
+
 	//* 路由寻址
-	PST_NETIF pstNetif = route_ipv6_get_netif(ubaDstIpv6ToMac, TRUE, ubaSrcIpv6Used, ubaDstIpv6ToMac); 
+	PST_NETIF pstNetif = route_ipv6_get_netif(ubaDstIpv6ToMac, TRUE, ubaSrcIpv6Used, ubaDstIpv6ToMac, &ubHopLimit);
 	if (NULL == pstNetif)
 	{
 		if (penErr)
