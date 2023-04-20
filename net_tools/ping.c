@@ -18,7 +18,7 @@
 #if NETTOOLS_PING
 INT ping_start(EN_ONPSERR *penErr)
 {    
-    return onps_input_new(IPPROTO_ICMP, penErr);
+    return onps_input_new(AF_INET, IPPROTO_ICMP, penErr);
 }
 
 void ping_end(INT nPing)

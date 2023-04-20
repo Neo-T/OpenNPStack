@@ -56,8 +56,7 @@ typedef struct _ST_SOCKADDR_ {
 	{
 		UINT unVal;
 		UCHAR ubaVal[16];
-	} uniIp;
-	UINT unIpv6FlowLbl; //* ipv4地址时忽略该字段 
+	} uniIp;	
 } ST_SOCKADDR, *PST_SOCKADDR;
 #endif
 

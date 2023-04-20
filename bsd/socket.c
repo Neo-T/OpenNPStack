@@ -234,11 +234,15 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
         PST_UDPLINK pstLink = udp_link_get(&enErr); 
         if (pstLink)
         {
+		#if SUPPORT_IPV6
 			if (AF_INET == pstHandle->stSockAddr.bFamily)
 				pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);
 			else
 				inet6_aton(srv_ip, pstLink->stPeerAddr.saddr_ipv6); 
-			pstLink->stPeerAddr.bFamily = pstHandle->stSockAddr.bFamily;
+			pstLink->stPeerAddr.bFamily = pstHandle->stSockAddr.bFamily;			
+		#else
+			pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);			
+		#endif
 			pstLink->stPeerAddr.usPort = srv_port;
 
             //* 附加到input
@@ -763,10 +767,10 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 	//* 设置地址
 	ST_TCPUDP_HANDLE stHandle;
 	if (pszNetifIp)
-		stHandle.ipv4_addr = (UINT)inet_addr(pszNetifIp);
+		stHandle.stSockAddr.saddr_ipv4 = (UINT)inet_addr(pszNetifIp);
 	else
-		stHandle.ipv4_addr = 0;
-	stHandle.usPort = usPort;
+		stHandle.stSockAddr.saddr_ipv4 = 0;
+	stHandle.stSockAddr.usPort = usPort;
 
 	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
 	if (IPPROTO_TCP == enProto)
@@ -781,41 +785,6 @@ __lblErr:
     onps_set_last_error((INT)socket, enErr);
     return -1;      
 }
-
-#if SUPPORT_IPV6
-INT bind_ipv6(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort, UINT unFlowLabel)
-{
-	EN_ONPSERR enErr;
-	EN_IPPROTO enProto;
-	if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
-		goto __lblErr; 
-
-	PST_TCPUDP_HANDLE pstHandle;
-	if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
-		goto __lblErr;
-
-	//* 首先看看指定的端口是否已被使用
-	if (onps_input_port_used(pstHandle->stSockAddr.bFamily, enProto, usPort))
-	{
-		enErr = ERRPORTOCCUPIED;
-		goto __lblErr;
-	}
-
-	//* 更新地址
-	pstHandle->stSockAddr.bFamily = AF_INET6; 
-	inet6_aton(pszNetifIp, pstHandle->stSockAddr.saddr_ipv6); 
-	pstHandle->stSockAddr.usPort = usPort; 
-	pstHandle->stSockAddr.unIpv6FlowLbl = unFlowLabel; 
-
-	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
-	if (IPPROTO_TCP == enProto)
-		pstHandle->bType = TCP_TYPE_SERVER;
-
-__lblErr:
-	onps_set_last_error((INT)socket, enErr);
-	return -1; 
-}
-#endif
 
 const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr)
 {

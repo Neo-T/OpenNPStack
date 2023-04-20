@@ -13,6 +13,7 @@
 #include "onps_utils.h"
 #include "netif/netif.h"
 #include "netif/route.h"
+#include "onps_input.h"
 #include "ethernet/arp.h"
 
 #define SYMBOL_GLOBALS
@@ -267,7 +268,7 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
 }
 
 #if SUPPORT_IPV6
-static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaDstIpv6ToMac[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, UCHAR ubHopLimit, EN_ONPSERR *penErr)
+static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaDstIpv6ToMac[16], UCHAR ubNextHeader, SHORT sBufListHead, UCHAR ubHopLimit, EN_ONPSERR *penErr)
 {
 	INT nRtnVal;
 	BOOL blNetifFreedEn = TRUE; 
@@ -275,8 +276,9 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 	ST_IPv6_HDR stHdr; 
 	stHdr.ipv6_ver = 6; 
 	stHdr.ipv6_dscp = 0; 
-	stHdr.ipv6_ecn = 0;
-	stHdr.ipv6_flow_label = unFlowLabel & 0x000FFFFF; 
+	stHdr.ipv6_ecn = 0;	
+	stHdr.ipv6_flow_label = 0;  //* 因为一旦启用Flow Label，协议栈需要增加额外的内存开销为每一个通讯链路(tcp/udp link)记录这个值，对于资源受限的系统来说得不偿失，其存在目的只是为了
+	                            //* 让中间路由能够识别一条序列通讯，0值则让中间路由采用缺省处理方法
 	stHdr.ipv6_flag = htonl(stHdr.ipv6_flag); 
 	stHdr.usPayloadLen = htons((USHORT)buf_list_get_len(sBufListHead)); 
 	stHdr.ubNextHdr = ubNextHeader; 
@@ -330,7 +332,7 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 	return nRtnVal;
 }
 
-INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr)
+INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
 	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16]; 
 	memcpy(ubaSrcIpv6Used, ubaSrcIpv6, 16); 
@@ -354,10 +356,10 @@ INT ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSrcIpv6[16], UC
 		}
 	}
 
-	return netif_ipv6_send(pstNetifUsed, pubDstMacAddr, ubaSrcIpv6Used, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
+	return netif_ipv6_send(pstNetifUsed, pubDstMacAddr, ubaSrcIpv6Used, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, ubHopLimit, penErr);
 }
 
-INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr)
+INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
 	UCHAR ubaSrcIpv6Used[16], ubaDstIpv6ToMac[16];	
 	memcpy(ubaDstIpv6ToMac, ubaDstIpv6, 16);
@@ -385,7 +387,7 @@ INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader
 		return -1;
 	}
 	     
-	return netif_ipv6_send(pstNetif, NULL, ubaSrcIpv6, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
+	return netif_ipv6_send(pstNetif, NULL, ubaSrcIpv6, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, ubHopLimit, penErr);
 }
 
 void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
@@ -430,7 +432,7 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 			break;
 
 		case IPPROTO_UDP:
-			//udp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket + usHdrLen, nPacketLen - usHdrLen);
+			ipv6_udp_recv(pstHdr->ubaSrcIpv6, pstHdr->ubaDstIpv6, pubPacket + sizeof(ST_IPv6_HDR), (INT)usPayloadLen);			
 			break;
 
 		default:

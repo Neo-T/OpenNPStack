@@ -15,16 +15,13 @@
 	#define UDP_LINK_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#if SUPPORT_IPV6
-typedef struct _ST_SOCKADDR_  ST_SOCKADDR, *PST_SOCKADDR;
-#endif
-
 typedef struct _ST_UDPLINK_ {
     CHAR bIdx;
     CHAR bNext;
 
 #if SUPPORT_IPV6
 	ST_SOCKADDR stPeerAddr;
+	//UINT unIpv6FlowLbl; //* //* ipv6流标签（Flow Label），其与源地址/端口、目的地址/端口一起唯一的标识一个通讯数据流
 #else
 	struct {
 		USHORT usPort;  //* 端口
@@ -56,8 +53,7 @@ typedef struct _ST_RCVED_UDP_PACKET_ {
 		{
 			UINT unVal;
 			UCHAR ubaVal[16];
-		} uniIp;
-		UINT unIpv6FlowLbl; //* ipv4地址时忽略该字段
+		} uniIp; 		
 	} stSockAddr;
 #else
 	struct {

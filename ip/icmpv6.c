@@ -631,7 +631,7 @@ UCHAR *ipv6_sol_mc_addr(UCHAR ubaUniIpv6[16], UCHAR ubaSolMcAddr[16])
 	return ubaSolMcAddr;
 }
 
-static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, UINT unFlowLabel, EN_ONPSERR *penErr)
+static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], SHORT sBufListHead, EN_ONPSERR *penErr)
 {
 	ST_IPv6_PSEUDOHDR stPseudoHdr;	
 	ST_ICMPv6_HDR stHdr;
@@ -689,7 +689,7 @@ static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR uba
 	buf_list_free_head(&sBufListHead, sPseudoHdrNode); 
 
 	//* 发送，并释放占用的buf list节点
-	INT nRtnVal = ipv6_send(pstNetif, NULL, stPseudoHdr.ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, IPPROTO_ICMPv6, sBufListHead, unFlowLabel, penErr);
+	INT nRtnVal = ipv6_send(pstNetif, NULL, stPseudoHdr.ubaSrcIpv6, stPseudoHdr.ubaDstIpv6, IPPROTO_ICMPv6, sBufListHead, penErr);
 	buf_list_free(sIcmpv6HdrNode); 
 
 	return nRtnVal; 
@@ -723,7 +723,7 @@ INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16
 	//* ================================================================================
 
 	//* 完成实际的发送并释放占用的buf list节点
-	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, 0, penErr);
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_NS, 0, ubaSrcIpv6, ubaDstIpv6, sBufListHead, penErr);
 	buf_list_free(sIcmpv6NeiSolNode); 
 
 	return nRtnVal; 
@@ -754,7 +754,7 @@ INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], EN_ONPSERR *penErr)
 	//* ================================================================================
 	
 	//* 完成实际的发送并释放占用的buf list节点
-	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), sBufListHead, 0, penErr);
+	INT nRtnVal = icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), sBufListHead, penErr);
 	buf_list_free(sIcmpv6RouSolNode);
 
 	return nRtnVal;

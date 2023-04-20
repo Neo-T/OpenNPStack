@@ -72,12 +72,6 @@ SOCKET_EXT INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr);
 //* 为socket绑定指定的网络地址和端口，如果想绑定任意网络接口地址，参数pszNetifIp为NULL即可
 SOCKET_EXT INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort);
 
-#if SUPPORT_IPV6
-//* 专门用于ipv6的bind()函数，当你需要指定一个ipv6层的流标签（Flow Label）时，调用这个函数，如果不需要流标签，直接使用bind()函数即可
-SOCKET_EXT INT bind_ipv6(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort, UINT unFlowLabel);
-#endif
-
-
 #if SUPPORT_ETHERNET
 //* tcp服务器进入被动监听状态，入口参数与函数功能与伯克利sockets完全相同
 SOCKET_EXT INT listen(SOCKET socket, USHORT backlog); 

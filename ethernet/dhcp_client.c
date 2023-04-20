@@ -13,9 +13,9 @@
 #include "onps_utils.h"
 #include "netif/netif.h"
 #include "netif/route.h"
+#include "onps_input.h"
 #include "ip/ip.h"
 #include "ip/udp.h"
-#include "onps_input.h"
 
 #if SUPPORT_ETHERNET
 #include "ethernet/ethernet.h"
