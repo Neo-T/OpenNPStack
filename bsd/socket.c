@@ -579,7 +579,10 @@ INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData,
 		if (AF_INET == pstHandle->stSockAddr.bFamily)
 			return udp_sendto((INT)socket, inet_addr(dest_ip), dest_port, pubData, nDataLen);
 		else if (AF_INET6 == pstHandle->stSockAddr.bFamily)
-			return ipv6_udp_sendto((INT)socket, (const UCHAR *)dest_ip, dest_port, 0, pubData, nDataLen);
+		{
+			UCHAR ubaDstAddr[16]; 
+			return ipv6_udp_sendto((INT)socket, inet6_aton(dest_ip, ubaDstAddr), dest_port,pubData, nDataLen);
+		}
 		else
 		{
 			enErr = ERRUNSUPPORTEDFAMILY;

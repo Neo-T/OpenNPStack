@@ -25,9 +25,8 @@ UDP_EXT INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in
 
 #if SUPPORT_IPV6
 UDP_EXT INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, PST_SOCKADDR pstDstAddr, PST_SOCKADDR pstSrcAddr, PST_NETIF pstNetif, EN_ONPSERR *penErr);
-UDP_EXT INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UINT unFlowLabel, UCHAR *pubData, INT nDataLen);
-UDP_EXT void ipv6_udp_recv(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubPacket, INT nPacketLen);
-UDP_EXT INT ipv6_udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, UCHAR *pubFromAddr, USHORT *pusFromPort, CHAR bRcvTimeout); 
+UDP_EXT INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UCHAR *pubData, INT nDataLen);
+UDP_EXT void ipv6_udp_recv(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubPacket, INT nPacketLen); 
 #endif
 
 #endif

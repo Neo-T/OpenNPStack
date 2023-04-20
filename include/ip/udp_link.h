@@ -24,15 +24,7 @@ typedef struct _ST_UDPLINK_ {
     CHAR bNext;
 
 #if SUPPORT_IPV6
-	struct {
-		USHORT usPort;
-		union
-		{
-			UINT unVal;
-			UCHAR ubaVal[16];
-		} uniIp;
-		UINT unIpv6FlowLbl; //* ipv4地址时忽略该字段 
-	} stPeerAddr;
+	ST_SOCKADDR stPeerAddr;
 #else
 	struct {
 		USHORT usPort;  //* 端口

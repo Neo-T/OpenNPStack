@@ -552,7 +552,7 @@ INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, PST_SOCKADDR pstDstAddr, P
 	return nRtnVal;
 }
 
-INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UINT unFlowLabel, UCHAR *pubData, INT nDataLen)
+INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UCHAR *pubData, INT nDataLen)
 {
 	EN_ONPSERR enErr;
 
@@ -581,7 +581,7 @@ INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UI
 	stDstAddr.bFamily = AF_INET6;
 	memcpy(stDstAddr.saddr_ipv6, ubaDstAddr, 16);
 	stDstAddr.usPort = usDstPort;
-	stDstAddr.unIpv6FlowLbl = unFlowLabel;
+	//stDstAddr.unIpv6FlowLbl = unFlowLabel;
 	INT nRtnVal = udp_send_packet(&pstHandle->stSockAddr, &stDstAddr, pubData, nDataLen, &enErr);
 	if (nRtnVal > 0)
 		return nDataLen;

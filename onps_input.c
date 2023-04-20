@@ -1040,6 +1040,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
         return -1;
     }
     
+	//* tcp协议并且已经进入复位或处于关闭过程中则直接返回，不再搬运数据
     if (IPPROTO_TCP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {
         if (TLSRESET == (EN_TCPLINKSTATE)((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->bState)
@@ -1081,6 +1082,10 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
         }
         else if (IPPROTO_UDP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
         {
+		#if SUPPORT_IPV6
+			PST_TCPUDP_HANDLE pstHandle = &l_stcbaInput[nInput].uniHandle.stTcpUdp;
+		#endif
+
             //* 从主链表获取数据
             PST_RCVED_UDP_PACKET pstRcvedPacketLink = (PST_RCVED_UDP_PACKET)l_stcbaInput[nInput].pubRcvBuf;            
             if (pstRcvedPacketLink)
@@ -1088,10 +1093,20 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
                 PST_RCVED_UDP_PACKET pstRcvedPacket = pstRcvedPacketLink;
                 unCpyBytes = unDataBufSize > (UINT)pstRcvedPacket->usLen ? (UINT)pstRcvedPacket->usLen : unDataBufSize;
                 memcpy(pubDataBuf, l_stcbaInput[nInput].pubRcvBuf + sizeof(ST_RCVED_UDP_PACKET), unCpyBytes);
-                if (punFromIP)
-                    *punFromIP = pstRcvedPacket->unFromIP;
+
+				if (punFromIP)
+				{
+				#if SUPPORT_IPV6
+					if (AF_INET6 == pstHandle->stSockAddr.bFamily)
+						memcpy((UCHAR *)punFromIP, pstRcvedPacket->stSockAddr.saddr_ipv6, 16); 
+					else
+						*punFromIP = pstRcvedPacket->stSockAddr.saddr_ipv4; 
+				#else
+					*punFromIP = pstRcvedPacket->stSockAddr.saddr_ipv4; 
+				#endif
+				}
                 if (pusFromPort)
-                    *pusFromPort = pstRcvedPacket->usFromPort;
+                    *pusFromPort = pstRcvedPacket->stSockAddr.usPort;
 
                 //* 移动到下一个报文节点并释放当前占用的内存
                 l_stcbaInput[nInput].pubRcvBuf = (UCHAR *)pstRcvedPacketLink->pstNext;
@@ -1153,8 +1168,8 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR
     //* 报文继续上报给上层调用者
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
     UCHAR usIpHdrLen = pstHdr->bitHdrLen * 4;
-    if(punSrcAddr)
-        *punSrcAddr = pstHdr->unSrcIP;
+	if (punSrcAddr)	
+		*punSrcAddr = pstHdr->unSrcIP; 	
     if(pubTTL)
         *pubTTL = pstHdr->ubTTL; 
     *ppubPacket = l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen;
