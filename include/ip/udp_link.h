@@ -24,7 +24,15 @@ typedef struct _ST_UDPLINK_ {
     CHAR bNext;
 
 #if SUPPORT_IPV6
-	ST_SOCKADDR stPeerAddr; 
+	struct {
+		USHORT usPort;
+		union
+		{
+			UINT unVal;
+			UCHAR ubaVal[16];
+		} uniIp;
+		UINT unIpv6FlowLbl; //* ipv4地址时忽略该字段 
+	} stPeerAddr;
 #else
 	struct {
 		USHORT usPort;  //* 端口
@@ -45,13 +53,27 @@ typedef struct _ST_UDPLINK_ {
 #endif
 #endif
 
-//* 到达的udp报文
-typedef struct _ST_RCVED_UDP_PACKET_ ST_RCVED_UDP_PACKET, *PST_RCVED_UDP_PACKET;
+//* 到达的udp报文控制结构
 typedef struct _ST_RCVED_UDP_PACKET_ {
     USHORT usLen;
-    USHORT usFromPort;
-    in_addr_t unFromIP;
-    PST_RCVED_UDP_PACKET pstNext;
+
+#if SUPPORT_IPV6
+	struct {
+		USHORT usPort;
+		union
+		{
+			UINT unVal;
+			UCHAR ubaVal[16];
+		} uniIp;
+		UINT unIpv6FlowLbl; //* ipv4地址时忽略该字段
+	} stSockAddr;
+#else
+	struct {
+		USHORT usPort;  //* 端口
+		in_addr_t unIp; //* 地址   
+	} stSockAddr;    
+#endif 
+    PST_RCVED_UDP_PACKET pstNext; 
 } ST_RCVED_UDP_PACKET, *PST_RCVED_UDP_PACKET;
 
 UDP_LINK_EXT BOOL udp_link_init(EN_ONPSERR *penErr); 

@@ -376,7 +376,11 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     USHORT usSrcPort = htons(pstHdr->usSrcPort); 
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_UDPLINK pstLink;
+#if SUPPORT_IPV6
+	INT nInput = onps_input_get_handle(IPPROTO_UDP, &unDstAddr, usDstPort, &pstLink);
+#else
     INT nInput = onps_input_get_handle(IPPROTO_UDP, unDstAddr, usDstPort, &pstLink);
+#endif
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
@@ -404,7 +408,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif        
-            printf("udp packets from address %d.%d.%d.%d:%d are not allowed (connected to udp server %d.%d.%d.%d:%d), the packet will be dropped\r\n", pubFromAddr[0], pubFromAddr[1], pubFromAddr[2], pubFromAddr[3], usSrcPort, pubSrvAddr[3], pubSrvAddr[2], pubSrvAddr[1], pubSrvAddr[0], pstLink->stPeerAddr.usPort);
+            printf("udp packet from address %d.%d.%d.%d:%d are not allowed (connected to udp server %d.%d.%d.%d:%d), the packet will be dropped\r\n", pubFromAddr[0], pubFromAddr[1], pubFromAddr[2], pubFromAddr[3], usSrcPort, pubSrvAddr[3], pubSrvAddr[2], pubSrvAddr[1], pubSrvAddr[0], pstLink->stPeerAddr.usPort);
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
@@ -418,7 +422,11 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     if (nDataLen)
     {
         //* 将数据搬运到input层
+	#if SUPPORT_IPV6
+		if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, &unFromIP, usSrcPort, &enErr))
+	#else
         if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, unFromIP, usSrcPort, &enErr))
+	#endif
         {
     #if SUPPORT_PRINTF && DEBUG_LEVEL
         #if PRINTF_THREAD_MUTEX
@@ -682,7 +690,7 @@ void ipv6_udp_recv(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubPacket,
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
 		#endif        
-			printf("udp packets from address [%s]:%d are not allowed (connected to udp server", inet6_ntoa(ubaSrcAddr, szIpv6), usSrcPort);
+			printf("udp packet from address [%s]:%d are not allowed (connected to udp server", inet6_ntoa(ubaSrcAddr, szIpv6), usSrcPort);
 			printf(" [%s]:%d), the packet will be dropped\r\n", inet6_ntoa(pstLink->stPeerAddr.saddr_ipv6, szIpv6), pstLink->stPeerAddr.usPort);
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
@@ -696,8 +704,8 @@ void ipv6_udp_recv(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubPacket,
 	INT nDataLen = nPacketLen - sizeof(ST_UDP_HDR);
 	if (nDataLen)
 	{
-		//* 将数据搬运到input层
-		if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, unFromIP, usSrcPort, &enErr))
+		//* 将数据搬运到input层	
+		if (!onps_input_recv(nInput, (const UCHAR *)(pubPacket + sizeof(ST_UDP_HDR)), nDataLen, ubaSrcAddr, usSrcPort, &enErr))
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
 		#if PRINTF_THREAD_MUTEX

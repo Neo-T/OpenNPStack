@@ -68,9 +68,11 @@ typedef struct _ST_TCPUDP_HANDLE_ {
     CHAR bType;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器、连接本地服务器的客户端、连接远端服务器的客户端（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）    
 #if SUPPORT_IPV6
 	ST_SOCKADDR stSockAddr; 		
-#else	
-	USHORT usPort;
-    UINT unIp;         
+#else
+	struct {
+		USHORT usPort;
+		UINT unIp;
+	} stSockAddr; 
 #endif
 } ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 #if SUPPORT_IPV6
@@ -126,8 +128,12 @@ ONPSINPUT_EXT void onps_input_unlock(INT nInput);
 //* 根据对端发送的标识获取本地icmp句柄
 ONPSINPUT_EXT INT onps_input_get_icmp(USHORT usIdentifier);
 
-//* 将底层协议收到的对端发送过来的数据放入接收缓冲区
+//* 将底层协议收到的对端发送过来的数据放入接收缓冲区，onps_input_recv()函数用于icmp及udp协议的接收，onps_input_tcp_recv()用户tcp协议的接收
+#if SUPPORT_IPV6
+ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, void *pvFromIP, USHORT usFromPort, EN_ONPSERR *penErr);
+#else
 ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t unFromIP, USHORT usFromPort, EN_ONPSERR *penErr);
+#endif
 ONPSINPUT_EXT INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSERR *penErr);
 
 //* 将收到的数据推送给用户层
@@ -154,7 +160,11 @@ ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 #if SUPPORT_ETHERNET
 ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT unCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
 #endif
+#if SUPPORT_IPV6
+ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach);
+#else
 ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach);
+#endif
 
 //* 设置/获取最近一次发生的错误
 ONPSINPUT_EXT const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr);

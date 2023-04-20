@@ -10,6 +10,7 @@
 #include "onps_utils.h"
 #include "one_shot_timer.h"
 #include "mmu/buddy.h"
+#include "onps_input.h"
 #define SYMBOL_GLOBALS
 #include "ip/tcp_link.h"
 #undef SYMBOL_GLOBALS

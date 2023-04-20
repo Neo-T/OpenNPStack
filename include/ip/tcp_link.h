@@ -100,7 +100,7 @@ typedef struct _ST_TCPLINK_ {
         CHAR bIsZeroWnd;
         CHAR bDataSendState;
 #endif
-        PST_TCPUDP_HANDLE pstTcp;
+        PST_TCPUDP_HANDLE pstHandle;
     } PACKED stLocal;
 
     struct {
@@ -116,10 +116,14 @@ typedef struct _ST_TCPLINK_ {
         CHAR bWndScale;     //* 窗口放大因子
         USHORT usMSS;       //* MSS值
         USHORT usWndSize;   //* 当前窗口大小        
+#if SUPPORT_IPV6
+		ST_SOCKADDR PACKED stSockAddr; 
+#else
         struct {
             USHORT usPort;  //* 端口
             in_addr_t unIp; //* 地址            
-        } PACKED stAddr;
+        } PACKED stSockAddr;
+#endif
         UINT unSeqNum;      //* 当前序号
         //UINT unNextSeqNum;  //* 期望得到的下一组序号
         UINT unStartMSecs;  //* 延时计数
