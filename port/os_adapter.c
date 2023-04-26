@@ -9,6 +9,7 @@
 #include "one_shot_timer.h"
 #include "onps_utils.h"
 #include "protocols.h"
+#include "onps_input.h"
 
 #if SUPPORT_PPP
 #include "ppp/negotiation_storage.h"

@@ -269,7 +269,7 @@ void thread_one_shot_timer_count(void *pvParam)
                         {
                             if (os_get_system_msecs() - pstNextLink->stPeer.unStartMSecs > unDelayAckTimeout)
                             {                               
-                                tcp_send_ack(pstNextLink, pstNextLink->stLocal.pstAddr->unNetifIp, pstNextLink->stLocal.pstAddr->usPort, pstNextLink->stPeer.stAddr.unIp, pstNextLink->stPeer.stAddr.usPort);
+                                tcp_send_ack(pstNextLink, pstNextLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstNextLink->stLocal.pstHandle->stSockAddr.usPort, pstNextLink->stPeer.stSockAddr.saddr_ipv4, pstNextLink->stPeer.stSockAddr.usPort);
                                 pstNextLink->stPeer.bIsNotAcked = FALSE;
                             }
                         }

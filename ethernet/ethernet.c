@@ -18,6 +18,7 @@
 #if SUPPORT_ETHERNET
 #if SUPPORT_IPV6
 #include "ip/icmpv6.h"
+#include "ethernet/dhcpv6.h"
 #include "ip/ipv6_configure.h"
 #endif
 
@@ -39,6 +40,8 @@ void ethernet_init(void)
     arp_init(); 
 
 #if SUPPORT_IPV6
+	ipv6_cfg_init();	
+	dhcpv6_client_ctl_block_init(); 
 	ipv6_mac_mapping_tbl_init(); 
 #endif
 
@@ -385,7 +388,7 @@ static BOOL ipv6_sol_mc_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]
 	} while (pstNextAddr);
 
 
-	if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->stIPv6.stLnkAddr.ubaVal, ubaSolMcAddr), 16))
+	if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->nif_lla_ipv6, ubaSolMcAddr), 16))
 		return TRUE;
 
 	return FALSE;
@@ -414,7 +417,7 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 		} while (pstNextAddr);  
 
 		//* 链路本地地址是否匹配
-		if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED && !memcmp(ubaTargetIpv6, pstNetif->stIPv6.stLnkAddr.ubaVal, 16))
+		if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED && !memcmp(ubaTargetIpv6, pstNetif->nif_lla_ipv6, 16))
 			return TRUE;
 	}
 	else //* 组播地址，需要逐个判断组播地址是否匹配

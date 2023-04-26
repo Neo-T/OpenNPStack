@@ -90,8 +90,9 @@ typedef struct _ST_IPv6_ROUTER_ {
 	UCHAR ubHopLimit;  //* 路由器给出的跳数限制
 
 	UCHAR bitRefCnt      : 3; //* 引用计数
+	UCHAR bitManaged     : 1; //* 路由器RA报文携带的M标志（Managed Flag, Managed address configuration）,复位意味着RA报文的O标志置位（Other Flag，Other Configuration）
+	UCHAR bitDv6CfgState : 1; //* stateful/stateless DHCPv6配置状态
 	UCHAR bitReserved    : 1; //* 保留
-	UCHAR bitDv6CfgState : 2; //* stateful/stateless DHCPv6配置状态
 	UCHAR bitPrf         : 2; //* 默认路由器优先级，01：高；00：中；11；低；10，未指定，发送端不应该发送此值，收到则视作00处理	
 
 	USHORT usLifetime; //* 路由器生存时间，如果为0则其不能作为默认路由器，也就是默认网关
@@ -104,14 +105,15 @@ typedef struct _ST_IPv6_ROUTER_ {
 	USHORT usMtu; 
 	//UCHAR ubaMacAddr[6];
 	PST_NETIF pstNetif; 
-	INT nDHCPv6CltInput; //* DHCPv6客户端句柄
+	CHAR bDv6Client;  //* 指向DHCPv6客户端控制块的指针
 	CHAR bNextRouter; //* 指向下一个路由器
 } PACKED ST_IPv6_ROUTER, *PST_IPv6_ROUTER;
 PACKED_END
-#define i6r_flag_prf		bitPrf
+#define i6r_flag_prf        bitPrf
+#define i6r_flag_m          bitManaged
 //#define i6r_ref_cnt_mask	0x07 //* ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
 //#define i6r_flag_mask		0xF8 //* 8 - ST_IPv6_ROUTER::uniFlag::stb8::bitReserved的位宽
-#define i6r_ref_cnt			bitRefCnt
+#define i6r_ref_cnt         bitRefCnt
 
 PACKED_BEGIN
 typedef struct _ST_IPv6_ {	
@@ -124,6 +126,7 @@ typedef struct _ST_IPv6_ {
 	//PST_ONESHOTTIMER pstTimer;	//* 用于地址配置的one-shot定时器，完成周期性定时操作
 } PACKED ST_IPv6, *PST_IPv6; 
 PACKED_END
+#define nif_lla_ipv6 stIPv6.stLnkAddr.ubaVal
 #endif
 
 //* 存储具体网卡信息的结构体
@@ -195,7 +198,7 @@ NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway
 
 #if SUPPORT_IPV6
 #if SUPPORT_ETHERNET
-NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit);
+NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit);
 #endif
 #endif
 

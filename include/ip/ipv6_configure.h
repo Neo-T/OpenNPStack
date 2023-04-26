@@ -47,16 +47,16 @@ typedef enum {
 	IPv6SVVTMR_RELEASED = 3 
 } EN_IPv6SVVTIMERSTATE;
 
-//* stateful/stateless DHCPv6配置状态定义
+//* stateful/stateless DHCPv6配置状态定义，其定义值最大范围受ST_IPv6_ROUTER::bitDv6CfgState位宽的限制（参见netif.h文件中ST_IPv6_ROUTER结构体定义）
 typedef enum {
-	Dv6CFG_INIT = 0, 
-	Dv6CFG_SENDREQ = 1, 
-	Dv6CFG_END = 2
+	Dv6CFG_START = 0, 	
+	Dv6CFG_END = 1
 } EN_DHCPv6CFGSTATE;
 
-IPv6CFG_EXT PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(EN_ONPSERR *penErr);
+IPv6CFG_EXT void ipv6_cfg_init(void);
+IPv6CFG_EXT PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr);
 IPv6CFG_EXT void ipv6_dyn_addr_node_free(PST_IPv6_DYNADDR pstDynAddrNode); 
-IPv6CFG_EXT PST_IPv6_ROUTER ipv6_router_node_get(EN_ONPSERR *penErr);
+IPv6CFG_EXT PST_IPv6_ROUTER ipv6_router_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr);
 IPv6CFG_EXT void ipv6_router_node_free(PST_IPv6_ROUTER pstRouterNode);
 IPv6CFG_EXT PST_IPv6_DYNADDR ipv6_dyn_addr_get(CHAR bDynAddr); 
 IPv6CFG_EXT PST_IPv6_ROUTER ipv6_router_get(CHAR bRouter); 
@@ -73,6 +73,7 @@ IPv6CFG_EXT void netif_ipv6_dyn_addr_release(PST_IPv6_DYNADDR pstDynAddr);
 IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next(PST_NETIF pstNetif, CHAR *pbNextRouter); 
 IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next_safe(PST_NETIF pstNetif, PST_IPv6_ROUTER pstPrevRouter, BOOL blIsRefCnt); 
 IPv6CFG_EXT void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter); 
+IPv6CFG_EXT PST_IPv6_DYNADDR netif_ipv6_dyn_addr_get(PST_NETIF pstNetif, UCHAR ubaIpv6Addr[16], BOOL blIsReleased);
 IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_get_by_addr(PST_NETIF pstNetif, UCHAR ubaRouterIpv6Addr[16]);
 
 IPv6CFG_EXT BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr);

@@ -45,7 +45,7 @@ void tcpsrv_syn_recv_timeout_handler(void *pvParam)
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
             printf("The tcp server@%s:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@%s:%d)\r\n", 
-                        inet_ntoa_safe_ext(pstLink->stLocal.pstAddr->unNetifIp, szAddr), pstLink->stLocal.pstAddr->usPort, inet_ntoa_safe_ext(pstLink->stPeer.stAddr.unIp, szAddrClt), pstLink->stPeer.stAddr.usPort);
+                        inet_ntoa_safe_ext(pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, szAddr), pstLink->stLocal.pstHandle->stSockAddr.usPort, inet_ntoa_safe_ext(pstLink->stPeer.stSockAddr.saddr_ipv4, szAddrClt), pstLink->stPeer.stSockAddr.usPort);
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif

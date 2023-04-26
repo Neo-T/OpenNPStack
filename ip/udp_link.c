@@ -68,9 +68,6 @@ PST_UDPLINK udp_link_get(EN_ONPSERR *penErr)
     }
     os_thread_mutex_unlock(l_hMtxUdpLinkList);
     
-#if SUPPORT_IPV6
-	pstFreeNode->stPeerAddr.bFamily = AF_INET; 
-#endif
     pstFreeNode->stPeerAddr.saddr_ipv4 = 0;
     pstFreeNode->stPeerAddr.usPort = 0; 
     return pstFreeNode;

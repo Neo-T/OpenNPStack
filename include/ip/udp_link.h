@@ -43,6 +43,7 @@ typedef struct _ST_UDPLINK_ {
 #endif
 
 //* 到达的udp报文控制结构
+typedef struct _ST_RCVED_UDP_PACKET_ ST_RCVED_UDP_PACKET, *PST_RCVED_UDP_PACKET; 
 typedef struct _ST_RCVED_UDP_PACKET_ {
     USHORT usLen;
 

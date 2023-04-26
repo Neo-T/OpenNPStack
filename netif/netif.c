@@ -475,7 +475,7 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 //* 2. 选择最长前缀匹配的接口及地址，下一跳地址为前缀所属的路由器地址，函数结束；
 //* 3. 前缀匹配长度为0，则选择缺省网络接口，然后选择该接口下优先级最高的缺省路由。如出现平级，选择剩余生存时间长者。源地址选择由该路由前缀
 //*    生成的动态地址（地址范围且剩余生存时间最大者），下一跳地址选择路由器地址
-PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit)
+PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit)
 {
 	PST_NETIF pstNetif, pstMatchedNetif = NULL;
 	UCHAR *pubNetifIpv6 = NULL; 
@@ -499,10 +499,10 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 				if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED)
 				{
 					//* 先比较本地链路地址是否前缀匹配
-					ubMatchedBits = ipv6_prefix_matched_bits(ubaDestination, pstNetif->stIPv6.stLnkAddr.ubaVal, 64);
+					ubMatchedBits = ipv6_prefix_matched_bits(ubaDestination, pstNetif->nif_lla_ipv6, 64);
 					if (ubMatchedBits == 64)
 					{
-						memcpy(pubSource, pstNetif->stIPv6.stLnkAddr.ubaVal, 16);
+						memcpy(pubSource, pstNetif->nif_lla_ipv6, 16);
 
 						if (pubNSAddr && pubNSAddr != ubaDestination)
 							memcpy(pubNSAddr, ubaDestination, 16); //* 下一跳地址为目标地址
@@ -633,7 +633,7 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(UCHAR ubaDestination[16], UCHAR *pubSourc
 			{
 				if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED)
 				{
-					pubNetifIpv6 = pstMatchedNetif->stIPv6.stLnkAddr.ubaVal;
+					pubNetifIpv6 = pstMatchedNetif->nif_lla_ipv6;
 					if (pubHopLimit)
 						*pubHopLimit = 255; 
 				}

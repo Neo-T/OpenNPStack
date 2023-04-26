@@ -363,7 +363,7 @@ CHAR array_linked_list_get_index(void *pvUnit, void *pvArray, UCHAR ubUnitSize, 
 	return -1;
 }
 
-void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx)
 {
 	void *pvUnit;
 
@@ -375,6 +375,9 @@ void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, C
 			os_exit_critical(); 
 			return NULL;
 		}
+
+		if (pbUnitIdx)
+			*pbUnitIdx = *pbListHead; 
 		 
 		pvUnit = (UCHAR *)pvArray + (*pbListHead) * ubUnitSize; 
 		*pbListHead = *((CHAR *)pvArray + (*pbListHead) * ubUnitSize + bOffsetNextUnit);
@@ -877,6 +880,47 @@ INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
 }
 #endif
 
+INT bit8_matched_from_left(UCHAR ch1, UCHAR ch2, UCHAR ubCmpBits)
+{
+	UCHAR i;
+	UCHAR ubMask = 0x80;
+	for (i = 0; i < ubCmpBits; i++)
+	{
+		if ((ch1 & ubMask) != (ch2 & ubMask))
+			break;
+		ubMask >>= 1;
+	}
+
+	return i;
+}
+
+//* 利用冯.诺伊曼算法生成近似均匀分布的哈希值，其输出并不在16位结果值生成后就立即结束，而是64位数据耗尽后结束，其生成结果最大为32位值：
+//* 1. 从LSB开始，每次选择两位；
+//* 2. 如果两位为00或11，则丢弃；
+//* 3. 如果两位为01，则输出0；
+//* 4. 如果两位为10，则输出1；
+//* 5. 回到1，开始下一组，直至64位结束。
+UINT hash_von_neumann(ULONGLONG ullKey)
+{
+	UINT unResult = 0;
+	UCHAR i, ubBits = 0;
+
+	for (i = 0; i < sizeof(ullKey) * 8; i += 2)
+	{
+		UCHAR ubVal = ((UCHAR)ullKey) & 0x03;
+		if (1 == ubVal || 2 == ubVal)
+		{
+			if (ubVal == 2)
+				unResult |= 1 << ubBits;
+			ubBits++;
+		}
+
+		ullKey >>= 2;
+	}
+
+	return unResult;
+}
+
 #if SUPPORT_IPV6
 const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40])
 {
@@ -1030,20 +1074,6 @@ INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCo
 	}
 
 	return nRtnVal;
-}
-
-INT bit8_matched_from_left(UCHAR ch1, UCHAR ch2, UCHAR ubCmpBits)
-{
-	UCHAR i;
-	UCHAR ubMask = 0x80;
-	for (i = 0; i < ubCmpBits; i++)
-	{
-		if ((ch1 & ubMask) != (ch2 & ubMask))
-			break;
-		ubMask >>= 1;
-	}
-
-	return i;
 }
 
 INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16], UCHAR ubPrefixBitsLen)

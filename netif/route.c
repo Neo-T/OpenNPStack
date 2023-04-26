@@ -352,7 +352,7 @@ UINT route_get_netif_ip(UINT unDestination)
 }
 
 #if SUPPORT_IPV6
-PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr, UCHAR *pubHopLimit)
+PST_NETIF route_ipv6_get_netif(const UCHAR ubaDestination[16], BOOL blIsForSending, UCHAR *pubSource, UCHAR *pubNSAddr, UCHAR *pubHopLimit)
 {
 	PST_NETIF pstNetif = NULL;
 
@@ -367,7 +367,7 @@ PST_NETIF route_ipv6_get_netif(UCHAR ubaDestination[16], BOOL blIsForSending, UC
 	return pstNetif; 	
 }
 
-UCHAR *route_ipv6_get_source_ip(UCHAR ubaDestination[16], UCHAR *pubSource)
+UCHAR *route_ipv6_get_source_ip(const UCHAR ubaDestination[16], UCHAR *pubSource)
 {
 	pubSource[0] = 0; 
 

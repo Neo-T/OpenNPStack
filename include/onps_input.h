@@ -49,15 +49,16 @@ typedef enum {
 } ONPSIOPT;
 
 #if SUPPORT_IPV6
-typedef struct _ST_SOCKADDR_ {
-	CHAR bFamily;  //* 协议族标识，这里用于区分底层协议族为ipv4还是ipv6
+PACKED_BEGIN
+typedef struct _ST_SOCKADDR_ {	
 	USHORT usPort; 
 	union
 	{
 		UINT unVal;
 		UCHAR ubaVal[16];
 	} uniIp;	
-} ST_SOCKADDR, *PST_SOCKADDR;
+} PACKED ST_SOCKADDR, *PST_SOCKADDR;
+PACKED_END
 #endif
 
 #define TCP_TYPE_LCLIENT 0  //* 连接远端服务器的本地tcp客户端
@@ -66,6 +67,7 @@ typedef struct _ST_SOCKADDR_ {
 typedef struct _ST_TCPUDP_HANDLE_ {
     CHAR bType;    //* 仅用于tcp链路，udp链路忽略该字段，用于标识这是否是服务器、连接本地服务器的客户端、连接远端服务器的客户端（udp客户端与服务器的处理逻辑本质上完全相同，不需要单独区分）    
 #if SUPPORT_IPV6
+	CHAR bFamily;  //* 协议族标识，这里用于区分底层协议族为ipv4还是ipv6
 	ST_SOCKADDR stSockAddr; 		
 #else
 	struct {

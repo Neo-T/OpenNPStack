@@ -235,11 +235,10 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
         if (pstLink)
         {
 		#if SUPPORT_IPV6
-			if (AF_INET == pstHandle->stSockAddr.bFamily)
+			if (AF_INET == pstHandle->bFamily)
 				pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);
 			else
-				inet6_aton(srv_ip, pstLink->stPeerAddr.saddr_ipv6); 
-			pstLink->stPeerAddr.bFamily = pstHandle->stSockAddr.bFamily;			
+				inet6_aton(srv_ip, pstLink->stPeerAddr.saddr_ipv6); 			
 		#else
 			pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);			
 		#endif
@@ -580,12 +579,12 @@ INT sendto(SOCKET socket, const CHAR *dest_ip, USHORT dest_port, UCHAR *pubData,
 			goto __lblErr; 
 
 		//* 仅支持ipv4/ipv6地址族
-		if (AF_INET == pstHandle->stSockAddr.bFamily)
+		if (AF_INET == pstHandle->bFamily)
 			return udp_sendto((INT)socket, inet_addr(dest_ip), dest_port, pubData, nDataLen);
-		else if (AF_INET6 == pstHandle->stSockAddr.bFamily)
+		else if (AF_INET6 == pstHandle->bFamily)
 		{
 			UCHAR ubaDstAddr[16]; 
-			return ipv6_udp_sendto((INT)socket, inet6_aton(dest_ip, ubaDstAddr), dest_port,pubData, nDataLen);
+			return ipv6_udp_sendto((INT)socket, inet6_aton(dest_ip, ubaDstAddr), dest_port, pubData, nDataLen);
 		}
 		else
 		{
@@ -735,7 +734,7 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 		goto __lblErr;
 
 	//* 首先看看指定的端口是否已被使用
-	if (onps_input_port_used(pstHandle->stSockAddr.bFamily, enProto, usPort))
+	if (onps_input_port_used(pstHandle->bFamily, enProto, usPort))
 	{
 		enErr = ERRPORTOCCUPIED;
 		goto __lblErr;
@@ -744,7 +743,7 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 	//* 更新地址
 	if (pszNetifIp)
 	{
-		if (AF_INET6 == pstHandle->stSockAddr.bFamily)
+		if (AF_INET6 == pstHandle->bFamily)
 			inet6_aton(pszNetifIp, pstHandle->stSockAddr.saddr_ipv6);			
 		else
 			pstHandle->stSockAddr.saddr_ipv4 = (UINT)inet_addr(pszNetifIp);

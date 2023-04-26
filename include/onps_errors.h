@@ -92,6 +92,8 @@ typedef enum {
 	ERRNOIPv6DYNADDRNODE,   //* 无可用ipv6动态地址节点
 	ERRNOIPv6ROUTERNODE,    //* 无可用ipv6路由器节点
 	ERRIPV4FLOWLABEL,       //* ipv4协议不支持流标签字段
+	ERRNODv6CLTCBNODE,      //* 无可用dhcpv6客户端控制块节点
+	ERRROUTERINDEX,         //* 路由器节点索引溢出
 #endif
 	ERRFAMILYINCONSISTENT,  //* 目标和源地址的地址族不一致
 	ERRUNSUPPORTEDFAMILY,   //* 不支持的地址族

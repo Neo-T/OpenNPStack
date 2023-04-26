@@ -86,6 +86,8 @@ static const ST_ONPSERR lr_staErrorList[] = {
 	{ ERRNOIPv6DYNADDRNODE, "the ipv6 dynamic addr list is empty" }, 
 	{ ERRNOIPv6ROUTERNODE, "the ipv6 router list is empty" }, 
 	{ ERRIPV4FLOWLABEL, "Ipv4 does not support flow label fields" }, 
+	{ ERRNODv6CLTCBNODE, "Dhcpv6 client control block list is empty" }, 
+	{ ERRROUTERINDEX, "router index overflow" }, 
 #endif
 	{ ERRFAMILYINCONSISTENT, "The address family of the target and source addresses is inconsistent" }, 
 	{ ERRUNSUPPORTEDFAMILY, "Unsupported address family" }, 

@@ -190,7 +190,7 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         {
             pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
 	#if SUPPORT_IPV6
-			pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily = (CHAR)family;			
+			pstcbInput->uniHandle.stTcpUdp.bFamily = (CHAR)family;			
 			memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
 	#else
 			pstcbInput->uniHandle.stTcpUdp.ipv4_addr = 0;
@@ -903,7 +903,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
 			PST_RCVED_UDP_PACKET pstRcvedPacket = (PST_RCVED_UDP_PACKET)pubRcvedPacket;
 			pstRcvedPacket->usLen = (USHORT)nDataBytes;					
 		#if SUPPORT_IPV6
-			if (AF_INET6 == pstHandle->stSockAddr.bFamily)			
+			if (AF_INET6 == pstHandle->bFamily)			
 				memcpy(pstRcvedPacket->stSockAddr.saddr_ipv6, (UCHAR *)pvFromIP, 16); 			
 			else
 				pstRcvedPacket->stSockAddr.saddr_ipv4 = *((UINT *)pvFromIP);
@@ -1096,7 +1096,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
 				if (punFromIP)
 				{
 				#if SUPPORT_IPV6
-					if (AF_INET6 == pstHandle->stSockAddr.bFamily)
+					if (AF_INET6 == pstHandle->bFamily)
 						memcpy((UCHAR *)punFromIP, pstRcvedPacket->stSockAddr.saddr_ipv6, 16); 
 					else
 						*punFromIP = pstRcvedPacket->stSockAddr.saddr_ipv4; 
@@ -1256,7 +1256,7 @@ BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
 		#if SUPPORT_IPV6
-            if ((CHAR)nFamily == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily && enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort)
+            if ((CHAR)nFamily == pstcbInput->uniHandle.stTcpUdp.bFamily && enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort)
 		#else
 			if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stAddr.usPort)
 		#endif
@@ -1347,7 +1347,7 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, v
             {                
 			#if SUPPORT_IPV6
 				BOOL blIsMatched; 
-				if (AF_INET6 == pstcbInput->uniHandle.stTcpUdp.stSockAddr.bFamily)
+				if (AF_INET6 == pstcbInput->uniHandle.stTcpUdp.bFamily)
 					blIsMatched = (BOOL)(!memcmp((UCHAR *)pvNetifIp, pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, 16));
 				else
 					blIsMatched = (BOOL)(*((UINT *)pvNetifIp) == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4);

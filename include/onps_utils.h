@@ -105,8 +105,9 @@ ONPS_UTILS_EXT void sllist_del_node_ext(PST_SLINKEDLIST *ppstSLList, void *pvDat
 ONPS_UTILS_EXT void sllist_put_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode);      //* 归还一个节点，其直接将该节点挂接到链表头部
 ONPS_UTILS_EXT void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKEDLIST_NODE pstNode); //* 同上，只不过该函数是将该节点挂接到链表尾部
 
+#define INVALID_ARRAYLNKLIST_UNIT -1 //* 无效的数组型链表单元
 ONPS_UTILS_EXT CHAR array_linked_list_get_index(void *pvUnit, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum);
-ONPS_UTILS_EXT void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit);  
+ONPS_UTILS_EXT void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx);
 ONPS_UTILS_EXT void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit);
 ONPS_UTILS_EXT void array_linked_list_put_tail(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit);
 ONPS_UTILS_EXT void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit);
@@ -133,6 +134,9 @@ ONPS_UTILS_EXT INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBy
 
 //* 返回两个8位字节匹配的位数，从左侧开始比较（高到低）
 ONPS_UTILS_EXT INT bit8_matched_from_left(UCHAR ch1, UCHAR ch2, UCHAR ubCmpBits); 
+
+//* 利用冯.诺伊曼算法生成近似均匀分布的哈希值，其输出并不在16位结果值生成后就立即结束，而是64位数据耗尽后结束，其生成结果最大为32位值
+ONPS_UTILS_EXT UINT hash_von_neumann(ULONGLONG ullKey);
 
 #if SUPPORT_IPV6
 ONPS_UTILS_EXT const CHAR *inet6_ntoa(const UCHAR ubaIpv6[16], CHAR szIpv6[40]); 
