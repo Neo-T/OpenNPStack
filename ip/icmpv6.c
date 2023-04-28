@@ -534,7 +534,7 @@ INT ipv6_mac_get(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16],
 }
 
 INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
-{
+{	
 	if (ipv6_to_mac(pstNetif, ubaSrcIpv6, ubaDstIpv6, ubaMacAddr))
 	{
 		//* 先将这条报文放入待发送链表		
@@ -738,6 +738,27 @@ INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], EN_ONPSERR *penErr)
 	return icmpv6_send(pstNetif, ICMPv6_RS, 0, ubaSrcIpv6, (UCHAR *)ipv6_mc_addr(IPv6MCA_ALLROUTERS), ubaRSolicitation, sizeof(ubaRSolicitation), penErr); 
 }
 
+static void icmpv6_ns_handler(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR *pubIcmpv6)
+{
+	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+	PST_ICMPv6_NS_HDR pstNSolHdr = (PST_ICMPv6_NS_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR)); 
+
+	UCHAR ubaNAdvertisement[sizeof(ST_ICMPv6_NA_HDR) + sizeof(ST_ICMPv6NDOPT_LLA)]; 
+	PST_ICMPv6_NA_HDR pstNAdvertHdr = (PST_ICMPv6_NA_HDR)ubaNAdvertisement; 
+	pstNAdvertHdr->icmpv6_na_flag = 0; 
+	pstNAdvertHdr->icmpv6_na_flag_s = 1; 
+	pstNAdvertHdr->icmpv6_na_flag_o = 1;
+	pstNAdvertHdr->icmpv6_na_flag = htonl(pstNAdvertHdr->icmpv6_na_flag);
+	memcpy(pstNAdvertHdr->ubaTargetAddr, pstNSolHdr->ubaTargetAddr, 16); 
+
+	PST_ICMPv6NDOPT_LLA pstOptLnkAddr = (PST_ICMPv6NDOPT_LLA)&ubaNAdvertisement[sizeof(ST_ICMPv6_NA_HDR)]; 
+	pstOptLnkAddr->stHdr.ubType = ICMPV6OPT_TLLA;
+	pstOptLnkAddr->stHdr.ubLen = 1; 
+	memcpy(pstOptLnkAddr->ubaAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 
+
+	icmpv6_send(pstNetif, ICMPv6_NA, 0, pstNSolHdr->ubaTargetAddr, ubaSrcIpv6, ubaNAdvertisement, sizeof(ubaNAdvertisement), NULL);
+}
+
 //* 收到的NA（Neighbor Advertisement，邻居通告）报文处理函数
 static void icmpv6_na_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
 {	
@@ -850,7 +871,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	do {
 		//* 读取地址节点
 		pstAddr = netif_ipv6_dyn_addr_next_safe(pstNetif, pstAddr, TRUE); 
-		if (pstAddr)
+		if (pstAddr && pstAddr->bitPrefixBitLen)
 		{
 			//* 前缀长度一致，且前缀匹配，则不再生成地址
 			if (pstAddr->bitPrefixBitLen == pstPrefixInfo->ubPrefixBitLen && !ipv6_addr_cmp(pstPrefixInfo->ubaPrefix, pstAddr->ubaVal, pstAddr->bitPrefixBitLen))
@@ -894,7 +915,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 		pstAddr->bitRouter = ipv6_router_get_index(pstRouter);
 		pstAddr->bitPrefixBitLen = pstPrefixInfo->ubPrefixBitLen;
 		pstAddr->unValidLifetime = unValidLifetime ? unValidLifetime + IPv6ADDR_INVALID_TIME : IPv6ADDR_INVALID_TIME + 1; 
-		pstAddr->unPreferredLifetime = unPreferredLifetime;
+		pstAddr->unPreferredLifetime = unPreferredLifetime; 
 		pstAddr->bitState = IPv6ADDR_TENTATIVE; 
 		netif_ipv6_dyn_addr_add(pstNetif, pstAddr);
 
@@ -1272,7 +1293,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 	switch ((EN_ICMPv6TYPE)pstIcmpv6Hdr->ubType)
 	{
 	case ICMPv6_NS: 
-		//printf("++++++++recv NS packet\r\n"); 
+		icmpv6_ns_handler(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pubIcmpv6);
 		break; 
 
 	case ICMPv6_NA:

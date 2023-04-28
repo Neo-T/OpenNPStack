@@ -16,6 +16,8 @@
 #endif //* SYMBOL_GLOBALS
 #include "dhcpv6_frame.h"
 
+#define Dv6CFGADDR_PREFIX_LEN 124 //* DHCPv6服务器分配地地址无法获得前缀长度，所以为了路由选择及标识这是DHCPv6分配地地址，将其前缀长度设为最大
+
 #if SUPPORT_IPV6 && SUPPORT_ETHERNET
 typedef enum  {
 	Dv6CLT_SOLICIT = 0, 

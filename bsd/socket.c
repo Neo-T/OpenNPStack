@@ -755,6 +755,8 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
 	if (IPPROTO_TCP == enProto)
 		pstHandle->bType = TCP_TYPE_SERVER;
+
+	return 0; 
 #else
 	//* 首先看看指定的端口是否已被使用
 	if (onps_input_port_used(enProto, usPort))

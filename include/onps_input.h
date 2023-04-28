@@ -50,15 +50,24 @@ typedef enum {
 
 #if SUPPORT_IPV6
 PACKED_BEGIN
-typedef struct _ST_SOCKADDR_ {	
+typedef struct _STP_SOCKADDR_ {	
 	USHORT usPort; 
 	union
 	{
 		UINT unVal;
 		UCHAR ubaVal[16];
-	} uniIp;	
-} PACKED ST_SOCKADDR, *PST_SOCKADDR;
+	} PACKED uniIp;
+} PACKED STP_SOCKADDR, *PSTP_SOCKADDR;
 PACKED_END
+
+typedef struct _ST_SOCKADDR_ {
+	USHORT usPort;
+	union
+	{
+		UINT unVal;
+		UCHAR ubaVal[16];
+	} uniIp;
+} ST_SOCKADDR, *PST_SOCKADDR;
 #endif
 
 #define TCP_TYPE_LCLIENT 0  //* 连接远端服务器的本地tcp客户端

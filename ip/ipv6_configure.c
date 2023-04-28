@@ -22,6 +22,7 @@
 #undef SYMBOL_GLOBALS
 
 #if SUPPORT_ETHERNET
+#include "ethernet/dhcpv6.h"
 
 static ST_IPv6_DYNADDR l_staIpv6DynAddrs[IPV6_CFG_ADDR_NUM]; //* ipv6动态地址信息存储单元
 static ST_IPv6_ROUTER l_staIpv6Routers[IPV6_ROUTER_NUM];     //* ipv6路由器信息存储单元
@@ -483,7 +484,7 @@ static void print_ipv6_cfg_info(PST_NETIF pstNetif)
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
 		#endif
-			printf("    configured address: %s (%s, Valid lifetime %d)\r\n", inet6_ntoa(pstNextAddr->ubaVal, szIpv6), ipv6_addr_state(pstNextAddr->bitState), pstNextAddr->unValidLifetime);
+			printf("    configured address: %s (%s, %sValid lifetime %d)\r\n", inet6_ntoa(pstNextAddr->ubaVal, szIpv6), ipv6_addr_state(pstNextAddr->bitState), pstNextAddr->bitPrefixBitLen < Dv6CFGADDR_PREFIX_LEN ? "" : "DHCPv6, " , pstNextAddr->unValidLifetime);
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif

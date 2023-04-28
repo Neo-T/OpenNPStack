@@ -115,7 +115,7 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 	EN_ONPSERR enErr = ERRNO;  
 	switch (pstClient->bitState)
 	{
-	case Dv6CLT_SOLICIT: 		
+	case Dv6CLT_SOLICIT: 	
 		if (!pstClient->stSrvId.ubSrvIdLen)
 		{
 			pstClient->bitOptCnt++;
@@ -157,7 +157,7 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 			
 			if (pstClient->bDynAddr >= 0 && pstRouter->i6r_flag_m)
 			{
-				pstClient->unStartTimingCounts = os_get_system_secs(); 
+				//pstClient->unStartTimingCounts = os_get_system_secs(); 
 				unIntervalSecs = pstClient->unT1;
 				pstClient->unTransId = rand_big(); 
 				pstClient->bitState = Dv6CLT_RENEW;
@@ -172,26 +172,33 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 
 	case Dv6CLT_RENEW: 
 		dhcpv6_send_request(pstClient, pstRouter, DHCPv6MSGTYPE_RENEW);
-		unIntervalSecs = pstClient->unT2 - pstClient->unT1;			
+		unIntervalSecs = pstClient->unT2 - pstClient->unT1; 
 		pstClient->bitState = Dv6CLT_REBIND;
 		break;
 
 	case Dv6CLT_REBIND:
 		unIntervalSecs = os_get_system_secs() - pstClient->unStartTimingCounts; 
 		if (unIntervalSecs < pstClient->unT1)
-		{
-			printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>renew ok!\r\n"); 
-			
+		{			
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1     
+			CHAR szIpv6[40];
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("The ip address %s of the NIC %s has been successfully renewed.\r\n", inet6_ntoa(pstClient->ubaIAAddr, szIpv6), pstRouter->pstNetif->szName);
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+
 			unIntervalSecs = pstClient->unT1 - unIntervalSecs;
 			pstClient->bitState = Dv6CLT_RENEW;
 		}
 		else
-		{
-			printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>renew filed, send rebind ......\r\n");
-			
+		{			
 			pstClient->unTransId = rand_big(); 
-			dhcpv6_send_request(pstClient, pstRouter, DHCPv6MSGTYPE_RENEW);
-			unIntervalSecs = pstClient->unT1 * 2 - pstClient->unT1;
+			dhcpv6_send_request(pstClient, pstRouter, DHCPv6MSGTYPE_REBIND);
+			unIntervalSecs = pstClient->unT1 * 2 - pstClient->unT2;
 			pstClient->bitState = Dv6CLT_RELEASE;
 		}
 		
@@ -200,17 +207,24 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 	case Dv6CLT_RELEASE:
 		unIntervalSecs = os_get_system_secs() - pstClient->unStartTimingCounts;
 		if (unIntervalSecs < pstClient->unT1)
-		{
-			printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>rebind ok!\r\n");
-			
+		{		
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1     
+			CHAR szIpv6[40];
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("The ip address %s of the NIC %s has been successfully rebound.\r\n", inet6_ntoa(pstClient->ubaIAAddr, szIpv6), pstRouter->pstNetif->szName);
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+
 			unIntervalSecs = pstClient->unT1 - unIntervalSecs;
 			pstClient->bitState = Dv6CLT_RENEW;
 		}
 		else
 		{
-			printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>released and restart ......\r\n");
-
-			unIntervalSecs = 1;
+			unIntervalSecs = 3;	
 
 			//* 释放当前地址，重新申请地址
 			pstClient->unTransId = rand_big();
@@ -223,26 +237,36 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 		break; 
 
 	case Dv6CLT_RESTART: 
-		if (!pstClient->bitRcvReply || Dv6SCODE_SUCCESS != pstClient->usStatusCode)
+		if (Dv6SCODE_SUCCESS != pstClient->usStatusCode)
 		{
 			pstClient->bitOptCnt++; 
 			if (pstClient->bitOptCnt < 3)
 			{
-				printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>send released ......\r\n");				
+				unIntervalSecs = 3;				
 				dhcpv6_send_request(pstClient, pstRouter, DHCPv6MSGTYPE_RELEASE); 
 				break; 
 			}
 		}
-		else
-		{
-			printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>restart ......\r\n");
-			pstClient->stSrvId.ubSrvIdLen = 0;
-			pstClient->ubaIAAddr[0] = 0;			
-			pstClient->bitUnicast = 0; //* 客户端发送的报文均缺省组播发送
-			pstClient->bitOptCnt = 0; 
-			pstClient->bitState = Dv6CLT_SOLICIT;
-			dhcpv6_send_solicit(pstClient, pstRouter, &enErr); //* 重复发送请求报文
-		}
+
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+		CHAR szIpv6[40];
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("The ip address %s of the NIC %s has been released.\r\n\r\n", inet6_ntoa(pstClient->ubaIAAddr, szIpv6), pstRouter->pstNetif->szName);
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+
+		pstClient->stSrvId.ubSrvIdLen = 0;
+		pstClient->ubaIAAddr[0] = 0;			
+		pstClient->bitUnicast = 0; //* 客户端发送的报文均缺省组播发送
+		pstClient->bitOptCnt = 0; 			
+		pstClient->unTransId = rand_big();
+		pstClient->unStartTimingCounts = os_get_system_msecs();
+		pstClient->bitState = Dv6CLT_SOLICIT;
+		dhcpv6_send_solicit(pstClient, pstRouter, &enErr); //* 重复发送请求报文
 
 		break; 
 	}
@@ -315,7 +339,9 @@ INT dhcpv6_client_start(PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr)
 		pstClient->bRouter = ipv6_router_get_index(pstRouter);
 		pstRouter->bDv6Client = bDv6Client; 
 
-		//* 发送请求报文，搜索
+		//* 发送请求报文，搜索DHCPv6服务器
+		pstClient->unTransId = rand_big();
+		pstClient->unStartTimingCounts = os_get_system_msecs();
 		if (dhcpv6_send_solicit(pstClient, pstRouter, penErr) < 0)
 			goto __lblErr; 
 
@@ -392,7 +418,7 @@ static INT dhcpv6_send(PSTCB_DHCPv6_CLIENT pstClient, UCHAR ubaDstAddr[16], UCHA
 	//* 填充Elapsed Time Option
 	pstETime->stHdr.usCode = htons(DHCPv6OPT_ETIME);
 	pstETime->stHdr.usDataLen = htons(sizeof(ST_DHCPv6OPT_ETIME) - sizeof(ST_DHCPv6OPT_HDR)); 
-	pstETime->usElapsedTime = pstClient->bitState < Dv6CLT_RENEW ? htons(os_get_system_msecs() - pstClient->unStartTimingCounts) : 0;
+	pstETime->usElapsedTime = pstClient->bitState < Dv6CLT_RENEW ? htons((os_get_system_msecs() - pstClient->unStartTimingCounts) / 100) : 0;
 
 	//* 填充Client Identifier Option
 	pstDUIDHdr->stHdr.usCode = htons(DHCPv6OPT_CLTID); 
@@ -429,7 +455,7 @@ INT dhcpv6_send_solicit(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 		pstIanaHdr->unT1 = 0;
 		pstIanaHdr->unT2 = 0;
 
-		unOptionsLen = sizeof(ubaOptions); 
+		unOptionsLen = sizeof(ST_DHCPv6OPT_IANA_HDR);
 	}	
 
 	pstOROSol = (PST_DHCPv6OPT_OROSOL)&ubaOptions[unOptionsLen];
@@ -438,10 +464,7 @@ INT dhcpv6_send_solicit(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 	//* 填充Option Request Option for Solicit
 	pstOROSol->stHdr.usCode = htons(DHCPv6OPT_ORO);
 	pstOROSol->stHdr.usDataLen = htons(sizeof(ST_DHCPv6OPT_OROSOL) - sizeof(ST_DHCPv6OPT_HDR)); 
-	pstOROSol->usaOptions[0] = htons(DHCPv6OPT_RDNSSRV);  
-
-	pstClient->unTransId = rand_big();
-	pstClient->unStartTimingCounts = os_get_system_msecs();
+	pstOROSol->usaOptions[0] = htons(DHCPv6OPT_RDNSSRV);  	
 
 	return dhcpv6_send(pstClient, (UCHAR *)l_ubaDhcpv6McAddr, DHCPv6MSGTYPE_SOLICIT, ubaOptions, unOptionsLen, penErr);
 }
@@ -449,15 +472,19 @@ INT dhcpv6_send_solicit(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter, USHORT usMsgType)
 {
 	UCHAR ubaOptions[sizeof(ST_DHCPv6OPT_DUID_HDR) + DUID_SRVID_LEN_MAX + sizeof(ST_DHCPv6OPT_IANA_HDR) + sizeof(ST_DHCPv6OPT_IAA_HDR) + sizeof(ST_DHCPv6OPT_OROREQ)];
-	UINT unOptionsLen;
+	UINT unOptionsLen = 0;
 
-	//* 填充Server Identifier
-	PST_DHCPv6OPT_DUID_HDR pstSrvIdHdr = (PST_DHCPv6OPT_DUID_HDR)ubaOptions; 	
-	pstSrvIdHdr->stHdr.usCode = htons(DHCPv6OPT_SRVID); 
-	pstSrvIdHdr->stHdr.usDataLen = htons((USHORT)pstClient->stSrvId.ubSrvIdLen); 
-	unOptionsLen = (UINT)sizeof(ST_DHCPv6OPT_DUID_HDR);
-	memcpy(&ubaOptions[unOptionsLen], pstClient->stSrvId.ubaVal, pstClient->stSrvId.ubSrvIdLen); 
-	unOptionsLen += (UINT)pstClient->stSrvId.ubSrvIdLen; 
+
+	if (DHCPv6MSGTYPE_REBIND != usMsgType)
+	{
+		//* 填充Server Identifier
+		PST_DHCPv6OPT_DUID_HDR pstSrvIdHdr = (PST_DHCPv6OPT_DUID_HDR)ubaOptions;
+		pstSrvIdHdr->stHdr.usCode = htons(DHCPv6OPT_SRVID);
+		pstSrvIdHdr->stHdr.usDataLen = htons((USHORT)pstClient->stSrvId.ubSrvIdLen);
+		unOptionsLen = (UINT)sizeof(ST_DHCPv6OPT_DUID_HDR);
+		memcpy(&ubaOptions[unOptionsLen], pstClient->stSrvId.ubaVal, pstClient->stSrvId.ubSrvIdLen);
+		unOptionsLen += (UINT)pstClient->stSrvId.ubSrvIdLen;
+	}	
 
 	//*  M标志置位
 	if (pstRouter->i6r_flag_m && pstClient->ubaIAAddr[0])
@@ -466,6 +493,7 @@ INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 		PST_DHCPv6OPT_IANA_HDR pstIANAHdr = (PST_DHCPv6OPT_IANA_HDR)&ubaOptions[unOptionsLen];
 		pstIANAHdr->stHdr.usCode = htons(DHCPv6OPT_IANA);
 		pstIANAHdr->stHdr.usDataLen = htons(sizeof(ST_DHCPv6OPT_IANA_HDR) - sizeof(ST_DHCPv6OPT_HDR) + sizeof(ST_DHCPv6OPT_IAA_HDR));
+		pstIANAHdr->unId = dhcpv6_iaid_get(pstRouter->pstNetif);
 		pstIANAHdr->unT1 = htonl(pstClient->unT1);
 		pstIANAHdr->unT2 = htonl(pstClient->unT2);
 		unOptionsLen += (UINT)sizeof(ST_DHCPv6OPT_IANA_HDR);
@@ -587,6 +615,16 @@ static void dhcpv6_print_status_info(USHORT usCode, UCHAR ubaSrcAddr[16])
 		os_thread_mutex_unlock(o_hMtxPrintf);
 #endif
 		break;
+
+	default:
+#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+		printf("Unassigned error.");
+#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+		break; 
 	}
 }
 #endif
@@ -633,8 +671,8 @@ static void dhcpv6_iana_handler(PST_NETIF pstNetif, PSTCB_DHCPv6_CLIENT pstClien
 				if (Dv6SCODE_SUCCESS == usCode/* && NULL == netif_ipv6_dyn_addr_get(pstNetif, pstIAAHdr->ubaIpv6Addr, TRUE)*/)
 				{
 					//* 保存租用时间，续租、释放都需要这个时间
-					pstClient->unT1 = pstIANAHdr->unT1; 
-					pstClient->unT2 = pstIANAHdr->unT2; 
+					pstClient->unT1 = htonl(pstIANAHdr->unT1); 
+					pstClient->unT2 = htonl(pstIANAHdr->unT2); 
 
 					memcpy(pstClient->ubaIAAddr, pstIAAHdr->ubaIpv6Addr, 16); 
 					return; 
@@ -839,7 +877,7 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 				UINT unValidLifetime = htonl(pstIAAHdr->unValidLifetime);
 				UINT unPreferredLifetime = htonl(pstIAAHdr->unPreferredLifetime);
 
-				if (Dv6CLT_REQUEST == pstClient->bitState || Dv6CLT_RENEW == pstClient->bitState || Dv6CLT_REBIND == pstClient->bitState)
+				if (Dv6CLT_SOLICIT < pstClient->bitState < Dv6CLT_RESTART)
 				{
 					PST_IPv6_DYNADDR pstDynAddr = ipv6_dyn_addr_get(pstClient->bDynAddr);
 					if (!pstDynAddr)
@@ -847,16 +885,16 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 						EN_ONPSERR enErr;
 						pstDynAddr = ipv6_dyn_addr_node_get(&pstClient->bDynAddr, &enErr);
 						if (pstDynAddr)
-						{
+						{							
 							memcpy(pstDynAddr->ubaVal, pstIAAHdr->ubaIpv6Addr, 16);
 							pstDynAddr->bitRouter = pstClient->bRouter;
-							pstDynAddr->bitPrefixBitLen = 128;														
-							pstDynAddr->unValidLifetime = unValidLifetime;
+							pstDynAddr->bitPrefixBitLen = Dv6CFGADDR_PREFIX_LEN;
+							pstDynAddr->unValidLifetime = unValidLifetime ? unValidLifetime + IPv6ADDR_INVALID_TIME : IPv6ADDR_INVALID_TIME + 1; 
 							pstDynAddr->unPreferredLifetime = unPreferredLifetime;
 							pstDynAddr->bitState = IPv6ADDR_PREFERRED;
 							netif_ipv6_dyn_addr_add(pstRouter->pstNetif, pstDynAddr);
 
-							pstClient->bitRcvReply = TRUE;
+							pstClient->unStartTimingCounts = os_get_system_secs();														
 						}
 						else
 						{
@@ -884,8 +922,8 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 								pstDynAddr->bitState = IPv6ADDR_PREFERRED; //* 再次调整为地址“可用”状态
 						}
 						os_exit_critical();
-
-						pstClient->bitRcvReply = TRUE;
+												
+						pstClient->unStartTimingCounts = os_get_system_secs();												
 					}
 				}
 			}			
@@ -898,15 +936,18 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 		{
 			PST_DHCPv6OPT_SCODE_HDR pstSCodeHdr = (PST_DHCPv6OPT_SCODE_HDR)pstHdr;
 			pstClient->usStatusCode = htons(pstSCodeHdr->usCode); 
+
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+			if(Dv6SCODE_SUCCESS != pstClient->usStatusCode)
+				dhcpv6_print_status_info(pstClient->usStatusCode, ubaSrcAddr);
+#endif
 		}
 		else; 
 
 		usHandleOptBytes += usDataLen + sizeof(ST_DHCPv6OPT_HDR); 
 	}	
-
-	//* 如果M标志未置位则只要收到Reply报文即可
-	if(!pstRouter->i6r_flag_m)
-		pstClient->bitRcvReply = TRUE; 
+	
+	pstClient->bitRcvReply = TRUE; 
 }
 
 void dhcpv6_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubDHCPv6, USHORT usDHCPv6Len)
@@ -939,7 +980,7 @@ void dhcpv6_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16],
 	puniHdr->unVal = htonl(puniHdr->unVal); 
 
 	//* 事务ID匹配才处理，如果不匹配则直接丢弃当前报文
-	if (pstClient->unTransId == puniHdr->stb32.bitTransId)
+	if ((pstClient->unTransId & 0x00FFFFFF) == puniHdr->stb32.bitTransId)
 	{
 		switch (puniHdr->stb32.bitMsgType)
 		{

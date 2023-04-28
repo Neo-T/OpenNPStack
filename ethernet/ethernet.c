@@ -388,7 +388,7 @@ static BOOL ipv6_sol_mc_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16]
 	} while (pstNextAddr);
 
 
-	if (!memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->nif_lla_ipv6, ubaSolMcAddr), 16))
+	if (pstNetif->stIPv6.stLnkAddr.bitState == IPv6ADDR_PREFERRED && !memcmp(ubaTargetIpv6, ipv6_sol_mc_addr(pstNetif->nif_lla_ipv6, ubaSolMcAddr), 16))
 		return TRUE;
 
 	return FALSE;

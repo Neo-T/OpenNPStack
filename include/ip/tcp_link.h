@@ -117,7 +117,7 @@ typedef struct _ST_TCPLINK_ {
         USHORT usMSS;       //* MSS值
         USHORT usWndSize;   //* 当前窗口大小        
 #if SUPPORT_IPV6
-    ST_SOCKADDR stSockAddr;
+    STP_SOCKADDR stSockAddr;
 	//UINT unIpv6FlowLbl; //* ipv6流标签（Flow Label），其与源地址/端口、目的地址/端口一起唯一的标识一个通讯数据流
 #else
         struct {

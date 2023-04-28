@@ -72,7 +72,7 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
     buf_list_put_head(&sBufListHead, sHdrNode);
 			
 	//* 计算校验和
-	EN_ONPSERR enErr; 
+	EN_ONPSERR enErr = ERRNO; 
 #if SUPPORT_IPV6
 	if (AF_INET == bFamily)
 		stHdr.usChecksum = tcpip_checksum_ipv4(htonl(*(in_addr_t *)pvSrcAddr), *(in_addr_t *)pvDstAddr, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
@@ -314,7 +314,7 @@ INT udp_sendto(INT nInput, in_addr_t unDstIP, USHORT usDstPort, UCHAR *pubData, 
 
 void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
 {
-    EN_ONPSERR enErr;
+    EN_ONPSERR enErr = ERRNO;
     PST_UDP_HDR pstHdr = (PST_UDP_HDR)pubPacket; 
     
     //* 如果校验和为0则意味着不需要计算校验和，反之就需要进行校验计算

@@ -440,17 +440,19 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 	//* 如果网络接口类型为ethernet，就需要看看ipv6地址是否匹配，只有匹配的才会处理，同时顺道更新ipv6 mac地址映射缓存表
 	if (NIF_ETHERNET == pstNetif->enType)
 	{
-		/*
-		CHAR szIpv6[40];
-		os_thread_mutex_lock(o_hMtxPrintf);
-		printf("%s -> ", inet6_ntoa(pstHdr->ubaSrcIpv6, szIpv6));
-		printf("%s\r\n", inet6_ntoa(pstHdr->ubaDstIpv6, szIpv6));
-		os_thread_mutex_unlock(o_hMtxPrintf);
-		*/
-
 		// ip地址不匹配，直接丢弃当前报文
 		if (!ethernet_ipv6_addr_matched(pstNetif, pstHdr->ubaDstIpv6))
-			return; 
+		{
+			/*
+			CHAR szIpv6[40];
+			os_thread_mutex_lock(o_hMtxPrintf);
+			printf("%s -> ", inet6_ntoa(pstHdr->ubaSrcIpv6, szIpv6));
+			printf("%s\r\n", inet6_ntoa(pstHdr->ubaDstIpv6, szIpv6));
+			os_thread_mutex_unlock(o_hMtxPrintf);
+			*/
+
+			return;
+		}
 	}
 #endif
 
