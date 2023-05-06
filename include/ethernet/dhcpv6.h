@@ -19,13 +19,14 @@
 #define Dv6CFGADDR_PREFIX_LEN 124 //* DHCPv6服务器分配地地址无法获得前缀长度，所以为了路由选择及标识这是DHCPv6分配地地址，将其前缀长度设为最大
 
 #if SUPPORT_IPV6 && SUPPORT_ETHERNET
+//* 最大值取决于STCB_DHCPv6_CLIENT::bitState字段的位宽
 typedef enum  {
 	Dv6CLT_SOLICIT = 0, 
 	Dv6CLT_REQUEST, 	
 	Dv6CLT_RENEW, 
 	Dv6CLT_REBIND, 
 	Dv6CLT_RELEASE, 
-	Dv6CLT_RESTART
+	Dv6CLT_RESTART, 		
 } EN_DHCPv6CLTSTATE;
 
 #define DUID_SRVID_LEN_MAX 15 //* Server Identifier Option携带的Server Id为DUID_EN类型时允许的最大企业标识长度
@@ -34,7 +35,9 @@ PACKED_BEGIN
 typedef struct _STCB_DHCPv6_CLIENT_ {
 	INT nInput;               //* DHCPv6客户端句柄	
 	UINT unStartTimingCounts; //* 时间计数
-	UINT unTransId;           //* 事务Id
+	UINT bitTransId   : 24;   //* Transaction ID，唯一标识本次dhcp请求的标识符，注意，本次请求所有报文标识符均一致
+	UINT bitIsRunning : 1;    //* 是否运行
+	UINT bitReserved  : 7;    //* 保留
 	UINT unT1;                //* 参见ST_DHCPv6OPT_IANA_HDR结构体针对该字段的定义
 	UINT unT2;                //* 同上
 	struct {
@@ -63,6 +66,7 @@ DHCPv6_EXT PSTCB_DHCPv6_CLIENT dhcpv6_client_find_by_ipv6(PST_NETIF pstNetif, UC
 
 DHCPv6_EXT INT dhcpv6_client_start(PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr); 
 DHCPv6_EXT void dhcpv6_client_stop(PSTCB_DHCPv6_CLIENT pstClient);
+DHCPv6_EXT void dhcpv6_client_stop_safe(CHAR bClient);
 DHCPv6_EXT INT dhcpv6_send_solicit(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr);
 DHCPv6_EXT INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter, USHORT usMsgType);
 DHCPv6_EXT void dhcpv6_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubDHCPv6, USHORT usDHCPv6Len);

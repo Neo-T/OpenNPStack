@@ -117,7 +117,7 @@ CHAR ipv6_router_get_index(PST_IPv6_ROUTER pstRouter)
 
 void netif_ipv6_dyn_addr_add(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
 {	
-	array_linked_list_put_tail(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
+	array_linked_list_put_tail_safe(pstDynAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), IPV6_CFG_ADDR_NUM, offsetof(ST_IPv6_DYNADDR, bNextAddr));
 }
 
 void netif_ipv6_dyn_addr_del(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
@@ -127,7 +127,7 @@ void netif_ipv6_dyn_addr_del(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstDynAddr)
 
 void netif_ipv6_router_add(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter)
 {
-	array_linked_list_put_tail(pstRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM, offsetof(ST_IPv6_ROUTER, bNextRouter));
+	array_linked_list_put_tail_safe(pstRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), IPV6_ROUTER_NUM, offsetof(ST_IPv6_ROUTER, bNextRouter));
 }
 
 void netif_ipv6_router_del(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter)
@@ -360,8 +360,12 @@ static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
 			{								
 				if (!pstNextAddr->unValidLifetime && !pstNextAddr->i6a_ref_cnt) //* 地址已经无效了且未在使用，摘除并归还
 				{					
-					netif_ipv6_dyn_addr_del(pstNetif, pstNextAddr);
-					ipv6_dyn_addr_node_free(pstNextAddr);
+					//* 只有无状态配置的地址才需要被释放，DHCPv6分配的地址保留节点，因为续租、重申请机制会确保地址再次可用，没必要重复申请地址节点
+					if (pstNextAddr->bitPrefixBitLen < Dv6CFGADDR_PREFIX_LEN)
+					{
+						netif_ipv6_dyn_addr_del(pstNetif, pstNextAddr);
+						ipv6_dyn_addr_node_free(pstNextAddr);
+					}					
 				}
 			}
 			os_exit_critical();
@@ -385,7 +389,7 @@ static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
 		{
 			os_enter_critical();
 			{
-				if (pstNextRouter->usLifetime != 0)
+				if (0 != pstNextRouter->usLifetime)
 					pstNextRouter->usLifetime--; 
 			}
 			os_exit_critical(); 
@@ -393,10 +397,16 @@ static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
 			//*同样先离开再入临界区
 			os_enter_critical(); 
 			{
-				if (!pstNextRouter->usLifetime && !pstNextRouter->i6r_ref_cnt) //* 路由器生存时间到期且未在使用，摘除并归还
+				if (!pstNextRouter->usLifetime && !pstNextRouter->i6r_ref_cnt) //* 路由器生存时间到期且未再使用，摘除并归还
 				{
-					netif_ipv6_router_del(pstNetif, pstNextRouter);
-					ipv6_router_node_free(pstNextRouter); 
+					//* 如果存在DHCPv6客户端，这里就需要等待客户端释放占用的资源后再回收路由器占用的资源
+					if (INVALID_ARRAYLNKLIST_UNIT == pstNextRouter->bDv6Client)
+					{
+						netif_ipv6_router_del(pstNetif, pstNextRouter);
+						ipv6_router_node_free(pstNextRouter);
+					}
+					else
+						dhcpv6_client_stop_safe(pstNextRouter->bDv6Client);
 				}
 			}
 			os_exit_critical(); 
@@ -422,8 +432,8 @@ static BOOL netif_ipv6_addr_and_router_released(PST_NETIF pstNetif)
 		{			
 			os_enter_critical();
 			{
-				if (!pstNextAddr->i6a_ref_cnt)
-				{
+				if (!pstNextAddr->i6a_ref_cnt && pstNextAddr->bitPrefixBitLen < Dv6CFGADDR_PREFIX_LEN)
+				{					
 					netif_ipv6_dyn_addr_del(pstNetif, pstNextAddr);
 					ipv6_dyn_addr_node_free(pstNextAddr);
 				}
@@ -445,8 +455,16 @@ static BOOL netif_ipv6_addr_and_router_released(PST_NETIF pstNetif)
 			{
 				if (!pstNextRouter->i6r_ref_cnt)
 				{
-					netif_ipv6_router_del(pstNetif, pstNextRouter);
-					ipv6_router_node_free(pstNextRouter);
+					if (INVALID_ARRAYLNKLIST_UNIT == pstNextRouter->bDv6Client)
+					{
+						netif_ipv6_router_del(pstNetif, pstNextRouter);
+						ipv6_router_node_free(pstNextRouter);
+					}					
+					else
+					{
+						dhcpv6_client_stop_safe(pstNextRouter->bDv6Client);
+						bIsFreedOK = FALSE; 
+					}
 				}
 				else
 					bIsFreedOK = FALSE; 
@@ -736,8 +754,8 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 BOOL ipv6_cfg_start(PST_NETIF pstNetif, EN_ONPSERR *penErr)
 {
 	//* 初始ST_IPv6各关键字段状态
-	pstNetif->stIPv6.bDynAddr = -1; 
-	pstNetif->stIPv6.bRouter = -1; 
+	pstNetif->stIPv6.bDynAddr = INVALID_ARRAYLNKLIST_UNIT;
+	pstNetif->stIPv6.bRouter = INVALID_ARRAYLNKLIST_UNIT;
 	pstNetif->stIPv6.bitCfgState = IPv6CFG_LNKADDR;
 	pstNetif->stIPv6.bitSvvTimerState = IPv6SVVTMR_INVALID; 
 

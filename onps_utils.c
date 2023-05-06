@@ -389,8 +389,18 @@ void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, C
 
 void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit)
 {
+	CHAR bNodeIdx = array_linked_list_get_index(pvUnit, pvArray, ubUnitSize, bUnitNum);
+	if (bNodeIdx >= 0)
+	{				
+		*((CHAR *)pvUnit + bOffsetNextUnit) = *pbListHead;
+		*pbListHead = bNodeIdx;		
+	}
+}
+
+void array_linked_list_put_safe(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit)
+{
 	os_critical_init();
-	
+
 	CHAR bNodeIdx = array_linked_list_get_index(pvUnit, pvArray, ubUnitSize, bUnitNum);
 	if (bNodeIdx >= 0)
 	{
@@ -405,6 +415,33 @@ void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR 
 
 void array_linked_list_put_tail(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit)
 {
+	CHAR bNodeIdx = array_linked_list_get_index(pvUnit, pvArray, ubUnitSize, bUnitNum);
+	if (bNodeIdx >= 0)
+	{				
+		CHAR bNode = *pbListHead; 
+		if (bNode >= 0)
+		{
+			CHAR bNextNode; 
+			do {
+				bNextNode = *((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit);
+				if (bNextNode < 0) //* 到了尾部
+				{
+					*((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit) = bNodeIdx; 						
+					break;
+				}
+
+				bNode = bNextNode;
+			} while (TRUE); 
+		}
+		else
+			*pbListHead = bNodeIdx;
+			
+		*((CHAR *)pvUnit + bOffsetNextUnit) = -1; 
+	}
+}
+
+void array_linked_list_put_tail_safe(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit)
+{
 	os_critical_init();
 
 	CHAR bNodeIdx = array_linked_list_get_index(pvUnit, pvArray, ubUnitSize, bUnitNum);
@@ -412,31 +449,53 @@ void array_linked_list_put_tail(void *pvUnit, CHAR *pbListHead, void *pvArray, U
 	{
 		os_enter_critical();
 		{
-			CHAR bNode = *pbListHead; 
+			CHAR bNode = *pbListHead;
 			if (bNode >= 0)
 			{
-				CHAR bNextNode; 
+				CHAR bNextNode;
 				do {
 					bNextNode = *((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit);
 					if (bNextNode < 0) //* 到了尾部
 					{
-						*((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit) = bNodeIdx; 						
+						*((CHAR *)pvArray + bNode * ubUnitSize + bOffsetNextUnit) = bNodeIdx;
 						break;
 					}
 
 					bNode = bNextNode;
-				} while (TRUE); 
+				} while (TRUE);
 			}
 			else
 				*pbListHead = bNodeIdx;
-			
-			*((CHAR *)pvUnit + bOffsetNextUnit) = -1;						
+
+			*((CHAR *)pvUnit + bOffsetNextUnit) = -1;
 		}
 		os_exit_critical();
 	}
 }
 
 void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+{
+	CHAR bNextNode = *pbListHead;
+	CHAR bPrevNode = -1;
+	while (bNextNode >= 0)
+	{
+		//* 找到要摘除的节点并摘除之
+		if ((UCHAR *)pvUnit == (UCHAR *)pvArray + bNextNode * ubUnitSize)
+		{
+			if (bPrevNode >= 0)
+				*((CHAR *)pvArray + bPrevNode * ubUnitSize + bOffsetNextUnit) = *((CHAR *)pvUnit + bOffsetNextUnit); 
+			else
+				*pbListHead = *((CHAR *)pvUnit + bOffsetNextUnit); 
+
+			break;
+		}
+
+		bPrevNode = bNextNode;
+		bNextNode = *((CHAR *)pvArray + bNextNode * ubUnitSize + bOffsetNextUnit); 
+	}
+}
+
+void array_linked_list_del_safe(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
 {
 	os_critical_init();
 
@@ -450,15 +509,15 @@ void array_linked_list_del(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR 
 			if ((UCHAR *)pvUnit == (UCHAR *)pvArray + bNextNode * ubUnitSize)
 			{
 				if (bPrevNode >= 0)
-					*((CHAR *)pvArray + bPrevNode * ubUnitSize + bOffsetNextUnit) = *((CHAR *)pvUnit + bOffsetNextUnit); 
+					*((CHAR *)pvArray + bPrevNode * ubUnitSize + bOffsetNextUnit) = *((CHAR *)pvUnit + bOffsetNextUnit);
 				else
-					*pbListHead = *((CHAR *)pvUnit + bOffsetNextUnit); 
+					*pbListHead = *((CHAR *)pvUnit + bOffsetNextUnit);
 
 				break;
 			}
 
 			bPrevNode = bNextNode;
-			bNextNode = *((CHAR *)pvArray + bNextNode * ubUnitSize + bOffsetNextUnit); 
+			bNextNode = *((CHAR *)pvArray + bNextNode * ubUnitSize + bOffsetNextUnit);
 		}
 	}
 	os_exit_critical();

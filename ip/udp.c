@@ -242,7 +242,7 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
     buf_list_put_head(&sBufListHead, sHdrNode); 
 
 	//* 计算校验和
-	EN_ONPSERR enErr; 
+	EN_ONPSERR enErr = ERRNO;
 	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(unSrcIp), unDstIp, (USHORT)(sizeof(ST_UDP_HDR) + usDataLen), IPPROTO_UDP, sBufListHead, &enErr); 
     if (ERRNO != enErr)
     {        
@@ -540,7 +540,7 @@ INT ipv6_udp_send_ext(INT nInput, SHORT sBufListHead, UCHAR ubaDstAddr[16], USHO
 	buf_list_put_head(&sBufListHead, sHdrNode);
 
 	//* 计算校验和
-	EN_ONPSERR enErr;
+	EN_ONPSERR enErr = ERRNO;
 	stHdr.usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, (UINT)(sizeof(ST_UDP_HDR) + usDataLen), IPPROTO_UDP, sBufListHead, &enErr); 
 	if (ERRNO != enErr)
 	{
@@ -604,7 +604,7 @@ INT ipv6_udp_sendto(INT nInput, const UCHAR ubaDstAddr[16], USHORT usDstPort, UC
 
 void ipv6_udp_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubPacket, INT nPacketLen)
 {
-	EN_ONPSERR enErr;
+	EN_ONPSERR enErr = ERRNO;
 	PST_UDP_HDR pstHdr = (PST_UDP_HDR)pubPacket;
 
 	//* 如果校验和为0则意味着不需要计算校验和，反之就需要进行校验计算
