@@ -585,7 +585,7 @@ const UCHAR *ipv6_lnk_addr(PST_NETIF pstNetif, UCHAR ubaLnkAddr[16])
 const UCHAR *ipv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], UCHAR *pubPrefix, UCHAR ubPrefixBitLen)
 {
 	UCHAR ubPrefixBytes = ubPrefixBitLen / 8 + (ubPrefixBitLen % 8 ? 1 : 0); 
-	memcpy(ubaDynAddr, pubPrefix, ubPrefixBitLen); 
+	memcpy(ubaDynAddr, pubPrefix, ubPrefixBytes);
 
 	//* 如果前缀长度为64位，则直接使用EUI-64编码方式生成后面的接口标识符，及动态地址为：前缀::/64 + EUI-64地址，否则随机生成接口标识符
 	if (ubPrefixBitLen == 64)
@@ -917,7 +917,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 		pstAddr->unValidLifetime = unValidLifetime ? unValidLifetime + IPv6ADDR_INVALID_TIME : IPv6ADDR_INVALID_TIME + 1; 
 		pstAddr->unPreferredLifetime = unPreferredLifetime; 
 		pstAddr->bitState = IPv6ADDR_TENTATIVE; 
-		netif_ipv6_dyn_addr_add(pstNetif, pstAddr);
+		netif_ipv6_dyn_addr_add(pstNetif, pstAddr);		
 
 		//* 开启重复地址检测
 		if (ipv6_cfg_dad(pstNetif, pstAddr, &enErr))
@@ -1179,35 +1179,35 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 	{
 		//* 处理携带的icmpv6选项之前先赋值ST_IPv6_ROUTER::pstNetif字段，后续DAD检测需要用到（如果存在前缀或路由器信息选项且可以进行无状态地址配置）
 		pstRouter->pstNetif = pstNetif; 						
-		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));
-
-		//* 根据m和o标志确定是否发送dhcpv6请求包，参见[RFC4861]4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
-		if (pstRouterAdvHdr->icmpv6_ra_flag_m || pstRouterAdvHdr->icmpv6_ra_flag_o)
-		{
-			//* 开启DHCPv6配置请求流程
-			pstRouter->bitDv6CfgState = Dv6CFG_START;
-			pstRouter->i6r_flag_m = pstRouterAdvHdr->icmpv6_ra_flag_m; 			
-			if (dhcpv6_client_start(pstRouter, &enErr) < 0)
-			{
-				pstRouter->bitDv6CfgState = Dv6CFG_END; 
-
-		#if SUPPORT_PRINTF && DEBUG_LEVEL > 0		
-			#if PRINTF_THREAD_MUTEX
-				os_thread_mutex_lock(o_hMtxPrintf);
-			#endif
-				printf("dhcpv6_client_start() failed, %s\r\n", onps_error(enErr));
-			#if PRINTF_THREAD_MUTEX
-				os_thread_mutex_unlock(o_hMtxPrintf);
-			#endif
-		#endif
-			}
-		}
-		else
-			pstRouter->bitDv6CfgState = Dv6CFG_END; 
+		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));		
 
 		//* 添加到网卡		
 		netif_ipv6_router_add(pstNetif, pstRouter);				
 	}	
+
+	//* 根据m和o标志确定是否发送dhcpv6请求包，参见[RFC4861]4.2节：https://www.rfc-editor.org/rfc/rfc4861#section-4.2
+	if (pstRouterAdvHdr->icmpv6_ra_flag_m || pstRouterAdvHdr->icmpv6_ra_flag_o)
+	{
+		//* 开启DHCPv6配置请求流程
+		pstRouter->bitDv6CfgState = Dv6CFG_START;
+		pstRouter->i6r_flag_m = pstRouterAdvHdr->icmpv6_ra_flag_m;
+		if (dhcpv6_client_start(pstRouter, &enErr) < 0)
+		{
+			pstRouter->bitDv6CfgState = Dv6CFG_END;
+
+	#if SUPPORT_PRINTF && DEBUG_LEVEL > 0		
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif
+			printf("dhcpv6_client_start() failed, %s\r\n", onps_error(enErr));
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif
+		}
+	}
+	else
+		pstRouter->bitDv6CfgState = Dv6CFG_END;
 }
 
 void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)

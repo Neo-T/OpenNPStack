@@ -78,6 +78,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRDNSSRV, "dns server failure" }, 
     { ERRDNSNAME, "domain name does not exist" }, 
     { ERRDNSQUERYTYPE, "unsupported dns query type" }, 
+	{ ERRDNSREFUSED, "Refused by DNS server" }, 
     { ERRDNSNOTRESOLVED, "not resolved to ip address" }, 
     { ERRNOUDPLINKNODE, "the udp link list is empty" }, 
     { ERRTCPLINKCBNULL, "the tcp link control block is NULL" }, 

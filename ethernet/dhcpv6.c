@@ -345,11 +345,30 @@ __lblEnd:
 
 INT dhcpv6_client_start(PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr)
 {
-	PSTCB_DHCPv6_CLIENT pstClient = NULL; 
+	PSTCB_DHCPv6_CLIENT pstClient = NULL;
+	INT nInput; 
 
-	INT nInput = onps_input_new(AF_INET6, IPPROTO_UDP, penErr); 
+	os_critical_init();
+	os_enter_critical();
+	{
+		//* 如果已经存在一个客户端，则直接返回，此时存在两种情况：
+		//* 1）已经租用了地址，没必要再申请；
+		//* 2）最初收到的RA报文M标志复位，路由器不支持DHCPv6服务器，则客户端会在获取相关参数（如DNS）后自动释放，如果终端在这之后收到的RA报文M标志置位，则dhcpv6客户端会自动开启地址租用流程，因为在这之前客户端已经被释放了
+		pstClient = dhcpv6_client_get(pstRouter->bDv6Client);
+		if (pstClient)
+		{
+			nInput = pstClient->nInput; 
+			os_exit_critical();
+
+			pstRouter->bitDv6CfgState = Dv6CFG_END;
+			return nInput; 
+		}
+	}
+	os_exit_critical(); 	
+
+	nInput = onps_input_new(AF_INET6, IPPROTO_UDP, penErr);
 	if (nInput < 0)
-		return nInput; 
+		return nInput;
 
 	if (onps_input_port_used(AF_INET6, IPPROTO_UDP, DHCPv6_CLT_PORT))
 	{
@@ -360,54 +379,61 @@ INT dhcpv6_client_start(PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr)
 
 	//* 设置地址
 	ST_TCPUDP_HANDLE stHandle;
-	stHandle.bFamily = AF_INET6; 
+	stHandle.bFamily = AF_INET6;
 	memcpy(stHandle.stSockAddr.saddr_ipv6, pstRouter->pstNetif->nif_lla_ipv6, 16);
 	stHandle.stSockAddr.usPort = DHCPv6_CLT_PORT;
 	if (onps_input_set(nInput, IOPT_SETTCPUDPADDR, &stHandle, penErr))
 	{
 		//* 申请一个客户端控制块
-		CHAR bDv6Client; 
+		CHAR bDv6Client;
 		pstClient = dhcpv6_client_node_get(&bDv6Client, penErr);
 		if (!pstClient)
-			goto __lblErr; 
+			goto __lblErr;
 
-		pstClient->nInput = nInput;  
-		pstClient->stSrvId.ubSrvIdLen = 0; 
+		pstClient->nInput = nInput;
+		pstClient->stSrvId.ubSrvIdLen = 0;
 		pstClient->usStatusCode = Dv6SCODE_UNASSIGNED;
-		pstClient->ubaIAAddr[0] = 0; 
-		pstClient->bitState = Dv6CLT_SOLICIT; 
+		pstClient->ubaIAAddr[0] = 0;
+		pstClient->bitState = Dv6CLT_SOLICIT;
 		pstClient->bitUnicast = 0; //* 客户端发送的报文均缺省组播发送
-		pstClient->bitOptCnt = 0; 
-		pstClient->bDynAddr = INVALID_ARRAYLNKLIST_UNIT; 
+		pstClient->bitOptCnt = 0;
+		pstClient->bDynAddr = INVALID_ARRAYLNKLIST_UNIT;
 		pstClient->bRouter = ipv6_router_get_index(pstRouter);
-		pstRouter->bDv6Client = bDv6Client; 
+		pstRouter->bDv6Client = bDv6Client;
 
 		//* 发送请求报文，搜索DHCPv6服务器
 		pstClient->bitTransId = rand_big();
 		pstClient->unStartTimingCounts = os_get_system_msecs();
 		if (dhcpv6_send_solicit(pstClient, pstRouter, penErr) < 0)
-			goto __lblErr; 
+			goto __lblErr;
 
 		//* 建立一个一秒间隔的one-shot定时器，以状态机的方式处理dhcpv6的配置、租用、续租等操作
-		pstClient->bitIsRunning = TRUE; 
-		if (!one_shot_timer_new(dhcpv6_client_timeout_handler, pstClient, 1))					
-			goto __lblErr; 		
+		pstClient->bitIsRunning = TRUE;
+		if (!one_shot_timer_new(dhcpv6_client_timeout_handler, pstClient, 1))
+			goto __lblErr;
 
-		return nInput;
+		return pstClient->nInput;
 	}
 
 __lblErr:
-	if (pstClient)
-		dhcpv6_client_node_free(pstClient);
 	onps_input_free(nInput);
+	if (pstClient)
+		dhcpv6_client_node_free(pstClient);	
+	pstRouter->bDv6Client = INVALID_ARRAYLNKLIST_UNIT; 
+
 	return -1;
 }
 
 void dhcpv6_client_stop(PSTCB_DHCPv6_CLIENT pstClient)
 {
-	PST_IPv6_ROUTER pstRouter = ipv6_router_get(pstClient->bRouter);
-	if (pstRouter)
-		pstRouter->bDv6Client = INVALID_ARRAYLNKLIST_UNIT;
+	os_critical_init(); 
+	os_enter_critical(); 
+	{
+		PST_IPv6_ROUTER pstRouter = ipv6_router_get(pstClient->bRouter);
+		if (pstRouter)
+			pstRouter->bDv6Client = INVALID_ARRAYLNKLIST_UNIT;
+	}
+	os_exit_critical(); 	
 
 	onps_input_free(pstClient->nInput);
 	dhcpv6_client_node_free(pstClient);	
@@ -974,6 +1000,18 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 							pstDynAddr->bitState = IPv6ADDR_PREFERRED;
 							netif_ipv6_dyn_addr_add(pstRouter->pstNetif, pstDynAddr);
 
+					#if SUPPORT_PRINTF && DEBUG_LEVEL > 1	
+							CHAR szIpv6[40];
+						#if PRINTF_THREAD_MUTEX
+							os_thread_mutex_lock(o_hMtxPrintf);
+						#endif
+							printf("Successfully rented address %s from server ", inet6_ntoa(pstDynAddr->ubaVal, szIpv6));
+							printf("%s\r\n", inet6_ntoa(pstRouter->ubaAddr, szIpv6));
+						#if PRINTF_THREAD_MUTEX
+							os_thread_mutex_unlock(o_hMtxPrintf);
+						#endif
+					#endif
+
 							pstClient->unStartTimingCounts = os_get_system_secs();														
 						}
 						else
@@ -982,7 +1020,7 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 						#if PRINTF_THREAD_MUTEX
 							os_thread_mutex_lock(o_hMtxPrintf);
 						#endif
-							printf("dhcpv6_reply_handler() failed, %s\r\n", onps_error(enErr));
+							printf("dhcpv6_reply_handler() failed, %s, %d\r\n", onps_error(enErr), enErr); 
 						#if PRINTF_THREAD_MUTEX
 							os_thread_mutex_unlock(o_hMtxPrintf);
 						#endif

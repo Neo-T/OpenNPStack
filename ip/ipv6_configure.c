@@ -45,13 +45,13 @@ void ipv6_cfg_init(void)
 }
 
 PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr) 
-{
+{	
 	PST_IPv6_DYNADDR pstFreeNode = (PST_IPv6_DYNADDR)array_linked_list_get(&l_bFreeIpv6DynAddrList, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr), pbNodeIdx);
 	if (!pstFreeNode)
 	{
 		if (penErr)
 			*penErr = ERRNOIPv6DYNADDRNODE;
-	}
+	}	
 
 	return pstFreeNode; 
 }
@@ -583,10 +583,10 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 	{
 	case IPv6CFG_LNKADDR: 
 		if (pstNetif->stIPv6.stLnkAddr.bitState != IPv6ADDR_TENTATIVE) //* 配置完成？
-		{
+		{		
 			//* 迁移到路由器请求（RS）状态，发送路由器请求报文
-			pstNetif->stIPv6.bitCfgState = IPv6CFG_RS; 
-			icmpv6_send_rs(pstNetif, pstNetif->nif_lla_ipv6, NULL);
+			pstNetif->stIPv6.bitCfgState = IPv6CFG_RS; 		
+			icmpv6_send_rs(pstNetif, pstNetif->nif_lla_ipv6, NULL);		
 		}
 		break; 
 
@@ -674,6 +674,7 @@ static void ipv6_cfg_timeout_handler(void *pvParam)
 static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 {
 	PST_NETIF pstNetif; 
+	PST_IPv6_ROUTER pstRouter; 
 
 	PST_IPv6_DYNADDR pstTentAddr = (PST_IPv6_DYNADDR)pvParam;
 	UCHAR *pubAddr = (UCHAR *)pvParam; 
@@ -681,7 +682,7 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 		pstNetif = (PST_NETIF)((UCHAR *)pubAddr - offsetof(ST_NETIF, stIPv6.stLnkAddr)); 	
 	else
 	{		
-		PST_IPv6_ROUTER pstRouter = (PST_IPv6_ROUTER)ipv6_router_get((CHAR)pstTentAddr->bitRouter);
+		pstRouter = (PST_IPv6_ROUTER)ipv6_router_get((CHAR)pstTentAddr->bitRouter);
 		if (pstRouter)		
 			pstNetif = pstRouter->pstNetif;					
 		else
@@ -737,6 +738,17 @@ static void ipv6_cfg_dad_timeout_handler(void *pvParam)
 				}
 				os_exit_critical();
 
+		#if SUPPORT_PRINTF && DEBUG_LEVEL > 1	
+				CHAR szIpv6[40];
+			#if PRINTF_THREAD_MUTEX
+				os_thread_mutex_lock(o_hMtxPrintf);
+			#endif
+				printf("Successfully configured address %s based on the prefix advertised by server ", inet6_ntoa(pstTentAddr->ubaVal, szIpv6));
+				printf("%s\r\n", inet6_ntoa(pstRouter->ubaAddr, szIpv6));
+			#if PRINTF_THREAD_MUTEX
+				os_thread_mutex_unlock(o_hMtxPrintf);
+			#endif
+		#endif			
 				//netif_ipv6_dyn_addr_add(pstNetif, pstTentAddr);
 			}
 			else

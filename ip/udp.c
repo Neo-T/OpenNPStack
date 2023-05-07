@@ -155,7 +155,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
 			//* 寻址，看看使用哪个netif
 			UINT unNetifIp = route_get_netif_ip(pstLink->stPeerAddr.saddr_ipv4);
 			if (!unNetifIp)
-			{
+			{				
 				onps_set_last_error(nInput, ERRADDRESSING);
 				return -1;
 			}
@@ -166,7 +166,7 @@ INT udp_send(INT nInput, UCHAR *pubData, INT nDataLen)
 		else
 		{
 			if (NULL == route_ipv6_get_source_ip(pstLink->stPeerAddr.saddr_ipv6, pstHandle->stSockAddr.saddr_ipv6))
-			{
+			{				
 				onps_set_last_error(nInput, ERRADDRESSING);
 				return -1;
 			}
