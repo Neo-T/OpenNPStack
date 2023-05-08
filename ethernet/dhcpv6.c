@@ -126,7 +126,7 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 				if (pstDynAddr)
 				{
 					if (!pstDynAddr->i6a_ref_cnt)
-					{
+					{					
 						netif_ipv6_dyn_addr_del(pstRouter->pstNetif, pstDynAddr);
 						ipv6_dyn_addr_node_free(pstDynAddr);
 						pstClient->bDynAddr = INVALID_ARRAYLNKLIST_UNIT;
@@ -315,7 +315,8 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
 
 __lblEnd: 
 	//* 重启定时器
-	if (!one_shot_timer_new(dhcpv6_client_timeout_handler, pstClient, unIntervalSecs))
+	pstClient->pstTimer = one_shot_timer_new(dhcpv6_client_timeout_handler, pstClient, unIntervalSecs); 
+	if (NULL == pstClient->pstTimer)
 	{
 #if SUPPORT_PRINTF && DEBUG_LEVEL
 	#if PRINTF_THREAD_MUTEX
@@ -409,7 +410,8 @@ INT dhcpv6_client_start(PST_IPv6_ROUTER pstRouter, EN_ONPSERR *penErr)
 
 		//* 建立一个一秒间隔的one-shot定时器，以状态机的方式处理dhcpv6的配置、租用、续租等操作
 		pstClient->bitIsRunning = TRUE;
-		if (!one_shot_timer_new(dhcpv6_client_timeout_handler, pstClient, 1))
+		pstClient->pstTimer = one_shot_timer_new(dhcpv6_client_timeout_handler, pstClient, 1);
+		if (NULL == pstClient->pstTimer)
 			goto __lblErr;
 
 		return pstClient->nInput;
@@ -442,8 +444,11 @@ void dhcpv6_client_stop(PSTCB_DHCPv6_CLIENT pstClient)
 void dhcpv6_client_stop_safe(CHAR bClient)
 {
 	PSTCB_DHCPv6_CLIENT pstClient = dhcpv6_client_get(bClient);
-	if(pstClient)
-		pstClient->bitIsRunning = FALSE; 
+	if (pstClient)
+	{
+		pstClient->bitIsRunning = FALSE;
+		one_shot_timer_recount(pstClient->pstTimer, 1);
+	}
 }
 
 static const UCHAR *dhcpv6_duid_ll(PST_NETIF pstNetif, UCHAR *pubDUID)

@@ -883,17 +883,17 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 				//* 首选生存时间直接重置为通告中的首先生存时间。
 				//* 上述规则主要是避免非法RA报文携带短生存时间前缀导致拒绝服务问题的出现。
 				os_enter_critical(); 
-				{
+				{					
 					if(unValidLifetime > 7200 || unValidLifetime > pstAddr->unValidLifetime)
 						pstAddr->unValidLifetime = unValidLifetime + IPv6ADDR_INVALID_TIME;
 					else
 					{
 						if (pstAddr->unValidLifetime > 7200)
-							pstAddr->unValidLifetime = 7200 + IPv6ADDR_INVALID_TIME;
+							pstAddr->unValidLifetime = 7200 + IPv6ADDR_INVALID_TIME; 
 					}
 					
 					//* 路由器管理员有可能通过很短的首选生存时间来主动弃用某个地址，所以这个选项必须无条件更新（显然相对于将很短的有效生存时间视为非法的规则，该规则重点考虑了网络管理的便利性）
-					pstAddr->unPreferredLifetime = unPreferredLifetime;  
+					pstAddr->unPreferredLifetime = unPreferredLifetime;
 					if (unPreferredLifetime && pstAddr->bitState > IPv6ADDR_PREFERRED)
 						pstAddr->bitState = IPv6ADDR_PREFERRED; //* 再次调整为地址“可用”状态
 				}
@@ -1180,6 +1180,9 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		//* 处理携带的icmpv6选项之前先赋值ST_IPv6_ROUTER::pstNetif字段，后续DAD检测需要用到（如果存在前缀或路由器信息选项且可以进行无状态地址配置）
 		pstRouter->pstNetif = pstNetif; 						
 		icmpv6_ra_option_handler(pstNetif, pstRouter, pubIcmpv6 + ubHdrLen, (SHORT)(usIcmpv6PktLen - ubHdrLen));		
+
+		CHAR szIpv6[40];
+		printf("router added, %s\r\n", inet6_ntoa(pstRouter->ubaAddr, szIpv6));
 
 		//* 添加到网卡		
 		netif_ipv6_router_add(pstNetif, pstRouter);				

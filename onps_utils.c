@@ -523,7 +523,7 @@ void array_linked_list_del_safe(void *pvUnit, CHAR *pbListHead, void *pvArray, U
 	os_exit_critical();
 }
 
-void *array_linked_list_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit)
+void *array_linked_list_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx)
 {
 	if (*pbListHead >= 0)
 	{
@@ -532,6 +532,9 @@ void *array_linked_list_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, 
 			bUnit = *pbNextUnit;
 		else
 			bUnit = *pbListHead;
+
+		if (pbUnitIdx)
+			*pbUnitIdx = bUnit; 
 
 		*pbNextUnit = *((CHAR *)pvArray + bUnit * ubUnitSize + bOffsetNextUnit);
 		return (CHAR *)pvArray + bUnit * ubUnitSize;

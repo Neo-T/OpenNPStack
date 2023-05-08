@@ -70,7 +70,7 @@ IPv6CFG_EXT void netif_ipv6_router_del(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRo
 IPv6CFG_EXT PST_IPv6_DYNADDR netif_ipv6_dyn_addr_next(PST_NETIF pstNetif, CHAR *pbNextAddr); 
 IPv6CFG_EXT PST_IPv6_DYNADDR netif_ipv6_dyn_addr_next_safe(PST_NETIF pstNetif, PST_IPv6_DYNADDR pstPrevDynAddr, BOOL blIsRefCnt);
 IPv6CFG_EXT void netif_ipv6_dyn_addr_release(PST_IPv6_DYNADDR pstDynAddr); 
-IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next(PST_NETIF pstNetif, CHAR *pbNextRouter); 
+IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next(PST_NETIF pstNetif, CHAR *pbNextRouter, CHAR *pbRouterIdx);
 IPv6CFG_EXT PST_IPv6_ROUTER netif_ipv6_router_next_safe(PST_NETIF pstNetif, PST_IPv6_ROUTER pstPrevRouter, BOOL blIsRefCnt); 
 IPv6CFG_EXT void netif_ipv6_router_release(PST_IPv6_ROUTER pstRouter); 
 IPv6CFG_EXT PST_IPv6_DYNADDR netif_ipv6_dyn_addr_get(PST_NETIF pstNetif, UCHAR ubaIpv6Addr[16], BOOL blIsReleased);

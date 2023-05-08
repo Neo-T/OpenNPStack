@@ -40,6 +40,7 @@ typedef struct _STCB_DHCPv6_CLIENT_ {
 	UINT bitReserved  : 7;    //* 保留
 	UINT unT1;                //* 参见ST_DHCPv6OPT_IANA_HDR结构体针对该字段的定义
 	UINT unT2;                //* 同上
+	PST_ONESHOTTIMER pstTimer; 
 	struct {
 		UCHAR ubSrvIdLen; //* Server Identifier长度
 		UCHAR ubaVal[DUID_SRVID_LEN_MAX]; //* 服务器Id 

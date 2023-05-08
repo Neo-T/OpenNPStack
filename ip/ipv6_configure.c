@@ -152,7 +152,7 @@ do {
 */
 PST_IPv6_DYNADDR netif_ipv6_dyn_addr_next(PST_NETIF pstNetif, CHAR *pbNextAddr)
 {
-	return (PST_IPv6_DYNADDR)array_linked_list_next(pbNextAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr)); 	
+	return (PST_IPv6_DYNADDR)array_linked_list_next(pbNextAddr, &pstNetif->stIPv6.bDynAddr, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr), NULL); 	
 }
 
 
@@ -205,9 +205,9 @@ void netif_ipv6_dyn_addr_release(PST_IPv6_DYNADDR pstDynAddr)
 	os_exit_critical();
 }
 
-PST_IPv6_ROUTER netif_ipv6_router_next(PST_NETIF pstNetif, CHAR *pbNextRouter)
+PST_IPv6_ROUTER netif_ipv6_router_next(PST_NETIF pstNetif, CHAR *pbNextRouter, CHAR *pbRouterIdx)
 {
-	return (PST_IPv6_ROUTER)array_linked_list_next(pbNextRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter)); 
+	return (PST_IPv6_ROUTER)array_linked_list_next(pbNextRouter, &pstNetif->stIPv6.bRouter, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter), pbRouterIdx);
 }
 
 //* 其功能及存在的意义与netif_ipv6_dyn_addr_next()函数相同
@@ -362,7 +362,7 @@ static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
 				{					
 					//* 只有无状态配置的地址才需要被释放，DHCPv6分配的地址保留节点，因为续租、重申请机制会确保地址再次可用，没必要重复申请地址节点
 					if (pstNextAddr->bitPrefixBitLen < Dv6CFGADDR_PREFIX_LEN)
-					{
+					{						
 						netif_ipv6_dyn_addr_del(pstNetif, pstNextAddr);
 						ipv6_dyn_addr_node_free(pstNextAddr);
 					}					
@@ -375,16 +375,32 @@ static void netif_ipv6_dyn_addr_lifetime_decrement(PST_NETIF pstNetif)
 	} while (bNext >= 0);
 }
 
+static BOOL netif_ipv6_dyn_addr_assigned_by_router(PST_NETIF pstNetif, CHAR bRouterIdx)
+{
+	PST_IPv6_DYNADDR pstNextAddr;
+	CHAR bNext = -1;
+
+	do {
+		pstNextAddr = netif_ipv6_dyn_addr_next(pstNetif, &bNext); 
+		if (pstNextAddr && pstNextAddr->bitRouter == bRouterIdx) 
+			return TRUE; 
+		else
+			break; 
+	} while (bNext >= 0);
+
+	return FALSE; 
+}
+
 static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
 {
 	PST_IPv6_ROUTER pstNextRouter;
-	CHAR bNext = -1;
+	CHAR bNext = -1, bRouterIdx;
 
 	os_critical_init();
 
 	//* 同样不需要保护，参见netif_ipv6_dyn_addr_lifetime_decrement()函数注释
 	do {
-		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext);
+		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext, &bRouterIdx);
 		if (pstNextRouter && pstNextRouter->bitDv6CfgState == Dv6CFG_END) //* 只有配置完毕的才开始计时
 		{
 			os_enter_critical();
@@ -402,8 +418,12 @@ static void netif_ipv6_router_lifetime_decrement(PST_NETIF pstNetif)
 					//* 如果存在DHCPv6客户端，这里就需要等待客户端释放占用的资源后再回收路由器占用的资源
 					if (INVALID_ARRAYLNKLIST_UNIT == pstNextRouter->bDv6Client)
 					{
-						netif_ipv6_router_del(pstNetif, pstNextRouter);
-						ipv6_router_node_free(pstNextRouter);
+						//* 由路由器指派的所有地址（无状态配置地址和DHCPv6服务器出租的地址）全部到期并回收后才可以释放路由器，否则即使到期也不会回收相关资源
+						if (!netif_ipv6_dyn_addr_assigned_by_router(pstNetif, bRouterIdx))
+						{
+							netif_ipv6_router_del(pstNetif, pstNextRouter);
+							ipv6_router_node_free(pstNextRouter);
+						}						
 					}
 					else
 						dhcpv6_client_stop_safe(pstNextRouter->bDv6Client);
@@ -420,7 +440,7 @@ static BOOL netif_ipv6_addr_and_router_released(PST_NETIF pstNetif)
 {
 	PST_IPv6_DYNADDR pstNextAddr;
 	PST_IPv6_ROUTER pstNextRouter;
-	CHAR bNext = -1;
+	CHAR bNext = -1, bRouterIdx;
 	CHAR bIsFreedOK = TRUE; 
 
 	os_critical_init();
@@ -448,7 +468,7 @@ static BOOL netif_ipv6_addr_and_router_released(PST_NETIF pstNetif)
 
 	//* 归还路由器节点
 	do {
-		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext);
+		pstNextRouter = netif_ipv6_router_next(pstNetif, &bNext, &bRouterIdx);
 		if (pstNextRouter)
 		{			
 			os_enter_critical();
