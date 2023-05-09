@@ -45,7 +45,10 @@ typedef enum {
     IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
     IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
     IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度        
-    IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志 
+    IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志
+#if SUPPORT_IPV6
+	IOPT_GET_ICMPAF             //* 读取icmp协议的地址族类型
+#endif
 } ONPSIOPT;
 
 #if SUPPORT_IPV6
@@ -150,7 +153,7 @@ ONPSINPUT_EXT INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDat
 ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr);
 
 //* 等待接收icmp层对端发送的数据
-ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
+ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs); 
 
 //* 检查要某个端口是否已被使用   
 #if SUPPORT_IPV6

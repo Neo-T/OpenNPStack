@@ -22,6 +22,9 @@ typedef struct _STCB_ONPS_INPUT_ {
 
     union {  //* 系统分配的接收者句柄，根据不同的上层协议其句柄信息均有所不同
         struct {
+		#if SUPPORT_IPV6
+			CHAR bFamily;  //* 协议族标识，这里用于区分底层协议族为ipv4还是ipv6
+		#endif
             USHORT usIdentifier;
         } stIcmp; //* icmp层句柄
 
@@ -122,12 +125,14 @@ INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 #endif
 {
+#if SUPPORT_IPV6
 	if (AF_INET != family && AF_INET6 != family)
 	{
 		if (penErr)
 			*penErr = ERRUNSUPPORTEDFAMILY;
 		return -1;
 	}
+#endif
 
     HSEM hSem = os_thread_sem_init(0, 100000);
     if (INVALID_HSEM == hSem)
@@ -140,7 +145,8 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     UINT unSize; 
     switch (enProtocol)
     {
-    case IPPROTO_ICMP:
+    case IPPROTO_ICMP: 
+	case IPPROTO_ICMPv6: 
         unSize = ICMPRCVBUF_SIZE; 
         break; 
 
@@ -184,8 +190,17 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
         pstcbInput->unRcvedBytes = 0; 
         pstcbInput->ubLastErr = ERRNO; 
 
-        if (IPPROTO_ICMP == enProtocol)
-            pstcbInput->uniHandle.stIcmp.usIdentifier = 0;        
+		if (IPPROTO_ICMP == enProtocol
+		#if SUPPORT_IPV6
+			|| IPPROTO_ICMPv6 == enProtocol
+		#endif
+			)
+		{
+		#if SUPPORT_IPV6
+			pstcbInput->uniHandle.stIcmp.bFamily = family;
+		#endif
+			pstcbInput->uniHandle.stIcmp.usIdentifier = 0;
+		}
         else
         {
             pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
@@ -193,7 +208,7 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 			pstcbInput->uniHandle.stTcpUdp.bFamily = (CHAR)family;			
 			memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
 	#else
-			pstcbInput->uniHandle.stTcpUdp.ipv4_addr = 0;
+			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = 0;
 	#endif
             pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = 0;
             pstcbInput->pvAttach = NULL;
@@ -383,7 +398,7 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
     switch (enInputOpt)
     {    
     case IOPT_SETICMPECHOID:
-        if ((EN_IPPROTO)pstcbInput->ubIPProto == IPPROTO_ICMP)
+        if (IPPROTO_ICMP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_ICMPv6 == (EN_IPPROTO)pstcbInput->ubIPProto)
             pstcbInput->uniHandle.stIcmp.usIdentifier = *((USHORT *)pvVal); 
         else
             goto __lblIpProtoNotMatched;
@@ -624,6 +639,19 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
         break; 
 
+	case IOPT_GET_ICMPAF:
+		if (IPPROTO_ICMP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_ICMPv6 == (EN_IPPROTO)pstcbInput->ubIPProto)
+		{
+			*((CHAR *)pvVal) = pstcbInput->uniHandle.stIcmp.bFamily; 
+		}
+		else
+		{
+			if (penErr)
+				*penErr = ERRIPROTOMATCH;
+			return FALSE;
+		}
+		break; 
+
     default:
         if (penErr)
             *penErr = ERRUNSUPPIOPT;
@@ -837,7 +865,8 @@ INT onps_input_get_icmp(USHORT usIdentifier)
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
-            if ((EN_IPPROTO)pstcbInput->ubIPProto == IPPROTO_ICMP && usIdentifier == pstcbInput->uniHandle.stIcmp.usIdentifier)
+            if ((IPPROTO_ICMP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_ICMPv6 == (EN_IPPROTO)pstcbInput->ubIPProto) 
+				&& usIdentifier == pstcbInput->uniHandle.stIcmp.usIdentifier)
             {
                 nInput = pstNextNode->uniData.nVal;
                 break;
@@ -865,8 +894,8 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
         return FALSE; 
     }
     
-	//* 这个接收函数仅用于icmp及udp协议的接收，其它协议不处理
-    if (IPPROTO_ICMP != (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto && IPPROTO_UDP != (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+	//* 这个接收函数仅用于icmp、icmpv6及udp协议的接收，其它协议不处理
+    if (IPPROTO_ICMP != (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto && IPPROTO_ICMPv6 != (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto && IPPROTO_UDP != (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {
 		if (penErr)
 			*penErr = ERRUNSUPPIPPROTO;
@@ -875,7 +904,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
     }    
 
     //* icmp报文只要是到达就直接覆盖前一组，无论前一组报文是否已被读取
-    if (IPPROTO_ICMP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
+    if (IPPROTO_ICMP == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto || IPPROTO_ICMPv6 == (EN_IPPROTO)l_stcbaInput[nInput].ubIPProto)
     {        
         UINT unCpyBytes = (UINT)nDataBytes < l_stcbaInput[nInput].unRcvBufSize ? (UINT)nDataBytes : l_stcbaInput[nInput].unRcvBufSize; 
         memcpy(l_stcbaInput[nInput].pubRcvBuf, pubData, unCpyBytes);
@@ -908,7 +937,7 @@ BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t
 			else
 				pstRcvedPacket->stSockAddr.saddr_ipv4 = *((UINT *)pvFromIP);
 		#else			
-			pstRcvedPacket->stSockAddr.saddr_ipv4 = *((UINT *)pvFromIP);
+			pstRcvedPacket->stSockAddr.saddr_ipv4 = unFromIP;
 		#endif
 			pstRcvedPacket->stSockAddr.usPort = usFromPort;
 			pstRcvedPacket->pstNext = NULL;
@@ -1127,7 +1156,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
     return nRtnVal;
 }
 
-INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
+INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
 {
     if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
@@ -1164,13 +1193,33 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, UINT *punSrcAddr, UCHAR
             return 0;
     }
 
-    //* 报文继续上报给上层调用者
+	//* 报文继续上报给上层调用者
+	UCHAR usIpHdrLen; 
+#if SUPPORT_IPV6
+	if (AF_INET == l_stcbaInput[nInput].uniHandle.stIcmp.bFamily)
+	{
+		PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf;
+		usIpHdrLen = pstHdr->bitHdrLen * 4;
+		if (punSrcAddr)
+			*punSrcAddr = pstHdr->unSrcIP;
+		if (pubTTL)
+			*pubTTL = pstHdr->ubTTL;
+	}
+	else
+	{
+		PST_IPv6_HDR pstHdr = (PST_IPv6_HDR)l_stcbaInput[nInput].pubRcvBuf;
+		usIpHdrLen = sizeof(ST_IPv6_HDR);
+		if (punSrcAddr)
+			memcpy((UCHAR *)punSrcAddr, pstHdr->ubaSrcIpv6, 16); 
+	}
+#else    
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
     UCHAR usIpHdrLen = pstHdr->bitHdrLen * 4;
 	if (punSrcAddr)	
 		*punSrcAddr = pstHdr->unSrcIP; 	
     if(pubTTL)
         *pubTTL = pstHdr->ubTTL; 
+#endif
     *ppubPacket = l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen;
     return (INT)l_stcbaInput[nInput].unRcvedBytes - usIpHdrLen;
 }
@@ -1258,7 +1307,7 @@ BOOL onps_input_port_used(EN_IPPROTO enProtocol, USHORT usPort)
 		#if SUPPORT_IPV6
             if ((CHAR)nFamily == pstcbInput->uniHandle.stTcpUdp.bFamily && enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort)
 		#else
-			if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stAddr.usPort)
+			if (enProtocol == pstcbInput->ubIPProto && usPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort)
 		#endif
             {
                 blIsUsed = TRUE;

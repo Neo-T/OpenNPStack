@@ -74,6 +74,14 @@ typedef struct _ST_ICMPv6_HDR_ {
 } PACKED ST_ICMPv6_HDR, *PST_ICMPv6_HDR; 
 PACKED_END
 
+//* Echo Request，回显头部结构体定义
+PACKED_BEGIN
+typedef struct _ST_ICMPv6_ECHO_HDR_ {
+	USHORT usIdentifier;
+	USHORT usSeqNum;
+} PACKED ST_ICMPv6_ECHO_HDR, *PST_ICMPv6_ECHO_HDR;
+PACKED_END
+
 //* Ipv6邻居发现协议Neighbor Discovery for IP version 6 (IPv6)详见：https://www.rfc-editor.org/rfc/rfc4861.html
 //* Neighbor Solicitation，邻居请求消息头部结构体
 PACKED_BEGIN

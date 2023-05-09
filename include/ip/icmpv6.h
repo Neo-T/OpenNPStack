@@ -79,6 +79,7 @@ ICMPv6_EXT const UCHAR *ipv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], 
 ICMPv6_EXT const UCHAR *ipv6_mc_addr(EN_IPv6MCADDR_TYPE enType);
 ICMPv6_EXT UCHAR *ipv6_sol_mc_addr(UCHAR ubaUniIpv6[16], UCHAR ubaSolMcAddr[16]);
 
+ICMPv6_EXT INT icmpv6_send_echo_request(INT nInput, UCHAR ubaDstIpv6[16], USHORT usIdentifier, USHORT usSeqNum, const UCHAR *pubEchoData, USHORT usEchoDataLen, EN_ONPSERR *penErr);
 ICMPv6_EXT INT icmpv6_send_ns(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], EN_ONPSERR *penErr); 
 ICMPv6_EXT INT icmpv6_send_rs(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], EN_ONPSERR *penErr);
 ICMPv6_EXT void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6); 

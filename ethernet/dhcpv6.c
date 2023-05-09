@@ -553,7 +553,7 @@ INT dhcpv6_send_solicit(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 
 INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter, USHORT usMsgType)
 {
-	UCHAR ubaOptions[sizeof(ST_DHCPv6OPT_DUID_HDR) + DUID_SRVID_LEN_MAX + sizeof(ST_DHCPv6OPT_IANA_HDR) + sizeof(ST_DHCPv6OPT_IAA_HDR) + sizeof(ST_DHCPv6OPT_OROREQ)];
+	UCHAR ubaOptions[sizeof(ST_DHCPv6OPT_DUID_HDR) + DUID_SRVID_LEN_MAX + sizeof(ST_DHCPv6OPT_IANA_HDR) + sizeof(ST_DHCPv6OPT_IAA_HDR) + sizeof(ST_DHCPv6OPT_HDR) + sizeof(ST_DHCPv6OPT_OROREQ)];
 	UINT unOptionsLen = 0;
 
 
@@ -569,7 +569,7 @@ INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 	}	
 
 	//*  M标志置位
-	if (pstRouter->i6r_flag_m && pstClient->ubaIAAddr[0])
+	if (pstRouter->i6r_flag_m && pstClient->ubaIAAddr[0] && DHCPv6MSGTYPE_INFOREQUEST != usMsgType)
 	{
 		//* 填充地址头
 		PST_DHCPv6OPT_IANA_HDR pstIANAHdr = (PST_DHCPv6OPT_IANA_HDR)&ubaOptions[unOptionsLen];
@@ -589,6 +589,12 @@ INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
 		pstIAAHdr->unValidLifetime = htonl(4 * pstClient->unT1);
 		unOptionsLen += (UINT)sizeof(ST_DHCPv6OPT_IAA_HDR);
 	}
+
+	//* 填充Reconfigure Accept Option，通知服务器接受DHCPv6MSGTYPE_RECONFIGURE类型的报文
+	PST_DHCPv6OPT_HDR pstRAO = (PST_DHCPv6OPT_HDR)&ubaOptions[unOptionsLen]; 
+	pstRAO->usCode = htons(DHCPv6OPT_RECONF_ACCEPT); 
+	pstRAO->usDataLen = 0; 
+	unOptionsLen += sizeof(ST_DHCPv6OPT_HDR); 	
 
 	//* 填充Option Request Option for Request
 	PST_DHCPv6OPT_OROREQ pstOROReq = (PST_DHCPv6OPT_OROREQ)&ubaOptions[unOptionsLen]; 	
@@ -1073,6 +1079,30 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 	pstClient->bitRcvReply = TRUE; 
 }
 
+static void dhcpv6_reconfigure_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT pstClient, UCHAR *pubOptions, USHORT usOptionsLen)
+{
+	//* 服务器与客户端标识必须完全匹配才可
+	if (!dhcpv6_is_client_id_matched(pstRouter->pstNetif, pubOptions, usOptionsLen)
+		|| !dhcpv6_is_server_id_matched(pstClient, pubOptions, usOptionsLen))
+		return;
+
+	USHORT usHandleOptBytes = 0, usDataLen;
+	while (usHandleOptBytes < usOptionsLen)
+	{
+		PST_DHCPv6OPT_HDR pstHdr = (PST_DHCPv6OPT_HDR)(pubOptions + usHandleOptBytes);
+		usDataLen = htons(pstHdr->usDataLen);
+		if (DHCPv6OPT_RECONF == htons(pstHdr->usCode))
+		{
+			PST_DHCPv6OPT_RECONF pstReconf = (PST_DHCPv6OPT_RECONF)pstHdr; 
+			dhcpv6_send_request(pstClient, pstRouter, (USHORT)pstReconf->ubMsgType); 
+
+			break; 
+		}
+
+		usHandleOptBytes += usDataLen + sizeof(ST_DHCPv6OPT_HDR); 
+	}
+}
+
 void dhcpv6_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR *pubDHCPv6, USHORT usDHCPv6Len)
 {
 	PST_IPv6_ROUTER pstRouter = NULL; 
@@ -1114,6 +1144,10 @@ void dhcpv6_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16],
 		case DHCPv6MSGTYPE_REPLY: 
 			dhcpv6_reply_handler(pstRouter, pstClient, ubaSrcAddr, pubDHCPv6 + sizeof(UNI_DHCPv6_HDR), usDHCPv6Len - sizeof(UNI_DHCPv6_HDR));
 			break;
+
+		case DHCPv6MSGTYPE_RECONFIGURE:
+			dhcpv6_reconfigure_handler(pstRouter, pstClient, pubDHCPv6 + sizeof(UNI_DHCPv6_HDR), usDHCPv6Len - sizeof(UNI_DHCPv6_HDR));
+			break; 
 
 		default:
 			break;

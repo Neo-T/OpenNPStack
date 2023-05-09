@@ -20,7 +20,11 @@
 #if NETTOOLS_DNS_CLIENT
 INT dns_client_start(in_addr_t *punPrimaryDNS, in_addr_t *punSecondaryDNS, CHAR bRcvTimeout, EN_ONPSERR *penErr)
 {
+#if SUPPORT_IPV6
     INT nClient = onps_input_new(AF_INET, IPPROTO_UDP, penErr);
+#else
+	INT nClient = onps_input_new(IPPROTO_UDP, penErr);
+#endif
     if (nClient < 0)
         return nClient; 
 

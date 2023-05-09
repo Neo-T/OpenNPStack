@@ -316,7 +316,11 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
     }
     //* 更新当前input句柄，以便收到应答报文时能够准确找到该链路
     pstHandle->stSockAddr.saddr_ipv4 = unNetifIp;
+#if SUPPORT_IPV6
     pstHandle->stSockAddr.usPort = onps_input_port_new(AF_INET, IPPROTO_TCP);
+#else
+	pstHandle->stSockAddr.usPort = onps_input_port_new(IPPROTO_TCP);
+#endif
 
     //* 标志字段syn域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag; 
