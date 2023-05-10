@@ -25,6 +25,9 @@ typedef struct _ST_ICMP_REPORT_RESULT_ { //* 对端通过icmp报文送达的相�
 } ST_ICMP_REPORT_RESULT, *PST_ICMP_REPORT_RESULT;
 
 typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
+#if SUPPORT_ETHERNET
+ICMP_EXT void icmp_send_dst_unreachable(PST_NETIF pstNetif, in_addr_t unDstAddr, UCHAR *pubIpPacket, USHORT usIpPacketLen);
+#endif
 ICMP_EXT INT icmp_send_echo_reqest(INT nInput, USHORT usIdentifier, USHORT usSeqNum, UCHAR ubTTL, in_addr_t unDstAddr, const UCHAR *pubData, UINT unDataSize, EN_ONPSERR *penErr);
 ICMP_EXT void icmp_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen); //* 接收函数
 ICMP_EXT void icmp_get_last_report(PST_ICMP_REPORT_RESULT pstResult);

@@ -13,8 +13,15 @@
 #define SYMBOL_GLOBALS
 #include "onps_input.h"
 #undef SYMBOL_GLOBALS
+#include "netif/netif.h"
 #include "ip/tcp_link.h"
 #include "ip/udp_link.h"
+
+#include "ip/icmp.h"
+
+#if SUPPORT_IPV6
+#include "ip/icmpv6.h"
+#endif
 
 //* 协议栈icmp/tcp/udp层接收处理节点
 typedef struct _STCB_ONPS_INPUT_ {
@@ -1156,19 +1163,12 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
     return nRtnVal;
 }
 
-INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, UCHAR *pubTTL, INT nWaitSecs)
+INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, INT nWaitSecs, EN_ONPSERR *penErr)
 {
     if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("onps_input_recv_icmp() failed, Handle %d is out of system scope\r\n", nInput);
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
+		if (penErr)
+			*penErr = ERRINPUTOVERFLOW; 
         return -1;
     }
 
@@ -1178,15 +1178,8 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, 
     {
         if (nRtnVal < 0)
         {
-#if SUPPORT_PRINTF
-    #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-            printf("onps_input_recv_icmp() failed, invalid semaphore, the input is %d\r\n", nInput);
-    #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
+			if (penErr)
+				*penErr = ERRINVALIDSEM; 
             return -1; 
         }
         else
@@ -1200,10 +1193,24 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, 
 	{
 		PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf;
 		usIpHdrLen = pstHdr->bitHdrLen * 4;
-		if (punSrcAddr)
-			*punSrcAddr = pstHdr->unSrcIP;
-		if (pubTTL)
-			*pubTTL = pstHdr->ubTTL;
+		PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen);
+		if (ICMP_ECHOREPLY == pstIcmpHdr->ubType || ICMP_ROUTEADVERT == pstIcmpHdr->ubType)
+		{
+			if (punSrcAddr)
+				*punSrcAddr = pstHdr->unSrcIP;
+			if (pubTTL)
+				*pubTTL = pstHdr->ubTTL;
+		}
+		else
+		{
+			if (pubType)
+				*pubType = pstIcmpHdr->ubType; 
+
+			if (pubCode)
+				*pubCode = pstIcmpHdr->ubCode; 
+
+			return -1; 
+		}
 	}
 	else
 	{

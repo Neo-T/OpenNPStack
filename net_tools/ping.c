@@ -50,7 +50,9 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
 {
     UCHAR *pubPacket; 
 
-    INT nRcvedBytes = onps_input_recv_icmp(nPing, &pubPacket, punFromAddr, pubTTL, ubWaitSecs); 
+	EN_ONPSERR enErr = ERRNO; 
+	UCHAR ubType, ubCode; 
+    INT nRcvedBytes = onps_input_recv_icmp(nPing, &pubPacket, punFromAddr, pubTTL, &ubType, &ubCode, ubWaitSecs, &enErr);
     if (nRcvedBytes > 0)
     {
         PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));        
@@ -73,6 +75,28 @@ INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDa
             return 0;
         }
     }
+	else if(nRcvedBytes < 0)
+	{		
+		if (ERRNO != enErr)
+		{
+			if (penErr)
+				*penErr = enErr; 
+		}
+		else
+		{
+	#if SUPPORT_PRINTF
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_lock(o_hMtxPrintf);
+		#endif			
+			printf("%s\r\n", icmp_get_description(ubType, ubCode));			
+		#if PRINTF_THREAD_MUTEX
+			os_thread_mutex_unlock(o_hMtxPrintf);
+		#endif
+	#endif			
+			nRcvedBytes = 0; 
+		}
+	}
+	else; 
     
     return nRcvedBytes; 
 }

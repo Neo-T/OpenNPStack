@@ -100,7 +100,11 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
     {
 		if (pubDstMacAddr)
 		{
-			nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, pubDstMacAddr, penErr);
+			PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+			if (memcmp(pubDstMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN))
+				nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, pubDstMacAddr, penErr);
+			else
+				nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IP); 
 		}        
 		else
 		{
@@ -231,9 +235,10 @@ void ip_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPa
 			if (pstNetif->stIPv4.unAddr && !ethernet_ipv4_addr_matched(pstNetif, pstHdr->unDstIP))
 				return;
 
-			// 更新arp缓存表
+			// 如果不是环回接口发送的报文则更新arp缓存表
 			PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-			arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntry, pstHdr->unSrcIP, pubDstMacAddr); 
+			if(pubDstMacAddr != pstExtra->ubaMacAddr)
+				arp_add_ethii_ipv4_ext(pstExtra->pstcbArp->staEntry, pstHdr->unSrcIP, pubDstMacAddr); 
 		}        
     }	
 #endif

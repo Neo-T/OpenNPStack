@@ -18,6 +18,7 @@
 #if SUPPORT_ETHERNET
 #include "ethernet/arp_frame.h"
 #include "ethernet/ethernet.h"
+#include "ip/icmp.h"
 #define SYMBOL_GLOBALS
 #include "ethernet/arp.h"
 #undef SYMBOL_GLOBAL
@@ -38,6 +39,9 @@ static void arp_wait_timeout_handler(void *pvParam)
 
 	os_critical_init();
 
+	pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
+	pstIpHdr = (PST_IP_HDR)pubIpPacket; 
+
 	//* 尚未发送
 	if (!pstcbArpWait->ubSndStatus)
 	{
@@ -45,24 +49,14 @@ static void arp_wait_timeout_handler(void *pvParam)
 		pstcbArpWait->ubCount++;
 		if (pstcbArpWait->ubCount > 5)
 		{
-	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_lock(o_hMtxPrintf);
-		#endif
-			printf("The arp query times out and the packet will be dropped\r\n");
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_unlock(o_hMtxPrintf);
-		#endif
-	#endif
+			icmp_send_dst_unreachable(pstNetif, htonl(pstIpHdr->unSrcIP), pubIpPacket, pstcbArpWait->usIpPacketLen);
 			goto __lblEnd;
 		}
 	}
 	else //* 已经处于发送中或发送完成状态，直接跳到函数尾部
 		goto __lblEnd;
 
-	//* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
-	pubIpPacket = ((UCHAR *)pstcbArpWait) + sizeof(STCB_ETH_ARP_WAIT);
-	pstIpHdr = (PST_IP_HDR)pubIpPacket;
+	//* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址	
 	nRtnVal = arp_get_mac(pstNetif, pstIpHdr->unSrcIP, pstcbArpWait->unIpv4, ubaDstMac, &enErr);
 	if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
 	{
@@ -400,7 +394,7 @@ void arp_add_ethii_ipv4_ext(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UC
     os_exit_critical();
 }
 
-static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
 {
 	PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
 
@@ -449,7 +443,7 @@ static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr
 
 INT arp_get_mac(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
 {
-	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr))
+	if (ipv4_to_mac(pstNetif, unDstArpIPAddr, ubaMacAddr))
 	{
 		//* 不存在，则只能发送一条arp报文问问谁拥有这个IP地址了
 		if (arp_send_request_ethii_ipv4(pstNetif, unSrcIPAddr, unDstArpIPAddr, penErr) < 0)
@@ -514,7 +508,7 @@ static PSTCB_ETH_ARP_WAIT arp_wait_packet_put(PST_NETIF pstNetif, UINT unDstArpI
 
 INT arp_get_mac_ext(PST_NETIF pstNetif, UINT unSrcIPAddr, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
 {
-	if (ipv4_to_mac(pstNetif, unSrcIPAddr, unDstArpIPAddr, ubaMacAddr))
+	if (ipv4_to_mac(pstNetif, unDstArpIPAddr, ubaMacAddr))
 	{
 		//* 先将这条报文放入待发送链表
 		PSTCB_ETH_ARP_WAIT pstcbArpWait = arp_wait_packet_put(pstNetif, unDstArpIPAddr, sBufListHead, pblNetifFreedEn, penErr);

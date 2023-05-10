@@ -301,7 +301,23 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
 
     if (nPacketLen < (INT)sizeof(ST_ETHERNET_II_HDR))
-        return;     
+        return; 
+	
+	PST_LOOPBACK_HDR pstLoopbackHdr = (PST_LOOPBACK_HDR)pubPacket; 
+	if (LPPROTO_IP == pstLoopbackHdr->unProtoType && (0x40 == (pubPacket[sizeof(ST_LOOPBACK_HDR)] & 0xF0)))
+	{
+		ip_recv(pstNetif, pstExtra->ubaMacAddr, pubPacket + sizeof(ST_LOOPBACK_HDR), nPacketLen);
+		return; 
+	}
+#if SUPPORT_IPV6
+	else if (LPPROTO_IPv6 == pstLoopbackHdr->unProtoType && (0x60 == (pubPacket[sizeof(ST_LOOPBACK_HDR)] & 0xF0)))
+	{
+		ipv6_recv(pstNetif, pstExtra->ubaMacAddr, pubPacket + sizeof(ST_LOOPBACK_HDR), nPacketLen); 
+		return; 
+	}
+#endif
+	else; 
+
 
     PST_ETHERNET_II_HDR pstHdr = (PST_ETHERNET_II_HDR)pubPacket; 
 
@@ -513,6 +529,48 @@ void ethernet_put_packet(PST_NETIF pstNetif, PST_SLINKEDLIST_NODE pstNode)
 
     sllist_put_tail_node(&pstExtra->pstRcvedPacketList, pstNode); 
 	os_thread_sem_post(pstExtra->hSem); 
+}
+
+INT ethernet_loopback_put_packet(PST_NETIF pstNetif, SHORT sBufListHead, UINT unLoopProtocol)
+{
+	UINT unPacketLen = buf_list_get_len(sBufListHead);
+
+	EN_ONPSERR enErr; 
+	UCHAR *pubPacket = (UCHAR *)buddy_alloc(sizeof(ST_SLINKEDLIST_NODE) + sizeof(ST_LOOPBACK_HDR) + unPacketLen, &enErr);
+	if (pubPacket)
+	{
+		//* 搬运数据到接收链表
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+		PST_SLINKEDLIST_NODE pstNode = (PST_SLINKEDLIST_NODE)pubPacket;
+		pstNode->uniData.unVal = unPacketLen;
+		buf_list_merge_packet(sBufListHead, pubPacket + sizeof(ST_SLINKEDLIST_NODE) + +sizeof(ST_LOOPBACK_HDR));
+
+		PST_LOOPBACK_HDR pstLoopbackHdr = (PST_LOOPBACK_HDR)(pubPacket + sizeof(ST_SLINKEDLIST_NODE)); 
+		pstLoopbackHdr->unProtoType = unLoopProtocol;
+
+		os_critical_init();
+		os_enter_critical(); 
+		sllist_put_tail_node(&pstExtra->pstRcvedPacketList, pstNode);		
+		os_exit_critical();
+
+		os_thread_sem_post(pstExtra->hSem); 		
+
+		return (INT)unPacketLen; 
+	}
+	else
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("ethernet_loopback_put_packet() failed, %s\r\n", onps_error(enErr));
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+	}
+
+	return -1; 
 }
 
 #endif
