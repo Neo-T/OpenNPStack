@@ -99,7 +99,11 @@ static void arp_wait_timeout_handler(void *pvParam)
 		buf_list_put_head(&sBufListHead, sIpPacketNode);
 
 		//* 完成实际地发送   
-		nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, &enErr); 
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+		if (memcmp(ubaDstMac, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN))
+			nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, &enErr);
+		else
+			nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IP);
 		if (nRtnVal < 0)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -396,6 +400,13 @@ void arp_add_ethii_ipv4_ext(PST_ENTRY_ETHIIIPV4 pstArpIPv4Tbl, UINT unIPAddr, UC
 
 static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unDstArpIPAddr, UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
 {
+	if (ethernet_ipv4_addr_matched(pstNetif, unDstArpIPAddr))
+	{
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+		memcpy(ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN); 
+		return 0; 
+	}
+
 	PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
 
 	//* 如果ip地址为广播地址则填充目标mac地址也为广播地址

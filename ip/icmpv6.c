@@ -37,7 +37,6 @@ static const UCHAR *l_pubaMcAddr[MULTICAST_ADDR_NUMM] = { l_ubaNetifNodesMcAddr,
 //* 关于链路本地地址及其它ipv6地址分类详见：https://www.rfc-editor.org/rfc/rfc3513 链路本地地址详见section-2.5.6
 static const UCHAR l_ubaLinkLocalAddrPrefix[8] = { 0xFE, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; //* FE80::/64，链路本地地址前缀，其组成形式为：FE80::/64 + EUI-64地址
 
-
 #if SUPPORT_ETHERNET
 //* ipv6到以太网Mac地址映射表，该表仅缓存最近通讯的主机映射，缓存数量由sys_config.h中IPV6TOMAC_ENTRY_NUM宏指定
 static STCB_ETHIPv6MAC l_stcbaEthIpv6Mac[ETHERNET_NUM];
@@ -55,6 +54,9 @@ static void icmpv6_na_wait_timeout_handler(void *pvParam)
 
 	os_critical_init();
 
+	pubIpPacket = ((UCHAR *)pstcbIpv6MacWait) + sizeof(STCB_ETHIPv6MAC_WAIT);
+	pstIpv6Hdr = (PST_IPv6_HDR)pubIpPacket;
+
 	//* 尚未发送
 	if (!pstcbIpv6MacWait->ubSndStatus)
 	{
@@ -62,24 +64,14 @@ static void icmpv6_na_wait_timeout_handler(void *pvParam)
 		pstcbIpv6MacWait->ubCount++;
 		if (pstcbIpv6MacWait->ubCount > 5)
 		{
-	#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_lock(o_hMtxPrintf);
-		#endif
-			printf("The neighbor solicitation times out and the packet will be dropped\r\n"); 
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_unlock(o_hMtxPrintf);
-		#endif
-	#endif
+			icmpv6_send_dst_unreachable(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pubIpPacket, pstcbIpv6MacWait->usIpPacketLen); 
 			goto __lblEnd;
 		}
 	}
 	else //* 已经处于发送中或发送完成状态，直接跳到函数尾部
 		goto __lblEnd; 
 
-	//* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址
-	pubIpPacket = ((UCHAR *)pstcbIpv6MacWait) + sizeof(STCB_ETHIPv6MAC_WAIT);
-	pstIpv6Hdr = (PST_IPv6_HDR)pubIpPacket;	         
+	//* 此时已经过去了1秒，看看此刻是否已经得到目标ethernet网卡的mac地址	
 	nRtnVal = ipv6_mac_get(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pstcbIpv6MacWait->ubaIpv6, ubaDstMac, &enErr);
 	if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可
 	{
@@ -618,6 +610,75 @@ const UCHAR *ipv6_dyn_addr(PST_NETIF pstNetif, UCHAR ubaDynAddr[16], UCHAR *pubP
 
 #endif
 
+const CHAR *icmpv6_get_description(UCHAR ubType, UCHAR ubCode)
+{
+	switch (ubType)
+	{
+	case ICMPv6_ERRDST:
+		switch (ubCode)
+		{
+		case ERRDST_NOROUTE: 
+			return "No route to destination"; 
+
+		case ERRDST_ADMINPROHIBITED: 
+			return "Communication with destination administratively prohibited"; 
+
+		case ERRDST_BSSA: 
+			return "Beyond scope of source address";  
+
+		case ERRDST_AU:
+			return "Address unreachable"; 
+
+		case ERRDST_PU:
+			return "Port unreachable";  
+
+		case ERRDST_SAFIEP:
+			return "Source address failed ingress/egress policy"; 
+
+		case ERRDST_RR:
+			return "Reject route to destination"; 
+
+		default:
+			return "Destination Unreachable"; 
+		}		
+
+	case ICMPv6_ERRPTB:
+		return "Packet Too Big"; 
+
+	case ICMPv6_ERRTE:
+		switch(ubCode)
+		{
+		case ERRTE_HLE:
+			return "Hop limit exceeded in transit";  
+
+		case ERRTE_FR:
+			return "Fragment reassembly time exceeded"; 
+
+		default: 
+			return "Time Exceeded"; 
+		}
+
+	case ICMPv6_ERRPP:
+		switch (ubCode)
+		{
+		case ERRPP_EHF:
+			return "Erroneous header field encountered";  
+
+		case ERRPP_UNHT:
+			return "Unrecognized Next Header type encountered"; 
+
+		case ERRPP_UOPT:
+			return "Unrecognized IPv6 option encountered"; 
+
+		default:
+			return "Parameter Problem"; 
+		}
+
+	default:
+		return "Unrecognized icmpv6 error type"; 
+	}
+}
+
 const UCHAR *ipv6_mc_addr(EN_IPv6MCADDR_TYPE enType)
 {
 	if (0 <= (INT)enType < MULTICAST_ADDR_NUMM)
@@ -694,6 +755,57 @@ static INT icmpv6_send(PST_NETIF pstNetif, UCHAR ubType, UCHAR ubCode, UCHAR uba
 
 	return nRtnVal; 
 }
+
+#if SUPPORT_ETHERNET
+void icmpv6_send_dst_unreachable(PST_NETIF pstNetif, UCHAR ubaDstIpv6[16], UCHAR *pubIpPacket, USHORT usIpPacketLen)
+{
+	if (NIF_ETHERNET != pstNetif->enType)
+		return;
+
+	PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+
+	//* 申请一个buf list节点
+	SHORT sBufListHead = -1;
+	SHORT sIpPktNode = buf_list_get_ext((UCHAR *)pubIpPacket, usIpPacketLen, NULL);
+	if (sIpPktNode < 0)
+		return;
+	buf_list_put_head(&sBufListHead, sIpPktNode);
+
+	UINT unUnused = 0;
+	SHORT sUnusedNode = buf_list_get_ext((UCHAR *)&unUnused, 4, NULL);
+	if (sUnusedNode < 0)
+	{
+		buf_list_free(sIpPktNode);
+		return;
+	}
+	buf_list_put_head(&sBufListHead, sUnusedNode);
+
+	//* 申请一个buf list节点挂载icmpv6头
+	ST_ICMPv6_HDR stIcmpv6Hdr;
+	SHORT sIcmpv6HdrNode = buf_list_get_ext(&stIcmpv6Hdr, (UINT)sizeof(ST_ICMPv6_HDR), NULL);
+	if (sIcmpv6HdrNode < 0)
+	{
+		buf_list_free(sIpPktNode);
+		buf_list_free(sUnusedNode);
+		return;
+	}
+	buf_list_put_head(&sBufListHead, sIcmpv6HdrNode);
+
+	stIcmpv6Hdr.ubType = ICMPv6_ERRDST;
+	stIcmpv6Hdr.ubCode = ERRDST_AU;
+	stIcmpv6Hdr.usChecksum = 0;
+
+	//* 计算校验和	
+	stIcmpv6Hdr.usChecksum = tcpip_checksum_ipv6(ubaDstIpv6, ubaDstIpv6, (UINT)(sizeof(ST_ICMPv6_HDR) + sizeof(unUnused) + usIpPacketLen), IPPROTO_ICMPv6, sBufListHead, NULL);
+
+	ipv6_send(pstNetif, pstExtra->ubaMacAddr, ubaDstIpv6, ubaDstIpv6, IPPROTO_ICMPv6, sBufListHead, 0, NULL);
+
+	//* 释放刚才申请的buf list节点	
+	buf_list_free(sIpPktNode);
+	buf_list_free(sUnusedNode);
+	buf_list_free(sIcmpv6HdrNode);
+}
+#endif
 
 INT icmpv6_send_echo_request(INT nInput, UCHAR ubaDstIpv6[16], USHORT usIdentifier, USHORT usSeqNum, const UCHAR *pubEchoData, USHORT usEchoDataLen, EN_ONPSERR *penErr)
 {
@@ -852,6 +964,51 @@ static void icmpv6_echo_reply_handler(PST_NETIF pstNetif, UCHAR *pubIpv6Packet, 
 	#endif
 #endif
 	}
+}
+
+static void icmpv6_dest_unreachable_handler(PST_NETIF pstNetif, UCHAR *pubIpv6Packet, INT nPacketLen, UCHAR *pubIcmpv6)
+{
+	PST_IPv6_HDR pstErrIpv6Hdr = (PST_IPv6_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR) + 4);  //* icmpv6通知报文携带的ip首部    	
+	PST_ICMPv6_HDR pstErrIcmpv6Hdr = (PST_ICMPv6_HDR)((UCHAR *)pstErrIpv6Hdr + sizeof(ST_IPv6_HDR));
+	if (ICMPv6_ECHOREQ == pstErrIcmpv6Hdr->ubType)
+	{
+		PST_ICMPv6_ECHO_HDR pstErrEchoHdr = (PST_ICMPv6_ECHO_HDR)((UCHAR *)pstErrIcmpv6Hdr + sizeof(ST_ICMPv6_HDR)); 
+		INT nInput = onps_input_get_icmp(htons(pstErrEchoHdr->usIdentifier));
+		if (nInput >= 0)
+			onps_input_recv(nInput, (const UCHAR *)pubIpv6Packet, nPacketLen, NULL, 0, NULL);
+	}
+	else
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+		PST_ICMPv6_HDR pstIcmpv6Hdr = (PST_ICMPv6_HDR)pubIcmpv6;
+		CHAR szIpv6[40];
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("%s, protocol %s, source %s, destination ", icmpv6_get_description(pstIcmpv6Hdr->ubType, pstIcmpv6Hdr->ubCode), get_ip_proto_name(pstErrIpv6Hdr->ubNextHdr), inet6_ntoa(pstErrIpv6Hdr->ubaSrcIpv6, szIpv6));
+		printf("%s\r\n", inet6_ntoa(pstErrIpv6Hdr->ubaDstIpv6, szIpv6)); 
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+	}
+}
+
+static void icmpv6_err_handler(PST_NETIF pstNetif, UCHAR *pubIpv6Packet, INT nPacketLen, UCHAR *pubIcmpv6)
+{
+	PST_IPv6_HDR pstErrIpv6Hdr = (PST_IPv6_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR) + 4);  //* icmpv6通知报文携带的ip首部    		
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+	PST_ICMPv6_HDR pstIcmpv6Hdr = (PST_ICMPv6_HDR)pubIcmpv6;
+	CHAR szIpv6[40];
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_lock(o_hMtxPrintf);
+#endif
+	printf("%s, protocol %s, source %s, destination ", icmpv6_get_description(pstIcmpv6Hdr->ubType, pstIcmpv6Hdr->ubCode), get_ip_proto_name(pstErrIpv6Hdr->ubNextHdr), inet6_ntoa(pstErrIpv6Hdr->ubaSrcIpv6, szIpv6));
+	printf("%s\r\n", inet6_ntoa(pstErrIpv6Hdr->ubaDstIpv6, szIpv6));
+#if PRINTF_THREAD_MUTEX
+	os_thread_mutex_unlock(o_hMtxPrintf);
+#endif
+#endif
 }
 
 static void icmpv6_ns_handler(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR *pubIcmpv6)
@@ -1428,8 +1585,18 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		icmpv6_ra_handler(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pubIcmpv6, usIpv6PayloadLen);
 		break; 
 
+	case ICMPv6_ERRDST:		
+		icmpv6_dest_unreachable_handler(pstNetif, pubPacket, nPacketLen, pubIcmpv6);
+		break; 
+
+	case ICMPv6_ERRPTB:
+	case ICMPv6_ERRTE: 
+	case ICMPv6_ERRPP:
+		icmpv6_err_handler(pstNetif, pubPacket, nPacketLen, pubIcmpv6); 
+		break; 
+
 	default: 
-		printf("++++++++recv %d packet\r\n", pstIcmpv6Hdr->ubType);
+		//printf("++++++++recv %d packet\r\n", pstIcmpv6Hdr->ubType);
 		break; 
 	}
 }

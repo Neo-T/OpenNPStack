@@ -40,7 +40,7 @@ typedef enum {
 //* ICMPv6_ERRDST，目标不可达错误报文携带的具体错误值定义
 typedef enum {
     ERRDST_NOROUTE			= 0, //* No route to destination，无到达指定目的地的路由选项
-	ERRDST_ADMINPROHIBITED	= 1, //* Communication with destination administratively prohibited，与目标地址的同学那被管理策略禁止，通常原因是数据包被防火墙丢弃时才会报这个错误
+	ERRDST_ADMINPROHIBITED	= 1, //* Communication with destination administratively prohibited，与目标地址的通讯被管理策略禁止，通常原因是数据包被防火墙丢弃时才会报这个错误
     ERRDST_BSSA				= 2, //* Beyond scope of source address， 超出了源地址作用域，当数据包必须由某个网路接口发送，但这个接口并不在源地址的作用范围内时，路由器发送该错误信息
 	ERRDST_AU				= 3, //* Address unreachable， 地址不可达，当路由器无法解析目标链路层地址时发送该错误
     ERRDST_PU				= 4, //* Port unreachable， 端口不可达，目标设备未开启目的端口时发送该错误

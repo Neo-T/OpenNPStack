@@ -101,7 +101,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
 		if (pubDstMacAddr)
 		{
 			PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-			if (memcmp(pubDstMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN))
+			if (pubDstMacAddr != pstExtra->ubaMacAddr)
 				nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, pubDstMacAddr, penErr);
 			else
 				nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IP); 
@@ -111,7 +111,13 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
 			UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];            
 			nRtnVal = arp_get_mac_ext(pstNetif, unSrcAddr, unArpDstAddr, ubaDstMac, sBufListHead, &blNetifFreedEn, penErr); 
 			if (!nRtnVal) //* 存在该条目，则直接调用ethernet接口注册的发送函数即可			
-				nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);			
+			{
+				PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+				if (memcmp(ubaDstMac, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN))
+					nRtnVal = pstNetif->pfunSend(pstNetif, IPV4, sBufListHead, ubaDstMac, penErr);
+				else
+					nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IP); 
+			}
 		}        
     }
     else
@@ -343,7 +349,11 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 	{
 		if (pubDstMacAddr)
 		{
-			nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, pubDstMacAddr, penErr);
+			PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+			if (pubDstMacAddr != pstExtra->ubaMacAddr)
+				nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, pubDstMacAddr, penErr);
+			else
+				nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IPv6);
 		}
 		else
 		{

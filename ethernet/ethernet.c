@@ -365,6 +365,9 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
 //* 参数unTargetIpAddr指定的ip地址是否与ethernet网卡的ip地址匹配
 BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
 {
+	if (0x0100007F == unTargetIpAddr)
+		return TRUE; 
+
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
 
     if (unTargetIpAddr == pstNetif->stIPv4.unAddr)

@@ -349,7 +349,7 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
 
 	if (ICMP_ECHOREQ == pstErrIcmpHdr->ubType)
 	{
-		PST_ICMP_ECHO_HDR pstErrEchoHdr = (PST_ICMP_ECHO_HDR)((UCHAR *)pstErrIpHdr + usIpHdrLen + sizeof(ST_ICMP_HDR)); 
+		PST_ICMP_ECHO_HDR pstErrEchoHdr = (PST_ICMP_ECHO_HDR)((UCHAR *)pstErrIcmpHdr + sizeof(ST_ICMP_HDR));
 		INT nInput = onps_input_get_icmp(htons(pstErrEchoHdr->usIdentifier));
 		if (nInput >= 0)
 			onps_input_recv(nInput, (const UCHAR *)pubPacket, nPacketLen, NULL, 0, NULL); 

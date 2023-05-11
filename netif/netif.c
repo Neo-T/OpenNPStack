@@ -346,40 +346,54 @@ PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsF
     os_thread_mutex_lock(l_hMtxNetif);
     {
         PST_NETIF_NODE pstNextNode = l_pstNetifLink;
-        while (pstNextNode)
-        {
-            if (NIF_ETHERNET == pstNextNode->stIf.enType)
-            {
-                //* 先本地寻址，网段匹配则直接返回
-                if (ip_addressing(unDstIp, pstNextNode->stIf.stIPv4.unAddr, pstNextNode->stIf.stIPv4.unSubnetMask))
-                {
-                    pstNetif = &pstNextNode->stIf;
-                    if (punSrcIp)
-                        *punSrcIp = pstNetif->stIPv4.unAddr; 
 
-                    break;
-                }
+		//* 127.0.0.1
+		if (0x0100007F != unDstIp)
+		{
+			while (pstNextNode)
+			{
+				if (NIF_ETHERNET == pstNextNode->stIf.enType)
+				{
+					//* 先本地寻址，网段匹配则直接返回
+					if (ip_addressing(unDstIp, pstNextNode->stIf.stIPv4.unAddr, pstNextNode->stIf.stIPv4.unSubnetMask))
+					{
+						pstNetif = &pstNextNode->stIf;
+						if (punSrcIp)
+							*punSrcIp = pstNetif->stIPv4.unAddr;
 
-                //* 然后再遍历附加地址链表，看看是否有匹配的网段吗
-                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra; 
-                PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList; 
-                while (pstNextIP)
-                {
-                    if (ip_addressing(unDstIp, pstNextIP->unAddr, pstNextIP->unSubnetMask)) 
-                    {
-                        pstNetif = &pstNextNode->stIf; 
-                        if (punSrcIp)
-                            *punSrcIp = pstNextIP->unAddr;
+						break;
+					}
 
-                        break;
-                    }
+					//* 然后再遍历附加地址链表，看看是否有匹配的网段吗
+					PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra;
+					PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
+					while (pstNextIP)
+					{
+						if (ip_addressing(unDstIp, pstNextIP->unAddr, pstNextIP->unSubnetMask))
+						{
+							pstNetif = &pstNextNode->stIf;
+							if (punSrcIp)
+								*punSrcIp = pstNextIP->unAddr;
 
-                    pstNextIP = pstNextIP->pstNext; 
-                } 
-            }            
+							break;
+						}
 
-            pstNextNode = pstNextNode->pstNext; 
-        }
+						pstNextIP = pstNextIP->pstNext;
+					}
+				}
+
+				pstNextNode = pstNextNode->pstNext;
+			}
+		}
+		else
+		{
+			if (pstNextNode)
+			{
+				pstNetif = &pstNextNode->stIf;
+				if(punSrcIp)
+					*punSrcIp = pstNetif->stIPv4.unAddr;
+			}
+		}
 
 		if (pstNetif && blIsForSending)
 			pstNetif->bUsedCount++; 

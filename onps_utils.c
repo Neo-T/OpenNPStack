@@ -882,6 +882,9 @@ const CHAR *get_ip_proto_name(UCHAR ubProto)
     case IPPROTO_UDP: 
         return "udp"; 
 
+	case IPPROTO_ICMPv6:
+		return "icmpv6"; 
+
     case IPPROTO_RAW:
         return "raw ip"; 
 

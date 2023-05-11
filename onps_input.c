@@ -646,6 +646,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 
         break; 
 
+#if SUPPORT_IPV6
 	case IOPT_GET_ICMPAF:
 		if (IPPROTO_ICMP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_ICMPv6 == (EN_IPPROTO)pstcbInput->ubIPProto)
 		{
@@ -658,6 +659,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 			return FALSE;
 		}
 		break; 
+#endif
 
     default:
         if (penErr)
@@ -1216,8 +1218,22 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, 
 	{
 		PST_IPv6_HDR pstHdr = (PST_IPv6_HDR)l_stcbaInput[nInput].pubRcvBuf;
 		usIpHdrLen = sizeof(ST_IPv6_HDR);
-		if (punSrcAddr)
-			memcpy((UCHAR *)punSrcAddr, pstHdr->ubaSrcIpv6, 16); 
+		PST_ICMPv6_HDR pstIcmpHdr = (PST_ICMPv6_HDR)(l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen);
+		if (pstIcmpHdr->ubType > ICMPv6_ERRPP)
+		{
+			if (punSrcAddr)
+				memcpy((UCHAR *)punSrcAddr, pstHdr->ubaSrcIpv6, 16);
+		}		
+		else
+		{
+			if (pubType)
+				*pubType = pstIcmpHdr->ubType;
+
+			if (pubCode)
+				*pubCode = pstIcmpHdr->ubCode;
+
+			return -1;
+		}
 	}
 #else    
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
