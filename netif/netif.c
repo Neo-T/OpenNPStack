@@ -17,8 +17,9 @@
 #if SUPPORT_IPV6
 #include "ip/icmpv6.h"
 #include "ip/ipv6_configure.h"
-#endif
 
+static const UCHAR l_ubaLoopBackIpv6[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 };
+#endif
 
 static ST_NETIF_NODE l_staNetifNode[NETIF_NUM]; 
 static PST_NETIF_NODE l_pstFreeNode = NULL; 
@@ -483,6 +484,12 @@ UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 }
 
 #if SUPPORT_IPV6 
+
+const UCHAR *ipv6_get_loopback_addr(void)
+{
+	return l_ubaLoopBackIpv6; 
+}
+
 //* 处理算法参考了[RFC 3484]4、5节的算法实现说明，同时借鉴windows系统的路由选择算法，具体的算法实现如下：
 //* 0. 组播地址不需要路由，该函数缺省认为调用者传递的目的地址均为单播地址，这里不判断地址类型；
 //* 1. 前缀完全匹配，选择当前接口及地址（源地址，下同），下一跳地址为目标地址，函数结束；
@@ -496,6 +503,33 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 	const UCHAR *pubDstIpv6ToMac = NULL;
 	UCHAR ubMatchedBitsMax = 0;	
 	UINT unValidLifetimeMax = 0;
+
+	//* 看看是不是环回地址，如果是则直接使用缺省以太网地址即可
+	if (!memcmp(ubaDestination, l_ubaLoopBackIpv6, 16))
+	{
+		os_thread_mutex_lock(l_hMtxNetif);
+		{
+			pstMatchedNetif = l_pstDefaultNetif;
+			if (pstMatchedNetif)
+			{
+				memcpy(pubSource, pstMatchedNetif->nif_lla_ipv6, 16);
+
+				if (pubNSAddr && pubNSAddr != ubaDestination)
+					memcpy(pubNSAddr, ubaDestination, 16); //* 下一跳地址为目标地址
+
+				if (pubHopLimit)
+					*pubHopLimit = 255;
+
+				if (blIsForSending)
+					pstMatchedNetif->bUsedCount++;
+
+				//* 返回
+				os_thread_mutex_unlock(l_hMtxNetif);
+				return pstMatchedNetif;
+			}
+		}
+		os_thread_mutex_unlock(l_hMtxNetif);
+	}
 
 	//* 完成1、2条处理
 	os_thread_mutex_lock(l_hMtxNetif);
@@ -590,8 +624,16 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 		os_thread_mutex_lock(l_hMtxNetif);
 		{
 			pstMatchedNetif = l_pstDefaultNetif; 
+			if (pstMatchedNetif)
+			{
+				if (blIsForSending)
+					pstMatchedNetif->bUsedCount++;
+			}						
 		}
 		os_thread_mutex_unlock(l_hMtxNetif); 
+
+		if (!pstMatchedNetif)
+			return NULL; 
 
 		//* 查找缺省路由器列表获取优先级最高的路由器
 		PST_IPv6_ROUTER pstNextRouter = NULL, pstPreferedRouter =  NULL; 
@@ -619,7 +661,7 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 			//* 下一跳地址为路由器地址
 			pubDstIpv6ToMac = pstPreferedRouter->ubaAddr; 
 			pubNetifIpv6 = NULL; 
-			pstMatchedNetif = pstPreferedRouter->pstNetif; 
+			//pstMatchedNetif = pstPreferedRouter->pstNetif; 
 			unValidLifetimeMax = 0;
 
 			//* 读取地址列表，选择源地址，确定源地址的依据是地址范围最大，剩余生存时间最大
@@ -631,7 +673,7 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 					&& (pstNextAddr->bitState == IPv6ADDR_PREFERRED || pstNextAddr->bitState == IPv6ADDR_DEPRECATED))
 				{
 					//* 地址范围大者或范围相同时寿命长者胜出
-					if ((ubScopeMax > pstNextAddr->ubaVal[0]) && (ubScopeMax == pstNextAddr->ubaVal[0] && unValidLifetimeMax < pstNextAddr->unValidLifetime))
+					if ((ubScopeMax > pstNextAddr->ubaVal[0]) || (ubScopeMax == pstNextAddr->ubaVal[0] && unValidLifetimeMax < pstNextAddr->unValidLifetime))
 					{
 						ubScopeMax = pstNextAddr->ubaVal[0]; 
 						unValidLifetimeMax = pstNextAddr->unValidLifetime; 
@@ -652,20 +694,35 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 						*pubHopLimit = 255; 
 				}
 				else
+				{
+					os_thread_mutex_lock(l_hMtxNetif);
+					{
+						if (blIsForSending)
+							pstMatchedNetif->bUsedCount--;
+					}
+					os_thread_mutex_unlock(l_hMtxNetif);
+
 					return NULL; //* 寻址失败
+				}
 			}
 		}
 		else //* 寻址失败
-			return NULL; 
+		{
+			os_thread_mutex_lock(l_hMtxNetif);
+			{
+				if (blIsForSending)
+					pstMatchedNetif->bUsedCount--;
+			}
+			os_thread_mutex_unlock(l_hMtxNetif);
+
+			return NULL;
+		}
 	}
 
 	//* 保存源地址及下一跳地址
 	memcpy(pubSource, pubNetifIpv6, 16);	
 	if(pubNSAddr)
-		memcpy(pubNSAddr, pubDstIpv6ToMac, 16);
-
-	if (blIsForSending)
-		pstMatchedNetif->bUsedCount++;
+		memcpy(pubNSAddr, pubDstIpv6ToMac, 16);	
 
 	return pstMatchedNetif;
 }

@@ -197,6 +197,7 @@ NETIF_EXT BOOL netif_is_ready(const CHAR *pszIfName);
 NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway);
 
 #if SUPPORT_IPV6
+NETIF_EXT const UCHAR *ipv6_get_loopback_addr(void);
 #if SUPPORT_ETHERNET
 NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit);
 #endif

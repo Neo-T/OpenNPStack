@@ -24,6 +24,7 @@
 
 #if SUPPORT_ETHERNET
 #include "ethernet/dhcpv6.h"
+#include "ethernet/ethernet.h"
 #endif
 //* 详细的组播地址汇总及最新更新详见：https://www.iana.org/assignments/ipv6-multicast-addresses/ipv6-multicast-addresses.xhtml#node-local
 #define MULTICAST_ADDR_NUMM 5 //* 协议栈支持的组播地址数量
@@ -111,8 +112,12 @@ static void icmpv6_na_wait_timeout_handler(void *pvParam)
 		}
 		buf_list_put_head(&sBufListHead, sIpPacketNode);
 
-		//* 完成实际地发送   
-		nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaDstMac, &enErr);
+		//* 完成实际地发送  
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+		if (memcmp(ubaDstMac, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN))
+			nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaDstMac, &enErr);
+		else
+			nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IPv6);
 		if (nRtnVal < 0)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -395,9 +400,9 @@ void ipv6_mac_add_entry_ext(PSTCB_ETHIPv6MAC pstcbIpv6Mac, UCHAR ubaIpv6[16], UC
 	os_exit_critical();
 }
 
-static INT ipv6_to_mac(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
+static INT ipv6_to_mac(PST_NETIF pstNetif, UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN])
 {
-	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac;
+	PSTCB_ETHIPv6MAC pstcbIpv6Mac = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbIpv6Mac;	
 
 	//* 如果目标Ipv6地址为组播地址则依据ipv6标准生成组播mac地址。组播地址的判断依据是Ipv6地址以FF开头（P83 3.5）：
 	//* |---8位---|-4位-|-4位-|--------------112位--------------|
@@ -425,6 +430,13 @@ static INT ipv6_to_mac(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv
 		ubaMacAddr[0] = IPv6MCTOMACADDR_PREFIX;
 		ubaMacAddr[1] = IPv6MCTOMACADDR_PREFIX;
 		memcpy(&ubaMacAddr[2], &ubaDstIpv6[12], 4);
+		return 0;
+	}
+
+	if (ethernet_ipv6_addr_matched(pstNetif, ubaDstIpv6))
+	{
+		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+		memcpy(ubaMacAddr, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN);
 		return 0;
 	}
 
@@ -515,7 +527,7 @@ static PSTCB_ETHIPv6MAC_WAIT ipv6_mac_wait_packet_put(PST_NETIF pstNetif, UCHAR 
 
 INT ipv6_mac_get(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], EN_ONPSERR *penErr)
 {
-	if (ipv6_to_mac(pstNetif, ubaSrcIpv6, ubaDstIpv6, ubaMacAddr))
+	if (ipv6_to_mac(pstNetif, ubaDstIpv6, ubaMacAddr))
 	{
 		//* 不存在，则只能发送一条邻居节点地址请求报文问问谁拥有这个ipv6地址了	
 		if (icmpv6_send_ns(pstNetif, ubaSrcIpv6, ubaDstIpv6, penErr) < 0)
@@ -528,7 +540,7 @@ INT ipv6_mac_get(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16],
 
 INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN], SHORT sBufListHead, BOOL *pblNetifFreedEn, EN_ONPSERR *penErr)
 {	
-	if (ipv6_to_mac(pstNetif, ubaSrcIpv6, ubaDstIpv6, ubaMacAddr))
+	if (ipv6_to_mac(pstNetif, ubaDstIpv6, ubaMacAddr))
 	{
 		//* 先将这条报文放入待发送链表		
 		PSTCB_ETHIPv6MAC_WAIT pstcbIpv6MacWait = ipv6_mac_wait_packet_put(pstNetif, ubaDstIpv6, sBufListHead, pblNetifFreedEn, penErr);
@@ -1596,7 +1608,15 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		break; 
 
 	default: 
-		//printf("++++++++recv %d packet\r\n", pstIcmpv6Hdr->ubType);
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("Unsupported ICMPv6 packet type (%d), the packet will be dropped\r\n", (UINT)pstIcmpv6Hdr->ubType);
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif		
 		break; 
 	}
 }

@@ -360,7 +360,13 @@ static INT netif_ipv6_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR ubaSr
 			UCHAR ubaDstMac[ETH_MAC_ADDR_LEN];			          
 			nRtnVal = ipv6_mac_get_ext(pstNetif, ubaSrcIpv6, ubaDstIpv6ToMac, ubaDstMac, sBufListHead, &blNetifFreedEn, penErr);
 			if (!nRtnVal) //* 得到目标mac地址，直接发送该报文
-				nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaDstMac, penErr);
+			{
+				PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+				if (memcmp(ubaDstMac, pstExtra->ubaMacAddr, ETH_MAC_ADDR_LEN))
+					nRtnVal = pstNetif->pfunSend(pstNetif, IPV6, sBufListHead, ubaDstMac, penErr);
+				else
+					nRtnVal = ethernet_loopback_put_packet(pstNetif, sBufListHead, LPPROTO_IPv6); 
+			}
 		}
 	}
 	else

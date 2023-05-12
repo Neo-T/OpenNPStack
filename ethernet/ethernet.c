@@ -418,6 +418,9 @@ BOOL ethernet_ipv6_addr_matched(PST_NETIF pstNetif, UCHAR ubaTargetIpv6[16])
 	//* 看看是否是单播地址
 	if (ubaTargetIpv6[0] != 0xFF)
 	{	
+		if (!memcmp(ubaTargetIpv6, ipv6_get_loopback_addr(), 16))
+			return TRUE;
+
 		//* 到达的报文不需要判断地址当前状态，即使处于“IPv6ADDR_DEPRECATED”（弃用）状态也可以接受到达的报文
 		PST_IPv6_DYNADDR pstNextAddr = NULL; 
 		do {
