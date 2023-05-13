@@ -99,7 +99,6 @@ PACKED_END
 #define ipv6_flow_label uniFlag.stb32.bitFlowLabel
 #define ipv6_flag uniFlag.unVal
 
-
 //* IPv6版本的用于校验和计算的伪报头
 PACKED_BEGIN
 typedef struct _ST_IPv6_PSEUDOHDR_ {
@@ -109,6 +108,13 @@ typedef struct _ST_IPv6_PSEUDOHDR_ {
 	UCHAR ubaMustBeZero[3];
 	UCHAR ubProto;			//* Ipv6支持的上层协议类型，参见ip_frame.h文件之EN_IPPROTO
 } PACKED ST_IPv6_PSEUDOHDR, *PST_IPv6_PSEUDOHDR;
+PACKED_END
+
+PACKED_BEGIN
+typedef struct _ST_IPv6_EXTOPT_HDR_ {
+	UCHAR ubNextHdr; 
+	UCHAR ubLen; //* 长度单位：8字节，且第一个8字节不被包括，所以计算实际长度时应为：[(ubLen + 1) * 8]字节，注意长度覆盖头部字段ST_IPv6_HOPBYHOP_HDR
+} PACKED ST_IPv6_EXTOPT_HDR, *PST_IPv6_EXTOPT_HDR;
 PACKED_END
 #endif
 

@@ -532,8 +532,8 @@ __lblGetPacket:
 void ethernet_put_packet(PST_NETIF pstNetif, PST_SLINKEDLIST_NODE pstNode)
 {
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
-
-    sllist_put_tail_node(&pstExtra->pstRcvedPacketList, pstNode); 
+	
+    sllist_put_tail_node(&pstExtra->pstRcvedPacketList, pstNode); 	
 	os_thread_sem_post(pstExtra->hSem); 
 }
 

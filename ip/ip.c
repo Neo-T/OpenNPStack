@@ -477,38 +477,58 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 	}
 #endif
 
+	//* 在这里目前仅处理逐跳选项头其它扩展头暂时不予理会，当需要时再分别做针对性处理
+	UCHAR ubNextHdr, *pubUpperProtoPkt; 
 	if (pstHdr->ubNextHdr)
 	{
-		switch (pstHdr->ubNextHdr)
-		{
-		case IPPROTO_ICMPv6:
-			icmpv6_recv(pstNetif, pubDstMacAddr, pubPacket, nPacketLen, pubPacket + sizeof(ST_IPv6_HDR));
-			break;
-
-		case IPPROTO_TCP:
-			//tcp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket + usHdrLen, nPacketLen - usHdrLen);
-			break;
-
-		case IPPROTO_UDP:
-			ipv6_udp_recv(pstNetif, pstHdr->ubaSrcIpv6, pstHdr->ubaDstIpv6, pubPacket + sizeof(ST_IPv6_HDR), (INT)usPayloadLen);			
-			break;
-
-		default:
-	#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_lock(o_hMtxPrintf);
-		#endif
-			printf("unsupported IPv6 upper layer protocol (%d), the packet will be dropped\r\n", (UINT)pstHdr->ubNextHdr);
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_unlock(o_hMtxPrintf);
-		#endif
-	#endif
-			break;
-		}
+		ubNextHdr = pstHdr->ubNextHdr;
+		pubUpperProtoPkt = pubPacket + sizeof(ST_IPv6_HDR); 
 	}
 	else //* 处理ipv6逐跳选项（IPv6 Hop-by-Hop Option）
 	{
+		PST_IPv6_EXTOPT_HDR pstExtOptHdr = (PST_IPv6_EXTOPT_HDR)pubPacket;
+		USHORT usHandleOptBytes = 0, usDataBytes; 
+		while (usHandleOptBytes < usPayloadLen)
+		{
+			usDataBytes = (USHORT)((pstExtOptHdr->ubLen + 1) * 8);
+			if (IPPROTO_ICMPv6 == pstExtOptHdr->ubNextHdr || IPPROTO_TCP == pstExtOptHdr->ubNextHdr || IPPROTO_UDP == pstExtOptHdr->ubNextHdr)
+			{
+				ubNextHdr = pstExtOptHdr->ubNextHdr;
+				pubUpperProtoPkt = (UCHAR *)pstExtOptHdr + usDataBytes;
+				usPayloadLen -= usHandleOptBytes - usDataBytes; 
+				break; 
+			}
 
+			usHandleOptBytes += usDataBytes; 
+			pstExtOptHdr = (PST_IPv6_EXTOPT_HDR)((UCHAR *)pstExtOptHdr + usHandleOptBytes);
+		}
 	}	
+
+	switch (ubNextHdr)
+	{
+	case IPPROTO_ICMPv6:
+		icmpv6_recv(pstNetif, pubDstMacAddr, pubPacket, nPacketLen, pubUpperProtoPkt);
+		break;
+
+	case IPPROTO_TCP:
+		//tcp_recv(pstHdr->unSrcIP, pstHdr->unDstIP, pubPacket + usHdrLen, nPacketLen - usHdrLen);
+		break;
+
+	case IPPROTO_UDP:
+		ipv6_udp_recv(pstNetif, pstHdr->ubaSrcIpv6, pstHdr->ubaDstIpv6, pubUpperProtoPkt, (INT)usPayloadLen);
+		break;
+
+	default:
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 3
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("unsupported IPv6 upper layer protocol (%d), the packet will be dropped\r\n", (UINT)pstHdr->ubNextHdr);
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif
+		break;
+	}
 }
 #endif
