@@ -93,9 +93,24 @@ void close(SOCKET socket)
     onps_input_free((INT)socket); 
 }
 
-static int socket_tcp_connect(SOCKET socket, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
-{        
-    if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout) > 0)
+static int socket_tcp_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
+{     
+	EN_ONPSERR enErr; 	
+
+#if SUPPORT_IPV6
+	INT nRtnVal;
+	if (AF_INET == pstHandle->bFamily)
+		nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout); 
+	else
+	{
+		UCHAR ubaSrvAddr[16];		
+		nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)inet6_aton(srv_ip, ubaSrvAddr), srv_port, nConnTimeout);
+	}
+#else
+	INT nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout); 
+#endif
+
+    if (nRtnVal > 0)
     {            
 __lblWait: 
         //* 等待信号到达：超时或者收到syn ack同时本地回馈的syn ack的ack发送成功
@@ -104,8 +119,7 @@ __lblWait:
             onps_set_last_error((INT)socket, ERRINVALIDSEM);
             return -1;
         }        
-
-        EN_ONPSERR enErr;
+        
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
         {
@@ -141,12 +155,25 @@ __lblWait:
         return -1;   
 }
 
-static int socket_tcp_connect_nb(SOCKET socket, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
+static int socket_tcp_connect_nb(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
 {
+	INT nRtnVal; 
+
     switch (enLinkState)
     {
     case TLSINIT:
-        if (tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, 0) > 0)
+#if SUPPORT_IPV6
+		if(AF_INET == pstHandle->bFamily) 
+			nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, 0); 
+		else
+		{
+			UCHAR ubaSrvAddr[16];
+			nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)inet6_aton(srv_ip, ubaSrvAddr), srv_port, 0);
+		}
+#else
+		nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, 0); 
+#endif
+        if (nRtnVal > 0) 
             return 1;
         else
             return -1;
@@ -186,10 +213,15 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
 
     if (enProto == IPPROTO_TCP)
     {        
+		//* 获取链路访问句柄
+		PST_TCPUDP_HANDLE pstHandle;
+		if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+			goto __lblErr;
+
         //* 获取当前链路状态
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-            goto __lblErr;
+            goto __lblErr;		
 
         //* 无效，意味着当前TCP连接链路尚未申请一个tcp link节点，需要在这里申请
         if (TLSINVALID == enLinkState)
@@ -206,7 +238,7 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
             }
             else
                 goto __lblErr;
-        }        
+        }		
 
         if (nConnTimeout > 0)
         {
@@ -219,10 +251,10 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
                 goto __lblErr;
             }            
 
-            return socket_tcp_connect(socket, hSem, srv_ip, srv_port, nConnTimeout);
+            return socket_tcp_connect(socket, pstHandle, hSem, srv_ip, srv_port, nConnTimeout);
         }
         else
-            return socket_tcp_connect_nb(socket, srv_ip, srv_port, enLinkState);
+            return socket_tcp_connect_nb(socket, pstHandle, srv_ip, srv_port, enLinkState);
     }
     else if (enProto == IPPROTO_UDP)
     {
@@ -749,7 +781,7 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 			pstHandle->stSockAddr.saddr_ipv4 = (UINT)inet_addr(pszNetifIp);
 	}
 	else			
-		pstHandle->stSockAddr.saddr_ipv4 = 0; //* 直接按照ipv4地址赋零即可
+		pstHandle->stSockAddr.saddr_ipv4 = 0; //* 直接按照ipv4地址赋零即可，即使当前是ipv6地址，第一个字节为0就可以认为采用缺省地址
 	pstHandle->stSockAddr.usPort = usPort;
 
 	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
@@ -925,8 +957,18 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
 
             //* 取出input节点句柄，然后释放当前占用的backlog节点资源
             nInputClient = pstBacklog->nInput;
+		#if SUPPORT_IPV6
+			if (punCltIP)
+			{
+				if (AF_INET == pstHandle->bFamily)
+					*punCltIP = htonl(pstBacklog->stAdrr.saddr_ipv4);
+				else
+					memcpy((UCHAR *)punCltIP, pstBacklog->stAdrr.saddr_ipv6, 16); 
+			}
+		#else
             if (punCltIP)
                 *punCltIP = htonl(pstBacklog->stAdrr.unIp); 
+		#endif
             if (pusCltPort)
                 *pusCltPort = pstBacklog->stAdrr.usPort; 
             tcp_backlog_free(pstBacklog);

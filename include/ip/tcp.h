@@ -30,5 +30,9 @@ TCP_EXT INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CH
 TCP_EXT void thread_tcp_handler(void *pvParam); 
 #endif
 
+#if SUPPORT_IPV6
+TCP_EXT INT tcpv6_send_syn(INT nInput, UCHAR ubaSrvAddr[16], USHORT usSrvPort, int nConnTimeout); 
+#endif
+
 
 #endif

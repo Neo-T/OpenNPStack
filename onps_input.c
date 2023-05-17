@@ -1237,7 +1237,7 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, 
 	}
 #else    
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
-    UCHAR usIpHdrLen = pstHdr->bitHdrLen * 4;
+    usIpHdrLen = pstHdr->bitHdrLen * 4;
 	if (punSrcAddr)	
 		*punSrcAddr = pstHdr->unSrcIP; 	
     if(pubTTL)

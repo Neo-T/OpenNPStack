@@ -24,7 +24,11 @@
 #if NETTOOLS_PING
 INT ping_start(INT family, EN_ONPSERR *penErr)
 {    	
+#if SUPPORT_IPV6
 	return onps_input_new(family, (AF_INET == family) ? IPPROTO_ICMP : IPPROTO_ICMPv6, penErr); 
+#else
+	return onps_input_new((AF_INET == family) ? IPPROTO_ICMP : IPPROTO_ICMPv6, penErr);
+#endif
 }
 
 void ping_end(INT nPing)
