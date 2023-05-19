@@ -320,45 +320,25 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     //* 如果校验和为0则意味着不需要计算校验和，反之就需要进行校验计算
     if (pstHdr->usChecksum)
     {
-        //* 把完整的udp报文与ip伪报头链接到一起，以便计算udp校验和确保收到的udp报文正确        
-        SHORT sBufListHead = -1;
-        SHORT sUdpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
-        if (sUdpPacketNode < 0)
-        {
-#if SUPPORT_PRINTF && DEBUG_LEVEL
-    #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-            printf("buf_list_get_ext() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
-    #if PRINTF_THREAD_MUTEX
-            os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-            return;
-        }
-        buf_list_put_head(&sBufListHead, sUdpPacketNode);
-
-        //* 挂载完毕，可以计算校验和是否正确了
+        //* 计算校验和
         USHORT usPktChecksum = pstHdr->usChecksum;
         pstHdr->usChecksum = 0;		
-		USHORT usChecksum = tcpip_checksum_ipv4(htonl(unSrcAddr), htonl(unDstAddr), (USHORT)nPacketLen, IPPROTO_UDP, sBufListHead, &enErr);
+		USHORT usChecksum = tcpip_checksum_ipv4_ext(htonl(unSrcAddr), htonl(unDstAddr), IPPROTO_UDP, pubPacket, (USHORT)nPacketLen, &enErr);
 		if (ERRNO != enErr)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_lock(o_hMtxPrintf);
 		#endif
-			printf("tcpip_checksum_ipv4() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
+			printf("tcpip_checksum_ipv4_ext() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif
-	#endif
-
-			buf_list_free(sUdpPacketNode);
+	#endif			
 			return;
-		}        
-        buf_list_free(sUdpPacketNode); //* 先释放        		
-        if(0 == usChecksum) //* 如果计算结果为0，则校验和反转
+		}                  
+		//* 如果计算结果为0，则校验和反转
+        if(0 == usChecksum)
             usChecksum = 0xFFFF; 
 
 		//* 判断校验和是否正确
@@ -610,28 +590,10 @@ void ipv6_udp_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16
 	//* 如果校验和为0则意味着不需要计算校验和，反之就需要进行校验计算
 	if (pstHdr->usChecksum)
 	{
-		//* 把完整的udp报文与ip伪报头链接到一起，以便计算udp校验和确保收到的udp报文正确        
-		SHORT sBufListHead = -1;
-		SHORT sUdpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
-		if (sUdpPacketNode < 0)
-		{
-	#if SUPPORT_PRINTF && DEBUG_LEVEL
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_lock(o_hMtxPrintf);
-		#endif
-			printf("buf_list_get_ext() failed, %s, the udp packet will be dropped\r\n", onps_error(enErr));
-		#if PRINTF_THREAD_MUTEX
-			os_thread_mutex_unlock(o_hMtxPrintf);
-		#endif
-	#endif
-			return;
-		}
-		buf_list_put_head(&sBufListHead, sUdpPacketNode);
-
-		//* 挂载完毕，可以计算校验和是否正确了
+		//* 计算校验和
 		USHORT usPktChecksum = pstHdr->usChecksum;
 		pstHdr->usChecksum = 0;
-		USHORT usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, (USHORT)nPacketLen, IPPROTO_UDP, sBufListHead, &enErr);
+		USHORT usChecksum = tcpip_checksum_ipv6_ext(ubaSrcAddr, ubaDstAddr, IPPROTO_UDP, pubPacket, (UINT)nPacketLen, &enErr); 
 		if (ERRNO != enErr)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -642,13 +604,11 @@ void ipv6_udp_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16
 		#if PRINTF_THREAD_MUTEX
 			os_thread_mutex_unlock(o_hMtxPrintf);
 		#endif
-	#endif
-
-			buf_list_free(sUdpPacketNode);
+	#endif			
 			return;
 		}
-		buf_list_free(sUdpPacketNode); //* 先释放        		
-		if (0 == usChecksum) //* 如果计算结果为0，则校验和反转
+		//* 如果计算结果为0，则校验和反转
+		if (0 == usChecksum) 
 			usChecksum = 0xFFFF;
 
 		//* 判断校验和是否正确

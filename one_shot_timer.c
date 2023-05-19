@@ -268,8 +268,15 @@ void thread_one_shot_timer_count(void *pvParam)
                         if (!pstNextLink->uniFlags.stb16.no_delay_ack && pstNextLink->stPeer.bIsNotAcked)
                         {
                             if (os_get_system_msecs() - pstNextLink->stPeer.unStartMSecs > unDelayAckTimeout)
-                            {                               
+                            {          
+							#if SUPPORT_IPV6
+								if(AF_INET == pstNextLink->stLocal.pstHandle->bFamily)
+									tcp_send_ack(pstNextLink, pstNextLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstNextLink->stLocal.pstHandle->stSockAddr.usPort, pstNextLink->stPeer.stSockAddr.saddr_ipv4, pstNextLink->stPeer.stSockAddr.usPort); 
+								else
+									tcpv6_send_ack(pstNextLink, pstNextLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstNextLink->stLocal.pstHandle->stSockAddr.usPort, pstNextLink->stPeer.stSockAddr.saddr_ipv6, pstNextLink->stPeer.stSockAddr.usPort);
+							#else
                                 tcp_send_ack(pstNextLink, pstNextLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstNextLink->stLocal.pstHandle->stSockAddr.usPort, pstNextLink->stPeer.stSockAddr.saddr_ipv4, pstNextLink->stPeer.stSockAddr.usPort);
+							#endif
                                 pstNextLink->stPeer.bIsNotAcked = FALSE;
                             }
                         }

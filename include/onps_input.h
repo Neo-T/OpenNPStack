@@ -110,7 +110,7 @@ ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr);
 #endif
 #if SUPPORT_ETHERNET
-ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t *punSrvIp, USHORT usCltPort, in_addr_t *punCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
 #endif
 
 //* 释放一个输入控制块
@@ -171,7 +171,7 @@ ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 
 //* 根据ip地址和端口号获取input句柄
 #if SUPPORT_ETHERNET
-ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT unCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
+ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, in_addr_t *punCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
 #endif
 #if SUPPORT_IPV6
 ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach);

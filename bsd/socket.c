@@ -961,16 +961,16 @@ SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitS
 			if (punCltIP)
 			{
 				if (AF_INET == pstHandle->bFamily)
-					*punCltIP = htonl(pstBacklog->stAdrr.saddr_ipv4);
+					*punCltIP = htonl(pstBacklog->stAddr.saddr_ipv4);
 				else
-					memcpy((UCHAR *)punCltIP, pstBacklog->stAdrr.saddr_ipv6, 16); 
+					memcpy((UCHAR *)punCltIP, pstBacklog->stAddr.saddr_ipv6, 16); 
 			}
 		#else
             if (punCltIP)
-                *punCltIP = htonl(pstBacklog->stAdrr.unIp); 
+                *punCltIP = htonl(pstBacklog->stAddr.unIp); 
 		#endif
             if (pusCltPort)
-                *pusCltPort = pstBacklog->stAdrr.usPort; 
+                *pusCltPort = pstBacklog->stAddr.usPort; 
             tcp_backlog_free(pstBacklog);
 
             return (SOCKET)nInputClient;

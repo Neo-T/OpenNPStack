@@ -72,7 +72,7 @@ typedef struct _ST_TCPBACKLOG__ {
 #else
         UINT unIp; 
 #endif
-    } stAdrr;
+    } stAddr;
 
     INT nInput;
 

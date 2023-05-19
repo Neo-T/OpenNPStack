@@ -55,8 +55,10 @@ ONPS_UTILS_EXT USHORT ascii_to_hex_16(const CHAR *pszAscii); //* 如16位短整�
 ONPS_UTILS_EXT USHORT tcpip_checksum(USHORT *pusData, INT nDataBytes);
 ONPS_UTILS_EXT USHORT tcpip_checksum_ext(SHORT sBufListHead); 
 ONPS_UTILS_EXT USHORT tcpip_checksum_ipv4(in_addr_t unSrcAddr, in_addr_t unDstAddr, USHORT usPayloadLen, UCHAR ubProto, SHORT sBufListHead, EN_ONPSERR *penErr); 
+ONPS_UTILS_EXT USHORT tcpip_checksum_ipv4_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR ubProto, UCHAR *pubPayload, USHORT usPayloadLen, EN_ONPSERR *penErr);
 #if SUPPORT_IPV6
 ONPS_UTILS_EXT USHORT tcpip_checksum_ipv6(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UINT unPayloadLen, UCHAR ubProto, SHORT sBufListHead, EN_ONPSERR *penErr);
+ONPS_UTILS_EXT USHORT tcpip_checksum_ipv6_ext(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR ubProto, UCHAR *pubPayload, UINT unPayloadLen, EN_ONPSERR *penErr); 
 #endif
 ONPS_UTILS_EXT void snprintf_hex(const UCHAR *pubHexData, USHORT usHexDataLen, CHAR *pszDstBuf, UINT unDstBufSize, BOOL blIsSeparateWithSpace);
 

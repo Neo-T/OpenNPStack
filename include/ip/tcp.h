@@ -23,7 +23,7 @@ TCP_EXT INT tcp_send_data_ext(INT nInput, UCHAR *pubData, INT nDataLen, UINT unS
 #endif
 TCP_EXT void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort);
 TCP_EXT void tcp_disconnect(INT nInput);
-TCP_EXT void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen); 
+TCP_EXT void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, INT nPacketLen, EN_NPSPROTOCOL enProtocol);
 TCP_EXT INT tcp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, CHAR bRcvTimeout); 
 
 #if SUPPORT_SACK
@@ -32,6 +32,7 @@ TCP_EXT void thread_tcp_handler(void *pvParam);
 
 #if SUPPORT_IPV6
 TCP_EXT INT tcpv6_send_syn(INT nInput, UCHAR ubaSrvAddr[16], USHORT usSrvPort, int nConnTimeout); 
+TCP_EXT void tcpv6_send_ack(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT usSrcPort, UCHAR ubaDstAddr[16], USHORT usDstPort); 
 #endif
 
 

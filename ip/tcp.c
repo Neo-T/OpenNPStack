@@ -21,7 +21,7 @@
 #undef SYMBOL_GLOBALS
 
 static void tcp_send_fin(PST_TCPLINK pstLink); 
-static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort); 
+static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHORT usSrcPort, in_addr_t *punDstAddr, USHORT usDstPort); 
 
 void tcpsrv_syn_recv_timeout_handler(void *pvParam)
 {
@@ -33,19 +33,41 @@ void tcpsrv_syn_recv_timeout_handler(void *pvParam)
         if (pstLink->stcbWaitAck.bRcvTimeout < 32)
         {
             pstLink->stcbWaitAck.bRcvTimeout *= 2; 
+		#if SUPPORT_IPV6
+			if(AF_INET == pstLink->stLocal.pstHandle->bFamily)
+				tcpsrv_send_syn_ack_with_start_timer(pstLink, (in_addr_t *)&pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, (in_addr_t *)&pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort);
+			else
+				tcpsrv_send_syn_ack_with_start_timer(pstLink, (in_addr_t *)pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstLink->stLocal.pstHandle->stSockAddr.usPort, (in_addr_t *)pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort);
+		#else
             tcpsrv_send_syn_ack_with_start_timer(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort);
+		#endif
         }
         else
         {
             onps_input_free(pstLink->stcbWaitAck.nInput); 
 
-    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-            CHAR szAddr[20], szAddrClt[20];
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1            
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
+		#if SUPPORT_IPV6
+			if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
+			{
+				CHAR szAddr[20], szAddrClt[20];
+				printf("The tcp server@%s:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@%s:%d)\r\n",
+						inet_ntoa_safe_ext(pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, szAddr), pstLink->stLocal.pstHandle->stSockAddr.usPort, inet_ntoa_safe_ext(pstLink->stPeer.stSockAddr.saddr_ipv4, szAddrClt), pstLink->stPeer.stSockAddr.usPort);
+			}
+			else
+			{
+				CHAR szIpv6[40];
+				printf("The tcp server@[%s]:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@[", inet6_ntoa(pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, szIpv6), pstLink->stLocal.pstHandle->stSockAddr.usPort);
+				printf("%s]:%d)\r\n", inet6_ntoa(pstLink->stPeer.stSockAddr.saddr_ipv6, szIpv6), pstLink->stPeer.stSockAddr.usPort);
+			}
+		#else
+			CHAR szAddr[20], szAddrClt[20];
             printf("The tcp server@%s:%d waits for the client's syn ack to time out, and the current link will be closed (cleint@%s:%d)\r\n", 
                         inet_ntoa_safe_ext(pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, szAddr), pstLink->stLocal.pstHandle->stSockAddr.usPort, inet_ntoa_safe_ext(pstLink->stPeer.stSockAddr.saddr_ipv4, szAddrClt), pstLink->stPeer.stSockAddr.usPort);
+		#endif
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
@@ -130,12 +152,13 @@ static void tcp_close_timeout_handler(void *pvParam)
     pstLink->stcbWaitAck.pstTimer = one_shot_timer_new(tcp_close_timeout_handler, pstLink, 1);     
 }
 
-static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort,
-                            UNI_TCP_FLAG uniFlag, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, 
 #if SUPPORT_SACK
-    BOOL blIsSpecSeqNum, UINT unSeqNum, 
+static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, UNI_TCP_FLAG uniFlag, 
+							UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, BOOL blIsSpecSeqNum, UINT unSeqNum, EN_ONPSERR *penErr)
+#else
+static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, 
+							UNI_TCP_FLAG uniFlag, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, EN_ONPSERR *penErr)
 #endif
-    EN_ONPSERR *penErr)
 {
     //* 挂载用户数据
     SHORT sBufListHead = -1; 
@@ -235,7 +258,112 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     return nRtnVal; 
 }
 
-static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t unNetifIp, USHORT usSrcPort, UINT unSrvAckNum)
+#if SUPPORT_IPV6
+#if SUPPORT_SACK
+static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT usSrcPort, UCHAR ubaDstAddr[16], USHORT usDstPort, UNI_TCP_FLAG uniFlag, 
+								UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, BOOL blIsSpecSeqNum, UINT unSeqNum,	EN_ONPSERR *penErr)
+#else
+static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT usSrcPort, UCHAR ubaDstAddr[16], USHORT usDstPort, 
+								UNI_TCP_FLAG uniFlag, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes, EN_ONPSERR *penErr)
+#endif
+{
+	//* 挂载用户数据
+	SHORT sBufListHead = -1;
+	SHORT sDataNode = -1;
+	if (pubData)
+	{
+		sDataNode = buf_list_get_ext(pubData, (UINT)usDataBytes, penErr);
+		if (sDataNode < 0)
+			return -1;
+		buf_list_put_head(&sBufListHead, sDataNode);
+	}
+
+	//* 挂载tcp options选项
+	SHORT sOptionsNode = -1;
+	if (usOptionsBytes)
+	{
+		sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
+		if (sOptionsNode < 0)
+		{
+			if (sDataNode >= 0)
+				buf_list_free(sDataNode);
+			return -1;
+		}
+		buf_list_put_head(&sBufListHead, sOptionsNode);
+	}
+
+	//* 将tcp头挂载到链表头部
+	ST_TCP_HDR stHdr;
+	SHORT sHdrNode;
+	sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
+	if (sHdrNode < 0)
+	{
+		if (sDataNode >= 0)
+			buf_list_free(sDataNode);
+		if (sOptionsNode >= 0)
+			buf_list_free(sOptionsNode);
+
+		return -1;
+	}
+	buf_list_put_head(&sBufListHead, sHdrNode);
+
+	//* 加锁，当接收线程与发送线程同时调用这个函数时，会因为锁的存在使得调用按顺序进行，这样就确保sequence num不会乱序
+	INT nRtnVal = -1;
+	onps_input_lock(pstLink->stcbWaitAck.nInput);
+	{
+		//* 填充tcp头		
+		stHdr.usSrcPort = htons(usSrcPort);
+		stHdr.usDstPort = htons(usDstPort);
+	#if SUPPORT_SACK
+		if (blIsSpecSeqNum)
+			stHdr.unSeqNum = htonl(unSeqNum);
+		else
+			stHdr.unSeqNum = htonl(pstLink->stLocal.unHasSndBytes + 1);
+	#else
+		stHdr.unSeqNum = htonl(pstLink->stLocal.unSeqNum);
+	#endif
+		stHdr.unAckNum = htonl(pstLink->stPeer.unSeqNum);
+		uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
+		stHdr.usFlag = uniFlag.usVal;
+		stHdr.usWinSize = htons(pstLink->stLocal.usWndSize);
+		stHdr.usChecksum = 0;
+		stHdr.usUrgentPointer = 0;
+
+		//* 计算校验和
+		EN_ONPSERR enErr = ERRNO;
+		stHdr.usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes), IPPROTO_TCP, sBufListHead, &enErr);
+		if (ERRNO == enErr)
+		{
+			//* 发送之
+			UINT unFlowLabel = ipv6_flow_label_cal(ubaDstAddr, ubaSrcAddr, IPPROTO_TCP, usDstPort, usSrcPort);
+			nRtnVal = ipv6_send_ext(ubaSrcAddr, ubaDstAddr, IPPROTO_TCP, sBufListHead, unFlowLabel, penErr);
+		#if SUPPORT_SACK
+			if (!blIsSpecSeqNum)
+				pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes;
+		#endif
+		}
+		else
+		{
+			if (penErr)
+				*penErr = enErr;
+
+			nRtnVal = -1;
+		}
+	}
+	onps_input_unlock(pstLink->stcbWaitAck.nInput);
+
+	//* 释放刚才申请的buf list节点
+	if (sDataNode >= 0)
+		buf_list_free(sDataNode);
+	if (sOptionsNode >= 0)
+		buf_list_free(sOptionsNode);
+	buf_list_free(sHdrNode);
+
+	return nRtnVal;
+}
+#endif
+
+static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t *punNetifIp, USHORT usSrcPort, UINT unSrvAckNum)
 {
     //* 标志字段syn域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
@@ -249,12 +377,31 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, in_addr_t u
 
     //* 发送
     EN_ONPSERR enErr;
-    INT nRtnVal = tcp_send_packet(pstLink, unNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, 
-                                    uniFlag, NULL, 0, NULL, 0, 
+#if SUPPORT_IPV6
+	INT nRtnVal; 
+	if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
+	{
+	#if SUPPORT_SACK
+		INT nRtnVal = tcp_send_packet(pstLink, *punNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr);
+	#else
+		INT nRtnVal = tcp_send_packet(pstLink, *punNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
+	#endif
+	}
+	else
+	{
+	#if SUPPORT_SACK
+		INT nRtnVal = tcpv6_send_packet(pstLink, (UCHAR *)punNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr);
+	#else
+		INT nRtnVal = tcpv6_send_packet(pstLink, (UCHAR *)punNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
+	#endif
+	}
+#else
 #if SUPPORT_SACK
-        TRUE, pstLink->stLocal.unSeqNum, 
+    INT nRtnVal = tcp_send_packet(pstLink, *punNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr); 
+#else
+	INT nRtnVal = tcp_send_packet(pstLink, *punNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
 #endif
-        &enErr);
+#endif
     if (nRtnVal > 0)
     {                  
         //* 连接成功
@@ -331,11 +478,11 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
     //* 完成实际的发送
     pstLink->stLocal.unSeqNum = 0; 
     pstLink->bState = TLSSYNSENT;
-    INT nRtnVal = tcp_send_packet(pstLink, pstHandle->stSockAddr.saddr_ipv4, pstHandle->stSockAddr.usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0,
 #if SUPPORT_SACK
-        TRUE, 0,
-#endif        
-        &enErr); 
+    INT nRtnVal = tcp_send_packet(pstLink, pstHandle->stSockAddr.saddr_ipv4, pstHandle->stSockAddr.usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, TRUE, 0, &enErr); 
+#else
+	INT nRtnVal = tcp_send_packet(pstLink, pstHandle->stSockAddr.saddr_ipv4, pstHandle->stSockAddr.usPort, unSrvAddr, usSrvPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, &enErr);
+#endif
     if (nRtnVal > 0)
     {
         //* 加入定时器队列
@@ -417,32 +564,32 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
 	INT nRtnVal; 
 	if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
 	{
+	#if SUPPORT_SACK
 		nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4,
-									pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData,
-								#if SUPPORT_SACK
-									(USHORT)nDataLen, FALSE, 0, &enErr);
-								#else
-									(USHORT)nSndDataLen, &enErr);
-								#endif
+									pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nDataLen, FALSE, 0, &enErr); 
+	#else
+		nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, 
+									pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, &enErr);
+	#endif
 	}
 	else
 	{
+	#if SUPPORT_SACK
 		nRtnVal = tcpv6_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv6,
-										pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData,
-								#if SUPPORT_SACK
-									(USHORT)nDataLen, FALSE, 0, &enErr);
-								#else
-									(USHORT)nSndDataLen, &enErr);
-								#endif
+										pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nDataLen, FALSE, 0, &enErr); 	
+	#else
+		nRtnVal = tcpv6_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv6,
+										pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, &enErr);
+	#endif
 	}
 #else
+#if SUPPORT_SACK
     INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4,
-                                    pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData,  
-								#if SUPPORT_SACK
-									(USHORT)nDataLen, FALSE, 0, &enErr);
-								#else
-									(USHORT)nSndDataLen, &enErr);
-								#endif							
+                                    pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nDataLen, FALSE, 0, &enErr); 						
+#else
+	INT nRtnVal = tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, 
+									pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, pubData, (USHORT)nSndDataLen, &enErr); 
+#endif
 #endif
     if (nRtnVal > 0)
     {        
@@ -549,11 +696,30 @@ static void tcp_send_fin(PST_TCPLINK pstLink)
     uniFlag.stb16.fin = 1;    
 
     //* 发送链路结束报文
-    tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0,
+#if SUPPORT_IPV6
+	if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
+	{
+	#if SUPPORT_SACK
+		tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, FALSE, 0, NULL);
+	#else
+		tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, NULL);
+	#endif
+	} 
+	else
+	{
+	#if SUPPORT_SACK
+		tcpv6_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, FALSE, 0, NULL);
+	#else
+		tcpv6_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, NULL);
+	#endif
+	}
+#else
 #if SUPPORT_SACK
-        FALSE, 0,
+    tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, FALSE, 0, NULL); 
+#else
+	tcp_send_packet(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, NULL);
 #endif
-        NULL);     
+#endif
 }
 
 void tcp_disconnect(INT nInput)
@@ -597,14 +763,14 @@ void tcp_send_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in
     pstLink->stPeer.bIsNotAcked = FALSE;
 
     //* 发送应答报文 
-    tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, 
 #if SUPPORT_SACK
-        FALSE, 0,
+    tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, FALSE, 0, NULL); 
+#else
+	tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, NULL);
 #endif
-        NULL);    
 }
 
-static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
+static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHORT usSrcPort, in_addr_t *punDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
 {
     //* 标志字段ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
@@ -617,14 +783,33 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT 
     INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
 
     //* 完成实际的发送
-    return tcp_send_packet(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, 
+#if SUPPORT_IPV6
+	if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
+	{
+	#if SUPPORT_SACK
+		return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, FALSE, 0, penErr);
+	#else
+		return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
+	#endif
+	}
+	else
+	{
+	#if SUPPORT_SACK
+		return tcpv6_send_packet(pstLink, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, FALSE, 0, penErr); 
+	#else
+		return tcpv6_send_packet(pstLink, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
+	#endif
+	}
+#else
 #if SUPPORT_SACK
-        FALSE, 0,
+    return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, FALSE, 0, penErr);
+#else
+	return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
 #endif
-        penErr); 
+#endif
 }
 
-static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDstAddr, USHORT usDstPort)
+static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHORT usSrcPort, in_addr_t *punDstAddr, USHORT usDstPort)
 {
     EN_ONPSERR enErr; 
 
@@ -634,18 +819,33 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
     {
         //* 发送syn ack报文给对端
         pstLink->bState = TLSSYNACKSENT;         
-        if (tcpsrv_send_syn_ack(pstLink, unSrcAddr, usSrcPort, unDstAddr, usDstPort, &enErr) < 0)
+        if (tcpsrv_send_syn_ack(pstLink, punSrcAddr, usSrcPort, punDstAddr, usDstPort, &enErr) < 0)
         {
             pstLink->bState = TLSRCVEDSYN;
             one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
             onps_input_free(pstLink->stcbWaitAck.nInput); 
 
-    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
-            CHAR szAddr[20], szAddrClt[20];
+    #if SUPPORT_PRINTF && DEBUG_LEVEL > 1            
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif
-            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client: %s:%d), %s\r\n", inet_ntoa_safe_ext(unSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(unDstAddr, szAddrClt), usDstPort, onps_error(enErr));
+		#if SUPPORT_IPV6
+			if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
+			{
+				CHAR szAddr[20], szAddrClt[20];
+				printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*punSrcAddr, szAddr), usSrcPort, 
+						inet_ntoa_safe_ext(*punDstAddr, szAddrClt), usDstPort, onps_error(enErr));
+			}
+			else
+			{
+				CHAR szIpv6[40];
+				printf("tcpsrv_send_syn_ack() failed (server [%s]:%d, client ", inet6_ntoa((UCHAR *)punSrcAddr, szIpv6), usSrcPort);
+				printf("[%s]:%d), %s\r\n", inet6_ntoa((UCHAR *)punDstAddr, szIpv6), usDstPort, onps_error(enErr));
+			}			
+		#else
+			CHAR szAddr[20], szAddrClt[20];
+            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*punSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(*punDstAddr, szAddrClt), usDstPort, onps_error(enErr));
+		#endif
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif
@@ -855,66 +1055,44 @@ static void tcp_link_ack_handler(PST_TCPLINK pstLink)
 }
 #endif
 
-void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nPacketLen)
+void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, INT nPacketLen, EN_NPSPROTOCOL enProtocol)
 {
-    os_critical_init();
+	EN_ONPSERR enErr = ERRNO;
+	PST_TCP_HDR pstHdr = (PST_TCP_HDR)pubPacket;
 
-    PST_TCP_HDR pstHdr = (PST_TCP_HDR)pubPacket; 
-    
-    //* 把完整的tcp报文与tcp伪包头链接到一起，以便计算tcp校验和确保收到的tcp报文正确
-    EN_ONPSERR enErr; 
-    SHORT sBufListHead = -1;
-    SHORT sTcpPacketNode = -1;
-    sTcpPacketNode = buf_list_get_ext(pubPacket, nPacketLen, &enErr);
-    if (sTcpPacketNode < 0)
-    {
-#if SUPPORT_PRINTF && DEBUG_LEVEL
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("buf_list_get_ext() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
-#endif
-        return;
-    }
-    buf_list_put_head(&sBufListHead, sTcpPacketNode);
-
-    //* 填充用于校验和计算的ip伪报头
-    ST_IP_PSEUDOHDR stPseudoHdr;
-    stPseudoHdr.unSrcAddr = unSrcAddr;
-    stPseudoHdr.unDstAddr = unDstAddr;
-    stPseudoHdr.ubMustBeZero = 0;
-    stPseudoHdr.ubProto = IPPROTO_TCP;
-    stPseudoHdr.usPacketLen = htons((USHORT)nPacketLen); 
-    //* 挂载到链表头部
-    SHORT sPseudoHdrNode;
-    sPseudoHdrNode = buf_list_get_ext((UCHAR *)&stPseudoHdr, (USHORT)sizeof(ST_IP_PSEUDOHDR), &enErr);
-    if (sPseudoHdrNode < 0)
-    {        
-#if SUPPORT_PRINTF && DEBUG_LEVEL
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_lock(o_hMtxPrintf);
-    #endif
-        printf("buf_list_get_ext() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
-    #if PRINTF_THREAD_MUTEX
-        os_thread_mutex_unlock(o_hMtxPrintf);
-    #endif
+#if !SUPPORT_IPV6
+	enProtocol = enProtocol;
 #endif
 
-        buf_list_free(sTcpPacketNode); 
-        return;
-    }
-    buf_list_put_head(&sBufListHead, sPseudoHdrNode);
+    os_critical_init();            
 
-    //* 挂载完毕，可以计算校验和是否正确了
+    //* 计算校验和
     USHORT usPktChecksum = pstHdr->usChecksum;
-    pstHdr->usChecksum = 0;
-    USHORT usChecksum = tcpip_checksum_ext(sBufListHead);
-    //* 先释放再判断
-    buf_list_free(sTcpPacketNode);
-    buf_list_free(sPseudoHdrNode);
+    pstHdr->usChecksum = 0; 
+#if SUPPORT_IPV6
+	USHORT usChecksum; 
+	if (IPV4 == enProtocol)	
+		usChecksum = tcpip_checksum_ipv4_ext(htonl(*punSrcAddr), htonl(*punDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr); 
+	else
+		usChecksum = tcpip_checksum_ipv6_ext((UCHAR *)punSrcAddr, (UCHAR *)punDstAddr, IPPROTO_TCP, pubPacket, (UINT)nPacketLen, &enErr);
+#else
+    USHORT usChecksum = tcpip_checksum_ipv4_ext(htonl(*punSrcAddr), htonl(*punDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);     
+#endif
+	if (ERRNO != enErr)
+	{
+#if SUPPORT_PRINTF && DEBUG_LEVEL
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_lock(o_hMtxPrintf);
+	#endif
+		printf("tcpip_checksum_ipv4_ext() failed, %s, the tcp packet will be dropped\r\n", onps_error(enErr));
+	#if PRINTF_THREAD_MUTEX
+		os_thread_mutex_unlock(o_hMtxPrintf);
+	#endif
+#endif			
+		return;
+	}
+
+	//* 是否通过校验和计算
     if (usPktChecksum != usChecksum)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
@@ -933,22 +1111,43 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
     //* 先查找当前链路是否存在
     USHORT usDstPort = htons(pstHdr->usDstPort);
-    UINT unCltIp = htonl(unSrcAddr);
+#if SUPPORT_IPV6
+	union {
+		UINT unVal; 
+		UCHAR *pubVal; 
+	} uniCltIp;
+	if (IPV4 == enProtocol)
+		uniCltIp.unVal = htonl(*punSrcAddr);
+	else
+		uniCltIp.pubVal = (UCHAR *)punSrcAddr; 
+#else
+    UINT unCltIp = htonl(*punSrcAddr);
+#endif
     USHORT usCltPort = htons(pstHdr->usSrcPort);
     PST_TCPLINK pstLink;     
 #if SUPPORT_IPV6
-    INT nInput = onps_input_get_handle(IPPROTO_TCP, &unDstAddr, usDstPort, &pstLink);
+    INT nInput = onps_input_get_handle(IPPROTO_TCP, punDstAddr, usDstPort, &pstLink);
 #else
-	INT nInput = onps_input_get_handle(IPPROTO_TCP, unDstAddr, usDstPort, &pstLink);
+	INT nInput = onps_input_get_handle(IPPROTO_TCP, *punDstAddr, usDstPort, &pstLink);
 #endif
     if (nInput < 0)
     {
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3
-        UCHAR *pubAddr = (UCHAR *)&unDstAddr;
+        UCHAR *pubAddr = (UCHAR *)punDstAddr;
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
-    #endif        
-        printf("The tcp link of %d.%d.%d.%d:%d isn't found, the packet will be dropped\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3], usDstPort);        
+    #endif     
+	#if SUPPORT_IPV6
+		if (IPV4 == enProtocol)
+			printf("The tcp link of %d.%d.%d.%d:%d isn't found, the packet will be dropped\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3], usDstPort); 
+		else
+		{
+			CHAR szIpv6[40]; 
+			printf("The tcp link of [%s]:%d isn't found, the packet will be dropped\r\n", inet6_ntoa(pubAddr, szIpv6), usDstPort); 
+		}
+	#else
+		printf("The tcp link of %d.%d.%d.%d:%d isn't found, the packet will be dropped\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3], usDstPort);
+	#endif
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif
@@ -968,7 +1167,11 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
         if(!pstLink) 
         { 
-            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
+		#if SUPPORT_IPV6
+			INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &pstLink);
+		#else
+            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
+		#endif
             if (nRmtCltInput < 0) //* 尚未收到任何syn连接请求报文，这里就直接丢弃该报文
                 return; 
 
@@ -1009,7 +1212,15 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 //* 记录当前链路信息
                 pstLink->stPeer.unSeqNum = unPeerSeqNum;
                 //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize); 
+			#if SUPPORT_IPV6
+				if (IPV4 == enProtocol)
+					pstLink->stPeer.stSockAddr.saddr_ipv4 = uniCltIp.unVal;
+				else
+					memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, uniCltIp.pubVal, 16);
+
+			#else
                 pstLink->stPeer.stSockAddr.saddr_ipv4 = unCltIp/*htonl(unSrcAddr)*/;
+			#endif
                 pstLink->stPeer.stSockAddr.usPort = usCltPort/*htons(pstHdr->usSrcPort)*/;
 
                 //* 截取tcp头部选项字段
@@ -1019,7 +1230,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 pstLink->bState = TLSRCVEDSYNACK;
 
                 //* 发送syn ack的ack报文
-                tcp_send_ack_of_syn_ack(nInput, pstLink, unDstAddr, usDstPort, unSrcAckNum);
+                tcp_send_ack_of_syn_ack(nInput, pstLink, punDstAddr, usDstPort, unSrcAckNum);
             }
         }
         else if (uniFlag.stb16.reset)
@@ -1048,7 +1259,14 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             //* 发送ack
             pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum + 1;
-            tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+		#if SUPPORT_IPV6
+			if (IPV4 == enProtocol)
+				tcp_send_ack(pstLink, *punDstAddr, usDstPort, uniCltIp.unVal, usCltPort); 
+			else
+				tcpv6_send_ack(pstLink, (UCHAR *)punDstAddr, usDstPort, uniCltIp.pubVal, usCltPort); 
+		#else
+            tcp_send_ack(pstLink, *punDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+		#endif
             //* 迁移到相关状态
             if (TLSCONNECTED == (EN_TCPLINKSTATE)pstLink->bState)
             {                       
@@ -1205,7 +1423,14 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                         if (usWndSize)
                             pstLink->stLocal.bIsZeroWnd = FALSE;
                         //pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum;
-                        tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+					#if SUPPORT_IPV6
+						if (IPV4 == enProtocol)
+							tcp_send_ack(pstLink, *punDstAddr, usDstPort, uniCltIp.unVal, usCltPort); 
+						else
+							tcpv6_send_ack(pstLink, (UCHAR *)punDstAddr, usDstPort, uniCltIp.pubVal, usCltPort); 
+					#else
+                        tcp_send_ack(pstLink, *punDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+					#endif
 
                         return; 
                     }
@@ -1223,8 +1448,17 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
                 //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
 
                 pstLink->stPeer.unSeqNum += nDataLen;
-                if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED || (nDataLen > 0 && pstLink->stPeer.bIsNotAcked)/* 最后一个条件为当连续收到两个对端的数据报文后立即发送ack */)
-                    tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+				if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED || (nDataLen > 0 && pstLink->stPeer.bIsNotAcked)/* 最后一个条件为当连续收到两个对端的数据报文后立即发送ack */)
+				{
+				#if SUPPORT_IPV6
+					if (IPV4 == enProtocol)
+						tcp_send_ack(pstLink, *punDstAddr, usDstPort, uniCltIp.unVal, usCltPort);
+					else
+						tcpv6_send_ack(pstLink, (UCHAR *)punDstAddr, usDstPort, uniCltIp.pubVal, usCltPort);
+				#else
+					tcp_send_ack(pstLink, *punDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+				#endif
+				}
                 else
                 {
                     pstLink->stPeer.unStartMSecs = os_get_system_msecs();
@@ -1238,10 +1472,18 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     else
     {       
         //* 首先看看是否已针对当前请求申请了input
-        INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(unDstAddr, usDstPort, unCltIp, usCltPort, &pstLink); 
+	#if SUPPORT_IPV6
+		INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &pstLink);
+	#else
+        INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
+	#endif
         if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个
         {                 
-            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, unDstAddr, usCltPort, unCltIp, &pstLink, &enErr);             
+		#if SUPPORT_IPV6
+			nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, punDstAddr, usCltPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, &pstLink, &enErr); 
+		#else
+            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, punDstAddr, usCltPort, (in_addr_t *)&unCltIp, &pstLink, &enErr); 
+		#endif
             if (nRmtCltInput < 0)
             {
         #if SUPPORT_PRINTF                
@@ -1261,7 +1503,11 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             //* 发送syn ack报文给对端
             pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
-            tcpsrv_send_syn_ack_with_start_timer(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort);
+		#if SUPPORT_IPV6
+			tcpsrv_send_syn_ack_with_start_timer(pstLink, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort);
+		#else
+            tcpsrv_send_syn_ack_with_start_timer(pstLink, punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort);
+		#endif
         }
         else //* 已经申请，说明对端没收到syn ack，我们已经通过定时器在重复发送syn ack报文，所以这里直接发送一个应答但不开启定时器
         {
@@ -1270,7 +1516,7 @@ void tcp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
 
             //* 发送syn ack报文给对端
             pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
-            tcpsrv_send_syn_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort, &enErr);             
+            tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &enErr);
         }                
     }
 #endif
@@ -1435,7 +1681,7 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 tcp_send_timer_node_put(pstcbSndTimer);
                 pstLink->stcbSend.bSendPacketNum++; 
 
-                //* 发送数据，注释掉的为添加的tcp sack选项的测试代码                
+                //* 发送数据  
                 tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);
                 
                 buddy_free(pubData);  
@@ -1554,108 +1800,6 @@ __lblDelNode:
 #endif
 
 #if SUPPORT_IPV6
-static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT usSrcPort, UCHAR ubaDstAddr[16], USHORT usDstPort,
-	UNI_TCP_FLAG uniFlag, UCHAR *pubOptions, USHORT usOptionsBytes, UCHAR *pubData, USHORT usDataBytes,
-#if SUPPORT_SACK
-	BOOL blIsSpecSeqNum, UINT unSeqNum,
-#endif
-	EN_ONPSERR *penErr)
-{
-	//* 挂载用户数据
-	SHORT sBufListHead = -1;
-	SHORT sDataNode = -1;
-	if (pubData)
-	{
-		sDataNode = buf_list_get_ext(pubData, (UINT)usDataBytes, penErr);
-		if (sDataNode < 0)
-			return -1;
-		buf_list_put_head(&sBufListHead, sDataNode);
-	}
-
-	//* 挂载tcp options选项
-	SHORT sOptionsNode = -1;
-	if (usOptionsBytes)
-	{
-		sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
-		if (sOptionsNode < 0)
-		{
-			if (sDataNode >= 0)
-				buf_list_free(sDataNode);
-			return -1;
-		}
-		buf_list_put_head(&sBufListHead, sOptionsNode);
-	}
-
-	//* 将tcp头挂载到链表头部
-	ST_TCP_HDR stHdr;
-	SHORT sHdrNode;
-	sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
-	if (sHdrNode < 0)
-	{
-		if (sDataNode >= 0)
-			buf_list_free(sDataNode);
-		if (sOptionsNode >= 0)
-			buf_list_free(sOptionsNode);
-
-		return -1;
-	}
-	buf_list_put_head(&sBufListHead, sHdrNode);
-
-	//* 加锁，当接收线程与发送线程同时调用这个函数时，会因为锁的存在使得调用按顺序进行，这样就确保sequence num不会乱序
-	INT nRtnVal = -1;
-	onps_input_lock(pstLink->stcbWaitAck.nInput);
-	{
-		//* 填充tcp头		
-		stHdr.usSrcPort = htons(usSrcPort);
-		stHdr.usDstPort = htons(usDstPort);
-#if SUPPORT_SACK
-		if (blIsSpecSeqNum)
-			stHdr.unSeqNum = htonl(unSeqNum);
-		else
-			stHdr.unSeqNum = htonl(pstLink->stLocal.unHasSndBytes + 1);
-#else
-		stHdr.unSeqNum = htonl(pstLink->stLocal.unSeqNum);
-#endif
-		stHdr.unAckNum = htonl(pstLink->stPeer.unSeqNum);
-		uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
-		stHdr.usFlag = uniFlag.usVal;
-		stHdr.usWinSize = htons(pstLink->stLocal.usWndSize);
-		stHdr.usChecksum = 0;
-		stHdr.usUrgentPointer = 0;
-
-		//* 计算校验和
-		EN_ONPSERR enErr = ERRNO;
-		stHdr.usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes), IPPROTO_TCP, sBufListHead, &enErr);
-		if (ERRNO == enErr)
-		{
-			//* 发送之
-			UINT unFlowLabel = ipv6_flow_label_cal(ubaDstAddr, ubaSrcAddr, IPPROTO_TCP, usDstPort, usSrcPort);
-			nRtnVal = ipv6_send_ext(ubaSrcAddr, ubaDstAddr, IPPROTO_TCP, sBufListHead, unFlowLabel, penErr);
-#if SUPPORT_SACK
-			if (!blIsSpecSeqNum)
-				pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes;
-#endif
-		}
-		else
-		{
-			if (penErr)
-				*penErr = enErr;
-
-			nRtnVal = -1;
-		}
-	}
-	onps_input_unlock(pstLink->stcbWaitAck.nInput);
-
-	//* 释放刚才申请的buf list节点
-	if (sDataNode >= 0)
-		buf_list_free(sDataNode);
-	if (sOptionsNode >= 0)
-		buf_list_free(sOptionsNode);
-	buf_list_free(sHdrNode);
-
-	return nRtnVal;
-}
-
 INT tcpv6_send_syn(INT nInput, UCHAR ubaSrvAddr[16], USHORT usSrvPort, int nConnTimeout)
 {
 	EN_ONPSERR enErr;
@@ -1723,5 +1867,21 @@ INT tcpv6_send_syn(INT nInput, UCHAR ubaSrvAddr[16], USHORT usSrvPort, int nConn
 	}
 
 	return nRtnVal;
+}
+
+void tcpv6_send_ack(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT usSrcPort, UCHAR ubaDstAddr[16], USHORT usDstPort)
+{
+	//* 标志字段ack域置1，其它标志域为0
+	UNI_TCP_FLAG uniFlag;
+	uniFlag.usVal = 0;
+	uniFlag.stb16.ack = 1;
+	pstLink->stPeer.bIsNotAcked = FALSE;
+
+	//* 发送应答报文 
+#if SUPPORT_SACK
+	tcpv6_send_packet(pstLink, ubaSrcAddr, usSrcPort, ubaDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, FALSE, 0, NULL);
+#else
+	tcpv6_send_packet(pstLink, ubaSrcAddr, usSrcPort, ubaDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, NULL);
+#endif
 }
 #endif

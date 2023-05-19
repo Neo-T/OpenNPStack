@@ -229,7 +229,7 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 }
 
 #if SUPPORT_ETHERNET
-INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t unSrvIp, USHORT usCltPort, in_addr_t unCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
+INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t *punSrvIp, USHORT usCltPort, in_addr_t *punCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
 {
     if (nInputSrv < 0 || nInputSrv > SOCKET_NUM_MAX - 1)
     {
@@ -292,7 +292,14 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstcbInput->unRcvBufSize = unSize;
         pstcbInput->unRcvedBytes = 0;
         pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_RCLIENT;
-        pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = unSrvIp;
+	#if SUPPORT_IPV6
+		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
+			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
+		else
+			memcpy(pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, (UCHAR *)punSrvIp, 16); 
+	#else
+		pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
+	#endif
         pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = usSrvPort;
         pstcbInput->pvAttach = pstLink;
 
@@ -302,15 +309,29 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstLink->stLocal.bIsZeroWnd = FALSE;
         pstLink->stLocal.pstHandle = &pstcbInput->uniHandle.stTcpUdp;
                 
-        pstLink->stPeer.stSockAddr.saddr_ipv4 = unCltIp; 
+	#if SUPPORT_IPV6
+		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
+			pstLink->stPeer.stSockAddr.saddr_ipv4 = *punCltIp;
+		else
+			memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, (UCHAR *)punCltIp, 16); 
+	#else
+        pstLink->stPeer.stSockAddr.saddr_ipv4 = *punCltIp; 
+	#endif
         pstLink->stPeer.stSockAddr.usPort = usCltPort;      
 
         pstLink->stcbWaitAck.nInput = pstNode->uniData.nVal; 
         pstLink->stcbWaitAck.bRcvTimeout = 1; 
 
         pstBacklog->nInput = pstNode->uniData.nVal; 
-        pstBacklog->stAdrr.unIp = unCltIp; 
-        pstBacklog->stAdrr.usPort = usCltPort; 
+	#if SUPPORT_IPV6
+		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
+			pstBacklog->stAddr.saddr_ipv4 = *punCltIp;
+		else
+			memcpy(pstBacklog->stAddr.saddr_ipv6, (UCHAR *)punCltIp, 16); 
+	#else
+        pstBacklog->stAddr.unIp = *punCltIp; 
+	#endif
+        pstBacklog->stAddr.usPort = usCltPort; 
         pstLink->pstBacklog = pstBacklog;
 
         pstLink->nInputSrv = nInputSrv; 
@@ -1368,7 +1389,7 @@ __lblPortNew:
 }
 
 #if SUPPORT_ETHERNET
-INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT unCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink)
+INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, in_addr_t *punCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink)
 {
     INT nInput = -1;
     os_thread_mutex_lock(l_hMtxInput);
@@ -1381,10 +1402,29 @@ INT onps_input_get_handle_of_tcp_rclient(UINT unSrvIp, USHORT usSrvPort, UINT un
             if (IPPROTO_TCP == pstcbInput->ubIPProto && TCP_TYPE_RCLIENT == pstcbInput->uniHandle.stTcpUdp.bType && pstcbInput->pvAttach)
             {                
                 PST_TCPLINK pstLink = (PST_TCPLINK)pstcbInput->pvAttach; 
-                if (unSrvIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4
+#if SUPPORT_IPV6
+				BOOL blIsSrvIpMatched, blIsCltIpMatched; 
+				if (AF_INET == pstcbInput->uniHandle.stTcpUdp.bFamily)
+				{
+					blIsSrvIpMatched = (BOOL)(*punSrvIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4); 
+					blIsCltIpMatched = (BOOL)(*punCltIp == pstLink->stPeer.stSockAddr.saddr_ipv4); 
+				}
+				else
+				{
+					blIsSrvIpMatched = (BOOL)(!memcmp((UCHAR *)punSrvIp, pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, 16));
+					blIsCltIpMatched = (BOOL)(!memcmp((UCHAR *)punCltIp, pstLink->stPeer.stSockAddr.saddr_ipv6, 16));
+				}
+
+				if (blIsSrvIpMatched
+					&& usSrvPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort
+					&& blIsCltIpMatched
+					&& usCltPort == pstLink->stPeer.stSockAddr.usPort)
+#else
+                if (*punSrvIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4
                     && usSrvPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort
-                    && unCltIp == pstLink->stPeer.stSockAddr.saddr_ipv4
+                    && *punCltIp == pstLink->stPeer.stSockAddr.saddr_ipv4
                     && usCltPort == pstLink->stPeer.stSockAddr.usPort)
+#endif
                 {
                     *ppstTcpLink = pstLink; 
                     nInput = pstNextNode->uniData.nVal;

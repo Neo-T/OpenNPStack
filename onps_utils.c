@@ -132,12 +132,24 @@ USHORT tcpip_checksum_ipv4(in_addr_t unSrcAddr, in_addr_t unDstAddr, USHORT usPa
 	return usChecksum; 
 }
 
+USHORT tcpip_checksum_ipv4_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR ubProto, UCHAR *pubPayload, USHORT usPayloadLen, EN_ONPSERR *penErr)
+{
+	//* 把完整的udp报文放到buf list链表以便计算udp校验和确保收到的udp报文正确        
+	SHORT sBufListHead = -1;
+	SHORT sPayloadNode = buf_list_get_ext(pubPayload, (UINT)usPayloadLen, penErr); 
+	if (sPayloadNode < 0)
+		return 0; 
+	buf_list_put_head(&sBufListHead, sPayloadNode);  
+
+	USHORT usChecksum = tcpip_checksum_ipv4(unSrcAddr, unDstAddr, usPayloadLen, ubProto, sBufListHead, penErr); 
+	buf_list_free(sPayloadNode); 
+
+	return usChecksum; 
+}
+
 #if SUPPORT_IPV6
 USHORT tcpip_checksum_ipv6(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UINT unPayloadLen, UCHAR ubProto, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-	if (penErr)
-		*penErr = ERRNO;  
-
 	//* 填充用于校验和计算的ipv6伪报头
 	ST_IPv6_PSEUDOHDR stPseudoHdr;
 	memcpy(stPseudoHdr.ubaSrcIpv6, ubaSrcAddr, 16);
@@ -157,6 +169,21 @@ USHORT tcpip_checksum_ipv6(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UINT unPa
 	buf_list_free_head(&sBufListHead, sPseudoHdrNode); 
 
 	return usChecksum; 
+}
+
+USHORT tcpip_checksum_ipv6_ext(UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16], UCHAR ubProto, UCHAR *pubPayload, UINT unPayloadLen, EN_ONPSERR *penErr)
+{
+	//* 把完整的udp报文放到buf list链表以便计算udp校验和确保收到的udp报文正确        
+	SHORT sBufListHead = -1;
+	SHORT sPayloadNode = buf_list_get_ext(pubPayload, unPayloadLen, penErr);
+	if (sPayloadNode < 0)
+		return 0; 
+	buf_list_put_head(&sBufListHead, sPayloadNode); 
+
+	USHORT usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, (USHORT)unPayloadLen, ubProto, sBufListHead, penErr);
+	buf_list_free(sPayloadNode);
+
+	return usChecksum;
 }
 #endif
 
