@@ -226,7 +226,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
 
 	//* 计算校验和
 	EN_ONPSERR enErr = ERRNO; 
-	stHdr.usChecksum = tcpip_checksum_ipv4(unSrcAddr, htonl(unDstAddr), htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes), IPPROTO_TCP, sBufListHead, &enErr);
+	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(unSrcAddr), unDstAddr, sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes, IPPROTO_TCP, sBufListHead, &enErr);
 	if (ERRNO != enErr)
 	{
 		if (sDataNode >= 0)
@@ -331,7 +331,7 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 
 		//* 计算校验和
 		EN_ONPSERR enErr = ERRNO;
-		stHdr.usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, htons(sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes), IPPROTO_TCP, sBufListHead, &enErr);
+		stHdr.usChecksum = tcpip_checksum_ipv6(ubaSrcAddr, ubaDstAddr, sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes, IPPROTO_TCP, sBufListHead, &enErr);
 		if (ERRNO == enErr)
 		{
 			//* 发送之
