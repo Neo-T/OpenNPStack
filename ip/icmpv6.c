@@ -1120,7 +1120,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 	UINT unValidLifetime = htonl(pstPrefixInfo->unValidLifetime);
 	UINT unPreferredLifetime = htonl(pstPrefixInfo->unPreferredLifetime); 
 
-	if (unValidLifetime < unPreferredLifetime)
+	if (!unValidLifetime || unValidLifetime < unPreferredLifetime)
 	{
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
 	#if PRINTF_THREAD_MUTEX
@@ -1151,7 +1151,7 @@ static void icmpv6_ra_opt_prefix_info_handler(PST_NETIF pstNetif, PST_IPv6_ROUTE
 		return; 
 	}
 
-	//* 首先看看这个前缀是否已经生成地址
+	//* 再看看这个前缀是否已经生成地址
 	PST_IPv6_DYNADDR pstAddr = NULL; 
 	do {
 		//* 读取地址节点

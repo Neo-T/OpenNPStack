@@ -653,7 +653,7 @@ INT tcp_send_data_ext(INT nInput, UCHAR *pubData, INT nDataLen, UINT unSeqNum)
     pstLink->stPeer.bIsNotAcked = FALSE;
 
     pstLink->stcbWaitAck.usSendDataBytes = (USHORT)nDataLen; //* 记录当前实际发送的字节数
-    pstLink->stLocal.bDataSendState = TDSSENDING;
+    pstLink->stLocal.bDataSendState = TDSSENDING; 
 
 #if SUPPORT_IPV6
 	INT nRtnVal; 
@@ -949,7 +949,7 @@ static void tcp_link_fast_retransmit(PST_TCPLINK pstLink, UINT unRetransSeqNum)
         else
             pstcbSndTimer = pstLink->stcbSend.pstcbSndTimer;
 
-        //* 发送尚未sacked的报文
+        //* 发送尚未sacked的报文，因为pstcbLastSackedSndTimer不为空意味着其指向的报文已经被对端收到，该报文之前如果未被sacked则可以认为丢了（当然存在因路由路径导致的晚到情形，但为了实现快速重传这里认为丢了）
         if (pstcbLastSackedSndTimer)
         {            
             while (pstcbSndTimer)
@@ -981,7 +981,7 @@ static void tcp_packet_sacked(PST_TCPLINK pstLink, UINT unLeft, UINT unRight)
             {                
                 //* right不在sack right的后面
                 if (!uint_after(pstcbSndTimer->unRight, unRight))
-                {
+                {							
                     pstcbSndTimer->bIsNotSacked = FALSE;
                     unLeft = pstcbSndTimer->unRight;
                 }
@@ -1047,7 +1047,7 @@ static void tcp_link_ack_handler(PST_TCPLINK pstLink)
             tcp_send_timer_node_del_unsafe(pstSendTimer);   //* 从定时器队列中删除当前节点                
             tcp_send_timer_node_free_unsafe(pstSendTimer);  //* 归还当前节点            
 
-                                                            //* 继续取出下一个节点            
+			//* 继续取出下一个节点
             pstSendTimer = pstSendTimer->pstcbNextForLink;
         }
     }
@@ -1320,8 +1320,8 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
             if (nTcpHdrLen > sizeof(ST_TCP_HDR))
             {                
                 CHAR bSackNum = tcp_options_get_sack(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));
-                if (bSackNum)                
-                    tcp_link_sack_handler(pstLink, bSackNum);                                    
+				if (bSackNum)		
+					tcp_link_sack_handler(pstLink, bSackNum);				
             }
            
             if (unSrcAckNum == pstLink->stcbSend.unPrevSeqNum) //* 记录dup ack数量
@@ -1396,13 +1396,13 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
             if (nDataLen)
             {                          
                 //* 只有得到期望序号的数据报文才会被上传给用户层，乱序报文直接丢弃
-                if (unPeerSeqNum == pstLink->stPeer.unSeqNum)
+                if (/*unPeerSeqNum == pstLink->stPeer.unSeqNum || */!uint_after(unPeerSeqNum, pstLink->stPeer.unSeqNum) && uint_after(unPeerSeqNum + nDataLen, pstLink->stPeer.unSeqNum))
                 {
                     //* 必须是非零窗口探测报文才搬运数据
                     if (!(nDataLen == 1 && pstLink->stLocal.bIsZeroWnd))
                     {
-                        //* 将数据搬运到input层
-                        nDataLen = onps_input_tcp_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), nDataLen, &enErr); 
+                        //* 将数据搬运到input层						
+                        nDataLen = onps_input_tcp_recv(nInput, (const UCHAR *)(pubPacket + nTcpHdrLen), (UINT)(unPeerSeqNum + (UINT)nDataLen - pstLink->stPeer.unSeqNum), &enErr);
                         if (nDataLen < 0)
                         {
                     #if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -1436,13 +1436,7 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
                     }
                 }
                 else
-                {                    
-                    os_thread_mutex_lock(o_hMtxPrintf);
-                    printf("unPeerSeqNum != pstLink->stPeer.unSeqNum(%u : %u), nDataLen: %d\r\n", unPeerSeqNum, pstLink->stPeer.unSeqNum, nDataLen);
-                    os_thread_mutex_unlock(o_hMtxPrintf);
-
-                    nDataLen = 0; //* 为了节省内存，这里直接丢弃乱序的报文，而不是先缓存                    
-                }
+                    nDataLen = 0; //* 为了节省内存，这里直接丢弃乱序的报文，而不是先缓存
 
                 //* 更新对端的窗口信息                                                    
                 //pstLink->stPeer.usWndSize = htons(pstHdr->usWinSize);
@@ -1677,9 +1671,13 @@ static BOOL tcp_link_send_data(PST_TCPLINK pstLink)
                 //* 计时并将其放入发送定时器队列
                 pstcbSndTimer->unSendMSecs = os_get_system_msecs();
                 pstcbSndTimer->usRto = RTO; 
-                *ppstcbSndTimer = pstcbSndTimer; 
-                tcp_send_timer_node_put(pstcbSndTimer);
-                pstLink->stcbSend.bSendPacketNum++; 
+				tcp_send_timer_lock();
+				{
+					*ppstcbSndTimer = pstcbSndTimer;
+					tcp_send_timer_node_put_unsafe(pstcbSndTimer);
+					pstLink->stcbSend.bSendPacketNum++;
+				}                
+				tcp_send_timer_unlock();
 
                 //* 发送数据  
                 tcp_send_data(pstLink->stcbWaitAck.nInput, pubData, unCpyBytes, 0);

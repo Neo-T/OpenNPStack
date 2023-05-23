@@ -697,7 +697,8 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("error: The arp target mac address does not match, the packet will be dropped\r\n"); 
+        printf("error: The arp target mac address (%02X:%02X:%02X:%02X:%02X:%02X:) does not match, the packet will be dropped\r\n"
+				, pstArpIPv4->ubaDstMacAddr[0], pstArpIPv4->ubaDstMacAddr[1], pstArpIPv4->ubaDstMacAddr[2], pstArpIPv4->ubaDstMacAddr[3], pstArpIPv4->ubaDstMacAddr[4], pstArpIPv4->ubaDstMacAddr[5]);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);
     #endif

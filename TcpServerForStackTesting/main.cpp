@@ -58,6 +58,7 @@ unordered_map<SOCKET, ST_TCPCLIENT> l_umstClients;
 static BOOL l_blIsRunning = TRUE;
 BOOL WINAPI ConsoleCtrlHandler(DWORD dwEvent)
 {
+	printf("Exit!\r\n"); 
     l_blIsRunning = FALSE;    
     return TRUE;
 }
