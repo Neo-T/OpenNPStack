@@ -99,9 +99,11 @@
 
 //* 网络工具配置项
 //* ===============================================================================================
-#define NETTOOLS_PING       1 //* ping
-#define NETTOOLS_DNS_CLIENT 1 //* dns查询客户端
-#define NETTOOLS_SNTP       1 //* sntp客户端
+#define NETTOOLS_PING			1 //* ping
+#define NETTOOLS_DNS_CLIENT		1 //* dns查询客户端
+#define NETTOOLS_SNTP           1 //* sntp客户端
+#define NETTOOLS_TELNETCLT      1 //* telnet客户端
+#define NETTOOLS_TELNETSRV      1 //* telnet服务端
 //* ===============================================================================================
 
 #endif

@@ -392,6 +392,22 @@ CHAR array_linked_list_get_index(void *pvUnit, void *pvArray, UCHAR ubUnitSize, 
 
 void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx)
 {
+    void *pvUnit;
+    
+    if (*pbListHead < 0)            
+        return NULL;     
+
+    if (pbUnitIdx)
+        *pbUnitIdx = *pbListHead;
+
+    pvUnit = (UCHAR *)pvArray + (*pbListHead) * ubUnitSize;
+    *pbListHead = *((CHAR *)pvArray + (*pbListHead) * ubUnitSize + bOffsetNextUnit);
+
+    return pvUnit;
+}
+
+void *array_linked_list_get_safe(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx)
+{
 	void *pvUnit;
 
 	os_critical_init();
@@ -920,6 +936,28 @@ const CHAR *get_ip_proto_name(UCHAR ubProto)
     }
 }
 
+//* 几级域名，也就是域名分了几段，为封装dns查询报文提供数据支持
+INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
+{
+    INT i, nCount = 1, nBytesOf1stSeg = 0;
+    INT nDomainNameLen = strlen(pszDomainName);
+    for (i = 0; i < nDomainNameLen; i++)
+    {
+        if (pszDomainName[i] == '.')
+        {
+            nCount++;
+            if (0 == nBytesOf1stSeg)
+                nBytesOf1stSeg = i;
+        }
+    }
+
+    if (0 == nBytesOf1stSeg)
+        nBytesOf1stSeg = i;
+    *pnBytesOf1stSeg = nBytesOf1stSeg;
+
+    return nCount;
+}
+
 #if SUPPORT_ETHERNET
 //* 判断mac地址是否匹配
 BOOL ethernet_mac_matched(const UCHAR *pubaMacAddr1, const UCHAR *pubaMacAddr2)
@@ -947,28 +985,6 @@ BOOL is_mac_broadcast_addr(const UCHAR *pubaMacAddr)
     }
 
     return TRUE;
-}
-
-//* 几级域名，也就是域名分了几段，为封装dns查询报文提供数据支持
-INT get_level_of_domain_name(const CHAR *pszDomainName, INT *pnBytesOf1stSeg)
-{
-    INT i, nCount = 1, nBytesOf1stSeg = 0;
-    INT nDomainNameLen = strlen(pszDomainName);
-    for (i = 0; i < nDomainNameLen; i++)
-    {
-        if (pszDomainName[i] == '.')
-        {
-            nCount++;
-            if (0 == nBytesOf1stSeg)
-                nBytesOf1stSeg = i;
-        }
-    }
-
-    if (0 == nBytesOf1stSeg)
-        nBytesOf1stSeg = i;
-    *pnBytesOf1stSeg = nBytesOf1stSeg;
-
-    return nCount;
 }
 #endif
 
@@ -1191,5 +1207,35 @@ INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16],
 __lblMacthedBits:
 	return bMatchedBytes * 8 + bit8_matched_from_left(ubaAddr1[i], ubaAddr2[i], 8);
 }
+#endif //* #if SUPPORT_IPV6
 
-#endif
+SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, EN_ONPSERR *penErr)
+{    
+    SOCKET hSrvSocket;
+    INT i;
+
+    do {
+        hSrvSocket = socket(family, SOCK_STREAM, 0, penErr);
+        if (INVALID_SOCKET == hSrvSocket)
+            break;
+
+        if (bind(hSrvSocket, NULL, usSrvPort))
+        {
+            onps_get_last_error(hSrvSocket, penErr);
+            break;
+        }
+
+        if (listen(hSrvSocket, usBacklog))
+        {
+            onps_get_last_error(hSrvSocket, penErr);
+            break;
+        }         
+
+        return hSrvSocket;
+    } while (FALSE);
+
+    if (INVALID_SOCKET != hSrvSocket)
+        close(hSrvSocket);
+
+    return INVALID_SOCKET;
+}

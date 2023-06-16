@@ -109,7 +109,8 @@ ONPS_UTILS_EXT void sllist_put_tail_node(PST_SLINKEDLIST *ppstSLList, PST_SLINKE
 
 #define INVALID_ARRAYLNKLIST_UNIT -1 //* 无效的数组型链表单元
 ONPS_UTILS_EXT CHAR array_linked_list_get_index(void *pvUnit, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum);
-ONPS_UTILS_EXT void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx);
+ONPS_UTILS_EXT void *array_linked_list_get(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx); 
+ONPS_UTILS_EXT void *array_linked_list_get_safe(CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx);
 ONPS_UTILS_EXT void array_linked_list_put(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit);
 ONPS_UTILS_EXT void array_linked_list_put_safe(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit);
 ONPS_UTILS_EXT void array_linked_list_put_tail(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bUnitNum, CHAR bOffsetNextUnit);
@@ -149,5 +150,8 @@ ONPS_UTILS_EXT const UCHAR *inet6_aton(const CHAR *pszIpv6, UCHAR ubaIpv6[16]);
 ONPS_UTILS_EXT INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, UCHAR ubBitsToCompare); //* 参数ubBitsToCompare指定要比较的数据位数，最长即为ipv6地址的128位长，返回值为0则相等，1则前者大于后者，-1则后者大于前者
 ONPS_UTILS_EXT INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16], UCHAR ubPrefixBitsLen); //* 给出两个地址前缀匹配的数据位数，返回值为匹配的位数，0为不匹配
 #endif
+
+#include "bsd/socket.h" 
+ONPS_UTILS_EXT SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, EN_ONPSERR *penErr);
 
 #endif

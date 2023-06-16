@@ -41,7 +41,7 @@ void dhcpv6_client_ctl_block_init(void)
 
 PSTCB_DHCPv6_CLIENT dhcpv6_client_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr)
 {
-	PSTCB_DHCPv6_CLIENT pstFreeNode = (PSTCB_DHCPv6_CLIENT)array_linked_list_get(&l_bFreeDv6CltList, l_stcbaDv6Clt, (UCHAR)sizeof(STCB_DHCPv6_CLIENT), offsetof(STCB_DHCPv6_CLIENT, bNext), pbNodeIdx);
+	PSTCB_DHCPv6_CLIENT pstFreeNode = (PSTCB_DHCPv6_CLIENT)array_linked_list_get_safe(&l_bFreeDv6CltList, l_stcbaDv6Clt, (UCHAR)sizeof(STCB_DHCPv6_CLIENT), offsetof(STCB_DHCPv6_CLIENT, bNext), pbNodeIdx);
 	if (!pstFreeNode)
 	{
 		if (penErr)
@@ -51,9 +51,9 @@ PSTCB_DHCPv6_CLIENT dhcpv6_client_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr)
 	return pstFreeNode;
 }
 
-void dhcpv6_client_node_free(PSTCB_DHCPv6_CLIENT pstClientNode)
+void dhcpv6_client_node_free(PSTCB_DHCPv6_CLIENT pstcbClientNode)
 {
-	array_linked_list_put_safe(pstClientNode, &l_bFreeDv6CltList, l_stcbaDv6Clt, (UCHAR)sizeof(STCB_DHCPv6_CLIENT), IPV6_ROUTER_NUM, offsetof(STCB_DHCPv6_CLIENT, bNext));
+	array_linked_list_put_safe(pstcbClientNode, &l_bFreeDv6CltList, l_stcbaDv6Clt, (UCHAR)sizeof(STCB_DHCPv6_CLIENT), IPV6_ROUTER_NUM, offsetof(STCB_DHCPv6_CLIENT, bNext));
 }
 
 PSTCB_DHCPv6_CLIENT dhcpv6_client_get(CHAR bClient)
@@ -64,9 +64,9 @@ PSTCB_DHCPv6_CLIENT dhcpv6_client_get(CHAR bClient)
 		return NULL;
 }
 
-CHAR dhcpv6_client_get_index(PSTCB_DHCPv6_CLIENT pstClient)
+CHAR dhcpv6_client_get_index(PSTCB_DHCPv6_CLIENT pstcbClient)
 {
-	return array_linked_list_get_index(pstClient, l_stcbaDv6Clt, (UCHAR)sizeof(STCB_DHCPv6_CLIENT), IPV6_ROUTER_NUM);
+	return array_linked_list_get_index(pstcbClient, l_stcbaDv6Clt, (UCHAR)sizeof(STCB_DHCPv6_CLIENT), IPV6_ROUTER_NUM);
 }
 
 PSTCB_DHCPv6_CLIENT dhcpv6_client_find_by_ipv6(PST_NETIF pstNetif, UCHAR ubaRouterAddr[16], PST_IPv6_ROUTER *ppstRouter)

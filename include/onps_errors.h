@@ -97,6 +97,10 @@ typedef enum {
 #endif
 	ERRFAMILYINCONSISTENT,  //* 目标和源地址的地址族不一致
 	ERRUNSUPPORTEDFAMILY,   //* 不支持的地址族
+#if NETTOOLS_TELNETSRV
+    ERRNOTELNETCLTCBNODE,   //* 无可用telnet客户端控制块节点
+    ERRNVTSTART,            //* nvt启动失败
+#endif
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

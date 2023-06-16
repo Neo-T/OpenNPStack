@@ -92,6 +92,10 @@ static const ST_ONPSERR lr_staErrorList[] = {
 #endif
 	{ ERRFAMILYINCONSISTENT, "The address family of the target and source addresses is inconsistent" }, 
 	{ ERRUNSUPPORTEDFAMILY, "Unsupported address family" }, 
+#if NETTOOLS_TELNETSRV
+    { ERRNOTELNETCLTCBNODE, "Telnet client control block list is empty" }, 
+    { ERRNVTSTART, "Network virtual terminal startup failed" }, 
+#endif
     { ERRUNKNOWN, "unknown error" }
 }; 
 

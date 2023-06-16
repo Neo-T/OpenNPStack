@@ -46,7 +46,7 @@ void ipv6_cfg_init(void)
 
 PST_IPv6_DYNADDR ipv6_dyn_addr_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr) 
 {	
-	PST_IPv6_DYNADDR pstFreeNode = (PST_IPv6_DYNADDR)array_linked_list_get(&l_bFreeIpv6DynAddrList, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr), pbNodeIdx);
+	PST_IPv6_DYNADDR pstFreeNode = (PST_IPv6_DYNADDR)array_linked_list_get_safe(&l_bFreeIpv6DynAddrList, l_staIpv6DynAddrs, (UCHAR)sizeof(ST_IPv6_DYNADDR), offsetof(ST_IPv6_DYNADDR, bNextAddr), pbNodeIdx);
 	if (!pstFreeNode)
 	{
 		if (penErr)
@@ -63,7 +63,7 @@ void ipv6_dyn_addr_node_free(PST_IPv6_DYNADDR pstDynAddrNode)
 
 PST_IPv6_ROUTER ipv6_router_node_get(CHAR *pbNodeIdx, EN_ONPSERR *penErr)
 {
-	PST_IPv6_ROUTER pstFreeNode = (PST_IPv6_ROUTER)array_linked_list_get(&l_bFreeIpv6RouterList, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter), pbNodeIdx);
+	PST_IPv6_ROUTER pstFreeNode = (PST_IPv6_ROUTER)array_linked_list_get_safe(&l_bFreeIpv6RouterList, l_staIpv6Routers, (UCHAR)sizeof(ST_IPv6_ROUTER), offsetof(ST_IPv6_ROUTER, bNextRouter), pbNodeIdx);
 	if (!pstFreeNode)
 	{
 		if (penErr)

@@ -38,8 +38,6 @@
 #include "onps_input.h"
 #include "bsd/socket.h"
 
-#define ONPS_VER "1.0.0.221017"
-
 ONPS_EXT BOOL open_npstack_load(EN_ONPSERR *penErr); 
 ONPS_EXT void open_npstack_unload(void);
 
