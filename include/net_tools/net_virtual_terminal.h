@@ -102,9 +102,7 @@ typedef struct _STCB_NVT_ {
     CHAR *pszCmdCache;    
 #endif
     PST_NVTCMD_NODE pstCmdList; 
-    ST_SMACHNVT stSMach; 
-
-    //* 在这里添加你自己的字段    
+    ST_SMACHNVT stSMach;        
 } STCB_NVT, *PSTCB_NVT; 
 
 //* TCP客户端
@@ -112,7 +110,9 @@ typedef struct _STCB_TELNETCLT_ {
     SOCKET hClient;         
     STCB_NVT stcbNvt;        
     UINT unLastOperateTime; //* 最近的操作时间        
-    CHAR bTHIsRunning;
+    UCHAR bitTHRunEn  : 1;  //* 线程运行启停控制位
+    UCHAR bitTHIsEnd  : 1;  //* 线程是否安全结束运行     
+    UCHAR bitReserved : 6;
     struct _STCB_TELNETCLT_ *pstcbNext; 
 } STCB_TELNETCLT, *PSTCB_TELNETCLT; 
 

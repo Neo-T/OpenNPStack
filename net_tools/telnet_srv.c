@@ -24,17 +24,21 @@ static CHAR l_bTelnetSrvState = 1;
 
 //* 以任务/线程方式启动网络虚拟终端（NVT）
 BOOL nvt_start(PSTCB_TELNETCLT pstcbTelnetClt)
-{
-    
-    return TRUE;
+{    
+    return os_nvt_start(&pstcbTelnetClt->stcbNvt);
 }
 
 //* 停止网络虚拟终端（NVT）
 void nvt_stop(PSTCB_TELNETCLT pstcbTelnetClt)
 {
-    pstcbTelnetClt->bTHIsRunning = FALSE;
+    pstcbTelnetClt->bitTHRunEn = FALSE; 
+
+    UINT unTimeCounts = 0; 
+    while (!pstcbTelnetClt->bitTHIsEnd && unTimeCounts++ < (3 * 100)) 
+        os_sleep_ms(10); 
     
-    //* 等待任务/线程安全结束
+    //* 强制当前nvt结束    
+    os_nvt_stop(pstcbTelnetClt); 
 }
 
 static void telnet_client_add(PSTCB_TELNETCLT pstcbTelnetClt)
@@ -85,18 +89,25 @@ PSTCB_TELNETCLT telnet_client_next(PSTCB_TELNETCLT *ppstcbNextClt)
 static void telnet_client_new(SOCKET hCltSocket)
 {
     EN_ONPSERR enErr;
+    
+    //* 非阻塞
+    socket_set_rcv_timeout(hCltSocket, 0, &enErr); 
+
     PSTCB_TELNETCLT pstcbClt = (PSTCB_TELNETCLT)buddy_alloc(sizeof(STCB_TELNETCLT), &enErr)/*telnet_client_node_get(NULL, &enErr)*/;
     if (pstcbClt)
     {
         pstcbClt->hClient = hCltSocket;
         pstcbClt->unLastOperateTime = os_get_system_secs() - 5;
-        pstcbClt->bTHIsRunning = TRUE;
+        pstcbClt->bitTHRunEn = TRUE;
     }
     else
         goto __lblErr;
 
     if (nvt_start(pstcbClt))
-        telnet_client_add(pstcbClt);
+    {
+        telnet_client_add(pstcbClt); 
+        pstcbClt->bitTHIsEnd = FALSE; 
+    }
     else
     {
         enErr = ERRNVTSTART;
@@ -111,9 +122,11 @@ __lblErr:
 
 
     //* 给客户端下发一条错误信息
-    send(hCltSocket, "Failed to create a new telnet client, ", sizeof("Failed to create a new telnet client, ") - 1, 0);
+    send(hCltSocket, "Failed to create a new telnet client, ", sizeof("Failed to create a new telnet client, ") - 1, 1);
     const CHAR *pszErr = onps_error(enErr);
-    send(hCltSocket, pszErr, strlen(pszErr), 0);
+    send(hCltSocket, (UCHAR *)pszErr, strlen(pszErr), 1);
+    os_sleep_secs(1);
+    close(hCltSocket); 
 
     return;
 }
@@ -121,7 +134,7 @@ __lblErr:
 static void telnet_client_close(PSTCB_TELNETCLT pstcbTelnetClt)
 {
     nvt_stop(pstcbTelnetClt);
-    closesocket(pstcbTelnetClt->hClient);
+    close(pstcbTelnetClt->hClient);
     telnet_client_del(pstcbTelnetClt);
     buddy_free(pstcbTelnetClt);
 }
@@ -132,7 +145,7 @@ static void telnet_client_clean_zombie(CHAR *pbClientCnt)
 
     do {
         PSTCB_TELNETCLT pstcbNextClt = telnet_client_next(&pstcbNextNode);
-        if (pstcbNextClt && os_get_system_secs() - pstcbNextClt->unLastOperateTime > TELNETCLT_INACTIVE_TIMEOUT)
+        if (pstcbNextClt && ((os_get_system_secs() - pstcbNextClt->unLastOperateTime > TELNETCLT_INACTIVE_TIMEOUT) || pstcbNextClt->bitTHIsEnd))         
         {
             telnet_client_close(pstcbNextClt);
             *pbClientCnt -= 1; 
@@ -155,12 +168,14 @@ static void telnet_client_clean(void)
     } while (pstcbNextNode);    
 }
 
-void telnet_srv_entry(void)
+void telnet_srv_entry(void *pvParam)
 {
     EN_ONPSERR enErr;     
     SOCKET hSrvSocket = tcp_srv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, &enErr); 
     if (INVALID_SOCKET != hSrvSocket)
     {
+        os_nvt_init();
+
         CHAR bClientCnt = 0; 
         while (l_bTelnetSrvState)
         {
@@ -177,19 +192,7 @@ void telnet_srv_entry(void)
                     send(hClient, "The maximum number of logged in users has been reached, please try again later.\r\n", sizeof("The maximum number of logged in users has been reached, please try again later.\r\n") - 1, 1); 
                     close(hClient);
                 }
-            }
-            else
-            {
-        #if SUPPORT_PRINTF
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_lock(o_hMtxPrintf);
-            #endif	
-                printf("accept() failed in file %s, %s\r\n", __FILE__, onps_error(enErr)); 
-            #if PRINTF_THREAD_MUTEX
-                os_thread_mutex_unlock(o_hMtxPrintf);
-            #endif
-        #endif
-            }
+            }        
 
             telnet_client_clean_zombie(&bClientCnt);
         }
@@ -206,7 +209,7 @@ void telnet_srv_entry(void)
 
         telnet_client_clean();
         close(hSrvSocket);
-        l_bTelnetSrvState = -1; 
+        os_nvt_uninit();         
     }
     else
     {
@@ -220,13 +223,20 @@ void telnet_srv_entry(void)
     #endif
 #endif
     }
+
+    l_bTelnetSrvState = -1;
 }
 
-void telnet_srv_end(void)
+BOOL telnet_srv_end(void)
 {
-    l_bTelnetSrvState = 0; 
-    while (!l_bTelnetSrvState)
+    if(1 == l_bTelnetSrvState)
+        l_bTelnetSrvState = 0; 
+
+    UINT unTimeCounts = 0;
+    while (!l_bTelnetSrvState && unTimeCounts++ < (3 * 100))
         os_sleep_ms(10); 
+
+    return (BOOL)(l_bTelnetSrvState < 0); 
 }
 
 #endif

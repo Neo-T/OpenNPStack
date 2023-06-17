@@ -99,11 +99,17 @@
 
 //* 网络工具配置项
 //* ===============================================================================================
-#define NETTOOLS_PING			1 //* ping
-#define NETTOOLS_DNS_CLIENT		1 //* dns查询客户端
-#define NETTOOLS_SNTP           1 //* sntp客户端
-#define NETTOOLS_TELNETCLT      1 //* telnet客户端
-#define NETTOOLS_TELNETSRV      1 //* telnet服务端
+#define NETTOOLS_PING       1 //* ping
+#define NETTOOLS_DNS_CLIENT 1 //* dns查询客户端
+#define NETTOOLS_SNTP       1 //* sntp客户端
+#define NETTOOLS_TELNETCLT  1 //* telnet客户端
+#define NETTOOLS_TELNETSRV  1 //* telnet服务端
+
+#if NETTOOLS_TELNETSRV
+#define NVTNUM_MAX       2   //* 指定nvt并发工作的数量，其实就是指定telnet服务器在同一时刻并发连接的数量，超过这个数值服务器拒绝连接
+#define NVTCMDCACHE_EN   1   //* 是否支持命令缓存，也就是通过“↑↓”切换曾经输入的指令
+#define NVTCMDCACHE_SIZE 256 //* 指定指令缓存区的大小
+#endif
 //* ===============================================================================================
 
 #endif

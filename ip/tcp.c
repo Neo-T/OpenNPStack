@@ -787,7 +787,7 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHOR
 	if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
 	{
 	#if SUPPORT_SACK
-		return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, FALSE, 0, penErr);
+		return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, TRUE, 0, penErr);
 	#else
 		return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
 	#endif
@@ -795,7 +795,7 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHOR
 	else
 	{
 	#if SUPPORT_SACK
-		return tcpv6_send_packet(pstLink, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, FALSE, 0, penErr); 
+		return tcpv6_send_packet(pstLink, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, TRUE, 0, penErr); 
 	#else
 		return tcpv6_send_packet(pstLink, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
 	#endif
@@ -1490,7 +1490,7 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
             #endif
         #endif
                 return; 
-            }
+            }            
 
             //* 截取tcp头部选项字段
             tcp_options_get(pstLink, pubPacket + sizeof(ST_TCP_HDR), nTcpHdrLen - (INT)sizeof(ST_TCP_HDR));

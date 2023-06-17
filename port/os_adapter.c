@@ -185,3 +185,23 @@ void os_modem_reset(HTTY hTTY)
 	/* …… */
 }
 #endif
+
+#if NETTOOLS_TELNETSRV
+void os_nvt_init(void)
+{
+}
+
+void os_nvt_uninit(void)
+{
+}
+
+BOOL os_nvt_start(void *pvParam)
+{
+
+}
+
+void os_nvt_stop(void *pvParam)
+{
+
+}
+#endif

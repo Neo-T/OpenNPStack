@@ -56,5 +56,12 @@ OS_ADAPTER_EXT INT os_tty_recv(HTTY hTTY, UCHAR *pubRcvBuf, INT nRcvBufLen, INT 
 OS_ADAPTER_EXT void os_modem_reset(HTTY hTTY); 
 #endif
 
+#if NETTOOLS_TELNETSRV
+OS_ADAPTER_EXT void os_nvt_init(void); 
+OS_ADAPTER_EXT void os_nvt_uninit(void); 
+OS_ADAPTER_EXT BOOL os_nvt_start(void *pvParam);
+OS_ADAPTER_EXT void os_nvt_stop(void *pvParam); 
+#endif
+
 #endif
 

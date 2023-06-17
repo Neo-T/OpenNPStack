@@ -1212,7 +1212,6 @@ __lblMacthedBits:
 SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, EN_ONPSERR *penErr)
 {    
     SOCKET hSrvSocket;
-    INT i;
 
     do {
         hSrvSocket = socket(family, SOCK_STREAM, 0, penErr);
