@@ -1209,32 +1209,3 @@ __lblMacthedBits:
 }
 #endif //* #if SUPPORT_IPV6
 
-SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, EN_ONPSERR *penErr)
-{    
-    SOCKET hSrvSocket;
-
-    do {
-        hSrvSocket = socket(family, SOCK_STREAM, 0, penErr);
-        if (INVALID_SOCKET == hSrvSocket)
-            break;
-
-        if (bind(hSrvSocket, NULL, usSrvPort))
-        {
-            onps_get_last_error(hSrvSocket, penErr);
-            break;
-        }
-
-        if (listen(hSrvSocket, usBacklog))
-        {
-            onps_get_last_error(hSrvSocket, penErr);
-            break;
-        }         
-
-        return hSrvSocket;
-    } while (FALSE);
-
-    if (INVALID_SOCKET != hSrvSocket)
-        close(hSrvSocket);
-
-    return INVALID_SOCKET;
-}

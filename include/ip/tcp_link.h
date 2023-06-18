@@ -194,7 +194,8 @@ PACKED_END
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {
-    CHAR bIsUsed;    
+    CHAR bIsUsed;  
+    CHAR bRcvMode; 
     USHORT usBacklogNum; 
     USHORT usBacklogCnt;      
     HSEM hSemAccept; 
@@ -246,7 +247,7 @@ TCP_LINK_EXT PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog, U
 TCP_LINK_EXT void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog, USHORT *pusBacklogCnt);
 TCP_LINK_EXT void tcp_backlog_free(PST_TCPBACKLOG pstBacklog);
 
-TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr);
+TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr); 
 TCP_LINK_EXT PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueue);
 TCP_LINK_EXT void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput);
 TCP_LINK_EXT void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode); 

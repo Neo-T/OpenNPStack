@@ -864,6 +864,7 @@ INT listen(SOCKET socket, USHORT backlog)
             {
                 if (onps_input_set((INT)socket, IOPT_SETATTACH, pstAttach, &enErr))
                 {
+                    pstAttach->bRcvMode = TCPSRVRCVMODE_POLL; 
                     pstAttach->usBacklogNum = backlog; 
                     pstAttach->usBacklogCnt = 0; 
                 }
@@ -1065,4 +1066,83 @@ SOCKET tcpsrv_recv_poll(SOCKET socket, INT nWaitSecs, EN_ONPSERR *penErr)
 __lblErr: 
     return INVALID_SOCKET; 
 }
-#endif
+
+BOOL tcpsrv_set_recv_mode(SOCKET hSocketSrv, CHAR bRcvMode, EN_ONPSERR *penErr)
+{
+    EN_IPPROTO enProto;
+    if (!onps_input_get((INT)hSocketSrv, IOPT_GETIPPROTO, &enProto, penErr))
+        return FALSE; 
+
+    //* 只有tcp服务器才能调用这个函数，其它都不可以
+    if (enProto == IPPROTO_TCP)
+    {
+        PST_TCPUDP_HANDLE pstHandle;
+        if (!onps_input_get((INT)hSocketSrv, IOPT_GETTCPUDPADDR, &pstHandle, penErr))
+            return FALSE;
+
+        //* 已经绑定地址和端口才可，否则没法成为服务器，如果进入该分支，则意味着用户没调用bind()函数
+        if (TCP_TYPE_SERVER != pstHandle->bType)
+        {
+            if (penErr)
+                *penErr = ERRNOTBINDADDR; 
+            return FALSE; 
+        }
+
+        //* 获取附加段数据，看看监听是否已启动
+        PST_INPUTATTACH_TCPSRV pstAttach;
+        if (!onps_input_get((INT)hSocketSrv, IOPT_GETATTACH, &pstAttach, penErr))
+            return FALSE; 
+
+        //* 为空则意味着当前服务尚未进入监听阶段
+        if (pstAttach)
+        {
+            pstAttach->bRcvMode = bRcvMode;
+            return TRUE; 
+        }
+        else
+        {
+            if (penErr)
+                *penErr = ERRTCPNOLISTEN; 
+
+            return FALSE; 
+        }
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRTCPONLY;
+        return FALSE; 
+    }
+}
+
+SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMode, EN_ONPSERR *penErr)
+{
+    SOCKET hSrvSocket;
+
+    do {
+        hSrvSocket = socket(family, SOCK_STREAM, 0, penErr);
+        if (INVALID_SOCKET == hSrvSocket)
+            break;
+
+        if (bind(hSrvSocket, NULL, usSrvPort))
+        {
+            onps_get_last_error(hSrvSocket, penErr);
+            break;
+        }
+
+        if (listen(hSrvSocket, usBacklog))
+        {
+            onps_get_last_error(hSrvSocket, penErr);
+            break;
+        }
+
+        if (tcpsrv_set_recv_mode(hSrvSocket, bRcvMode, penErr))
+            return hSrvSocket;
+    } while (FALSE);
+
+    if (INVALID_SOCKET != hSrvSocket)
+        close(hSrvSocket);
+
+    return INVALID_SOCKET;
+}
+#endif //* #if SUPPORT_ETHERNET

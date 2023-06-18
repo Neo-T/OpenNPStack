@@ -151,7 +151,4 @@ ONPS_UTILS_EXT INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, U
 ONPS_UTILS_EXT INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16], UCHAR ubPrefixBitsLen); //* 给出两个地址前缀匹配的数据位数，返回值为匹配的位数，0为不匹配
 #endif
 
-#include "bsd/socket.h" 
-ONPS_UTILS_EXT SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, EN_ONPSERR *penErr);
-
 #endif

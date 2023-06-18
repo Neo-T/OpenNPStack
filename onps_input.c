@@ -1040,12 +1040,20 @@ INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONP
     os_thread_mutex_lock(l_hMtxInput);
     {
 #if SUPPORT_ETHERNET
+        INT nInputSrv; 
+        PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = NULL; 
         PST_TCPSRV_RCVQUEUE_NODE pstRcvQueueNode = NULL;
         if (TCP_TYPE_RCLIENT == l_stcbaInput[nInput].uniHandle.stTcpUdp.bType)
         {
-            //* 如果当前tcp链路是一个远端tcp客户端，则需要先申请一个接收队列节点
-            if (NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
-                blIsOK = FALSE;
+            nInputSrv = ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->nInputSrv; 
+            pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach;
+
+            //* 如果当前tcp链路是一个远端tcp客户端且服务器的接收模式采用poll模型，则需要先申请一个接收队列节点
+            if (TCPSRVRCVMODE_POLL == pstAttachTcpSrv->bRcvMode)
+            {
+                if (NULL == (pstRcvQueueNode = tcpsrv_recv_queue_freed_get(penErr)))
+                    blIsOK = FALSE; 
+            }                      
         }
 #endif
 
@@ -1065,12 +1073,8 @@ INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONP
 
         #if SUPPORT_ETHERNET
             //* 如果接收队列不为NULL，则需要投递这个到达的数据到服务器接收队列
-            if (pstRcvQueueNode)
-            {
-                INT nInputSrv = ((PST_TCPLINK)l_stcbaInput[nInput].pvAttach)->nInputSrv;
-                PST_INPUTATTACH_TCPSRV pstAttachTcpSrv = (PST_INPUTATTACH_TCPSRV)l_stcbaInput[nInputSrv].pvAttach;
-                tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput);
-            }
+            if (pstRcvQueueNode)                                    
+                tcpsrv_recv_queue_put(&pstAttachTcpSrv->pstSListRcvQueue, pstRcvQueueNode, nInput);             
         #endif
         }
     }

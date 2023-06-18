@@ -150,6 +150,9 @@ ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBy
 #else
 ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, in_addr_t unFromIP, USHORT usFromPort, EN_ONPSERR *penErr);
 #endif
+
+#define TCPSRVRCVMODE_ACTIVE 0 //* 采用主动读取方式，需要用户通过recv()函数主动遍历读取每个客户端到达的数据
+#define TCPSRVRCVMODE_POLL   1 //* 采用poll模型读取数据，用户通过tcpsrv_recv_poll()函数等待数据到达信号
 ONPSINPUT_EXT INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSERR *penErr);
 
 //* 将收到的数据推送给用户层

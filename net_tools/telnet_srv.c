@@ -171,7 +171,7 @@ static void telnet_client_clean(void)
 void telnet_srv_entry(void *pvParam)
 {
     EN_ONPSERR enErr;     
-    SOCKET hSrvSocket = tcp_srv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, &enErr); 
+    SOCKET hSrvSocket = tcp_srv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, TCPSRVRCVMODE_ACTIVE, &enErr);
     if (INVALID_SOCKET != hSrvSocket)
     {
         os_nvt_init();

@@ -88,6 +88,14 @@ SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort,
 //* 小于0: 一直等待，直至某个或多个客户端链路收到数据
 //* 返回值为收到数据的客户端socket
 SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET hSocketSrv, INT nWaitSecs, EN_ONPSERR *penErr);
+
+//* 设置服务器的接收模式
+//* TCPSRVRCVMODE_ACTIVE 主动读取方式，需要用户通过recv()函数主动遍历读取每个客户端到达的数据
+//* TCPSRVRCVMODE_POLL
+SOCKET_EXT BOOL tcpsrv_set_recv_mode(SOCKET hSocketSrv, CHAR bRcvMode, EN_ONPSERR *penErr);
+
+//* 启动tcp服务器
+SOCKET_EXT SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMode, EN_ONPSERR *penErr);
 #endif
 
 //* 获取最近一次发生的错误信息
