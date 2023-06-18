@@ -38,7 +38,7 @@ void nvt_stop(PSTCB_TELNETCLT pstcbTelnetClt)
         os_sleep_ms(10); 
     
     //* 强制当前nvt结束    
-    os_nvt_stop(pstcbTelnetClt); 
+    os_nvt_stop(&pstcbTelnetClt->stcbNvt);
 }
 
 static void telnet_client_add(PSTCB_TELNETCLT pstcbTelnetClt)
@@ -86,7 +86,7 @@ PSTCB_TELNETCLT telnet_client_next(PSTCB_TELNETCLT *ppstcbNextClt)
         return NULL;
 }
 
-static void telnet_client_new(SOCKET hCltSocket)
+static BOOL telnet_client_new(SOCKET hCltSocket)
 {
     EN_ONPSERR enErr;
     
@@ -114,7 +114,7 @@ static void telnet_client_new(SOCKET hCltSocket)
         goto __lblErr;
     }
 
-    return;
+    return TRUE; 
 
 __lblErr:
     if (pstcbClt)
@@ -128,7 +128,7 @@ __lblErr:
     os_sleep_secs(1);
     close(hCltSocket); 
 
-    return;
+    return FALSE; 
 }
 
 static void telnet_client_close(PSTCB_TELNETCLT pstcbTelnetClt)
@@ -184,8 +184,8 @@ void telnet_srv_entry(void *pvParam)
             {
                 if (bClientCnt < NVTNUM_MAX)
                 {
-                    telnet_client_new(hClient);
-                    bClientCnt++;
+                    if(telnet_client_new(hClient))
+                        bClientCnt++; 
                 }
                 else
                 {

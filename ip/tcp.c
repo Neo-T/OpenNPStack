@@ -1484,7 +1484,7 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf);
             #endif
-                printf("%s\r\n", onps_error(enErr));
+                printf("onps_input_new_tcp_remote_client() failed, %s\r\n", onps_error(enErr));
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_unlock(o_hMtxPrintf);
             #endif

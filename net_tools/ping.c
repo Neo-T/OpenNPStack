@@ -92,7 +92,7 @@ INT ping(INT nPing, const CHAR *pszDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*
 {
 	CHAR bFamily = AF_INET;
 #if SUPPORT_IPV6
-	if (!onps_input_get((INT)nPing, IOPT_GET_ICMPAF, &bFamily, penErr))
+	if (!onps_input_get((INT)nPing, IOPT_GETICMPAF, &bFamily, penErr))
 		return -1;
 #endif
 

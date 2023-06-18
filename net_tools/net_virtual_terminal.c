@@ -642,6 +642,7 @@ static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                         send(hRmtTelnetClt, (UCHAR *)"Command not supported by terminal: ", sizeof("Command not supported by terminal: ") - 1, 1);
                         send(hRmtTelnetClt, (UCHAR *)pszaArg[0], strlen(pszaArg[0]), 1);
                         send(hRmtTelnetClt, "\r\n", sizeof("\r\n") - 1, 1);
+                        pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECEND;
                     }
                 }
                 else

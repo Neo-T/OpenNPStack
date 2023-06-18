@@ -33,25 +33,26 @@
 
 //* 协议栈支持的输入控制块相关配置项定义
 typedef enum {    
-    IOPT_SETICMPECHOID = 0,     //* 设置icmp echo请求ID
-    IOPT_SETTCPUDPADDR,         //* 设置TCP/UDP本地分配的地址
-    IOPT_SET_TCP_LINK_FLAGS,    //* 设置tcp链路标志
-    IOPT_GETTCPUDPADDR,         //* 获取TCP/UDP本地分配的地址
-    IOPT_GETSEM,                //* 获取input用到的semaphore
-    IOPT_GETIPPROTO,            //* 获取当前input绑定的ip上层协议
-    IOPT_GETTCPLINKSTATE,       //* 获取tcp链路状态
-    IOPT_SETTCPLINKSTATE,       //* 设置tcp链路状态
-    IOPT_SETATTACH,             //* 设置附加信息
-    IOPT_GETATTACH,             //* 获取附加信息地址
-    IOPT_GETTCPUDPLINK,         //* 获取tcp/udp链路状态
-    IOPT_GETTCPDATASNDSTATE,    //* 获取tcp链路数据发送的状态
-    IOPT_SETRCVTIMEOUT,         //* 设置接收等待时长（单位：秒）
-    IOPT_GETRCVTIMEOUT,         //* 获取接收等待时长
-    IOPT_GETLASTSNDBYTES,       //* 获取最近一次数据发送长度        
-    IOPT_GET_TCP_LINK_FLAGS,    //* 读取tcp链路标志
+    IOPT_SETICMPECHOID = 0,  //* 设置icmp echo请求ID
+    IOPT_SETTCPUDPADDR,      //* 设置TCP/UDP本地分配的地址
+    IOPT_SETTCPLINKFLAGS,    //* 设置tcp链路标志
+    IOPT_FREETCPSRVRCVBUF,   //* 释放tcp服务器的接收缓冲区，因为服务器socket不需要接收缓冲区，在调用bind()函数时应该释放（建立socket时自动分配了接收缓冲区）
+    IOPT_GETTCPUDPADDR,      //* 获取TCP/UDP本地分配的地址
+    IOPT_GETSEM,             //* 获取input用到的semaphore
+    IOPT_GETIPPROTO,         //* 获取当前input绑定的ip上层协议
+    IOPT_GETTCPLINKSTATE,    //* 获取tcp链路状态
+    IOPT_SETTCPLINKSTATE,    //* 设置tcp链路状态
+    IOPT_SETATTACH,          //* 设置附加信息
+    IOPT_GETATTACH,          //* 获取附加信息地址
+    IOPT_GETTCPUDPLINK,      //* 获取tcp/udp链路状态
+    IOPT_GETTCPDATASNDSTATE, //* 获取tcp链路数据发送的状态
+    IOPT_SETRCVTIMEOUT,      //* 设置接收等待时长（单位：秒）
+    IOPT_GETRCVTIMEOUT,      //* 获取接收等待时长
+    IOPT_GETLASTSNDBYTES,    //* 获取最近一次数据发送长度        
+    IOPT_GETTCPLINKFLAGS,    //* 读取tcp链路标志
 #if SUPPORT_IPV6
-	IOPT_GET_ICMPAF             //* 读取icmp协议的地址族类型
-#endif
+	IOPT_GETICMPAF,          //* 读取icmp协议的地址族类型
+#endif    
 } ONPSIOPT;
 
 #if SUPPORT_IPV6

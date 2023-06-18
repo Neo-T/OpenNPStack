@@ -452,6 +452,19 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
             goto __lblIpProtoNotMatched; 
         break; 
 
+    case IOPT_FREETCPSRVRCVBUF:
+        if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto && TCP_TYPE_SERVER == pstcbInput->uniHandle.stTcpUdp.bType)
+        {
+            if (pstcbInput->pubRcvBuf)
+            {
+                buddy_free(pstcbInput->pubRcvBuf);
+                pstcbInput->pubRcvBuf = NULL;                 
+            }
+        }
+        else
+            goto __lblIpProtoNotMatched; 
+        break; 
+
     case IOPT_SETTCPLINKSTATE: 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
             ((PST_TCPLINK)(pstcbInput->pvAttach))->bState = *((CHAR *)pvVal);
@@ -494,7 +507,7 @@ BOOL onps_input_set(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         */
         break; 
 
-    case IOPT_SET_TCP_LINK_FLAGS:
+    case IOPT_SETTCPLINKFLAGS:
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
             if (NULL == pstcbInput->pvAttach)
@@ -646,7 +659,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         }
         break; 
 
-    case IOPT_GET_TCP_LINK_FLAGS: 
+    case IOPT_GETTCPLINKFLAGS: 
         if (IPPROTO_TCP == (EN_IPPROTO)pstcbInput->ubIPProto)
         {
             if (pstcbInput->pvAttach)
@@ -669,7 +682,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
         break; 
 
 #if SUPPORT_IPV6
-	case IOPT_GET_ICMPAF:
+	case IOPT_GETICMPAF:
 		if (IPPROTO_ICMP == (EN_IPPROTO)pstcbInput->ubIPProto || IPPROTO_ICMPv6 == (EN_IPPROTO)pstcbInput->ubIPProto)
 		{
 			*((CHAR *)pvVal) = pstcbInput->uniHandle.stIcmp.bFamily; 
@@ -681,7 +694,7 @@ BOOL onps_input_get(INT nInput, ONPSIOPT enInputOpt, void *pvVal, EN_ONPSERR *pe
 			return FALSE;
 		}
 		break; 
-#endif
+#endif    
 
     default:
         if (penErr)

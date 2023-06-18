@@ -642,7 +642,7 @@ BOOL socket_set_rcv_timeout(SOCKET socket, CHAR bRcvTimeout, EN_ONPSERR *penErr)
 
 BOOL socket_set_tcp_link_flags(SOCKET socket, USHORT usNewFlags, EN_ONPSERR *penErr)
 {
-    return onps_input_set((INT)socket, IOPT_SET_TCP_LINK_FLAGS, &usNewFlags, penErr);
+    return onps_input_set((INT)socket, IOPT_SETTCPLINKFLAGS, &usNewFlags, penErr);
 }
 
 BOOL socket_set_tcp_link_flags_safe(SOCKET socket, USHORT usNewFlags, EN_OPTTYPE enOptType, EN_ONPSERR *penErr)
@@ -652,7 +652,7 @@ BOOL socket_set_tcp_link_flags_safe(SOCKET socket, USHORT usNewFlags, EN_OPTTYPE
     switch (enOptType)
     {
     case OR: 
-        if (onps_input_get((INT)socket, IOPT_GET_TCP_LINK_FLAGS, &usFlags, penErr))
+        if (onps_input_get((INT)socket, IOPT_GETTCPLINKFLAGS, &usFlags, penErr))
             usFlags |= usNewFlags; 
         else
             return FALSE;
@@ -663,7 +663,7 @@ BOOL socket_set_tcp_link_flags_safe(SOCKET socket, USHORT usNewFlags, EN_OPTTYPE
         break;
     }
 
-    return onps_input_set((INT)socket, IOPT_SET_TCP_LINK_FLAGS, &usFlags, penErr);
+    return onps_input_set((INT)socket, IOPT_SETTCPLINKFLAGS, &usFlags, penErr);
 }
 
 INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize)
@@ -785,8 +785,11 @@ INT bind(SOCKET socket, const CHAR *pszNetifIp, USHORT usPort)
 	pstHandle->stSockAddr.usPort = usPort;
 
 	//* 绑定地址和端口且是tcp协议，就需要显式地指定这个input是一个tcp服务器类型
-	if (IPPROTO_TCP == enProto)
-		pstHandle->bType = TCP_TYPE_SERVER;
+    if (IPPROTO_TCP == enProto)
+    {
+        pstHandle->bType = TCP_TYPE_SERVER;        
+        onps_input_set((INT)socket, IOPT_FREETCPSRVRCVBUF, NULL, NULL); 
+    }
 
 	return 0; 
 #else
