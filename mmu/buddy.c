@@ -439,3 +439,51 @@ FLOAT buddy_usage(void)
 
     return (FLOAT)unUsedPageSize / (FLOAT)BUDDY_MEM_SIZE;
 }
+
+FLOAT buddy_usage_details(UINT *punTotalBytes, UINT *punUsedBytes, UINT *punMaxFreedPageSize, UINT *punMinFreedPageSize)
+{
+    INT i;
+    UINT unUsedPageSize = 0;
+    UINT unMaxFreedPageSize = BUDDY_PAGE_SIZE, unMinFreedPageSize = BUDDY_PAGE_SIZE;
+
+    *punTotalBytes = BUDDY_MEM_SIZE;
+
+    os_critical_init();
+
+    os_enter_critical();
+    for (i = 0; i < BUDDY_ARER_COUNT; i++)
+    {
+        PST_BUDDY_PAGE pstNextPage = l_staArea[i].pstUsed;
+        while (pstNextPage)
+        {
+            unUsedPageSize += l_staArea[i].unPageSize;
+            pstNextPage = pstNextPage->pstNext;
+        }
+
+        pstNextPage = l_staArea[i].pstFreed;
+        while (pstNextPage)
+        {
+            if (unMaxFreedPageSize < l_staArea[i].unPageSize)
+                unMaxFreedPageSize = l_staArea[i].unPageSize;
+            if (unMinFreedPageSize > l_staArea[i].unPageSize)
+                unMinFreedPageSize = l_staArea[i].unPageSize;
+            pstNextPage = pstNextPage->pstNext;
+        }
+    }
+    os_exit_critical();
+
+    *punUsedBytes = unUsedPageSize;
+
+    if (unUsedPageSize < BUDDY_MEM_SIZE)
+    {
+        *punMaxFreedPageSize = unMaxFreedPageSize;
+        *punMinFreedPageSize = unMinFreedPageSize;
+    }
+    else
+    {
+        *punMaxFreedPageSize = 0;
+        *punMinFreedPageSize = 0;
+    }
+
+    return (FLOAT)unUsedPageSize / (FLOAT)BUDDY_MEM_SIZE;
+}

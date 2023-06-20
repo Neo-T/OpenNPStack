@@ -29,21 +29,27 @@ typedef struct _ST_NVTNEGOOPT_ {
 //* ===================================================================================
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
-#define NVTCMD_BUILTIN_NUM 2 //* NVT自带指令的数量
+static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
+#define NVTCMD_BUILTIN_NUM 3 //* NVT自带指令的数量
 static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
+    { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }
 };
 
 #define NVTCMD_EXIT     0 //* "exit"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_LOGOUT   1 //* "logout"指令在l_staNvtCmd数组中的存储索引
+#define NVTCMD_MEMUSAGE 2 //* "memusage"指令在l_staNvtCmd数组中的存储索引
 static ST_NVTCMD_NODE l_staNvtCmdNode[NVTCMD_BUILTIN_NUM] = {
-    { &l_staNvtCmd[NVTCMD_EXIT],  &l_staNvtCmdNode[1] },
-    { &l_staNvtCmd[NVTCMD_LOGOUT],  NULL },
+    { &l_staNvtCmd[NVTCMD_EXIT],  &l_staNvtCmdNode[NVTCMD_LOGOUT] },
+    { &l_staNvtCmd[NVTCMD_LOGOUT],  &l_staNvtCmdNode[NVTCMD_MEMUSAGE] },
+    { &l_staNvtCmd[NVTCMD_MEMUSAGE],  NULL },
 };
 static PST_NVTCMD_NODE l_pstNvtCmdList = &l_staNvtCmdNode[0];
-static CHAR l_bNvtCmdLenMax = 6; //* l_staNvtCmd中内嵌指令最长的那条的字节数
-                                 //* ===================================================================================
+
+//* l_staNvtCmd中内嵌指令最长的那条的字节数
+static CHAR l_bNvtCmdLenMax = 8; 
+//* ===================================================================================
 
 static UCHAR nego_put_term_type(PSTCB_NVT pstcbNvt, UCHAR **ppubFilled);
 static UCHAR nego_put_suppress_go_ahead(PSTCB_NVT pstcbNvt, UCHAR **ppubFilled);
@@ -1031,6 +1037,28 @@ static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
     send(pstTelnetClt->hClient, "You have logged out.\r\n", sizeof("You have logged out.\r\n") - 1, 1);
     pstTelnetClt->bitTHRunEn = FALSE;
+
+    nvt_cmd_exec_end(ullNvtHandle);
+
+    return 0;
+}
+
+static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+    CHAR szFormatBuf[48];
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
+    UINT unTotalBytes, unUsedBytes, unMaxFreedPageSize, unMinFreedPageSize;
+
+    sprintf(szFormatBuf, "     Current memory usage: %0.2f%%\r\n", buddy_usage_details(&unTotalBytes, &unUsedBytes, &unMaxFreedPageSize, &unMinFreedPageSize) * 100);
+    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
+    sprintf(szFormatBuf, "Total dynamic memory size: %d KBytes\r\n", unTotalBytes / 1024);
+    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
+    sprintf(szFormatBuf, "Current memory usage size: %0.1f KBytes\r\n", (FLOAT)unUsedBytes / 1024.0);
+    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
+    sprintf(szFormatBuf, "Max free memory page size: %d Bytes\r\n", unMaxFreedPageSize);
+    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
+    sprintf(szFormatBuf, "Min free memory page size: %d Bytes\r\n", unMinFreedPageSize);
+    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1); 
 
     nvt_cmd_exec_end(ullNvtHandle);
 
