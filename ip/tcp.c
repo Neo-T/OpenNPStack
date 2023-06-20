@@ -188,7 +188,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     //* 要确保本地Sequence Number和对端Sequence Number不乱序就必须加锁，因为tcp接收线程与发送线程并不属于同一个，因为线程优先级问题导致发送线程在发送前一刻被接收线程强行打断并率先发送了
     //* 应答报文，此时序号有可能已大于发送线程携带的序号，乱序问题就此产生
     //* 在这里加锁，当接收线程与发送线程同时调用这个函数时，会因为锁的存在使得调用按顺序进行，这样就确保sequence num不会乱序
-    onps_input_lock(pstLink->stcbWaitAck.nInput); 
+    if(pstLink)
+        onps_input_lock(pstLink->stcbWaitAck.nInput); 
 
     //* 填充tcp头
     ST_TCP_HDR stHdr; 
@@ -200,12 +201,12 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     else
         stHdr.unSeqNum = htonl(pstLink->stLocal.unHasSndBytes + 1);
 #else
-    stHdr.unSeqNum = htonl(pstLink->stLocal.unSeqNum);
+    stHdr.unSeqNum = pstLink ? htonl(pstLink->stLocal.unSeqNum) : 0;
 #endif
-    stHdr.unAckNum = htonl(pstLink->stPeer.unSeqNum);
+    stHdr.unAckNum = pstLink ? htonl(pstLink->stPeer.unSeqNum) : 1;
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
     stHdr.usFlag = uniFlag.usVal;
-    stHdr.usWinSize = htons(pstLink->stLocal.usWndSize/* - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX*/);
+    stHdr.usWinSize = pstLink ? htons(pstLink->stLocal.usWndSize/* - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX*/) : 1024;
     stHdr.usChecksum = 0;
     stHdr.usUrgentPointer = 0; 
     //* 挂载到链表头部
@@ -218,7 +219,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
         if (sOptionsNode >= 0)
             buf_list_free(sOptionsNode);
 
-        onps_input_unlock(pstLink->stcbWaitAck.nInput);
+        if(pstLink)
+            onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
         return -1;
     }
@@ -235,7 +237,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
 			buf_list_free(sOptionsNode);
 		buf_list_free(sHdrNode);
 
-		onps_input_unlock(pstLink->stcbWaitAck.nInput);
+        if (pstLink)
+		    onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
 		return -1;
 	}
@@ -246,7 +249,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     if (!blIsSpecSeqNum)
         pstLink->stLocal.unHasSndBytes += (UINT)usDataBytes; 
 #endif
-    onps_input_unlock(pstLink->stcbWaitAck.nInput);
+    if (pstLink)
+        onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
     //* 释放刚才申请的buf list节点
     if (sDataNode >= 0)
@@ -309,7 +313,8 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 
 	//* 加锁，当接收线程与发送线程同时调用这个函数时，会因为锁的存在使得调用按顺序进行，这样就确保sequence num不会乱序
 	INT nRtnVal = -1;
-	onps_input_lock(pstLink->stcbWaitAck.nInput);
+    if(pstLink)
+	    onps_input_lock(pstLink->stcbWaitAck.nInput);
 	{
 		//* 填充tcp头		
 		stHdr.usSrcPort = htons(usSrcPort);
@@ -320,12 +325,12 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 		else
 			stHdr.unSeqNum = htonl(pstLink->stLocal.unHasSndBytes + 1);
 	#else
-		stHdr.unSeqNum = htonl(pstLink->stLocal.unSeqNum);
+		stHdr.unSeqNum = pstLink ? htonl(pstLink->stLocal.unSeqNum) : 0;
 	#endif
-		stHdr.unAckNum = htonl(pstLink->stPeer.unSeqNum);
+		stHdr.unAckNum = pstLink ? htonl(pstLink->stPeer.unSeqNum) : 1;
 		uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
 		stHdr.usFlag = uniFlag.usVal;
-		stHdr.usWinSize = htons(pstLink->stLocal.usWndSize);
+		stHdr.usWinSize = pstLink ? htons(pstLink->stLocal.usWndSize) : 1024;
 		stHdr.usChecksum = 0;
 		stHdr.usUrgentPointer = 0;
 
@@ -350,7 +355,8 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 			nRtnVal = -1;
 		}
 	}
-	onps_input_unlock(pstLink->stcbWaitAck.nInput);
+    if(pstLink)
+	    onps_input_unlock(pstLink->stcbWaitAck.nInput);
 
 	//* 释放刚才申请的buf list节点
 	if (sDataNode >= 0)
@@ -774,13 +780,13 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHOR
 {
     //* 标志字段ack域置1，其它标志域为0
     UNI_TCP_FLAG uniFlag;
-    uniFlag.usVal = 0;
-    uniFlag.stb16.syn = 1; 
+    uniFlag.usVal = 0;     
+    uniFlag.stb16.syn = 1;    
     uniFlag.stb16.ack = 1;
 
     //* 填充tcp头部选项数据
-    UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX];
-    INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions));
+    UCHAR ubaOptions[TCP_OPTIONS_SIZE_MAX];    
+    INT nOptionsSize = tcp_options_attach(ubaOptions, sizeof(ubaOptions)); 
 
     //* 完成实际的发送
 #if SUPPORT_IPV6
@@ -802,9 +808,44 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, in_addr_t *punSrcAddr, USHOR
 	}
 #else
 #if SUPPORT_SACK
-    return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, FALSE, 0, penErr);
+    return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, TRUE, 0, penErr);
 #else
 	return tcp_send_packet(pstLink, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
+#endif
+#endif
+}
+
+static INT tcpsrv_send_reset(CHAR bFamily, in_addr_t *punSrcAddr, USHORT usSrcPort, in_addr_t *punDstAddr, USHORT usDstPort, EN_ONPSERR *penErr)
+{
+    //* 标志字段ack域置1，其它标志域为0
+    UNI_TCP_FLAG uniFlag;
+    uniFlag.usVal = 0;    
+    uniFlag.stb16.reset = 1;
+    //uniFlag.stb16.ack = 1;    
+
+    //* 完成实际的发送
+#if SUPPORT_IPV6
+    if (AF_INET == bFamily)
+    {
+    #if SUPPORT_SACK
+        return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, TRUE, 0, penErr);
+    #else
+        return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, penErr);
+    #endif
+    }
+    else
+    {
+    #if SUPPORT_SACK
+        return tcpv6_send_packet(NULL, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, TRUE, 0, penErr);
+    #else
+        return tcpv6_send_packet(pstLink, (UCHAR *)punSrcAddr, usSrcPort, (UCHAR *)punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, penErr);
+    #endif
+    }
+#else
+#if SUPPORT_SACK
+    return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, TRUE, 0, penErr);
+#else
+    return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, penErr);
 #endif
 #endif
 }
@@ -1472,7 +1513,7 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
         INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
 	#endif
         if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个
-        {                 
+        {                            
 		#if SUPPORT_IPV6
 			nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, punDstAddr, usCltPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, &pstLink, &enErr); 
 		#else
@@ -1480,6 +1521,12 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
 		#endif
             if (nRmtCltInput < 0)
             {
+                if (ERRNOFREEMEM == enErr)
+                {                    
+                    tcpsrv_send_reset((IPV4 == enProtocol) ? AF_INET : AF_INET6, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &enErr);
+                    return; 
+                }
+
         #if SUPPORT_PRINTF                
             #if PRINTF_THREAD_MUTEX
                 os_thread_mutex_lock(o_hMtxPrintf);
@@ -1510,7 +1557,11 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
 
             //* 发送syn ack报文给对端
             pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
-            tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &enErr);
+        #if SUPPORT_IPV6
+            tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &enErr);            
+        #else
+            tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, TRUE, &enErr); 
+        #endif
         }                
     }
 #endif

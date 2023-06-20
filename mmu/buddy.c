@@ -417,3 +417,25 @@ BOOL buddy_free(void *pvStart)
 
 	return TRUE; 
 }
+
+FLOAT buddy_usage(void)
+{
+    INT i;
+    UINT unUsedPageSize = 0;
+
+    os_critical_init();
+
+    os_enter_critical();
+    for (i = 0; i < BUDDY_ARER_COUNT; i++)
+    {
+        PST_BUDDY_PAGE pstNextUsedPage = l_staArea[i].pstUsed;
+        while (pstNextUsedPage)
+        {
+            unUsedPageSize += l_staArea[i].unPageSize;
+            pstNextUsedPage = pstNextUsedPage->pstNext;
+        }
+    }
+    os_exit_critical();
+
+    return (FLOAT)unUsedPageSize / (FLOAT)BUDDY_MEM_SIZE;
+}

@@ -238,6 +238,14 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         return -1;
     }
 
+    //* 内存使用率超过70%就不再接受新的客户端连接，以确保原有链路的通讯不受到影响
+    if ((FLOAT)0.7 < buddy_usage())
+    {
+        if (penErr)
+            *penErr = ERRNOFREEMEM; 
+        return -1;
+    }
+
     //* 判断backlog队列是否已满
     PST_INPUTATTACH_TCPSRV pstAttach = l_stcbaInput[nInputSrv].pvAttach; 
     if (pstAttach)
