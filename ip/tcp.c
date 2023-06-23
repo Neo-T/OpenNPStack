@@ -201,7 +201,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     else
         stHdr.unSeqNum = htonl(pstLink->stLocal.unHasSndBytes + 1);
 #else
-    stHdr.unSeqNum = pstLink ? htonl(pstLink->stLocal.unSeqNum) : 0;
+    stHdr.unSeqNum = pstLink ? htonl(pstLink->stLocal.unSeqNum) : 1;
 #endif
     stHdr.unAckNum = pstLink ? htonl(pstLink->stPeer.unSeqNum) : 1;
     uniFlag.stb16.hdr_len = (UCHAR)(sizeof(ST_TCP_HDR) / 4) + (UCHAR)(usOptionsBytes / 4); //* TCP头部字段实际长度（单位：32位整型）
@@ -821,14 +821,14 @@ static INT tcpsrv_send_reset(CHAR bFamily, in_addr_t *punSrcAddr, USHORT usSrcPo
     UNI_TCP_FLAG uniFlag;
     uniFlag.usVal = 0;    
     uniFlag.stb16.reset = 1;
-    //uniFlag.stb16.ack = 1;    
+    uniFlag.stb16.ack = 1;    
 
     //* 完成实际的发送
 #if SUPPORT_IPV6
     if (AF_INET == bFamily)
     {
     #if SUPPORT_SACK
-        return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, TRUE, 0, penErr);
+        return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, TRUE, 1, penErr);
     #else
         return tcp_send_packet(NULL, *punSrcAddr, usSrcPort, *punDstAddr, usDstPort, uniFlag, NULL, 0, NULL, 0, penErr);
     #endif

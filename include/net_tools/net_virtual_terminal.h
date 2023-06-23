@@ -59,14 +59,15 @@ typedef enum { //* 其最大值取决于ST_SMACHNVT::uniFlag::stb32::bitState字段的位宽
 typedef struct _ST_SMACHNVT_ {
     union {
         struct {
-            UINT bitTermType : 2;  //* 协商选项之终端类型选项，参见telnet.h文件TELNETOPT_TTYPE定义：位0，置位表示已协商完毕；位1，位0置位有效，复位无意义，其置位代表激活该选项，反之禁止，下同（字段值在0、1、3之中，2不应该出现）
-            UINT bitSrvSGA   : 2;  //* 协商选项之抑制GA信号（服务器端），同上，参见TELNETOPT_SGA定义                        
-            UINT bitSrvEcho  : 2;  //* 协商选项之服务器回显
-            UINT bitCltEcho  : 2;  //* 协商选项之客户端回显
-            UINT bitTryCnt   : 3;  //* 重试次数 
-            UINT bitState    : 4;  //* NVT状态
-            UINT bitEntering : 1;  //* 是否录入中，其实就是是否还未收到\r\n
-            UINT bitReserved : 16; //* 保留
+            UINT bitTermType  : 2;  //* 协商选项之终端类型选项，参见telnet.h文件TELNETOPT_TTYPE定义：位0，置位表示已协商完毕；位1，位0置位有效，复位无意义，其置位代表激活该选项，反之禁止，下同（字段值在0、1、3之中，2不应该出现）
+            UINT bitSrvSGA    : 2;  //* 协商选项之抑制GA信号（服务器端），同上，参见TELNETOPT_SGA定义                        
+            UINT bitSrvEcho   : 2;  //* 协商选项之服务器回显
+            UINT bitCltEcho   : 2;  //* 协商选项之客户端回显
+            UINT bitTryCnt    : 3;  //* 重试次数 
+            UINT bitState     : 4;  //* NVT状态
+            UINT bitEntering  : 1;  //* 是否录入中，其实就是是否还未收到\r\n
+            UINT bitCmdExecEn : 1;  //* 指令执行使能 
+            UINT bitReserved  : 15; //* 保留            
         } stb32;
         UINT unVal;
     } uniFlag;
@@ -74,6 +75,7 @@ typedef struct _ST_SMACHNVT_ {
     UCHAR ubLastAckOption; 
 } ST_SMACHNVT, *PST_SMACHNVT; 
 #define nvt_state uniFlag.stb32.bitState
+#define nvt_cmd_exec_en uniFlag.stb32.bitCmdExecEn
 #define nvt_try_cnt uniFlag.stb32.bitTryCnt
 #define nvt_term_type uniFlag.stb32.bitTermType
 #define nvt_srv_sga uniFlag.stb32.bitSrvSGA
@@ -116,30 +118,12 @@ typedef struct _STCB_TELNETCLT_ {
     struct _STCB_TELNETCLT_ *pstcbNext; 
 } STCB_TELNETCLT, *PSTCB_TELNETCLT; 
 
-#pragma pack(push)
-#pragma pack(1)		//* 设置为1字节对齐
-//* telent选项协商通讯中DO、WILL、DONT、WONT几个命令的报文格式
-typedef struct _ST_TELNETPKT_CMD_ {
-    UCHAR ubIAC; 
-    UCHAR ubCmd; 
-    UCHAR ubNegoOption; 
-} ST_TELNETPKT_CMD, *PST_TELNETPKT_CMD; 
-
-//* telent选项协商通讯终端类型选项的报文格式，终端类型携带的code编码的详细说明，参见：https://www.rfc-editor.org/rfc/rfc1091#page-2
-#define TELNETOPT_TTCODE_SEND   1 //* 发送你的终端类型
-#define TELNETOPT_TTCODE_IS     0 //* 我的终端类型是……
-typedef struct _ST_TELNETPKT_SOPT_TERMTYPE_ {
-    UCHAR ubSIAC; 
-    UCHAR ubSB; 
-    UCHAR ubOption; 
-    UCHAR ubCode; 
-    UCHAR ubEIAC; 
-    UCHAR ubSE;
-} ST_TELNETPKT_SOPT_TERMTYPE, *PST_TELNETPKT_SOPT_TERMTYPE;
-#pragma pack(pop)
-
 NVT_EXT void thread_nvt_handler(void *pvParam); 
-NVT_EXT void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, PST_NVTCMD pstCmd); 
+NVT_EXT void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, const PST_NVTCMD pstCmd); 
 NVT_EXT void nvt_cmd_exec_end(ULONGLONG ullNvtHandle);
+NVT_EXT BOOL nvt_cmd_exec_enable(ULONGLONG ullNvtHandle);
+NVT_EXT void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen);
+NVT_EXT INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen);
+NVT_EXT const CHAR *nvt_get_term_type(ULONGLONG ullNvtHandle);
 
 #endif

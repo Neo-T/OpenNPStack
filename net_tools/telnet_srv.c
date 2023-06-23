@@ -14,10 +14,11 @@
 #include "netif/route.h"
 
 #if NETTOOLS_TELNETSRV
-#include "net_tools/telnet.h"
 #define SYMBOL_GLOBALS
 #include "net_tools/telnet_srv.h"
 #undef SYMBOL_GLOBALS
+
+#include "net_tools/telnet.h"
 
 static PSTCB_TELNETCLT l_pstcbTelnetCltList = NULL; 
 static CHAR l_bTelnetSrvState = 1; 

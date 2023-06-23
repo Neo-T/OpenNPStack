@@ -110,6 +110,10 @@
 #define NVTCMDCACHE_EN   1   //* 是否支持命令缓存，也就是通过“↑↓”切换曾经输入的指令
 #define NVTCMDCACHE_SIZE 256 //* 指定指令缓存区的大小
 #endif
+
+#if NETTOOLS_TELNETCLT
+#define TELNETCLT_RCVBUF_SIZE 1024 //* telnet客户端接收缓冲区大小
+#endif
 //* ===============================================================================================
 
 #endif

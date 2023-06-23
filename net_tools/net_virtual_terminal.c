@@ -13,11 +13,13 @@
 #include "netif/netif.h"
 #include "netif/route.h"
 
-#if NETTOOLS_TELNETSRV
-#include "net_tools/telnet.h"
+#if NETTOOLS_TELNETSRV || NETTOOLS_TELNETCLT
 #define SYMBOL_GLOBALS
 #include "net_tools/net_virtual_terminal.h"
 #undef SYMBOL_GLOBALS
+
+#include "net_tools/telnet.h"
+#include "telnet/nvt_cmd.h" 
 
 typedef struct _ST_NVTNEGOOPT_ {
     UCHAR ubOption;
@@ -82,46 +84,6 @@ static void nvt_nego_opt_send(PSTCB_NVT pstcbNvt)
         SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
         send(hRmtTelnetClt, ubaSndBuf, ubFilledBytes, 1);
     }
-}
-
-static void telnet_cmd_send(PSTCB_NVT pstcbNvt, UCHAR ubCmd, UCHAR ubOption)
-{
-    SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
-
-    ST_TELNETPKT_CMD stCmd;
-    stCmd.ubIAC = TELNETCMD_IAC;
-    stCmd.ubCmd = ubCmd;
-    stCmd.ubNegoOption = ubOption;
-    send(hRmtTelnetClt, (UCHAR *)&stCmd, sizeof(ST_TELNETPKT_CMD), 1);
-}
-
-//* 协议栈不支持的协商选项一律禁止激活，该函数按照这个原则回馈应答
-static void telnet_cmd_ack_default(PSTCB_NVT pstcbNvt, UCHAR ubCmd, UCHAR ubOption)
-{
-    if (TELNETCMD_WILL == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_DONT, ubOption);
-    else if (TELNETCMD_WONT == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_DONT, ubOption);
-    else if (TELNETCMD_DO == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_WONT, ubOption);
-    else if (TELNETCMD_DONT == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_WONT, ubOption);
-    else;
-}
-
-static void telnet_req_term_type(PSTCB_NVT pstcbNvt)
-{
-    SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
-
-    //* 发送请求，要求对端上报终端类型
-    ST_TELNETPKT_SOPT_TERMTYPE stSubOptTermType;
-    stSubOptTermType.ubSIAC = TELNETCMD_IAC;
-    stSubOptTermType.ubSB = TELNETCMD_SB;
-    stSubOptTermType.ubOption = TELNETOPT_TERMTYPE;
-    stSubOptTermType.ubCode = TELNETOPT_TTCODE_SEND;
-    stSubOptTermType.ubEIAC = TELNETCMD_IAC;
-    stSubOptTermType.ubSE = TELNETCMD_SE;
-    send(hRmtTelnetClt, (UCHAR *)&stSubOptTermType, sizeof(ST_TELNETPKT_SOPT_TERMTYPE), 1);
 }
 
 #if NVTCMDCACHE_EN
@@ -439,6 +401,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
 //* 客户端上报数据、指令处理函数
 static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen)
 {
+    SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
     UCHAR *pubNextData = pubTelnetPkt;
     INT nHandleBytes = 0;
     UCHAR i;
@@ -465,7 +428,7 @@ static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen
                 {
                     if (pstCmd->ubNegoOption != pstcbNvt->stSMach.ubLastAckOption)
                     {
-                        telnet_cmd_ack_default(pstcbNvt, pstCmd->ubCmd, pstCmd->ubNegoOption);
+                        telnet_cmd_ack_default(hRmtTelnetClt, pstCmd->ubCmd, pstCmd->ubNegoOption);
                         pstcbNvt->stSMach.ubLastAckOption = pstCmd->ubNegoOption;
                     }
                 }
@@ -624,32 +587,32 @@ static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                         pszaArg[bArgCnt] = pszArg;
                         bArgCnt++;
                     }
-                    break;
+                    else
+                        break;
                 } while (TRUE);
 
                 if (strcmp(pszaArg[0], "help"))
                 {
-                    PST_NVTCMD_NODE pstNextNvtCmd = l_pstNvtCmdList;
-                    CHAR bIsNotFound = TRUE;
+                    PST_NVTCMD_NODE pstNextNvtCmd = l_pstNvtCmdList;                    
                     while (pstNextNvtCmd)
                     {
                         if (!strcmp(pszaArg[0], pstNextNvtCmd->pstNvtCmd->pszCmdName))
                         {
                             pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECING;
+                            pstcbNvt->stSMach.nvt_cmd_exec_en = TRUE;
+                            pstcbNvt->bInputBytes = 0;
+                            pstcbNvt->bCursorPos = 0;
                             pstNextNvtCmd->pstNvtCmd->pfun_cmd_entry(bArgCnt, pszaArg, (ULONGLONG)pstcbNvt);
-                            bIsNotFound = FALSE;
+                            return; 
                         }
 
                         pstNextNvtCmd = pstNextNvtCmd->pstNextCmd;
                     }
 
-                    if (bIsNotFound)
-                    {
-                        send(hRmtTelnetClt, (UCHAR *)"Command not supported by terminal: ", sizeof("Command not supported by terminal: ") - 1, 1);
-                        send(hRmtTelnetClt, (UCHAR *)pszaArg[0], strlen(pszaArg[0]), 1);
-                        send(hRmtTelnetClt, "\r\n", sizeof("\r\n") - 1, 1);
-                        pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECEND;
-                    }
+                    send(hRmtTelnetClt, (UCHAR *)"Command not supported by terminal: ", sizeof("Command not supported by terminal: ") - 1, 1);
+                    send(hRmtTelnetClt, (UCHAR *)pszaArg[0], strlen(pszaArg[0]), 1);
+                    send(hRmtTelnetClt, "\r\n", sizeof("\r\n") - 1, 1);
+                    pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECEND; 
                 }
                 else
                 {
@@ -740,7 +703,7 @@ void thread_nvt_handler(void *pvParam)
                 {
                     if (pstcbNvt->stSMach.nvt_try_cnt < 6)
                     {
-                        telnet_req_term_type(pstcbNvt);
+                        telnet_req_term_type(pstcbTelnetClt->hClient);
                         break;
                     }
                     else
@@ -859,7 +822,21 @@ void thread_nvt_handler(void *pvParam)
         nRcvBytes = recv(pstcbTelnetClt->hClient, ubaRcvBuf, sizeof(ubaRcvBuf)); 
         if (nRcvBytes > 0)
         {
-            nvt_rcv_handler(pstcbNvt, ubaRcvBuf, nRcvBytes);
+            if (SMACHNVT_CMDEXECING != pstcbNvt->stSMach.nvt_state)
+                nvt_rcv_handler(pstcbNvt, ubaRcvBuf, nRcvBytes);
+            else
+            {
+                os_critical_init();
+                os_enter_critical();
+                {
+                    CHAR bCpyBytes = NVT_INPUT_CACHE_SIZE - pstcbNvt->bInputBytes;
+                    bCpyBytes = nRcvBytes < bCpyBytes ? nRcvBytes : bCpyBytes;
+                    memcpy(&pstcbNvt->szInputCache[pstcbNvt->bInputBytes], ubaRcvBuf, bCpyBytes);
+                    pstcbNvt->bInputBytes += bCpyBytes;
+                }
+                os_exit_critical();
+            }
+
             pstcbTelnetClt->unLastOperateTime = os_get_system_secs();
         }
         else
@@ -889,6 +866,18 @@ void thread_nvt_handler(void *pvParam)
     if (pstcbNvt->pszCmdCache)
         buddy_free(pstcbNvt->pszCmdCache);
 #endif
+
+    //* 假如当前还有正在执行中的指令，结束nvt之前就需要先通知其停止运行并等待一小段时间使其能够有充足的时间安全结束
+    if (SMACHNVT_CMDEXECING == pstcbNvt->stSMach.nvt_state)
+    {
+        pstcbNvt->stSMach.nvt_cmd_exec_en = FALSE;
+        INT nTimeout = 0;
+        while (SMACHNVT_CMDEXECING == pstcbNvt->stSMach.nvt_state && nTimeout++ < 6 * 100)
+            os_sleep_ms(10);
+
+        if (SMACHNVT_CMDEXECING == pstcbNvt->stSMach.nvt_state)
+            nvt_cmd_kill();
+    }
 
     //* 当前nvt已结束运行，需要显式地通知Telnet服务器清除该客户端以释放占用的相关资源    
     pstcbTelnetClt->unLastOperateTime = 0;
@@ -929,55 +918,58 @@ static UCHAR nego_put_echo(PSTCB_NVT pstcbNvt, UCHAR **ppubFilled)
 
 static void nego_get_term_type(PSTCB_NVT pstcbNvt, UCHAR ubCmd)
 {
+    SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt)); 
+
     if (TELNETCMD_WILL == ubCmd)
     {
         pstcbNvt->stSMach.nvt_term_type = 3; //* 对端同意激活终端类型选项 
-        telnet_req_term_type(pstcbNvt); //* 请求对端的终端类型
+        telnet_req_term_type(hRmtTelnetClt); //* 请求对端的终端类型
     }
     else if (TELNETCMD_WONT == ubCmd)
     {
         pstcbNvt->stSMach.nvt_term_type = 1; //* 对端不同意激活终端类型选项        
-        telnet_cmd_send(pstcbNvt, TELNETCMD_DONT, TELNETOPT_TERMTYPE); //* 告知对端，已知晓禁止激活终端类型选项 
+        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DONT, TELNETOPT_TERMTYPE); //* 告知对端，已知晓禁止激活终端类型选项 
     }
 }
 
 static void nego_get_suppress_go_ahead(PSTCB_NVT pstcbNvt, UCHAR ubCmd)
 {
+    SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
+
     if (TELNETCMD_DO == ubCmd)
         pstcbNvt->stSMach.nvt_srv_sga = 3;
     else if (TELNETCMD_DONT == ubCmd)
-    {
-        SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
-        send(hRmtTelnetClt, "The client refused the Suppress Go Ahead option on the server and the negotiation was aborted", sizeof("The client refused the Suppress Go Ahead option on the server and the negotiation was aborted") - 1, 1);
-    }
+        send(hRmtTelnetClt, "The client refused the Suppress Go Ahead option on the server and the negotiation was aborted", sizeof("The client refused the Suppress Go Ahead option on the server and the negotiation was aborted") - 1, 1);     
     else if (TELNETCMD_WILL == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_DO, TELNETOPT_SGA);
+        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DO, TELNETOPT_SGA);
     else if (TELNETCMD_WONT == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_DONT, TELNETOPT_SGA);
+        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DONT, TELNETOPT_SGA);
 }
 
 static void nego_get_echo(PSTCB_NVT pstcbNvt, UCHAR ubCmd)
 {
+    SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
+
     if (TELNETCMD_DO == ubCmd)
         pstcbNvt->stSMach.nvt_srv_echo = 3;
     else if (TELNETCMD_DONT == ubCmd)
     {
         pstcbNvt->stSMach.nvt_srv_echo = 1;
-        telnet_cmd_send(pstcbNvt, TELNETCMD_WONT, TELNETOPT_ECHO);
+        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_WONT, TELNETOPT_ECHO);
     }
     else if (TELNETCMD_WILL == ubCmd)
-        telnet_cmd_send(pstcbNvt, TELNETCMD_DONT, TELNETOPT_ECHO);
+        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DONT, TELNETOPT_ECHO);
     else if (TELNETCMD_WONT == ubCmd)
     {
         if (1 != pstcbNvt->stSMach.nvt_clt_echo)
         {
             pstcbNvt->stSMach.nvt_clt_echo = 1;
-            telnet_cmd_send(pstcbNvt, TELNETCMD_DONT, TELNETOPT_ECHO);
+            telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DONT, TELNETOPT_ECHO);
         }
     }
 }
 
-void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, PST_NVTCMD pstCmd)
+void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, const PST_NVTCMD pstCmd)
 {
     os_critical_init();
 
@@ -998,6 +990,12 @@ void nvt_cmd_exec_end(ULONGLONG ullNvtHandle)
 {
     PSTCB_NVT pstcbNvt = (PSTCB_NVT)ullNvtHandle;
     pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECEND;
+}
+
+BOOL nvt_cmd_exec_enable(ULONGLONG ullNvtHandle)
+{
+    PSTCB_NVT pstcbNvt = (PSTCB_NVT)ullNvtHandle;
+    return pstcbNvt->stSMach.nvt_cmd_exec_en;
 }
 
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
@@ -1063,5 +1061,43 @@ static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     nvt_cmd_exec_end(ullNvtHandle);
 
     return 0;
+}
+
+void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
+{
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
+    send(pstTelnetClt->hClient, pubData, nDataLen, 1);
+}
+
+INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen)
+{
+    PSTCB_NVT pstcbNvt = (PSTCB_NVT)ullNvtHandle;
+    CHAR bCpyBytes = 0;
+
+    os_critical_init();
+    os_enter_critical();
+    {
+        if (pstcbNvt->bInputBytes)
+        {
+            bCpyBytes = pstcbNvt->bInputBytes < nInputBufLen ? pstcbNvt->bInputBytes : nInputBufLen;
+            memcpy(pubInputBuf, pstcbNvt->szInputCache, bCpyBytes);
+            if (bCpyBytes < pstcbNvt->bInputBytes)
+            {
+                pstcbNvt->bInputBytes -= bCpyBytes;
+                memmove(pstcbNvt->szInputCache, &pstcbNvt->szInputCache[bCpyBytes], pstcbNvt->bInputBytes);
+            }
+            else
+                pstcbNvt->bInputBytes -= bCpyBytes;
+        }
+    }
+    os_exit_critical();
+
+    return (INT)bCpyBytes;
+}
+
+const CHAR *nvt_get_term_type(ULONGLONG ullNvtHandle)
+{
+    PSTCB_NVT pstcbNvt = (PSTCB_NVT)ullNvtHandle;
+    return pstcbNvt->stSMach.szTermName;
 }
 #endif
