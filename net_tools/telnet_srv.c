@@ -12,6 +12,7 @@
 #include "onps_input.h"
 #include "netif/netif.h"
 #include "netif/route.h"
+#include "telnet/os_nvt.h"
 
 #if NETTOOLS_TELNETSRV
 #define SYMBOL_GLOBALS
@@ -19,6 +20,7 @@
 #undef SYMBOL_GLOBALS
 
 #include "net_tools/telnet.h"
+#include "telnet/nvt_cmd.h"
 
 static PSTCB_TELNETCLT l_pstcbTelnetCltList = NULL; 
 static CHAR l_bTelnetSrvState = 1; 
@@ -172,10 +174,14 @@ static void telnet_client_clean(void)
 void telnet_srv_entry(void *pvParam)
 {
     EN_ONPSERR enErr;     
-    SOCKET hSrvSocket = tcp_srv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, TCPSRVRCVMODE_ACTIVE, &enErr);
+    SOCKET hSrvSocket = tcpsrv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, TCPSRVRCVMODE_ACTIVE, &enErr);
     if (INVALID_SOCKET != hSrvSocket)
     {
+        //* 与操作系统相关的nvt初始化，其实就是完成nvt作为线程/任务启动前的准备工作
         os_nvt_init();
+
+        //* 注册用户自定义的nvt指令
+        nvt_cmd_register(); 
 
         CHAR bClientCnt = 0; 
         while (l_bTelnetSrvState)
@@ -190,7 +196,8 @@ void telnet_srv_entry(void *pvParam)
                 }
                 else
                 {
-                    send(hClient, "The maximum number of logged in users has been reached, please try again later.\r\n", sizeof("The maximum number of logged in users has been reached, please try again later.\r\n") - 1, 1); 
+                    send(hClient, "The maximum number of logged in users has been reached, please try again later.\r\n", 
+                        sizeof("The maximum number of logged in users has been reached, please try again later.\r\n") - 1, 1); 
                     close(hClient);
                 }
             }        
@@ -210,7 +217,7 @@ void telnet_srv_entry(void *pvParam)
 
         telnet_client_clean();
         close(hSrvSocket);
-        os_nvt_uninit();         
+        os_nvt_uninit(); 
     }
     else
     {

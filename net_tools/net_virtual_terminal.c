@@ -13,7 +13,7 @@
 #include "netif/netif.h"
 #include "netif/route.h"
 
-#if NETTOOLS_TELNETSRV || NETTOOLS_TELNETCLT
+#if NETTOOLS_TELNETSRV
 #define SYMBOL_GLOBALS
 #include "net_tools/net_virtual_terminal.h"
 #undef SYMBOL_GLOBALS
@@ -623,6 +623,8 @@ static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                     help(bArgCnt, pszaArg, (ULONGLONG)pstcbNvt);
                 }
             }
+            else
+                pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECEND; 
 
             pstcbNvt->bInputBytes -= i + 1;
             pstcbNvt->bCursorPos = 0;
@@ -969,7 +971,7 @@ static void nego_get_echo(PSTCB_NVT pstcbNvt, UCHAR ubCmd)
     }
 }
 
-void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, const PST_NVTCMD pstCmd)
+void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, const ST_NVTCMD *pstCmd)
 {
     os_critical_init();
 

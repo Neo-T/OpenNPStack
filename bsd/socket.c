@@ -93,21 +93,18 @@ void close(SOCKET socket)
     onps_input_free((INT)socket); 
 }
 
-static int socket_tcp_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, HSEM hSem, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
+static int socket_tcp_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, HSEM hSem, in_addr_t *srv_ip, unsigned short srv_port, int nConnTimeout)
 {     
 	EN_ONPSERR enErr; 	
 
 #if SUPPORT_IPV6
 	INT nRtnVal;
 	if (AF_INET == pstHandle->bFamily)
-		nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout); 
-	else
-	{
-		UCHAR ubaSrvAddr[16];		
-		nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)inet6_aton(srv_ip, ubaSrvAddr), srv_port, nConnTimeout);
-	}
+		nRtnVal = tcp_send_syn((INT)socket, *srv_ip, srv_port, nConnTimeout); 
+	else				
+		nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)srv_ip, srv_port, nConnTimeout);	
 #else
-	INT nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, nConnTimeout); 
+	INT nRtnVal = tcp_send_syn((INT)socket, *srv_ip, srv_port, nConnTimeout); 
 #endif
 
     if (nRtnVal > 0)
@@ -155,7 +152,7 @@ __lblWait:
         return -1;   
 }
 
-static int socket_tcp_connect_nb(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, const char *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
+static int socket_tcp_connect_nb(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, in_addr_t *srv_ip, unsigned short srv_port, EN_TCPLINKSTATE enLinkState)
 {
 	INT nRtnVal; 
 
@@ -164,14 +161,11 @@ static int socket_tcp_connect_nb(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, con
     case TLSINIT:
 #if SUPPORT_IPV6
 		if(AF_INET == pstHandle->bFamily) 
-			nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, 0); 
-		else
-		{
-			UCHAR ubaSrvAddr[16];
-			nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)inet6_aton(srv_ip, ubaSrvAddr), srv_port, 0);
-		}
+			nRtnVal = tcp_send_syn((INT)socket, *srv_ip, srv_port, 0); 
+		else		
+			nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)srv_ip, srv_port, 0); 
 #else
-		nRtnVal = tcp_send_syn((INT)socket, inet_addr(srv_ip), srv_port, 0); 
+		nRtnVal = tcp_send_syn((INT)socket, *srv_ip, srv_port, 0); 
 #endif
         if (nRtnVal > 0) 
             return 1;
@@ -202,8 +196,9 @@ static int socket_tcp_connect_nb(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, con
     }
 }
 
-static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_port, int nConnTimeout)
+static int socket_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandleInput, in_addr_t *srv_ip, unsigned short srv_port, int nConnTimeout)
 {
+    PST_TCPUDP_HANDLE pstHandle = pstHandleInput; 
     EN_ONPSERR enErr;
     EN_IPPROTO enProto;    
     if (!onps_input_get((INT)socket, IOPT_GETIPPROTO, &enProto, &enErr))
@@ -211,13 +206,15 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
 
     onps_set_last_error((INT)socket, ERRNO);
 
-    if (enProto == IPPROTO_TCP)
-    {        
-		//* 获取链路访问句柄
-		PST_TCPUDP_HANDLE pstHandle;
-		if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
-			goto __lblErr;
+    //* 获取链路访问句柄    
+    if (!pstHandle)
+    {
+        if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+            goto __lblErr; 
+    }
 
+    if (enProto == IPPROTO_TCP)
+    {        				
         //* 获取当前链路状态
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
@@ -257,22 +254,18 @@ static int socket_connect(SOCKET socket, const char *srv_ip, unsigned short srv_
             return socket_tcp_connect_nb(socket, pstHandle, srv_ip, srv_port, enLinkState);
     }
     else if (enProto == IPPROTO_UDP)
-    {
-		PST_TCPUDP_HANDLE pstHandle;
-		if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
-			goto __lblErr;
-
+    {		
         //* 说明要绑定一个具体的目标服务器，所以这里需要记录下目标服务器的地址
         PST_UDPLINK pstLink = udp_link_get(&enErr); 
         if (pstLink)
         {
 		#if SUPPORT_IPV6
 			if (AF_INET == pstHandle->bFamily)
-				pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);
+				pstLink->stPeerAddr.saddr_ipv4 = (UINT)(*srv_ip);
 			else
-				inet6_aton(srv_ip, pstLink->stPeerAddr.saddr_ipv6); 			
+				memcpy(pstLink->stPeerAddr.saddr_ipv6, srv_ip, 16);
 		#else
-			pstLink->stPeerAddr.saddr_ipv4 = (UINT)inet_addr(srv_ip);			
+			pstLink->stPeerAddr.saddr_ipv4 = (UINT)(*srv_ip);			
 		#endif
 			pstLink->stPeerAddr.usPort = srv_port;
 
@@ -295,16 +288,52 @@ __lblErr:
     return -1;
 }
 
+static int socket_connect_by_addr_str(SOCKET socket, const CHAR *srv_ip, unsigned short srv_port, int nConnTimeout)
+{
+    ST_SOCKADDR stSockAddr; 
+
+    //* 获取链路访问句柄
+    EN_ONPSERR enErr;
+    PST_TCPUDP_HANDLE pstHandle;
+    if (!onps_input_get((INT)socket, IOPT_GETTCPUDPADDR, &pstHandle, &enErr))
+    {
+        onps_set_last_error((INT)socket, enErr);
+        return -1;
+    }
+
+#if SUPPORT_IPV6
+    if (AF_INET == pstHandle->bFamily)
+        stSockAddr.saddr_ipv4 = inet_addr(srv_ip);
+    else
+        inet6_aton(srv_ip, stSockAddr.saddr_ipv6);
+#else
+    stSockAddr.saddr_ipv4 = inet_addr(srv_ip);
+#endif
+
+    return socket_connect(socket, pstHandle, (AF_INET == pstHandle->bFamily) ? (in_addr_t *)&stSockAddr.saddr_ipv4 : (in_addr_t *)stSockAddr.saddr_ipv6, srv_port, nConnTimeout); 
+}
+
 INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout)
 {
     if (nConnTimeout <= 0)
         nConnTimeout = TCP_CONN_TIMEOUT; 
-    return socket_connect(socket, srv_ip, srv_port, nConnTimeout);
+
+    return socket_connect_by_addr_str(socket, srv_ip, srv_port, nConnTimeout);
+}
+
+INT connect_ext(SOCKET socket, in_addr_t *srv_ip, USHORT srv_port, INT nConnTimeout)
+{
+    return socket_connect(socket, NULL, srv_ip, srv_port, nConnTimeout);
 }
 
 INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port)
 {
-    return socket_connect(socket, srv_ip, srv_port, 0);
+    return socket_connect_by_addr_str(socket, srv_ip, srv_port, 0);
+}
+
+INT connect_nb_ext(SOCKET socket, in_addr_t *srv_ip, USHORT srv_port)
+{
+    return socket_connect(socket, NULL, srv_ip, srv_port, 0); 
 }
 
 #if SUPPORT_SACK
@@ -1118,7 +1147,7 @@ BOOL tcpsrv_set_recv_mode(SOCKET hSocketSrv, CHAR bRcvMode, EN_ONPSERR *penErr)
     }
 }
 
-SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMode, EN_ONPSERR *penErr)
+SOCKET tcpsrv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMode, EN_ONPSERR *penErr)
 {
     SOCKET hSrvSocket;
 
@@ -1149,3 +1178,23 @@ SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMo
     return INVALID_SOCKET;
 }
 #endif //* #if SUPPORT_ETHERNET
+
+SOCKET tcp_srv_connect(INT family, in_addr_t *srv_ip, USHORT srv_port, INT nRcvTimeout, INT nConnTimeout, EN_ONPSERR *penErr)
+{     
+    SOCKET hSocket = socket(family, SOCK_STREAM, 0, penErr); 
+    if (INVALID_SOCKET == hSocket)
+        return hSocket; 
+
+    if (!connect_ext(hSocket, srv_ip, srv_port, nConnTimeout))
+    {
+        socket_set_rcv_timeout(hSocket, nRcvTimeout, penErr); 
+        return hSocket; 
+    }
+    else
+    {
+        onps_get_last_error(hSocket, penErr); 
+        close(hSocket); 
+
+        return INVALID_SOCKET; 
+    }
+}

@@ -27,29 +27,23 @@
 //* ===================================================================================
 #if NETTOOLS_TELNETCLT
 static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
-#define NVTCMD_NUM 1 //* 在这里指定你要添加的NVT指令的数量
-#else
-#define NVTCMD_NUM 0 //* 在这里指定你要添加的NVT指令的数量
 #endif
 
-static const ST_NVTCMD l_staNvtCmd[NVTCMD_NUM] = {
+static const ST_NVTCMD l_staNvtCmd[] = {
 #if NETTOOLS_TELNETCLT
     { telnet, "telnet", "used to log in to remote telnet host.\r\n" },
 #endif
 };
 
-#if NETTOOLS_TELNETCLT
-#define NVTCMD_TELNET   0 //* "telnet"指令在l_staNvtCmd数组中的存储索引
-#endif
-static ST_NVTCMD_NODE l_staNvtCmdNode[NVTCMD_NUM];
+static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)]; 
 //* ===================================================================================
 
 void nvt_cmd_register(void)
 {
     UCHAR i;
-    for (i = 0; i < NVTCMD_NUM; i++)
+    for (i = 0; i < sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD); i++)
     {
-        nvt_cmd_add(&l_staNvtCmdNode[i], (const PST_NVTCMD)&l_staNvtCmd[i]);
+        nvt_cmd_add(&l_staNvtCmdNode[i], &l_staNvtCmd[i]);
     }
 }
 

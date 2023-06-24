@@ -116,11 +116,12 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
 
 void telnet_clt_entry(void *pvParam)
 {
-    //* 必须要复制，因为这个函数被设计为单独一个线程
+    //* 必须要复制，因为这个函数被设计为单独一个线程/任务
     ST_TELCLT_STARTARGS stArgs = *((PST_TELCLT_STARTARGS)pvParam);
     ((PST_TELCLT_STARTARGS)pvParam)->bIsCpyEnd = TRUE;
 
-    SOCKET hTelSocket = tcp_connect_srv(AF_INET, stArgs.stSrvAddr.saddr_ipv4, stArgs.stSrvAddr.usPort, 10);
+    EN_ONPSERR enErr;                          
+    SOCKET hTelSocket = tcp_srv_connect(AF_INET, (in_addr_t *)&stArgs.stSrvAddr.saddr_ipv4, stArgs.stSrvAddr.usPort, 0, 10, &enErr); 
     if (INVALID_SOCKET != hTelSocket)
     {
         EN_ONPSERR enErr;
@@ -138,8 +139,12 @@ void telnet_clt_entry(void *pvParam)
                 nRcvBytes = nvt_input(stArgs.ullNvtHandle, pubRcvBuf, TELNETCLT_RCVBUF_SIZE);
                 if (nRcvBytes)
                 {
+                    if (nRcvBytes == 1 && pubRcvBuf[0] == '\x03')                                            
+                        break;                     
+
                     blIsNotRcvedData = FALSE;
-                    send(hTelSocket, pubRcvBuf, nRcvBytes, 1);
+                    if (send(hTelSocket, pubRcvBuf, nRcvBytes, 1) < 0)
+                        break; 
                 }
                 else
                     blIsNotRcvedData = TRUE;
@@ -157,15 +162,17 @@ void telnet_clt_entry(void *pvParam)
                 }
 
                 if (blIsNotRcvedData)
-                    os_sleep_ms(10);
+                    os_sleep_ms(5);
             }
 
             buddy_free(pubRcvBuf);
+
+            nvt_output(stArgs.ullNvtHandle, "\r\n", 2);
         }
         else
-            nvt_output(stArgs.ullNvtHandle, (const UCHAR *)"telnet failed to start, the mmu has no memory available.\r\n", sizeof("telnet failed to start, the mmu has no memory available.\r\n") - 1);
-
-        closesocket(hTelSocket);
+            nvt_output(stArgs.ullNvtHandle, "telnet failed to start, the mmu has no memory available.\r\n", 
+                        sizeof("telnet failed to start, the mmu has no memory available.\r\n") - 1);
+        close(hTelSocket);         
     }
     else
     {
@@ -173,13 +180,13 @@ void telnet_clt_entry(void *pvParam)
         CHAR *pszErr = (CHAR *)buddy_alloc(128, &enErr);
         if (pszErr)
         {
-            sprintf(pszErr, "connect failed, %s\r\n", socket_last_err(hTelSocket, pszErr + sizeof("connect failed, ") - 1, 128 - (sizeof("connect failed, ") - 1)));
-            nvt_output(stArgs.ullNvtHandle, (const UCHAR *)pszErr, strlen(pszErr));
+            sprintf(pszErr, "connect failed, %s\r\n", onps_error(enErr)); 
+            nvt_output(stArgs.ullNvtHandle, (UCHAR *)pszErr, strlen(pszErr));
 
             buddy_free(pszErr);
         }
     }
-
+    
     nvt_cmd_exec_end(stArgs.ullNvtHandle);
 }
 

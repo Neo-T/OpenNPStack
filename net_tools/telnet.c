@@ -14,7 +14,7 @@
 #include "netif/route.h"
 #include "bsd/socket.h" 
 
-#if NETTOOLS_TELNETSRV | NETTOOLS_TELNETCLT
+#if NETTOOLS_TELNETSRV
 #define SYMBOL_GLOBALS
 #include "net_tools/telnet.h"
 #undef SYMBOL_GLOBALS
@@ -25,7 +25,7 @@ void telnet_cmd_send(SOCKET hSocket, UCHAR ubCmd, UCHAR ubOption)
     stCmd.ubIAC = TELNETCMD_IAC;
     stCmd.ubCmd = ubCmd;
     stCmd.ubNegoOption = ubOption;
-    send(hSocket, (const char *)&stCmd, sizeof(ST_TELNETPKT_CMD), 0);
+    send(hSocket, (UCHAR *)&stCmd, sizeof(ST_TELNETPKT_CMD), 1);
 }
 
 //* 协议栈不支持的协商选项一律禁止激活，该函数按照这个原则回馈应答
@@ -52,7 +52,7 @@ void telnet_req_term_type(SOCKET hSocket)
     stSubOptTermType.ubCode = TELNETOPT_TTCODE_SEND;
     stSubOptTermType.ubEIAC = TELNETCMD_IAC;
     stSubOptTermType.ubSE = TELNETCMD_SE;
-    send(hSocket, (const char *)&stSubOptTermType, sizeof(ST_TELNETPKT_SOPT_TERMTYPE), 0);
+    send(hSocket, (UCHAR *)&stSubOptTermType, sizeof(ST_TELNETPKT_SOPT_TERMTYPE), 1);
 }
 
 void telnet_report_term_type(SOCKET hSocket, const CHAR *pszTermType, INT nTremTypeLen)
@@ -66,6 +66,6 @@ void telnet_report_term_type(SOCKET hSocket, const CHAR *pszTermType, INT nTremT
     memcpy(&ubaSndBuf[offsetof(ST_TELNETPKT_SOPT_TERMTYPE, ubEIAC)], pszTermType, nTremTypeLen);
     ubaSndBuf[offsetof(ST_TELNETPKT_SOPT_TERMTYPE, ubEIAC) + nTremTypeLen] = TELNETCMD_IAC;
     ubaSndBuf[offsetof(ST_TELNETPKT_SOPT_TERMTYPE, ubEIAC) + nTremTypeLen + 1] = TELNETCMD_SE;
-    send(hSocket, (const char *)ubaSndBuf, sizeof(ST_TELNETPKT_SOPT_TERMTYPE) + nTremTypeLen, 0);
+    send(hSocket, (UCHAR *)ubaSndBuf, sizeof(ST_TELNETPKT_SOPT_TERMTYPE) + nTremTypeLen, 1);
 }
 #endif

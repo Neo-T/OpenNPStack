@@ -74,6 +74,11 @@ typedef struct _ST_SOCKADDR_ {
 		UINT unVal;
 		UCHAR ubaVal[16];
 	} uniIp;
+} ST_SOCKADDR, *PST_SOCKADDR; 
+#else
+typedef struct _ST_SOCKADDR_ {
+    USHORT usPort; 
+    UINT unIp; 
 } ST_SOCKADDR, *PST_SOCKADDR;
 #endif
 

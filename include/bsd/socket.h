@@ -32,8 +32,17 @@ SOCKET_EXT void close(SOCKET socket);
 //* 连接函数，阻塞型，直至连接成功或超时，返回0意味着连接成功，-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数
 //* 获得，注意，nConnTimeout参数必须大于0，小于等于0则函数直接返回，相当于调用connect_nb()函数
 SOCKET_EXT INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout);
+
+//* 功能同上，入口参数与之稍微有些区别，connect()函数的srv_ip参数指向可读的ip地址字符串，connect_ext()函数的srv_ip参数指向的则是
+//* inet_addr()/inet6_aton()函数转换后的16进制的实际地址
+SOCKET_EXT INT connect_ext(SOCKET socket, in_addr_t *srv_ip, USHORT srv_port, INT nConnTimeout); 
+
 //* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port); 
+
+//* 功能同上，入口参数与connect_nb()函数的区别同同connect_ext()函数
+SOCKET_EXT INT connect_nb_ext(SOCKET socket, in_addr_t *srv_ip, USHORT srv_port);
+
 
 //* 发送函数(tcp链路下阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
 //* 对于udp协议来说参数nWaitAckTimeout将被忽略，其将作为非阻塞型函数使用；
@@ -95,8 +104,11 @@ SOCKET_EXT SOCKET tcpsrv_recv_poll(SOCKET hSocketSrv, INT nWaitSecs, EN_ONPSERR 
 SOCKET_EXT BOOL tcpsrv_set_recv_mode(SOCKET hSocketSrv, CHAR bRcvMode, EN_ONPSERR *penErr);
 
 //* 启动tcp服务器
-SOCKET_EXT SOCKET tcp_srv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMode, EN_ONPSERR *penErr);
+SOCKET_EXT SOCKET tcpsrv_start(INT family, USHORT usSrvPort, USHORT usBacklog, CHAR bRcvMode, EN_ONPSERR *penErr);
 #endif
+
+//* 连接tcp服务器
+SOCKET_EXT SOCKET tcp_srv_connect(INT family, in_addr_t *srv_ip, USHORT srv_port, INT nRcvTimeout, INT nConnTimeout, EN_ONPSERR *penErr);
 
 //* 获取最近一次发生的错误信息
 SOCKET_EXT const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr);
