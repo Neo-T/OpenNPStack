@@ -74,18 +74,19 @@
 #define TELNETOPT_TM        6   //* Timing Mark，用于收发双方同步的选项，在这里其被用于“准行方式”协商，其完整使用说明详见[RFC860]：https://www.rfc-editor.org/rfc/rfc860
 #define TELNETOPT_TERMTYPE  24  //* Terminal Type，终端类型，详见[RFC1091]：https://www.rfc-editor.org/rfc/rfc1091.html
 
-#pragma pack(push)
-#pragma pack(1)		//* 设置为1字节对齐
+PACKED_BEGIN
  //* telent选项协商通讯中DO、WILL、DONT、WONT几个命令的报文格式
 typedef struct _ST_TELNETPKT_CMD_ {
     UCHAR ubIAC;
     UCHAR ubCmd;
     UCHAR ubNegoOption;
-} ST_TELNETPKT_CMD, *PST_TELNETPKT_CMD;
+} PACKED ST_TELNETPKT_CMD, *PST_TELNETPKT_CMD;
+PACKED_END
 
 //* telent选项协商通讯终端类型选项的报文格式，终端类型携带的code编码的详细说明，参见：https://www.rfc-editor.org/rfc/rfc1091#page-2
 #define TELNETOPT_TTCODE_SEND   1 //* 发送你的终端类型
 #define TELNETOPT_TTCODE_IS     0 //* 我的终端类型是……
+PACKED_BEGIN
 typedef struct _ST_TELNETPKT_SOPT_TERMTYPE_ {
     UCHAR ubSIAC;
     UCHAR ubSB;
@@ -93,8 +94,8 @@ typedef struct _ST_TELNETPKT_SOPT_TERMTYPE_ {
     UCHAR ubCode;
     UCHAR ubEIAC;
     UCHAR ubSE;
-} ST_TELNETPKT_SOPT_TERMTYPE, *PST_TELNETPKT_SOPT_TERMTYPE;
-#pragma pack(pop)
+} PACKED ST_TELNETPKT_SOPT_TERMTYPE, *PST_TELNETPKT_SOPT_TERMTYPE;
+PACKED_END
 
 #define TERM_NAME_MAX 16  //* 终端名称最大字节数
 

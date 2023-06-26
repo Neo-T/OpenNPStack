@@ -875,7 +875,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
 			{
 				CHAR szAddr[20], szAddrClt[20];
 				printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*punSrcAddr, szAddr), usSrcPort, 
-						inet_ntoa_safe_ext(*punDstAddr, szAddrClt), usDstPort, onps_error(enErr));
+						inet_ntoa_safe_ext(htonl(*punDstAddr), szAddrClt), usDstPort, onps_error(enErr));
 			}
 			else
 			{
@@ -885,7 +885,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
 			}			
 		#else
 			CHAR szAddr[20], szAddrClt[20];
-            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*punSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(*punDstAddr, szAddrClt), usDstPort, onps_error(enErr));
+            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*punSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(htonl(*punDstAddr), szAddrClt), usDstPort, onps_error(enErr));
 		#endif
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);

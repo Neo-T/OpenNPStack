@@ -120,6 +120,9 @@ void telnet_clt_entry(void *pvParam)
     ST_TELCLT_STARTARGS stArgs = *((PST_TELCLT_STARTARGS)pvParam);
     ((PST_TELCLT_STARTARGS)pvParam)->bIsCpyEnd = TRUE;
 
+    //* 输出连接提示信息
+    nvt_output(stArgs.ullNvtHandle, "Connecting to telnet server ...\r\n", sizeof("Connecting to telnet server ...\r\n") - 1); 
+
     EN_ONPSERR enErr;                          
     SOCKET hTelSocket = tcp_srv_connect(AF_INET, (in_addr_t *)&stArgs.stSrvAddr.saddr_ipv4, stArgs.stSrvAddr.usPort, 0, 10, &enErr); 
     if (INVALID_SOCKET != hTelSocket)
@@ -134,6 +137,7 @@ void telnet_clt_entry(void *pvParam)
             //* 进入循环状态
             INT nRcvBytes;
             BOOL blIsNotRcvedData = TRUE;
+            USHORT usZeroNum = 0; 
             while (nvt_cmd_exec_enable(stArgs.ullNvtHandle))
             {
                 nRcvBytes = nvt_input(stArgs.ullNvtHandle, pubRcvBuf, TELNETCLT_RCVBUF_SIZE);
@@ -143,6 +147,7 @@ void telnet_clt_entry(void *pvParam)
                         break;                     
 
                     blIsNotRcvedData = FALSE;
+                    usZeroNum = 0;
                     if (send(hTelSocket, pubRcvBuf, nRcvBytes, 1) < 0)
                         break; 
                 }
@@ -151,8 +156,9 @@ void telnet_clt_entry(void *pvParam)
                                     
                 nRcvBytes = recv(hTelSocket, pubRcvBuf, TELNETCLT_RCVBUF_SIZE); 
                 if (nRcvBytes > 0)
-                {
+                {                    
                     blIsNotRcvedData = FALSE;
+                    usZeroNum = 0;
                     telnet_srv_data_handler(stArgs.ullNvtHandle, hTelSocket, pubRcvBuf, nRcvBytes);
                 }
                 else
@@ -162,7 +168,13 @@ void telnet_clt_entry(void *pvParam)
                 }
 
                 if (blIsNotRcvedData)
-                    os_sleep_ms(5);
+                {
+                    if (usZeroNum++ > 1000)
+                    {                    
+                        os_sleep_ms(5);
+                        usZeroNum = 0;
+                    }
+                }
             }
 
             buddy_free(pubRcvBuf);
@@ -175,9 +187,8 @@ void telnet_clt_entry(void *pvParam)
         close(hTelSocket);         
     }
     else
-    {
-        EN_ONPSERR enErr;
-        CHAR *pszErr = (CHAR *)buddy_alloc(128, &enErr);
+    {        
+        CHAR *pszErr = (CHAR *)buddy_alloc(128, NULL);
         if (pszErr)
         {
             sprintf(pszErr, "connect failed, %s\r\n", onps_error(enErr)); 

@@ -62,8 +62,16 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
     if (argc != 2 && argc != 3)
     {
-        nvt_output(ullNvtHandle, (const UCHAR *)"Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n",
+        nvt_output(ullNvtHandle, "Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n",
             sizeof("Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n") - 1);
+        nvt_cmd_exec_end(ullNvtHandle);
+        return -1;
+    }
+
+    if (is_local_ip(inet_addr_small(argv[1])))
+    {
+        nvt_output(ullNvtHandle, "Due to resource constraints, the telnet command is prohibited from logging in to its own server.\r\n",
+            sizeof("Due to resource constraints, the telnet command is prohibited from logging in to its own server.\r\n") - 1); 
         nvt_cmd_exec_end(ullNvtHandle);
         return -1;
     }

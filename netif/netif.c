@@ -727,3 +727,46 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 	return pstMatchedNetif;
 }
 #endif
+
+BOOL is_local_ip(in_addr_t unAddr)
+{
+    if (0x0100007F == unAddr)
+        return TRUE; 
+
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
+        while (pstNextNode)
+        {
+            if (unAddr == pstNextNode->stIf.stIPv4.unAddr)
+            {
+                os_thread_mutex_unlock(l_hMtxNetif); 
+                return TRUE; 
+            }
+
+        #if SUPPORT_ETHERNET
+            //* ethernet网卡，则需要看看附加地址链表是否有匹配的ip地址了
+            if (NIF_ETHERNET == pstNextNode->stIf.enType)
+            {
+                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra;
+                PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
+                while (pstNextIP)
+                {
+                    if (unAddr == pstNextIP->unAddr)
+                    {
+                        os_thread_mutex_unlock(l_hMtxNetif);
+                        return TRUE; 
+                    }
+
+                    pstNextIP = pstNextIP->pstNext;
+                }
+            }
+        #endif
+
+            pstNextNode = pstNextNode->pstNext; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif); 
+
+    return FALSE; 
+}

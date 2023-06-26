@@ -203,4 +203,6 @@ NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16],
 #endif
 #endif
 
+NETIF_EXT BOOL is_local_ip(in_addr_t unAddr); 
+
 #endif

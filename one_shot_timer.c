@@ -394,6 +394,7 @@ PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandl
 		//* 先赋值再挂载，否则可能导致计数线程出现错误
 		pstTimer->pfunTimeoutHandler = pfunTimeoutHandler;
 		pstTimer->pvParam = pvParam;
+        nTimeoutCount = (nTimeoutCount == 1 ? 2 : nTimeoutCount);
 		pstTimer->nTimeoutCount = nTimeoutCount;
 
 		//* 挂接到计时队列中，开始计数

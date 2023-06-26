@@ -390,13 +390,13 @@ static INT socket_tcp_send(SOCKET socket, HSEM hSem, UCHAR *pubData, INT nDataLe
 {    
     //* 发送数据	
     INT nRtnVal = tcp_send_data((INT)socket, pubData, nDataLen, nWaitAckTimeout);
-    if (nRtnVal < 0)    
-        return -1;    
+    if (nRtnVal < 0)      
+        return -1;   
     
 __lblWaitAck:     
     //* 等待信号量到达：定时器报超时或者ack到达    
     if (os_thread_sem_pend(hSem, 0) < 0)
-    {
+    {        
         onps_set_last_error((INT)socket, ERRINVALIDSEM); 
         return -1; 
     }	
@@ -405,7 +405,7 @@ __lblWaitAck:
     EN_ONPSERR enErr;
     EN_TCPDATASNDSTATE enSndState;
     if (!onps_input_get((INT)socket, IOPT_GETTCPDATASNDSTATE, &enSndState, &enErr))
-    {
+    {        
         onps_set_last_error((INT)socket, enErr);
         return -1;
     }
@@ -418,19 +418,19 @@ __lblWaitAck:
     case TDSACKRCVED:
         return nRtnVal; 
 
-    case TDSTIMEOUT:		
+    case TDSTIMEOUT:	        
         onps_set_last_error((INT)socket, ERRTCPACKTIMEOUT);
         return -1; 
 
-    case TDSLINKRESET: 
+    case TDSLINKRESET:         
         onps_set_last_error((INT)socket, ERRTCPCONNRESET);
         return -1;
 
-    case TDSLINKCLOSED:
+    case TDSLINKCLOSED:        
         onps_set_last_error((INT)socket, ERRTCPCONNCLOSED);
         return -1;
 
-    default:              
+    default:           
         onps_set_last_error((INT)socket, ERRUNKNOWN);
         return -1;
     }
