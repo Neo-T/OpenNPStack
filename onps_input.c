@@ -299,9 +299,9 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstcbInput->pubRcvBuf = pubRcvBuf;
         pstcbInput->unRcvBufSize = unSize;
         pstcbInput->unRcvedBytes = 0;
-        pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_RCLIENT;
-        pstcbInput->uniHandle.stTcpUdp.bFamily = l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily; 
+        pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_RCLIENT;        
 	#if SUPPORT_IPV6
+        pstcbInput->uniHandle.stTcpUdp.bFamily = l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily;
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)        
 			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
 		else

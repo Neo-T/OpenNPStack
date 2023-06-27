@@ -306,11 +306,11 @@ static int socket_connect_by_addr_str(SOCKET socket, const CHAR *srv_ip, unsigne
         stSockAddr.saddr_ipv4 = inet_addr(srv_ip);
     else
         inet6_aton(srv_ip, stSockAddr.saddr_ipv6);
+    return socket_connect(socket, pstHandle, (AF_INET == pstHandle->bFamily) ? (in_addr_t *)&stSockAddr.saddr_ipv4 : (in_addr_t *)stSockAddr.saddr_ipv6, srv_port, nConnTimeout);
 #else
     stSockAddr.saddr_ipv4 = inet_addr(srv_ip);
-#endif
-
-    return socket_connect(socket, pstHandle, (AF_INET == pstHandle->bFamily) ? (in_addr_t *)&stSockAddr.saddr_ipv4 : (in_addr_t *)stSockAddr.saddr_ipv6, srv_port, nConnTimeout); 
+    return socket_connect(socket, pstHandle, (in_addr_t *)&stSockAddr.saddr_ipv4, srv_port, nConnTimeout); 
+#endif    
 }
 
 INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout)

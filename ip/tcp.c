@@ -39,7 +39,7 @@ void tcpsrv_syn_recv_timeout_handler(void *pvParam)
 			else
 				tcpsrv_send_syn_ack_with_start_timer(pstLink, (in_addr_t *)pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv6, pstLink->stLocal.pstHandle->stSockAddr.usPort, (in_addr_t *)pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort);
 		#else
-            tcpsrv_send_syn_ack_with_start_timer(pstLink, pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort);
+            tcpsrv_send_syn_ack_with_start_timer(pstLink, (in_addr_t *)&pstLink->stLocal.pstHandle->stSockAddr.saddr_ipv4, pstLink->stLocal.pstHandle->stSockAddr.usPort, (in_addr_t *)&pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort);
 		#endif
         }
         else
@@ -1523,7 +1523,11 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
             {
                 if (ERRNOFREEMEM == enErr)
                 {                    
-                    tcpsrv_send_reset((IPV4 == enProtocol) ? AF_INET : AF_INET6, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, unPeerSeqNum + 1, &enErr);
+                #if SUPPORT_IPV6
+                    tcpsrv_send_reset((IPV4 == enProtocol) ? AF_INET : AF_INET6, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, unPeerSeqNum + 1, &enErr); 
+                #else
+                    tcpsrv_send_reset(AF_INET, punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, unPeerSeqNum + 1, &enErr);
+                #endif
                     return; 
                 }
 
@@ -1560,7 +1564,7 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
         #if SUPPORT_IPV6
             tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (IPV4 == enProtocol) ? (in_addr_t *)&uniCltIp.unVal : (in_addr_t *)uniCltIp.pubVal, usCltPort, &enErr);            
         #else
-            tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, TRUE, &enErr); 
+            tcpsrv_send_syn_ack(pstLink, punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &enErr); 
         #endif
         }                
     }

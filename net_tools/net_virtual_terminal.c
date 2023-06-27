@@ -529,9 +529,36 @@ static CHAR telnet_login_handler(CHAR *pszInputData, CHAR *pbInputDataBytes, CHA
     return 0;
 }
 
+static void nvt_printf(SOCKET hRmtTelnetClt, INT nFormatBufSize, const CHAR *pszInfo, ...)
+{
+    EN_ONPSERR enErr;
+    CHAR *pszFormatBuf = (CHAR *)buddy_alloc(nFormatBufSize, &enErr);
+    if (pszFormatBuf)
+    {
+        va_list pvaArgList;
+        va_start(pvaArgList, pszInfo);
+        vsnprintf(pszFormatBuf, nFormatBufSize, pszInfo, pvaArgList);
+        va_end(pvaArgList);
+
+        send(hRmtTelnetClt, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf), 1);
+
+        buddy_free(pszFormatBuf);
+    }
+    else
+        send(hRmtTelnetClt, "nvt_printf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1, 1);
+}
+
 //* 输出onps标
 static void nvt_print_logo(SOCKET hRmtTelnetClt)
 {
+    nvt_printf(hRmtTelnetClt, 512, "\033[01;32m       ______   .__   __. .______     _______.\r\n" \
+                                   "      /  __  \\  |  \\ |  | |   _  \\   /       |\r\n" \
+                                   "     |  |  |  | |   \\|  | |  |_)  | |   (----`\r\n" \
+                                   "     |  |  |  | |  . `  | |   ___/   \\   \\    \r\n" \
+                                   "     |  `--'  | |  |\\   | |  |   .----)   |   \r\n" \
+                                   "      \\______/  |__| \\__| | _|   |_______/    \033[0m\r\n");
+
+    /*
     send(hRmtTelnetClt, "\033[01;32m       ______   .__   __. .______     _______.\r\n", sizeof("\033[01;31m       ______   .__   __. .______     _______.\r\n") - 1, 1);
     //send(hRmtTelnetClt, "       ______   .__   __. .______     _______.\r\n", sizeof("\x1b[01;35m       ______   .__   __. .______     _______.\r\n") - 1, 0);
     send(hRmtTelnetClt, "      /  __  \\  |  \\ |  | |   _  \\   /       |\r\n", sizeof("      /  __  \\  |  \\ |  | |   _  \\   /       |\r\n") - 1, 1);
@@ -539,31 +566,44 @@ static void nvt_print_logo(SOCKET hRmtTelnetClt)
     send(hRmtTelnetClt, "     |  |  |  | |  . `  | |   ___/   \\   \\    \r\n", sizeof("     |  |  |  | |  . `  | |   ___/   \\   \\    \r\n") - 1, 1);
     send(hRmtTelnetClt, "     |  `--'  | |  |\\   | |  |   .----)   |   \r\n", sizeof("     |  `--'  | |  |\\   | |  |   .----)   |   \r\n") - 1, 1);
     send(hRmtTelnetClt, "      \\______/  |__| \\__| | _|   |_______/    \033[0m\r\n", sizeof("      \\______/  |__| \\__| | _|   |_______/    \033[0m\r\n") - 1, 1);
+    */
 }
 
 //* 输出登录信息
 static void nvt_print_login_info(SOCKET hRmtTelnetClt)
 {
+    nvt_printf(hRmtTelnetClt, 128, "\033[01;32m%s\033[0m#\033[01;31mlogin\033[0m: ", NVT_PS);
+
+    /*
     CHAR szFormatBuf[20];
     sprintf(szFormatBuf, "\033[01;32m%s\033[0m", NVT_PS);
     send(hRmtTelnetClt, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
     send(hRmtTelnetClt, "#\033[01;31mlogin\033[0m: ", sizeof("#\033[01;31mlogin\033[0m: ") - 1, 1);
+    */
 }
 
 //* 输出密码录入提示
 static void nvt_print_passwd_info(SOCKET hRmtTelnetClt)
 {
+    nvt_printf(hRmtTelnetClt, 128, "\033[01;32m%s\033[0m#\033[01;31mpassword\033[0m: ", NVT_PS);
+
+    /*
     CHAR szFormatBuf[48];
     sprintf(szFormatBuf, "\033[01;32m%s\033[0m#\033[01;31mpassword\033[0m: ", NVT_PS);
     send(hRmtTelnetClt, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
+    */
 }
 
 //* 输出命令行前缀
 static void nvt_print_ps(SOCKET hRmtTelnetClt)
 {
+    nvt_printf(hRmtTelnetClt, 128, "\033[01;32m%s@%s\033[0m# ", NVT_USER_NAME, NVT_PS);
+
+    /*
     CHAR szFormatBuf[32];
     sprintf(szFormatBuf, "\033[01;32m%s@%s\033[0m# ", NVT_USER_NAME, NVT_PS);
     send(hRmtTelnetClt, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
+    */
 }
 
 static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
@@ -609,9 +649,13 @@ static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                         pstNextNvtCmd = pstNextNvtCmd->pstNextCmd;
                     }
 
+                    nvt_printf(hRmtTelnetClt, 128, "Command not supported by terminal: %s\r\n", pszaArg[0]);
+
+                    /*
                     send(hRmtTelnetClt, (UCHAR *)"Command not supported by terminal: ", sizeof("Command not supported by terminal: ") - 1, 1);
                     send(hRmtTelnetClt, (UCHAR *)pszaArg[0], strlen(pszaArg[0]), 1);
                     send(hRmtTelnetClt, "\r\n", sizeof("\r\n") - 1, 1);
+                    */
                     pstcbNvt->stSMach.nvt_state = SMACHNVT_CMDEXECEND; 
                 }
                 else
@@ -718,6 +762,13 @@ void thread_nvt_handler(void *pvParam)
 
             //* 输出协商配置结果信息
             nvt_print_logo(pstcbTelnetClt->hClient);
+            nvt_printf(pstcbTelnetClt->hClient, 512, "=====================================================\r\n" \
+                                                      "| Welcome to Zion, Your terminal type is \033[01;32m%s\033[0m\r\n" \
+                                                      "| * Character operation mode\r\n| * Remote echo %s\r\n| * Local echo %s\r\n" \
+                                                      "| * Case sensitive mode\r\n=====================================================\r\n", 
+                pstcbNvt->stSMach.szTermName, pstcbNvt->stSMach.nvt_srv_echo == 3 ? "\033[01;32mOn\033[0m" : "\033[01;31mOff\033[0m", pstcbNvt->stSMach.nvt_clt_echo == 3 ? "\033[01;32mOn" : "\033[01;31mOff\033[0m");
+
+            /*
             send(pstcbTelnetClt->hClient, "=====================================================\r\n", sizeof("=====================================================\r\n") - 1, 1);
             send(pstcbTelnetClt->hClient, "| Welcome to Zion, Your terminal type is ", sizeof("| Welcome to Zion, Your terminal type is ") - 1, 1);
             sprintf((CHAR *)ubaRcvBuf, "\033[01;32m%s\033[0m\r\n", pstcbNvt->stSMach.szTermName);
@@ -726,6 +777,7 @@ void thread_nvt_handler(void *pvParam)
             sprintf((CHAR *)ubaRcvBuf, "%s\r\n| * Local echo %s\r\n", pstcbNvt->stSMach.nvt_srv_echo == 3 ? "\033[01;32mOn\033[0m" : "\033[01;31mOff\033[0m", pstcbNvt->stSMach.nvt_clt_echo == 3 ? "\033[01;32mOn" : "\033[01;31mOff\033[0m");
             send(pstcbTelnetClt->hClient, ubaRcvBuf, strlen((const char *)ubaRcvBuf), 1);
             send(pstcbTelnetClt->hClient, "| * Case sensitive mode\r\n=====================================================\r\n", sizeof("| * Case sensitive mode\r\n=====================================================\r\n") - 1, 1);
+            */
 
             //* 输出登录信息
             nvt_print_login_info(pstcbTelnetClt->hClient);
@@ -753,9 +805,14 @@ void thread_nvt_handler(void *pvParam)
                     pstcbNvt->stSMach.nvt_try_cnt++;
                     if (pstcbNvt->stSMach.nvt_try_cnt < 6)
                     {
+                        nvt_printf(pstcbTelnetClt->hClient, 128, "Username is incorrect, please enter again. You have \033[01;31m%d\033[0m attempts left.\r\n", 6 - pstcbNvt->stSMach.nvt_try_cnt);
+
+                        /*
                         send(pstcbTelnetClt->hClient, "Username is incorrect, please enter again. You have ", sizeof("Username is incorrect, please enter again. You have ") - 1, 1);
                         sprintf((CHAR *)ubaRcvBuf, "\033[01;31m%d\033[0m attempts left.\r\n", 6 - pstcbNvt->stSMach.nvt_try_cnt);
                         send(pstcbTelnetClt->hClient, ubaRcvBuf, strlen((const char *)ubaRcvBuf), 1);
+                        */
+
                         nvt_print_login_info(pstcbTelnetClt->hClient); //* 用户名错误，再次输出登录信息
                     }
                     else
@@ -773,6 +830,9 @@ void thread_nvt_handler(void *pvParam)
             {
                 if (nRcvBytes > 0)
                 {
+                    nvt_printf(pstcbTelnetClt->hClient, 1024, "\r\nWelcome %s to my world, We're in everything you see.\r\n%s* onps stack version: %s\r\n*   Official website: \033[01;34m%s\033[0m\r\n\r\n", NVT_USER_NAME, NVT_WELCOME_INFO, ONPS_VER, ONPS_OFFICIAL_WEB);
+
+                    /*
                     sprintf((CHAR *)ubaRcvBuf, "\r\nWelcome %s to my world, We're in everything you see.\r\n", NVT_USER_NAME);
                     send(pstcbTelnetClt->hClient, ubaRcvBuf, strlen((const char *)ubaRcvBuf), 1);
                     send(pstcbTelnetClt->hClient, NVT_WELCOME_INFO, sizeof(NVT_WELCOME_INFO) - 1, 1);
@@ -783,6 +843,7 @@ void thread_nvt_handler(void *pvParam)
                     send(pstcbTelnetClt->hClient, "*   Official website:", sizeof("*   Official website:") - 1, 1);
                     sprintf((CHAR *)ubaRcvBuf, " \033[01;34m%s\033[0m\r\n\r\n", ONPS_OFFICIAL_WEB);
                     send(pstcbTelnetClt->hClient, ubaRcvBuf, strlen((const char *)ubaRcvBuf), 1);
+                    */
 
                     nvt_print_ps(pstcbTelnetClt->hClient);
                     pstcbNvt->stSMach.nvt_state = SMACHNVT_INTERACTIVE;
@@ -792,9 +853,13 @@ void thread_nvt_handler(void *pvParam)
                     pstcbNvt->stSMach.nvt_try_cnt++;
                     if (pstcbNvt->stSMach.nvt_try_cnt < 6)
                     {
+                        nvt_printf(pstcbTelnetClt->hClient, 128, "Password is incorrect, please enter again. You have \033[01;31m%d\033[0m attempts left.\r\n", 6 - pstcbNvt->stSMach.nvt_try_cnt);
+
+                        /*
                         send(pstcbTelnetClt->hClient, "Password is incorrect, please enter again. You have ", sizeof("Password is incorrect, please enter again. You have ") - 1, 1);
                         sprintf((CHAR *)ubaRcvBuf, "\033[01;31m%d\033[0m attempts left.\r\n", 6 - pstcbNvt->stSMach.nvt_try_cnt);
                         send(pstcbTelnetClt->hClient, ubaRcvBuf, strlen((const char *)ubaRcvBuf), 1);
+                        */
                         nvt_print_passwd_info(pstcbTelnetClt->hClient);
                     }
                     else
@@ -1002,30 +1067,24 @@ BOOL nvt_cmd_exec_enable(ULONGLONG ullNvtHandle)
 
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
-    CHAR *pszSndBuf;
-    EN_ONPSERR enErr;
-    if (NULL != (pszSndBuf = (CHAR *)buddy_alloc(NVT_INPUT_CACHE_SIZE, &enErr)))
+    CHAR szSpace[24];
+    SOCKET hRmtTelnetClt = atoi(argv[1]);
+    PST_NVTCMD_NODE pstNextNvtCmd = l_pstNvtCmdList;
+    while (pstNextNvtCmd)
     {
-        SOCKET hRmtTelnetClt = atoi(argv[1]);
-        PST_NVTCMD_NODE pstNextNvtCmd = l_pstNvtCmdList;
-        while (pstNextNvtCmd)
-        {
-            CHAR bCmdLen = strlen(pstNextNvtCmd->pstNvtCmd->pszCmdName);
-            CHAR bMemsetBytes = l_bNvtCmdLenMax - bCmdLen;
-            if (bCmdLen < l_bNvtCmdLenMax)
-                memset(pszSndBuf, ' ', bMemsetBytes);
-            memcpy(pszSndBuf + bMemsetBytes, pstNextNvtCmd->pstNvtCmd->pszCmdName, bCmdLen);
-            pszSndBuf[bMemsetBytes + bCmdLen] = ' ';
-            send(hRmtTelnetClt, (UCHAR *)pszSndBuf, bMemsetBytes + bCmdLen + 1, 1);
-            send(hRmtTelnetClt, (UCHAR *)pstNextNvtCmd->pstNvtCmd->pszReadme, strlen(pstNextNvtCmd->pstNvtCmd->pszReadme), 1);
+        CHAR bCmdLen = strlen(pstNextNvtCmd->pstNvtCmd->pszCmdName);
+        CHAR bMemsetBytes = l_bNvtCmdLenMax - bCmdLen;
+        if (bCmdLen < l_bNvtCmdLenMax)
+        {            
+            bMemsetBytes = bMemsetBytes < sizeof(szSpace) - 1 ? bMemsetBytes : sizeof(szSpace) - 1;
 
-            pstNextNvtCmd = pstNextNvtCmd->pstNextCmd;
+            memset(szSpace, ' ', bMemsetBytes);            
         }
+        szSpace[bMemsetBytes] = 0; 
+        nvt_printf(hRmtTelnetClt, 256, "%s\033[01;33m%s\033[0m %s", szSpace, pstNextNvtCmd->pstNvtCmd->pszCmdName, pstNextNvtCmd->pstNvtCmd->pszReadme);
 
-        buddy_free(pszSndBuf);
+        pstNextNvtCmd = pstNextNvtCmd->pstNextCmd;
     }
-    else
-        printf("help() failed, %s\r\n", onps_error(enErr));
 
     nvt_cmd_exec_end(ullNvtHandle);
 
@@ -1045,20 +1104,15 @@ static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
-    CHAR szFormatBuf[48];
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
     UINT unTotalBytes, unUsedBytes, unMaxFreedPageSize, unMinFreedPageSize;
+    FLOAT flUsage = buddy_usage_details(&unTotalBytes, &unUsedBytes, &unMaxFreedPageSize, &unMinFreedPageSize) * 100.0; 
 
-    sprintf(szFormatBuf, "     Current memory usage: %0.2f%%\r\n", buddy_usage_details(&unTotalBytes, &unUsedBytes, &unMaxFreedPageSize, &unMinFreedPageSize) * 100);
-    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
-    sprintf(szFormatBuf, "Total dynamic memory size: %d KBytes\r\n", unTotalBytes / 1024);
-    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
-    sprintf(szFormatBuf, "Current memory usage size: %0.1f KBytes\r\n", (FLOAT)unUsedBytes / 1024.0);
-    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
-    sprintf(szFormatBuf, "Max free memory page size: %d Bytes\r\n", unMaxFreedPageSize);
-    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1);
-    sprintf(szFormatBuf, "Min free memory page size: %d Bytes\r\n", unMinFreedPageSize);
-    send(pstTelnetClt->hClient, (UCHAR *)szFormatBuf, strlen(szFormatBuf), 1); 
+    nvt_printf(pstTelnetClt->hClient, 256, "     Current memory usage: %0.1f%%\r\n"
+                                           "Total dynamic memory size: %d KBytes\r\n"
+                                           "Current memory usage size: %0.1f KBytes\r\n"
+                                           "Max free memory page size: %d Bytes\r\n"
+                                           "Min free memory page size: %d Bytes\r\n" , flUsage, unTotalBytes / 1024, (FLOAT)unUsedBytes / 1024.0, unMaxFreedPageSize, unMinFreedPageSize);
 
     nvt_cmd_exec_end(ullNvtHandle);
 
@@ -1069,6 +1123,27 @@ void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
     send(pstTelnetClt->hClient, pubData, nDataLen, 1);
+}
+
+void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo, ...)
+{
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
+
+    EN_ONPSERR enErr; 
+    CHAR *pszFormatBuf = (CHAR *)buddy_alloc(nFormatBufSize, &enErr);
+    if (pszFormatBuf)
+    {
+        va_list pvaArgList;
+        va_start(pvaArgList, pszInfo); 
+        vsnprintf(pszFormatBuf, nFormatBufSize, pszInfo, pvaArgList);
+        va_end(pvaArgList); 
+
+        send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf), 1); 
+
+        buddy_free(pszFormatBuf); 
+    }
+    else
+        send(pstTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1, 1);
 }
 
 INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen)

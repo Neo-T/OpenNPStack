@@ -123,6 +123,7 @@ NVT_EXT void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, const ST_NVTCMD *pstCmd);
 NVT_EXT void nvt_cmd_exec_end(ULONGLONG ullNvtHandle);
 NVT_EXT BOOL nvt_cmd_exec_enable(ULONGLONG ullNvtHandle);
 NVT_EXT void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen);
+NVT_EXT void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo, ...);
 NVT_EXT INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen);
 NVT_EXT const CHAR *nvt_get_term_type(ULONGLONG ullNvtHandle);
 

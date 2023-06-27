@@ -186,17 +186,8 @@ void telnet_clt_entry(void *pvParam)
                         sizeof("telnet failed to start, the mmu has no memory available.\r\n") - 1);
         close(hTelSocket);         
     }
-    else
-    {        
-        CHAR *pszErr = (CHAR *)buddy_alloc(128, NULL);
-        if (pszErr)
-        {
-            sprintf(pszErr, "connect failed, %s\r\n", onps_error(enErr)); 
-            nvt_output(stArgs.ullNvtHandle, (UCHAR *)pszErr, strlen(pszErr));
-
-            buddy_free(pszErr);
-        }
-    }
+    else    
+        nvt_outputf(stArgs.ullNvtHandle, 128, "connect failed, %s\r\n", onps_error(enErr));     
     
     nvt_cmd_exec_end(stArgs.ullNvtHandle);
 }
