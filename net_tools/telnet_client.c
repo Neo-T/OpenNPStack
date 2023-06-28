@@ -148,7 +148,7 @@ void telnet_clt_entry(void *pvParam)
 
                     blIsNotRcvedData = FALSE;
                     usZeroNum = 0;
-                    if (send(hTelSocket, pubRcvBuf, nRcvBytes, 1) < 0)
+                    if (!tcp_send(hTelSocket, pubRcvBuf, nRcvBytes))
                         break; 
                 }
                 else

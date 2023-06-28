@@ -82,7 +82,7 @@ static void nvt_nego_opt_send(PSTCB_NVT pstcbNvt)
     if (ubFilledBytes)
     {
         SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
-        send(hRmtTelnetClt, ubaSndBuf, ubFilledBytes, 1);
+        tcp_send(hRmtTelnetClt, ubaSndBuf, ubFilledBytes);
     }
 }
 
@@ -178,7 +178,7 @@ static void nvt_cmd_cache_up(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                         memset(pszSndBuf, '\b', pstcbNvt->bCursorPos);
                         memcpy(pszSndBuf + pstcbNvt->bCursorPos, pstcbNvt->szInputCache, bCpyBytes);
                         memcpy(pszSndBuf + pstcbNvt->bCursorPos + bCpyBytes, "\033[K", 3);
-                        send(hRmtTelnetClt, (UCHAR *)pszSndBuf, pstcbNvt->bCursorPos + bCpyBytes + 3, 1);
+                        tcp_send(hRmtTelnetClt, (UCHAR *)pszSndBuf, pstcbNvt->bCursorPos + bCpyBytes + 3);
                         buddy_free(pszSndBuf);
                         pstcbNvt->bInputBytes = bCpyBytes;
                         pstcbNvt->bCursorPos = bCpyBytes;
@@ -221,7 +221,7 @@ static void nvt_cmd_cache_down(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                         memset(pszSndBuf, '\b', pstcbNvt->bCursorPos);
                         memcpy(pszSndBuf + pstcbNvt->bCursorPos, pstcbNvt->szInputCache, bCpyBytes);
                         memcpy(pszSndBuf + pstcbNvt->bCursorPos + bCpyBytes, "\033[K", 3);
-                        send(hRmtTelnetClt, (UCHAR *)pszSndBuf, pstcbNvt->bCursorPos + bCpyBytes + 3, 1);
+                        tcp_send(hRmtTelnetClt, (UCHAR *)pszSndBuf, pstcbNvt->bCursorPos + bCpyBytes + 3);
                         buddy_free(pszSndBuf);
                         pstcbNvt->bInputBytes = bCpyBytes;
                         pstcbNvt->bCursorPos = bCpyBytes;
@@ -255,7 +255,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
             if (pstcbNvt->bCursorPos < pstcbNvt->bInputBytes)
             {
                 if (3 == pstcbNvt->stSMach.nvt_srv_echo && SMACHNVT_PASSWD != pstcbNvt->stSMach.nvt_state)
-                    send(hRmtTelnetClt, "\033[C", 3, 1);
+                    tcp_send(hRmtTelnetClt, "\033[C", 3);
                 pstcbNvt->bCursorPos++;
             }
 
@@ -265,7 +265,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
             if (pstcbNvt->bCursorPos > 0)
             {
                 if (3 == pstcbNvt->stSMach.nvt_srv_echo && SMACHNVT_PASSWD != pstcbNvt->stSMach.nvt_state)
-                    send(hRmtTelnetClt, "\b", 1, 1);
+                    tcp_send(hRmtTelnetClt, "\b", 1);
                 pstcbNvt->bCursorPos--;
             }
             break;
@@ -274,7 +274,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
             if (NULL != (pszSndBuf = (CHAR *)buddy_alloc(NVT_ECHO_BUF_LEN_MAX, &enErr)))
             {
                 memset(pszSndBuf, '\b', pstcbNvt->bCursorPos);
-                send(hRmtTelnetClt, (UCHAR *)pszSndBuf, pstcbNvt->bCursorPos, 1);
+                tcp_send(hRmtTelnetClt, (UCHAR *)pszSndBuf, pstcbNvt->bCursorPos);
                 buddy_free(pszSndBuf);
                 pstcbNvt->bCursorPos = 0;
             }
@@ -292,7 +292,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
                     pszSndBuf[i++] = '[';
                     pszSndBuf[i++] = 'C';
                 }
-                send(hRmtTelnetClt, (UCHAR *)pszSndBuf, i, 1);
+                tcp_send(hRmtTelnetClt, (UCHAR *)pszSndBuf, i);
                 buddy_free(pszSndBuf);
                 pstcbNvt->bCursorPos = pstcbNvt->bInputBytes;
             }
@@ -334,7 +334,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
                     {
                         memcpy(pszSndBuf, &pstcbNvt->szInputCache[pstcbNvt->bCursorPos], bCpyBytes + 1);
                         memset(pszSndBuf + bCpyBytes + 1, '\b', bCpyBytes);
-                        send(hRmtTelnetClt, (UCHAR *)pszSndBuf, (bCpyBytes << 1) + 1, 1);
+                        tcp_send(hRmtTelnetClt, (UCHAR *)pszSndBuf, (bCpyBytes << 1) + 1);
                         buddy_free(pszSndBuf);
                     }
                     else
@@ -346,7 +346,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
                 pstcbNvt->szInputCache[pstcbNvt->bCursorPos] = ch;
 
                 if (3 == pstcbNvt->stSMach.nvt_srv_echo && SMACHNVT_PASSWD != pstcbNvt->stSMach.nvt_state)
-                    send(hRmtTelnetClt, (UCHAR *)&ch, 1, 1);
+                    tcp_send(hRmtTelnetClt, (UCHAR *)&ch, 1);
             }
             pstcbNvt->bInputBytes++;
             pstcbNvt->bCursorPos++;
@@ -367,7 +367,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
 
             case '\n':
             case '\0':
-                send(hRmtTelnetClt, "\r\n", 2, 1);
+                tcp_send(hRmtTelnetClt, "\r\n", 2);
                 break;
 
             case '\b':
@@ -385,7 +385,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
                         {
                             sprintf(pszSndBuf, "\b%s\033[K", &pstcbNvt->szInputCache[pstcbNvt->bCursorPos]);
                             memset(pszSndBuf + bCpyBytes + 4, '\b', bCpyBytes);
-                            send(hRmtTelnetClt, (UCHAR *)pszSndBuf, (bCpyBytes << 1) + 4, 1);
+                            tcp_send(hRmtTelnetClt, (UCHAR *)pszSndBuf, (bCpyBytes << 1) + 4);
                             buddy_free(pszSndBuf);
                         }
                         else
@@ -540,12 +540,12 @@ static void nvt_printf(SOCKET hRmtTelnetClt, INT nFormatBufSize, const CHAR *psz
         vsnprintf(pszFormatBuf, nFormatBufSize, pszInfo, pvaArgList);
         va_end(pvaArgList);
 
-        send(hRmtTelnetClt, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf), 1);
+        tcp_send(hRmtTelnetClt, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf));
 
         buddy_free(pszFormatBuf);
     }
     else
-        send(hRmtTelnetClt, "nvt_printf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1, 1);
+        tcp_send(hRmtTelnetClt, "nvt_printf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1);
 }
 
 //* Êä³öonps±ê
@@ -559,8 +559,7 @@ static void nvt_print_logo(SOCKET hRmtTelnetClt)
                                    "      \\______/  |__| \\__| | _|   |_______/    \033[0m\r\n");
 
     /*
-    send(hRmtTelnetClt, "\033[01;32m       ______   .__   __. .______     _______.\r\n", sizeof("\033[01;31m       ______   .__   __. .______     _______.\r\n") - 1, 1);
-    //send(hRmtTelnetClt, "       ______   .__   __. .______     _______.\r\n", sizeof("\x1b[01;35m       ______   .__   __. .______     _______.\r\n") - 1, 0);
+    send(hRmtTelnetClt, "\033[01;32m       ______   .__   __. .______     _______.\r\n", sizeof("\033[01;31m       ______   .__   __. .______     _______.\r\n") - 1, 1);    
     send(hRmtTelnetClt, "      /  __  \\  |  \\ |  | |   _  \\   /       |\r\n", sizeof("      /  __  \\  |  \\ |  | |   _  \\   /       |\r\n") - 1, 1);
     send(hRmtTelnetClt, "     |  |  |  | |   \\|  | |  |_)  | |   (----`\r\n", sizeof("     |  |  |  | |   \\|  | |  |_)  | |   (----`\r\n") - 1, 1);
     send(hRmtTelnetClt, "     |  |  |  | |  . `  | |   ___/   \\   \\    \r\n", sizeof("     |  |  |  | |  . `  | |   ___/   \\   \\    \r\n") - 1, 1);
@@ -699,8 +698,8 @@ void thread_nvt_handler(void *pvParam)
         memset(pstcbNvt->pszCmdCache, 0, NVTCMDCACHE_SIZE);
     }
     else
-        send(pstcbTelnetClt->hClient, "Failed to allocate memory for command cache, you will not be able to browse the command input history by using the up and down arrow keys.\r\n",
-            sizeof("Failed to allocate memory for command cache, you will not be able to browse the command input history by using the up and down arrow keys.\r\n") - 1, 1);
+        tcp_send(pstcbTelnetClt->hClient, "Failed to allocate memory for command cache, you will not be able to browse the command input history by using the up and down arrow keys.\r\n",
+                sizeof("Failed to allocate memory for command cache, you will not be able to browse the command input history by using the up and down arrow keys.\r\n") - 1);
 
 #endif
 
@@ -1006,7 +1005,7 @@ static void nego_get_suppress_go_ahead(PSTCB_NVT pstcbNvt, UCHAR ubCmd)
     if (TELNETCMD_DO == ubCmd)
         pstcbNvt->stSMach.nvt_srv_sga = 3;
     else if (TELNETCMD_DONT == ubCmd)
-        send(hRmtTelnetClt, "The client refused the Suppress Go Ahead option on the server and the negotiation was aborted", sizeof("The client refused the Suppress Go Ahead option on the server and the negotiation was aborted") - 1, 1);     
+        tcp_send(hRmtTelnetClt, "The client refused the Suppress Go Ahead option on the server and the negotiation was aborted", sizeof("The client refused the Suppress Go Ahead option on the server and the negotiation was aborted") - 1);
     else if (TELNETCMD_WILL == ubCmd)
         telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DO, TELNETOPT_SGA);
     else if (TELNETCMD_WONT == ubCmd)
@@ -1094,7 +1093,7 @@ static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
-    send(pstTelnetClt->hClient, "You have logged out.\r\n", sizeof("You have logged out.\r\n") - 1, 1);
+    tcp_send(pstTelnetClt->hClient, "You have logged out.\r\n", sizeof("You have logged out.\r\n") - 1);
     pstTelnetClt->bitTHRunEn = FALSE;
 
     nvt_cmd_exec_end(ullNvtHandle);
@@ -1122,7 +1121,7 @@ static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
-    send(pstTelnetClt->hClient, pubData, nDataLen, 1);
+    tcp_send(pstTelnetClt->hClient, pubData, nDataLen);
 }
 
 void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo, ...)
@@ -1138,12 +1137,12 @@ void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo
         vsnprintf(pszFormatBuf, nFormatBufSize, pszInfo, pvaArgList);
         va_end(pvaArgList); 
 
-        send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf), 1); 
+        tcp_send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf));
 
         buddy_free(pszFormatBuf); 
     }
     else
-        send(pstTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1, 1);
+        tcp_send(pstTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1);
 }
 
 INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen)

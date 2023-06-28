@@ -110,6 +110,9 @@ SOCKET_EXT SOCKET tcpsrv_start(INT family, USHORT usSrvPort, USHORT usBacklog, C
 //* 连接tcp服务器
 SOCKET_EXT SOCKET tcp_srv_connect(INT family, in_addr_t *srv_ip, USHORT srv_port, INT nRcvTimeout, INT nConnTimeout, EN_ONPSERR *penErr);
 
+//* tcp数据发送函数，相对于传统send()函数该函数增加了容错处理逻辑
+SOCKET_EXT BOOL tcp_send(SOCKET hSocket, UCHAR *pubData, INT nDataLen); 
+
 //* 获取最近一次发生的错误信息
 SOCKET_EXT const CHAR *socket_get_last_error(SOCKET socket, EN_ONPSERR *penErr);
 

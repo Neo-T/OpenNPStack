@@ -342,11 +342,11 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
         arp_recv_from_ethii(pstNetif, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR)); 		
         break; 
 
-#if SUPPORT_IPV6
     case ETHII_IPV6: 		
+#if SUPPORT_IPV6
 		ipv6_recv(pstNetif, pstHdr->ubaSrcMacAddr, pubPacket + sizeof(ST_ETHERNET_II_HDR), nPacketLen - (INT)sizeof(ST_ETHERNET_II_HDR));
-        break; 
 #endif
+        break; 
 
     default: 
 #if SUPPORT_PRINTF && DEBUG_LEVEL

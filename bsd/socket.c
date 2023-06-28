@@ -1198,3 +1198,43 @@ SOCKET tcp_srv_connect(INT family, in_addr_t *srv_ip, USHORT srv_port, INT nRcvT
         return INVALID_SOCKET; 
     }
 }
+
+BOOL tcp_send(SOCKET hSocket, UCHAR *pubData, INT nDataLen)
+{
+    INT nSndBytes, nSndNum = 0;
+
+#if SUPPORT_SACK
+    INT nHasSendBytes = 0; 
+    while (nHasSendBytes < nDataLen)
+    {
+        nSndBytes = send(hSocket, (UCHAR *)pubData + nHasSendBytes, nDataLen - nHasSendBytes, 0); 
+        if (nSndBytes < 0)
+            return FALSE;
+        else if (!nSndBytes)        
+            os_sleep_ms(5);        
+        else        
+            nHasSendBytes += nSndBytes;        
+    }
+
+    return TRUE;
+#else
+__lblSend: 
+    if (nSndNum > 2)
+        return FALSE; 
+
+    nSndBytes = send(hSocket, (UCHAR *)pubData, nDataLen, 3);
+    if (nSndBytes == nDataLen)
+        return TRUE;
+    else
+    {
+        EN_ONPSERR enErr;
+        onps_get_last_error(hSocket, &enErr);        
+
+        if (enErr != ERRTCPACKTIMEOUT)
+            return FALSE;
+
+        nSndNum++;
+        goto __lblSend;
+    }
+#endif
+}
