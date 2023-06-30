@@ -770,3 +770,96 @@ BOOL is_local_ip(in_addr_t unAddr)
 
     return FALSE; 
 }
+
+const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif)
+{
+    PST_NETIF pstNetif = NULL; 
+
+    os_thread_mutex_lock(l_hMtxNetif); 
+    {
+        PST_NETIF_NODE pstNextNode = l_pstNetifLink; 
+        if (pstNextNetif)
+        {
+            while (pstNextNode)
+            {
+                if (pstNextNetif == &pstNextNode->stIf)
+                {
+                    if (pstNextNode->pstNext)
+                    {
+                        pstNetif = &pstNextNode->pstNext->stIf; 
+                        break; 
+                    }
+                }
+
+                pstNextNode = pstNextNode->pstNext; 
+            }
+        }                    
+        else
+        {
+            if(pstNextNode)
+                pstNetif = &pstNextNode->stIf;
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    return pstNetif;
+}
+
+#if SUPPORT_ETHERNET
+CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac)
+{
+    CHAR i, j;
+    for (i = 0; i < ETH_MAC_ADDR_LEN - 1; i++)
+    {
+        j = i * 3;
+        pszMac[j] = pubMac[i] >> 4;
+        pszMac[j + 1] = pubMac[i] & 0x0F;
+        pszMac[j + 2] = '-';
+
+        hex_to_char(pszMac[j], TRUE);
+        hex_to_char(pszMac[j + 1], TRUE);
+    }
+
+    j = i * 3;
+    pszMac[j] = pubMac[i] >> 4;
+    pszMac[j + 1] = pubMac[i] & 0x0F;
+    pszMac[j + 2] = 0;
+
+    hex_to_char(pszMac[j], TRUE);
+    hex_to_char(pszMac[j + 1], TRUE);
+
+    return pszMac;
+}
+
+UINT netif_eth_get_next_ip(const ST_NETIF *pstNetif, UINT *punSubnetMask, UINT unNextIp)
+{    
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+    PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList; 
+    if (unNextIp)
+    {
+        while (pstNextIP)
+        {
+            if (unNextIp == pstNextIP->unAddr)
+            {
+                if (pstNextIP->pstNext)
+                {
+                    *punSubnetMask = pstNextIP->pstNext->unSubnetMask;
+                    return pstNextIP->pstNext->unAddr; 
+                }
+            }
+
+            pstNextIP = pstNextIP->pstNext;
+        }
+    }
+    else
+    {
+        if (pstNextIP)
+        {
+            *punSubnetMask = pstNextIP->unSubnetMask; 
+            return pstNextIP->unAddr; 
+        }
+    }
+
+    return  0; 
+}
+#endif //* #if SUPPORT_ETHERNET

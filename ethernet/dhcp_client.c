@@ -941,7 +941,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
     in_addr_t unOfferIp, unSrvIp;
     ST_IPV4 stIPv4; 
     UINT unLeaseTime; 
-    UINT unTransId; 
+    UINT unTransId;     
     do {        
     __lblDiscover: 
         unTransId = (UINT)rand();
@@ -961,7 +961,8 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
         //* 确定ip地址可用，采用arp探测的方式
         if (!dhcp_ip_conflict_detect(pstNetif, stIPv4.unAddr))
         {            
-            pstNetif->stIPv4 = stIPv4; 
+            stIPv4.unBroadcast = stIPv4.unAddr | (~stIPv4.unSubnetMask);
+            pstNetif->stIPv4 = stIPv4;        
             if (route_add(pstNetif, 0, stIPv4.unGateway, stIPv4.unSubnetMask, &enErr))
             {
         #if SUPPORT_PRINTF && DEBUG_LEVEL > 1

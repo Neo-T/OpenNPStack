@@ -1201,7 +1201,7 @@ SOCKET tcp_srv_connect(INT family, in_addr_t *srv_ip, USHORT srv_port, INT nRcvT
 
 BOOL tcp_send(SOCKET hSocket, UCHAR *pubData, INT nDataLen)
 {
-    INT nSndBytes, nSndNum = 0;
+    INT nSndBytes;
 
 #if SUPPORT_SACK
     INT nHasSendBytes = 0; 
@@ -1218,6 +1218,8 @@ BOOL tcp_send(SOCKET hSocket, UCHAR *pubData, INT nDataLen)
 
     return TRUE;
 #else
+    INT nSndNum = 0; 
+
 __lblSend: 
     if (nSndNum > 2)
         return FALSE; 

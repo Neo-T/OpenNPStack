@@ -204,5 +204,9 @@ NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16],
 #endif
 
 NETIF_EXT BOOL is_local_ip(in_addr_t unAddr); 
-
+NETIF_EXT const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif); 
+#if SUPPORT_ETHERNET
+NETIF_EXT CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac);
+NETIF_EXT UINT netif_eth_get_next_ip(const ST_NETIF *pstNetif, UINT *punSubnetMask, UINT unNextIp); 
+#endif //* #if SUPPORT_ETHERNET
 #endif

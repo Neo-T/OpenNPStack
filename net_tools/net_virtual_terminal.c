@@ -32,20 +32,24 @@ typedef struct _ST_NVTNEGOOPT_ {
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
-#define NVTCMD_BUILTIN_NUM 3 //* NVT自带指令的数量
+static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#define NVTCMD_BUILTIN_NUM 4 //* NVT自带指令的数量
 static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
-    { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }
+    { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }, 
+    { netif, "netif", "print all network interface card information registered to the protocol stack.\r\n"}, 
 };
 
 #define NVTCMD_EXIT     0 //* "exit"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_LOGOUT   1 //* "logout"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_MEMUSAGE 2 //* "memusage"指令在l_staNvtCmd数组中的存储索引
+#define NVTCMD_NETIF    3 //* "netif"指令在l_staNvtCmd数组中的存储索引
 static ST_NVTCMD_NODE l_staNvtCmdNode[NVTCMD_BUILTIN_NUM] = {
     { &l_staNvtCmd[NVTCMD_EXIT],  &l_staNvtCmdNode[NVTCMD_LOGOUT] },
     { &l_staNvtCmd[NVTCMD_LOGOUT],  &l_staNvtCmdNode[NVTCMD_MEMUSAGE] },
-    { &l_staNvtCmd[NVTCMD_MEMUSAGE],  NULL },
+    { &l_staNvtCmd[NVTCMD_MEMUSAGE],   &l_staNvtCmdNode[NVTCMD_NETIF] }, 
+    { &l_staNvtCmd[NVTCMD_NETIF],  NULL },
 };
 static PST_NVTCMD_NODE l_pstNvtCmdList = &l_staNvtCmdNode[0];
 
@@ -1118,6 +1122,83 @@ static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     return 0;
 }
 
+static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
+
+    EN_ONPSERR enErr; 
+    CHAR *pszFormatBuf = (CHAR *)buddy_alloc(1024, &enErr);
+    if (pszFormatBuf)
+    {
+        const ST_NETIF *pstNetif = NULL; 
+        do {
+            if (NULL != (pstNetif = netif_get_next(pstNetif)))
+            {
+        #if SUPPORT_ETHERNET
+                if (pstNetif->enType == NIF_ETHERNET)
+                {
+                    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;                    
+                    sprintf(pszFormatBuf, "Network adapter <ethernet> : %s\r\n   Mac : ", pstNetif->szName);  
+                    netif_eth_mac_to_ascii(pstExtra->ubaMacAddr, pszFormatBuf + strlen(pszFormatBuf)); 
+
+                    UCHAR *pubAddr = (UCHAR *)&pstNetif->stIPv4.unAddr;
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n  IPv4 : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                    pubAddr = (UCHAR *)&pstNetif->stIPv4.unSubnetMask; 
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), " netmask %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                    pubAddr = (UCHAR *)&pstNetif->stIPv4.unBroadcast; 
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), " broadcast %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                    if (pstNetif->stIPv4.unGateway)
+                    {
+                        pubAddr = (UCHAR *)&pstNetif->stIPv4.unGateway;
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), " gateway %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                    }                    
+
+                    if (pstExtra->bIsStaticAddr)
+                    {
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), " static\r\n"); 
+                        
+                        UINT unNextIp = 0, unSubnetMask; 
+                        do {
+                            if (0 != (unNextIp = netif_eth_get_next_ip(pstNetif, &unSubnetMask, unNextIp)))
+                            {
+                                pubAddr = (UCHAR *)&unNextIp; 
+                                sprintf(pszFormatBuf + strlen(pszFormatBuf), "       : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                                pubAddr = (UCHAR *)&unSubnetMask;
+                                sprintf(pszFormatBuf + strlen(pszFormatBuf), " netmask %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                            }
+                        } while (unNextIp); 
+                    }
+                    else                    
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), " dhcp\r\n"); 
+
+                    if (pstNetif->stIPv4.unPrimaryDNS)
+                    {
+                        pubAddr = (UCHAR *)&pstNetif->stIPv4.unPrimaryDNS; 
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), "   dns : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+
+                        if (pstNetif->stIPv4.unSecondaryDNS)
+                        {
+                            pubAddr = (UCHAR *)&pstNetif->stIPv4.unSecondaryDNS; 
+                            sprintf(pszFormatBuf + strlen(pszFormatBuf), "       : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                        }
+                    }                    
+
+                    tcp_send(pstTelnetClt->hClient, pszFormatBuf, strlen(pszFormatBuf)); 
+                }
+            #endif  //* #if SUPPORT_ETHERNET
+            }
+        } while (pstNetif);
+
+        buddy_free(pszFormatBuf); 
+    }
+    else
+        tcp_send(pstTelnetClt->hClient, "Failed to execute \033[01;33mnetif\033[0m command, dynamic memory is empty.\r\n", sizeof("Failed to execute \033[01;33mnetif\033[0m command, dynamic memory is empty.\r\n") - 1);
+    
+    nvt_cmd_exec_end(ullNvtHandle); 
+
+    return 0; 
+}
+
 void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
@@ -1142,7 +1223,7 @@ void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo
         buddy_free(pszFormatBuf); 
     }
     else
-        tcp_send(pstTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1);
+        tcp_send(pstTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.\r\n", sizeof("nvt_printf() failed, dynamic memory is empty.\r\n") - 1);
 }
 
 INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen)
