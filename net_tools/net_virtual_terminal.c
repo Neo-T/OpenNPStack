@@ -1134,15 +1134,19 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         do {
             if (NULL != (pstNetif = netif_get_next(pstNetif)))
             {
+                if (pstNetif->enType == NIF_PPP)
+                {
+
+                }
         #if SUPPORT_ETHERNET
-                if (pstNetif->enType == NIF_ETHERNET)
+                else if (pstNetif->enType == NIF_ETHERNET)
                 {
                     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;                    
-                    sprintf(pszFormatBuf, "Network adapter <ethernet> : %s\r\n   Mac : ", pstNetif->szName);  
+                    sprintf(pszFormatBuf, "Network adapter <ethernet> : %s\r\n     Mac : ", pstNetif->szName);  
                     netif_eth_mac_to_ascii(pstExtra->ubaMacAddr, pszFormatBuf + strlen(pszFormatBuf)); 
 
                     UCHAR *pubAddr = (UCHAR *)&pstNetif->stIPv4.unAddr;
-                    sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n  IPv4 : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n\r\n    IPv4 : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
                     pubAddr = (UCHAR *)&pstNetif->stIPv4.unSubnetMask; 
                     sprintf(pszFormatBuf + strlen(pszFormatBuf), " netmask %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
                     pubAddr = (UCHAR *)&pstNetif->stIPv4.unBroadcast; 
@@ -1174,18 +1178,56 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                     if (pstNetif->stIPv4.unPrimaryDNS)
                     {
                         pubAddr = (UCHAR *)&pstNetif->stIPv4.unPrimaryDNS; 
-                        sprintf(pszFormatBuf + strlen(pszFormatBuf), "   dns : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), "     Dns : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
 
                         if (pstNetif->stIPv4.unSecondaryDNS)
                         {
                             pubAddr = (UCHAR *)&pstNetif->stIPv4.unSecondaryDNS; 
                             sprintf(pszFormatBuf + strlen(pszFormatBuf), "       : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
                         }
-                    }                    
+                    }    
 
-                    tcp_send(pstTelnetClt->hClient, pszFormatBuf, strlen(pszFormatBuf)); 
+            #if SUPPORT_IPV6
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n    IPv6 : "); 
+                    inet6_ntoa(pstNetif->nif_lla_ipv6, pszFormatBuf + strlen(pszFormatBuf)); 
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), " (Link-local address)\r\n"); 
+                    
+                    EN_IPv6ADDRSTATE enState; 
+                    UINT unValidLifetime; 
+                    UCHAR ubaIpv6[16], ubaPriDns[16], ubaSecDns[16]; 
+                    ubaIpv6[0] = 0; 
+                    while (netif_eth_get_next_ipv6(pstNetif, ubaIpv6, &enState, &unValidLifetime))
+                    {
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), "         : ");
+                        inet6_ntoa(ubaIpv6, pszFormatBuf + strlen(pszFormatBuf)); 
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), " %s (Valid lifetime %d secs)\r\n", ipv6_addr_state(enState), unValidLifetime); 
+                    }
+                    
+                    CHAR bRouterPrf; 
+                    USHORT usMtu; 
+                    ubaIpv6[0] = 0;
+                    while (netif_eth_get_next_ipv6_router(pstNetif, ubaIpv6, &bRouterPrf, &usMtu, (USHORT *)&unValidLifetime, ubaPriDns, ubaSecDns))
+                    {
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), "  Router : "); 
+                        inet6_ntoa(ubaIpv6, pszFormatBuf + strlen(pszFormatBuf)); 
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), " (%s, MTU %d, Lifetime %d)\r\n", i6r_prf_desc(bRouterPrf), usMtu, (USHORT)unValidLifetime); 
+                        if (ubaPriDns[0])
+                        {
+                            sprintf(pszFormatBuf + strlen(pszFormatBuf), "     Dns : "); 
+                            inet6_ntoa(ubaPriDns, pszFormatBuf + strlen(pszFormatBuf)); 
+                            sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n%s", ubaSecDns[0] ? "         : " : "");  
+                            if (ubaSecDns[0])
+                            {
+                                inet6_ntoa(ubaSecDns, pszFormatBuf + strlen(pszFormatBuf));
+                                sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n"); 
+                            }
+                        }
+                    }
+            #endif //* #if SUPPORT_IPV6
+
+                    tcp_send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf)); 
                 }
-            #endif  //* #if SUPPORT_ETHERNET
+        #endif  //* #if SUPPORT_ETHERNET
             }
         } while (pstNetif);
 

@@ -43,7 +43,14 @@ typedef struct _ST_IPV4_ {
 } ST_IPV4, *PST_IPV4;
 
 #if SUPPORT_IPV6
-//typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER; 
+//* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNADDR::bitState或ST_IPv6_LNKADDR::bitState，因为其仅占据两个数据位
+typedef enum {
+    IPv6ADDR_TENTATIVE  = 0, //* 试探
+    IPv6ADDR_PREFERRED  = 1, //* 选用
+    IPv6ADDR_DEPRECATED = 2, //* 弃用
+    IPv6ADDR_INVALID    = 3	 //* 无效
+} EN_IPv6ADDRSTATE;
+#define ipv6_addr_state(enIpv6AddrState) (enIpv6AddrState ? ((enIpv6AddrState == 1) ? "Preferred" : ((enIpv6AddrState == 2) ? "Deprecated" : "Invalid")) : "Tentative")
 
 //* 动态生成的IPv6地址（无状态/有状态地址自动配置生成的ipv6地址）,这种地址其前缀由路由器或dhcpv6服务器分配，具有时效性，其并不固定
 PACKED_BEGIN
@@ -199,7 +206,9 @@ NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway
 #if SUPPORT_IPV6
 NETIF_EXT const UCHAR *ipv6_get_loopback_addr(void);
 #if SUPPORT_ETHERNET
-NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit);
+NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit); 
+NETIF_EXT UCHAR *netif_eth_get_next_ipv6(const ST_NETIF *pstNetif, UCHAR ubaNextIpv6[16], EN_IPv6ADDRSTATE *penState, UINT *punValidLifetime); 
+NETIF_EXT UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR ubaNextRouterAddr[16], CHAR *pbRouterPrf, USHORT *pusMtu, USHORT *pusLifetime, UCHAR ubaPriDnsAddr[16], UCHAR ubaSecDnsAddr[16]);
 #endif
 #endif
 

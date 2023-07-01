@@ -17,8 +17,9 @@
 
 #if SUPPORT_IPV6
 #if SUPPORT_ETHERNET
-#define IPv6_DAD_TIMEOUT 6		//* 等待多少秒即可确定当前试探地址没有任何节点在使用
-#define IPv6LNKADDR_FLAG 0x52	//* 链路本地标志，用于dad检测时区分是链路本地地址还是从路由器得到的具有生存时间的动态地址
+#define IPv6_DAD_TIMEOUT        6	 //* 等待多少秒即可确定当前试探地址没有任何节点在使用
+#define IPv6LNKADDR_FLAG        0x52 //* 链路本地标志，用于dad检测时区分是链路本地地址还是从路由器得到的具有生存时间的动态地址
+#define IPv6ADDR_INVALID_TIME	10   //* 地址变为无效后的静止时间确保这个地址不会被立即释放，避免地址资源被回收后导致的协议栈崩溃问题的发生
 
 //* 其最大定义范围不能超过ST_IPv6::bitCfgState字段指定的位宽限制
 typedef enum {
@@ -29,16 +30,6 @@ typedef enum {
 	IPv6CFG_WAIT_Dv6CFG_END     = 4, //* 等待有状态和无状态Dhcpv6配置结束，如果存在Dhcpv6主机的话
 	IPv6CFG_END = 5, 
 } EN_IPv6CFGSTATE;
-
-//* Ipv6地址当前状态，注意只能4个状态，否则会影响ST_IPv6_DYNAMIC::bitState或ST_IPv6_LNKLOCAL::bitState，因为其仅占据两个数据位
-#define IPv6ADDR_INVALID_TIME	10 //* 地址变为无效后的静止时间确保这个地址不会被立即释放，避免地址资源被回收后导致的协议栈崩溃问题的发生
-typedef enum {
-	IPv6ADDR_TENTATIVE  = 0, //* 试探
-	IPv6ADDR_PREFERRED  = 1, //* 选用
-	IPv6ADDR_DEPRECATED = 2, //* 弃用
-	IPv6ADDR_INVALID    = 3	 //* 无效
-} EN_IPv6ADDRSTATE;
-#define ipv6_addr_state(enIpv6AddrState) (enIpv6AddrState ? ((enIpv6AddrState == 1) ? "Preferred" : ((enIpv6AddrState == 2) ? "Deprecated" : "Invalid")) : "Tentative")
 
 typedef enum {
 	IPv6SVVTMR_INVALID = 0, //* 无效，未启动

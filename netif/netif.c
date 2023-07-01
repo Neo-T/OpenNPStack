@@ -726,6 +726,92 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 
 	return pstMatchedNetif;
 }
+
+UCHAR *netif_eth_get_next_ipv6(const ST_NETIF *pstNetif, UCHAR ubaNextIpv6[16], EN_IPv6ADDRSTATE *penState, UINT *punValidLifetime)
+{
+    PST_IPv6_DYNADDR pstAddr = NULL; 
+
+    if (ubaNextIpv6[0])
+    {
+        PST_IPv6_DYNADDR pstNextAddr = NULL;
+        do {
+            //* 采用线程安全的函数读取地址节点，直至调用netif_ipv6_dyn_addr_release()函数之前，该节点占用的资源均不会被协议栈回收，即使生存时间到期
+            pstNextAddr = netif_ipv6_dyn_addr_next_safe((PST_NETIF)pstNetif, pstNextAddr, TRUE);
+            if (pstNextAddr && pstNextAddr->bitState != IPv6ADDR_TENTATIVE && !memcmp(ubaNextIpv6, pstNextAddr->ubaVal, 16)) 
+            {
+                if (NULL != (pstNextAddr = netif_ipv6_dyn_addr_next_safe((PST_NETIF)pstNetif, pstNextAddr, TRUE)))
+                {
+                    pstAddr = pstNextAddr; 
+                    break; 
+                }
+            }
+        } while (pstNextAddr);
+    }
+    else
+    {
+        PST_IPv6_DYNADDR pstNextAddr = netif_ipv6_dyn_addr_next_safe((PST_NETIF)pstNetif, NULL, TRUE);
+        if (pstNextAddr && pstNextAddr->bitState != IPv6ADDR_TENTATIVE)
+            pstAddr = pstNextAddr; 
+    }
+
+    if (pstAddr)
+    {
+        memcpy(ubaNextIpv6, pstAddr->ubaVal, 16);
+        *penState = (EN_IPv6ADDRSTATE)pstAddr->bitState;
+        *punValidLifetime = pstAddr->unValidLifetime;
+
+        //* 释放
+        netif_ipv6_dyn_addr_release(pstAddr);
+
+        return ubaNextIpv6;
+    }
+
+    return NULL; 
+}
+
+UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR ubaNextRouterAddr[16], CHAR *pbRouterPrf, USHORT *pusMtu, USHORT *pusLifetime, UCHAR ubaPriDnsAddr[16], UCHAR ubaSecDnsAddr[16])
+{
+    PST_IPv6_ROUTER pstRouter = NULL; 
+
+    if (ubaNextRouterAddr[0])
+    {
+        PST_IPv6_ROUTER pstNextRouter = NULL; 
+        do {
+            pstNextRouter = netif_ipv6_router_next_safe((PST_NETIF)pstNetif, pstNextRouter, TRUE);
+            if (pstNextRouter && pstNextRouter->bitDv6CfgState == Dv6CFG_END && !memcmp(ubaNextRouterAddr, pstNextRouter->ubaAddr, 16))
+            {                
+                if(NULL != (pstNextRouter = netif_ipv6_router_next_safe((PST_NETIF)pstNetif, pstNextRouter, TRUE)))
+                {
+                    pstRouter = pstNextRouter; 
+                    break; 
+                }
+            }
+        } while (pstNextRouter);
+    }
+    else
+    {
+        PST_IPv6_ROUTER pstNextRouter = netif_ipv6_router_next_safe((PST_NETIF)pstNetif, NULL, TRUE);
+        if (pstNextRouter && pstNextRouter->bitDv6CfgState == Dv6CFG_END) 
+            pstRouter = pstNextRouter; 
+    }
+
+    if (pstRouter)
+    {
+        memcpy(ubaNextRouterAddr, pstRouter->ubaAddr, 16); 
+        memcpy(ubaPriDnsAddr, pstRouter->staDNSSrv[0].ubaAddr, 16);         
+        memcpy(ubaSecDnsAddr, pstRouter->staDNSSrv[1].ubaAddr, 16); 
+        *pusLifetime = pstRouter->usLifetime; 
+        *pbRouterPrf = (CHAR)pstRouter->bitPrf; 
+        *pusMtu = pstRouter->usMtu;
+
+        //* 释放
+        netif_ipv6_router_release(pstRouter); 
+
+        return ubaNextRouterAddr; 
+    }
+
+    return NULL; 
+}
 #endif
 
 BOOL is_local_ip(in_addr_t unAddr)
