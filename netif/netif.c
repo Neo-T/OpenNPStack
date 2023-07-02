@@ -287,27 +287,30 @@ PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending)
                 return &pstNextNode->stIf; 
             }
 
-        #if SUPPORT_ETHERNET
+        #if SUPPORT_ETHERNET && ETH_EXTRA_IP_EN
             //* ethernet网卡，则需要看看附加地址链表是否有匹配的ip地址了
             if (NIF_ETHERNET == pstNextNode->stIf.enType)
             {
-                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra;
-                PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
-                while (pstNextIP)
+                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra; 
+                CHAR i; 
+                for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
                 {
-                    if (unNetifIp == pstNextIP->unAddr)
+                    if (pstExtra->staExtraIp[i].unAddr)
                     {
-                        if (blIsForSending)
-                            pstNextNode->stIf.bUsedCount++;
-                        os_thread_mutex_unlock(l_hMtxNetif);
+                        if (unNetifIp == pstExtra->staExtraIp[i].unAddr)
+                        {
+                            if (blIsForSending)
+                                pstNextNode->stIf.bUsedCount++;
+                            os_thread_mutex_unlock(l_hMtxNetif);
 
-                        return &pstNextNode->stIf;
-                    }                    
-
-                    pstNextIP = pstNextIP->pstNext;
-                }
+                            return &pstNextNode->stIf;
+                        }
+                    }
+                    else
+                        break; 
+                }                
             }
-        #endif
+        #endif //* #if SUPPORT_ETHERNET && ETH_EXTRA_IP_EN
 
             pstNextNode = pstNextNode->pstNext;
         }
@@ -365,22 +368,22 @@ PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsF
 						break;
 					}
 
+                #if ETH_EXTRA_IP_EN
 					//* 然后再遍历附加地址链表，看看是否有匹配的网段吗
-					PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra;
-					PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
-					while (pstNextIP)
-					{
-						if (ip_addressing(unDstIp, pstNextIP->unAddr, pstNextIP->unSubnetMask))
-						{
-							pstNetif = &pstNextNode->stIf;
-							if (punSrcIp)
-								*punSrcIp = pstNextIP->unAddr;
+					PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra; 
+                    CHAR i; 
+                    for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
+                    {
+                        if (pstExtra->staExtraIp[i].unAddr && ip_addressing(unDstIp, pstExtra->staExtraIp[i].unAddr, pstExtra->staExtraIp[i].unSubnetMask))
+                        {
+                            pstNetif = &pstNextNode->stIf;
+                            if (punSrcIp)
+                                *punSrcIp = pstExtra->staExtraIp[i].unAddr;
 
-							break;
-						}
-
-						pstNextIP = pstNextIP->pstNext;
-					}
+                            break;
+                        }
+                    }				
+                #endif //* #if ETH_EXTRA_IP_EN
 				}
 
 				pstNextNode = pstNextNode->pstNext;
@@ -403,7 +406,89 @@ PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsF
 
     return pstNetif; 
 }
-#endif
+
+#if ETH_EXTRA_IP_EN
+BOOL netif_eth_add_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr)
+{
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+    CHAR i;
+    os_thread_mutex_lock(l_hMtxNetif);
+    {        
+        for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
+        {
+            if (!pstExtra->staExtraIp[i].unAddr)
+            {
+                pstExtra->staExtraIp[i].unAddr = unIp; 
+                pstExtra->staExtraIp[i].unSubnetMask = unSubnetMask; 
+
+                os_thread_mutex_unlock(l_hMtxNetif); 
+                return TRUE; 
+            }
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+
+    if (penErr)
+        *penErr = ERREXTRAIPLIMIT; 
+
+    return FALSE; 
+}
+
+void netif_eth_del_ip(PST_NETIF pstNetif, in_addr_t unIp)
+{
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+    CHAR i, bTargetIdx = -1; 
+    for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
+    {
+        if (pstExtra->staExtraIp[i].unAddr)
+        {
+            if (unIp == pstExtra->staExtraIp[i].unAddr)
+                bTargetIdx = i; 
+        }
+        else
+            break;
+    }    
+
+    if (bTargetIdx < 0)
+        return; 
+
+    //* 如果并不是最后一个ip地址存储单元，那么就需要把这之后的ip地址存储单元整体前移一个存储单元，达成实际的删除效果
+    CHAR bCpyIpNum = i - (bTargetIdx + 1); 
+    if (bCpyIpNum)
+        memmove(&pstExtra->staExtraIp[bTargetIdx], &pstExtra->staExtraIp[bTargetIdx + 1], sizeof(ST_ETH_EXTRA_IP) * bCpyIpNum);
+    pstExtra->staExtraIp[i - 1].unAddr = 0; 
+}
+
+BOOL netif_eth_add_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_name(pszIfName); 
+    if (pstNetif)
+        return netif_eth_add_ip(pstNetif, unIp, unSubnetMask, penErr); 
+    else
+    {
+        if (penErr)
+            *penErr = ERRNETIFNOTFOUND;         
+    }
+
+    return FALSE;
+}
+
+BOOL netif_eth_del_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_name(pszIfName); 
+    if (pstNetif)
+    {
+        netif_eth_del_ip(pstNetif, unIp);
+        return TRUE; 
+    }
+
+    if (penErr)
+        *penErr = ERRNETIFNOTFOUND; 
+
+    return FALSE; 
+}
+#endif //* #if ETH_EXTRA_IP_EN
+#endif //* #if SUPPORT_ETHERNET
 
 UINT netif_get_first_ip(void)
 {
@@ -463,19 +548,22 @@ BOOL netif_is_ready(const CHAR *pszIfName)
 
 UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway)
 {
-#if SUPPORT_ETHERNET
+#if SUPPORT_ETHERNET && ETH_EXTRA_IP_EN
     if (NIF_ETHERNET == pstNetif->enType)
     {
         //* 先遍历附加地址链表，网段匹配则直接返回，否则直接使用网卡的主ip地址
-        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
-        PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
-        while (pstNextIP)
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+        CHAR i;
+        for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
         {
-            //* 附加地址网段匹配，同样直接返回，arp寻址依然以目标地址为寻址依据
-            if (ip_addressing(unGateway, pstNextIP->unAddr, pstNextIP->unSubnetMask))
-                return pstNextIP->unAddr;
-
-            pstNextIP = pstNextIP->pstNext;
+            if (pstExtra->staExtraIp[i].unAddr)
+            {
+                //* 附加地址网段匹配，同样直接返回，arp寻址依然以目标地址为寻址依据
+                if (ip_addressing(unGateway, pstExtra->staExtraIp[i].unAddr, pstExtra->staExtraIp[i].unSubnetMask))
+                    return pstExtra->staExtraIp[i].unAddr;
+            }
+            else
+                break; 
         }
     }    
 #endif
@@ -727,6 +815,7 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 	return pstMatchedNetif;
 }
 
+#if NETTOOLS_TELNETSRV
 UCHAR *netif_eth_get_next_ipv6(const ST_NETIF *pstNetif, UCHAR ubaNextIpv6[16], EN_IPv6ADDRSTATE *penState, UINT *punValidLifetime)
 {
     PST_IPv6_DYNADDR pstAddr = NULL; 
@@ -812,8 +901,11 @@ UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR ubaNextRou
 
     return NULL; 
 }
+#endif //* #if NETTOOLS_TELNETSRV
 #endif
 
+#if NETTOOLS_TELNETSRV
+#if NETTOOLS_TELNETCLT
 BOOL is_local_ip(in_addr_t unAddr)
 {
     if (0x0100007F == unAddr)
@@ -830,22 +922,25 @@ BOOL is_local_ip(in_addr_t unAddr)
                 return TRUE; 
             }
 
-        #if SUPPORT_ETHERNET
+        #if SUPPORT_ETHERNET && ETH_EXTRA_IP_EN
             //* ethernet网卡，则需要看看附加地址链表是否有匹配的ip地址了
             if (NIF_ETHERNET == pstNextNode->stIf.enType)
             {
-                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra;
-                PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList;
-                while (pstNextIP)
+                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNextNode->stIf.pvExtra; 
+                CHAR i; 
+                for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
                 {
-                    if (unAddr == pstNextIP->unAddr)
+                    if (pstExtra->staExtraIp[i].unAddr)
                     {
-                        os_thread_mutex_unlock(l_hMtxNetif);
-                        return TRUE; 
+                        if (unAddr == pstExtra->staExtraIp[i].unAddr)
+                        {
+                            os_thread_mutex_unlock(l_hMtxNetif);
+                            return TRUE;
+                        }
                     }
-
-                    pstNextIP = pstNextIP->pstNext;
-                }
+                    else
+                        break; 
+                }                
             }
         #endif
 
@@ -856,6 +951,7 @@ BOOL is_local_ip(in_addr_t unAddr)
 
     return FALSE; 
 }
+#endif //* #if NETTOOLS_TELNETCLT
 
 const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif)
 {
@@ -917,35 +1013,42 @@ CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac)
     return pszMac;
 }
 
+#if ETH_EXTRA_IP_EN
 UINT netif_eth_get_next_ip(const ST_NETIF *pstNetif, UINT *punSubnetMask, UINT unNextIp)
 {    
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
-    PST_NETIF_ETH_IP_NODE pstNextIP = pstExtra->pstIPList; 
     if (unNextIp)
     {
-        while (pstNextIP)
+        CHAR i;
+        for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
         {
-            if (unNextIp == pstNextIP->unAddr)
+            if (pstExtra->staExtraIp[i].unAddr)
             {
-                if (pstNextIP->pstNext)
+                if (unNextIp == pstExtra->staExtraIp[i].unAddr)
                 {
-                    *punSubnetMask = pstNextIP->pstNext->unSubnetMask;
-                    return pstNextIP->pstNext->unAddr; 
+                    i++; 
+                    if (i < ETH_EXTRA_IP_NUM && pstExtra->staExtraIp[i].unAddr)
+                    {
+                        *punSubnetMask = pstExtra->staExtraIp[i].unSubnetMask;
+                        return pstExtra->staExtraIp[i].unAddr; 
+                    }
                 }
             }
-
-            pstNextIP = pstNextIP->pstNext;
+            else
+                break;
         }
     }
     else
     {
-        if (pstNextIP)
+        if (pstExtra->staExtraIp[0].unSubnetMask)
         {
-            *punSubnetMask = pstNextIP->unSubnetMask; 
-            return pstNextIP->unAddr; 
+            *punSubnetMask = pstExtra->staExtraIp[0].unSubnetMask;
+            return pstExtra->staExtraIp[0].unAddr;
         }
     }
 
     return  0; 
 }
+#endif //* #if ETH_EXTRA_IP_EN
 #endif //* #if SUPPORT_ETHERNET
+#endif //* #if NETTOOLS_TELNETSRV

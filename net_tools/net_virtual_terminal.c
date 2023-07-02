@@ -33,6 +33,7 @@ static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
 #define NVTCMD_BUILTIN_NUM 4 //* NVT自带指令的数量
 static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
@@ -1161,6 +1162,7 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                     {
                         sprintf(pszFormatBuf + strlen(pszFormatBuf), " static\r\n"); 
                         
+                #if ETH_EXTRA_IP_EN
                         UINT unNextIp = 0, unSubnetMask; 
                         do {
                             if (0 != (unNextIp = netif_eth_get_next_ip(pstNetif, &unSubnetMask, unNextIp)))
@@ -1171,6 +1173,7 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                                 sprintf(pszFormatBuf + strlen(pszFormatBuf), " netmask %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
                             }
                         } while (unNextIp); 
+                #endif //* #if ETH_EXTRA_IP_EN
                     }
                     else                    
                         sprintf(pszFormatBuf + strlen(pszFormatBuf), " dhcp\r\n"); 

@@ -157,13 +157,13 @@ typedef struct _ST_NETIF_NODE_ {
 } ST_NETIF_NODE, *PST_NETIF_NODE;
 
 #if SUPPORT_ETHERNET
+#if ETH_EXTRA_IP_EN
 //* ethernet网卡接口附加IP地址
-typedef struct _ST_NETIF_ETH_IP_NODE_ ST_NETIF_ETH_IP_NODE, *PST_NETIF_ETH_IP_NODE;
-typedef struct _ST_NETIF_ETH_IP_NODE_ {
-    PST_NETIF_ETH_IP_NODE pstNext;
+typedef struct _ST_ETH_EXTRA_IP_ { 
     UINT unAddr; 
     UINT unSubnetMask; 
-} ST_NETIF_ETH_IP_NODE, *PST_NETIF_ETH_IP_NODE; 
+} ST_ETH_EXTRA_IP, *PST_ETH_EXTRA_IP;
+#endif //* #if ETH_EXTRA_IP_EN
 
 //* ethernet网卡附加信息
 typedef struct _STCB_ETHARP_ STCB_ETHARP, *PSTCB_ETHARP; 
@@ -174,7 +174,9 @@ typedef struct _ST_NETIFEXTRA_ETH_ {
     CHAR bIsUsed;                           //* 是否已被使用
     CHAR bIsStaticAddr;                     //* 静态地址？
     UCHAR ubaMacAddr[ETH_MAC_ADDR_LEN];     //* mac地址   
-    PST_NETIF_ETH_IP_NODE pstIPList;        //* 绑定到该网卡的IP地址
+#if ETH_EXTRA_IP_EN
+    ST_ETH_EXTRA_IP staExtraIp[ETH_EXTRA_IP_NUM]; //* 绑定到该网卡的附加IP地址
+#endif
     PSTCB_ETHARP pstcbArp; 
 #if SUPPORT_IPV6
 	PSTCB_ETHIPv6MAC pstcbIpv6Mac; 
@@ -195,7 +197,13 @@ NETIF_EXT PST_NETIF netif_get_first(BOOL blIsForSending);
 NETIF_EXT PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending); 
 NETIF_EXT PST_NETIF netif_get_by_name(const CHAR *pszIfName); 
 #if SUPPORT_ETHERNET
-NETIF_EXT PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsForSending);
+NETIF_EXT PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsForSending); 
+#if ETH_EXTRA_IP_EN
+NETIF_EXT BOOL netif_eth_add_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr);
+NETIF_EXT void netif_eth_del_ip(PST_NETIF pstNetif, in_addr_t unIp);
+NETIF_EXT BOOL netif_eth_add_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr); 
+NETIF_EXT BOOL netif_eth_del_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, EN_ONPSERR *penErr);
+#endif //* #if ETH_EXTRA_IP_EN
 #endif
 NETIF_EXT UINT netif_get_first_ip(void);
 NETIF_EXT void netif_used(PST_NETIF pstNetif);
@@ -207,15 +215,23 @@ NETIF_EXT UINT netif_get_source_ip_by_gateway(PST_NETIF pstNetif, UINT unGateway
 NETIF_EXT const UCHAR *ipv6_get_loopback_addr(void);
 #if SUPPORT_ETHERNET
 NETIF_EXT PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pubSource, UCHAR *pubNSAddr, BOOL blIsForSending, UCHAR *pubHopLimit); 
+#if NETTOOLS_TELNETSRV
 NETIF_EXT UCHAR *netif_eth_get_next_ipv6(const ST_NETIF *pstNetif, UCHAR ubaNextIpv6[16], EN_IPv6ADDRSTATE *penState, UINT *punValidLifetime); 
-NETIF_EXT UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR ubaNextRouterAddr[16], CHAR *pbRouterPrf, USHORT *pusMtu, USHORT *pusLifetime, UCHAR ubaPriDnsAddr[16], UCHAR ubaSecDnsAddr[16]);
+NETIF_EXT UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR ubaNextRouterAddr[16], CHAR *pbRouterPrf, USHORT *pusMtu, USHORT *pusLifetime, UCHAR ubaPriDnsAddr[16], UCHAR ubaSecDnsAddr[16]); 
+#endif //* #if NETTOOLS_TELNETSRV
 #endif
 #endif
 
+#if NETTOOLS_TELNETSRV
+#if NETTOOLS_TELNETCLT
 NETIF_EXT BOOL is_local_ip(in_addr_t unAddr); 
+#endif //* #if NETTOOLS_TELNETCLT
 NETIF_EXT const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif); 
 #if SUPPORT_ETHERNET
 NETIF_EXT CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac);
+#if ETH_EXTRA_IP_EN
 NETIF_EXT UINT netif_eth_get_next_ip(const ST_NETIF *pstNetif, UINT *punSubnetMask, UINT unNextIp); 
+#endif //* #if ETH_EXTRA_IP_EN
 #endif //* #if SUPPORT_ETHERNET
+#endif //* #if NETTOOLS_TELNETSRV
 #endif

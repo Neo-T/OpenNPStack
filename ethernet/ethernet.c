@@ -121,7 +121,9 @@ PST_NETIF ethernet_add(const CHAR *pszIfName, const UCHAR ubaMacAddr[ETH_MAC_ADD
     {
         pstNetif = &pstIfNode->stIf;
 
-        pstExtra->pstIPList = NULL;
+#if ETH_EXTRA_IP_EN
+        memset(pstExtra->staExtraIp, 0, sizeof(pstExtra->staExtraIp)); 
+#endif //* #if ETH_EXTRA_IP_EN
         pstExtra->pstcbArp = pstcbArp; 
 #if SUPPORT_IPV6
 		//* 以太网接收启动之前必须先初始化配置状态，这样可确保网卡开启地址自动配置后才开始处理到达的ipv6报文，这之前的将直接丢掉
@@ -373,15 +375,20 @@ BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
     if (unTargetIpAddr == pstNetif->stIPv4.unAddr)
         return TRUE; 
 
-    //* 看看附加ip地址列表有匹配的吗
-    PST_NETIF_ETH_IP_NODE pstNextIpNode = pstExtra->pstIPList; 
-    while (pstNextIpNode)
+#if ETH_EXTRA_IP_EN
+    //* 看看附加ip地址列表有匹配的吗    
+    CHAR i;     
+    for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
     {
-        if (unTargetIpAddr == pstNextIpNode->unAddr)
-            return TRUE; 
-
-        pstNextIpNode = pstNextIpNode->pstNext; 
+        if (pstExtra->staExtraIp[i].unAddr)
+        {
+            if (unTargetIpAddr == pstExtra->staExtraIp[i].unAddr)
+                return TRUE;
+        }
+        else
+            break; 
     }
+#endif //* #if ETH_EXTRA_IP_EN
 
     return FALSE; 
 }

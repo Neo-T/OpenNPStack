@@ -49,6 +49,11 @@
 		#define IPV6_CFG_ADDR_NUM	8	//* 指定所有以太网卡能够自动/手动配置的最大地址数量（不要超过128），超过这个数量将无法为网卡配置新的地址，如果目标网络环境地址数量确定建议将该值调整到合适的值以节省内存
 		#define IPV6_ROUTER_NUM		4	//* 指定所有以太网卡能够添加的路由器最大数量（最多8个），请根据目标网络实际情况调整该值以最大限度节省内存使用
 	#endif
+    
+    #define ETH_EXTRA_IP_EN  1 //* 是否允许添加多个ip地址
+    #if ETH_EXTRA_IP_EN
+        #define ETH_EXTRA_IP_NUM 2 //* 允许添加的ip地址数量
+    #endif
 #else
     #define ETHERNET_NUM    0
 #endif

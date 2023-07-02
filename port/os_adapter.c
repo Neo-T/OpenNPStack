@@ -185,3 +185,4 @@ void os_modem_reset(HTTY hTTY)
 	/* …… */
 }
 #endif
+

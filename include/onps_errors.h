@@ -101,6 +101,9 @@ typedef enum {
     ERRNOTELNETCLTCBNODE,   //* 无可用telnet客户端控制块节点
     ERRNVTSTART,            //* nvt启动失败
 #endif
+    ERRNETIFNOTFOUND,       //* 未找到网络接口
+    ERREXTRAIPLIMIT,        //* 附加ip超出数量限制
+    ERREXTRAIPSAVE,         //* 附加ip地址写入系统存储器失败
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

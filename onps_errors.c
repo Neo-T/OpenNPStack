@@ -96,6 +96,9 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRNOTELNETCLTCBNODE, "Telnet client control block list is empty" }, 
     { ERRNVTSTART, "Network virtual terminal startup failed" }, 
 #endif
+    { ERRNETIFNOTFOUND, "No network interface found" }, 
+    { ERREXTRAIPLIMIT, "Exceeded maximum number of IP addresses" }, 
+    { ERREXTRAIPSAVE, "Failed to write the IP address to the system memory" },  
     { ERRUNKNOWN, "unknown error" }
 }; 
 
