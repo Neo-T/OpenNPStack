@@ -19,6 +19,7 @@ OS_NVT_EXT void os_nvt_init(void);
 OS_NVT_EXT void os_nvt_uninit(void);
 OS_NVT_EXT BOOL os_nvt_start(void *pvParam);
 OS_NVT_EXT void os_nvt_stop(void *pvParam);
+
 #if SUPPORT_ETHERNET
 #if ETH_EXTRA_IP_EN
 OS_NVT_EXT BOOL os_nvt_add_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask);  //* 将新添加的ip地址写入目标系统的非易失性存储器

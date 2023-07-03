@@ -104,6 +104,8 @@ typedef enum {
     ERRNETIFNOTFOUND,       //* 未找到网络接口
     ERREXTRAIPLIMIT,        //* 附加ip超出数量限制
     ERREXTRAIPSAVE,         //* 附加ip地址写入系统存储器失败
+    ERREXTRAIPDEL,          //* 附加ip地址从系统存储器删除失败
+    ERRIPNOSTATIC,          //* 动态地址（dhcp）模式下不允许增加、删除、修改ip地址
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

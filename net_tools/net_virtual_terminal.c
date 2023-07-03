@@ -12,6 +12,11 @@
 #include "onps_input.h"
 #include "netif/netif.h"
 #include "netif/route.h"
+#include "telnet/os_nvt.h"
+
+#if SUPPORT_PPP
+#include "ppp/ppp.h" 
+#endif
 
 #if NETTOOLS_TELNETSRV
 #define SYMBOL_GLOBALS
@@ -34,23 +39,26 @@ static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
-#define NVTCMD_BUILTIN_NUM 4 //* NVT自带指令的数量
+#define NVTCMD_BUILTIN_NUM 5 //* NVT自带指令的数量
 static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
     { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }, 
     { netif, "netif", "print all network interface card information registered to the protocol stack.\r\n"}, 
+    { ifip, "ifip", "To \033[01;31madd\033[0m, \033[01;31mdel\033[0m, \033[01;31mset\033[0m IP addresses for a network interface other than a ppp network interface.\r\n" },
 };
 
 #define NVTCMD_EXIT     0 //* "exit"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_LOGOUT   1 //* "logout"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_MEMUSAGE 2 //* "memusage"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_NETIF    3 //* "netif"指令在l_staNvtCmd数组中的存储索引
+#define NVTCMD_IFIP     4 //* "ifip"指令在l_staNvtCmd数组中的存储索引
 static ST_NVTCMD_NODE l_staNvtCmdNode[NVTCMD_BUILTIN_NUM] = {
     { &l_staNvtCmd[NVTCMD_EXIT],  &l_staNvtCmdNode[NVTCMD_LOGOUT] },
     { &l_staNvtCmd[NVTCMD_LOGOUT],  &l_staNvtCmdNode[NVTCMD_MEMUSAGE] },
     { &l_staNvtCmd[NVTCMD_MEMUSAGE],   &l_staNvtCmdNode[NVTCMD_NETIF] }, 
-    { &l_staNvtCmd[NVTCMD_NETIF],  NULL },
+    { &l_staNvtCmd[NVTCMD_NETIF],  &l_staNvtCmdNode[NVTCMD_IFIP] },
+    { &l_staNvtCmd[NVTCMD_IFIP],  NULL },
 };
 static PST_NVTCMD_NODE l_pstNvtCmdList = &l_staNvtCmdNode[0];
 
@@ -1135,12 +1143,35 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         do {
             if (NULL != (pstNetif = netif_get_next(pstNetif)))
             {
+        #if SUPPORT_PPP
                 if (pstNetif->enType == NIF_PPP)
                 {
+                    sprintf(pszFormatBuf, "Network adapter <ppp, point-to-point protocol> : %s <--> %s\r\n", pstNetif->szName, get_ppp_port_name(*((HTTY *)pstNetif->pvExtra))); 
+                    UCHAR *pubAddr = (UCHAR *)&pstNetif->stIPv4.unAddr;
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), "\r\n\r\n    IPv4 : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                    pubAddr = (UCHAR *)&pstNetif->stIPv4.unSubnetMask;
+                    sprintf(pszFormatBuf + strlen(pszFormatBuf), " netmask %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                    pubAddr = (UCHAR *)&pstNetif->stIPv4.unGateway;
+                    printf(", Point to Point %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                    if (pstNetif->stIPv4.unPrimaryDNS)
+                    {
+                        pubAddr = (UCHAR *)&pstNetif->stIPv4.unPrimaryDNS;
+                        sprintf(pszFormatBuf + strlen(pszFormatBuf), "     Dns : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
 
+                        if (pstNetif->stIPv4.unSecondaryDNS)
+                        {
+                            pubAddr = (UCHAR *)&pstNetif->stIPv4.unSecondaryDNS;
+                            sprintf(pszFormatBuf + strlen(pszFormatBuf), "       : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                        }
+                    }
+
+                    tcp_send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf));                
+                    continue;                 
                 }
+        #endif
+
         #if SUPPORT_ETHERNET
-                else if (pstNetif->enType == NIF_ETHERNET)
+                if (pstNetif->enType == NIF_ETHERNET)
                 {
                     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;                    
                     sprintf(pszFormatBuf, "Network adapter <ethernet> : %s\r\n     Mac : ", pstNetif->szName);  
@@ -1229,6 +1260,7 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
             #endif //* #if SUPPORT_IPV6
 
                     tcp_send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf)); 
+                    continue; 
                 }
         #endif  //* #if SUPPORT_ETHERNET
             }
@@ -1240,6 +1272,95 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         tcp_send(pstTelnetClt->hClient, "Failed to execute \033[01;33mnetif\033[0m command, dynamic memory is empty.\r\n", sizeof("Failed to execute \033[01;33mnetif\033[0m command, dynamic memory is empty.\r\n") - 1);
     
     nvt_cmd_exec_end(ullNvtHandle); 
+
+    return 0; 
+}
+
+#define NVTHELP_IFIP_USAGE_ADD "ifip add <if name> <ip> <subnet mask>\r\n"
+#define NVTHELP_IFIP_USAGE_DEL "ifip del <if name> <ip>\r\n"
+#define NVTHELP_IFIP_USAGE_SET "ifip set mac <if name> <ethernet mac addr>\r\n" \
+                               "ifip set ip <if name> <ip> <subnet mask> <gateway>\r\n" \
+                               "ifip set dns <if name> <primary dns addr> [second dns addr, if exists]\r\n"
+
+static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+#if SUPPORT_ETHERNET && ETH_EXTRA_IP_EN
+    EN_ONPSERR enErr; 
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt)); 
+    if (argc > 1)
+    {        
+        if (!strcmp("add", argv[1]))
+        {
+            if (argc == 5)
+            {
+                in_addr_t unIp = inet_addr_small(argv[3]); 
+                in_addr_t unSubnetMask = inet_addr_small(argv[4]); 
+                if (netif_eth_add_ip_by_if_name(argv[2], unIp, unSubnetMask, &enErr)) 
+                {
+                    if (os_nvt_add_ip(argv[2], unIp, unSubnetMask))
+                    {
+                        nvt_printf(pstTelnetClt->hClient, 256, "Successfully added IP address %s, netmask %s.\r\n", argv[3], argv[4]);
+                        goto __lblEnd; 
+                    }
+                    else
+                    {
+                        netif_eth_del_ip_by_if_name(argv[2], unIp, NULL); 
+                        enErr = ERREXTRAIPSAVE; 
+                    }
+                }
+                
+                goto __lblErr; 
+            }
+            else
+            {
+                tcp_send(pstTelnetClt->hClient, NVTHELP_IFIP_USAGE_ADD, sizeof(NVTHELP_IFIP_USAGE_ADD) - 1); 
+                goto __lblEnd; 
+            }
+        }
+        else if (!strcmp("del", argv[1]))
+        {
+            if (argc == 4)
+            {
+                in_addr_t unIp = inet_addr_small(argv[3]); 
+                if (netif_eth_del_ip_by_if_name(argv[2], unIp, &enErr))
+                {
+                    if (os_nvt_del_ip(argv[2], unIp))
+                    {
+                        nvt_printf(pstTelnetClt->hClient, 256, "Successfully deleted IP address %s.\r\n", argv[3]);
+                        goto __lblEnd;
+                    }
+                    else
+                        enErr = ERREXTRAIPDEL; 
+                }
+
+                goto __lblErr;
+            }
+            else
+            {
+                tcp_send(pstTelnetClt->hClient, NVTHELP_IFIP_USAGE_DEL, sizeof(NVTHELP_IFIP_USAGE_DEL) - 1);
+                goto __lblEnd; 
+            }
+        }
+        else if (!strcmp("set", argv[1]))
+        {
+        }
+        else;
+    }
+    else
+    {
+        nvt_printf(pstTelnetClt->hClient, 256, "%s%s%s", NVTHELP_IFIP_USAGE_ADD, NVTHELP_IFIP_USAGE_DEL, NVTHELP_IFIP_USAGE_SET); 
+        goto __lblErr;
+    }
+
+__lblErr: 
+    nvt_printf(pstTelnetClt->hClient, 256, "The \033[01;33mifip\033[0m command failed, %s\r\n", onps_error(enErr));
+
+__lblEnd: 
+#else
+    tcp_send(pstTelnetClt->hClient, "The protocol stack does not support this nvt command.\r\n", sizeof("The protocol stack does not support this nvt command.\r\n") - 1); 
+#endif
+
+    nvt_cmd_exec_end(ullNvtHandle);
 
     return 0; 
 }

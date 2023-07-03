@@ -98,7 +98,9 @@ static const ST_ONPSERR lr_staErrorList[] = {
 #endif
     { ERRNETIFNOTFOUND, "No network interface found" }, 
     { ERREXTRAIPLIMIT, "Exceeded maximum number of IP addresses" }, 
-    { ERREXTRAIPSAVE, "Failed to write the IP address to the system memory" },  
+    { ERREXTRAIPSAVE, "Failed to write the IP address to the system memory" }, 
+    { ERREXTRAIPDEL, "Failed to remove IP address from system memory" }, 
+    { ERRIPNOSTATIC, "adding, deleting, or updating IP addresses is not allowed in DHCP mode" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

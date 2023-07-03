@@ -412,6 +412,14 @@ BOOL netif_eth_add_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask
 {
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
     CHAR i;
+
+    if (!pstExtra->bIsStaticAddr)
+    {
+        if (penErr)
+            *penErr = ERRIPNOSTATIC; 
+        return FALSE; 
+    }
+
     os_thread_mutex_lock(l_hMtxNetif);
     {        
         for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
@@ -478,6 +486,14 @@ BOOL netif_eth_del_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, EN_ONPSE
     PST_NETIF pstNetif = netif_get_by_name(pszIfName); 
     if (pstNetif)
     {
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
+        if (!pstExtra->bIsStaticAddr)
+        {
+            if (penErr)
+                *penErr = ERRIPNOSTATIC;
+            return FALSE;
+        }
+
         netif_eth_del_ip(pstNetif, unIp);
         return TRUE; 
     }

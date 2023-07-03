@@ -370,13 +370,12 @@ BOOL ethernet_ipv4_addr_matched(PST_NETIF pstNetif, in_addr_t unTargetIpAddr)
 	if (0x0100007F == unTargetIpAddr)
 		return TRUE; 
 
-    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
-
     if (unTargetIpAddr == pstNetif->stIPv4.unAddr)
         return TRUE; 
 
 #if ETH_EXTRA_IP_EN
     //* 看看附加ip地址列表有匹配的吗    
+    PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
     CHAR i;     
     for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
     {
