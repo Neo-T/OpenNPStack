@@ -198,6 +198,7 @@ NETIF_EXT PST_NETIF netif_get_by_ip(UINT unNetifIp, BOOL blIsForSending);
 NETIF_EXT PST_NETIF netif_get_by_name(const CHAR *pszIfName); 
 #if SUPPORT_ETHERNET
 NETIF_EXT PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsForSending); 
+NETIF_EXT void netif_eth_set_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway);
 #if ETH_EXTRA_IP_EN
 NETIF_EXT BOOL netif_eth_add_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr);
 NETIF_EXT void netif_eth_del_ip(PST_NETIF pstNetif, in_addr_t unIp);
@@ -228,7 +229,8 @@ NETIF_EXT BOOL is_local_ip(in_addr_t unAddr);
 #endif //* #if NETTOOLS_TELNETCLT
 NETIF_EXT const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif); 
 #if SUPPORT_ETHERNET
-NETIF_EXT CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac);
+NETIF_EXT CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac); 
+NETIF_EXT BOOL netif_eth_set_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway, CHAR *pbIsStaticAddr, EN_ONPSERR *penErr);
 #if ETH_EXTRA_IP_EN
 NETIF_EXT UINT netif_eth_get_next_ip(const ST_NETIF *pstNetif, UINT *punSubnetMask, UINT unNextIp); 
 #endif //* #if ETH_EXTRA_IP_EN

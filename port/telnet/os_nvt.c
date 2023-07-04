@@ -46,5 +46,9 @@ BOOL os_nvt_del_ip(const CHAR *pszIfName, in_addr_t unIp)
     return TRUE;
 }
 #endif //* #if ETH_EXTRA_IP_EN 
+BOOL os_nvt_set_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway)
+{
+    return TRUE; 
+}
 #endif //* #if SUPPORT_ETHERNET
 #endif //* #if NETTOOLS_TELNETSRV

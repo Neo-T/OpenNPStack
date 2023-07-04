@@ -407,6 +407,21 @@ PST_NETIF netif_eth_get_by_genmask(UINT unDstIp, in_addr_t *punSrcIp, BOOL blIsF
     return pstNetif; 
 }
 
+void netif_eth_set_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway)
+{
+    os_thread_mutex_lock(l_hMtxNetif);
+    {
+        pstNetif->stIPv4.unAddr = unIp; 
+        pstNetif->stIPv4.unSubnetMask = unSubnetMask; 
+        pstNetif->stIPv4.unGateway = unGateway; 
+        pstNetif->stIPv4.unBroadcast = unIp | (~unSubnetMask); 
+
+        PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+        pstExtra->bIsStaticAddr = TRUE; 
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);
+}
+
 #if ETH_EXTRA_IP_EN
 BOOL netif_eth_add_ip(PST_NETIF pstNetif, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr)
 {
@@ -1027,6 +1042,32 @@ CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac)
     hex_to_char(pszMac[j + 1], TRUE);
 
     return pszMac;
+}
+
+BOOL netif_eth_set_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway, CHAR *pbIsStaticAddr, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_name(pszIfName); 
+    if (pstNetif)
+    {
+        if (pbIsStaticAddr)
+        {
+            os_thread_mutex_lock(l_hMtxNetif); 
+            {
+                PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+                *pbIsStaticAddr = pstExtra->bIsStaticAddr;
+            }
+            os_thread_mutex_unlock(l_hMtxNetif);
+        }
+        netif_eth_set_ip(pstNetif, unIp, unSubnetMask, unGateway); 
+        return TRUE;
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRNETIFNOTFOUND;
+    }
+
+    return FALSE;
 }
 
 #if ETH_EXTRA_IP_EN

@@ -95,4 +95,9 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     return 0;
 }
 #endif //* #if NETTOOLS_TELNETCLT
+
+void nvt_cmd_system_reset(void)
+{
+
+}
 #endif //* #if NETTOOLS_TELNETSRV

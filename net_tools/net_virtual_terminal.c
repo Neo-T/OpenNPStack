@@ -45,7 +45,7 @@ static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
     { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }, 
     { netif, "netif", "print all network interface card information registered to the protocol stack.\r\n"}, 
-    { ifip, "ifip", "To \033[01;31madd\033[0m, \033[01;31mdel\033[0m, \033[01;31mset\033[0m IP addresses for a network interface other than a ppp network interface.\r\n" },
+    { ifip, "ifip", "To \033[01;37madd\033[0m, \033[01;37mdel\033[0m, \033[01;37mset\033[0m IP addresses for a network interface other than a ppp network interface.\r\n" },
 };
 
 #define NVTCMD_EXIT     0 //* "exit"指令在l_staNvtCmd数组中的存储索引
@@ -1276,11 +1276,12 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     return 0; 
 }
 
-#define NVTHELP_IFIP_USAGE_ADD "ifip add <if name> <ip> <subnet mask>\r\n"
-#define NVTHELP_IFIP_USAGE_DEL "ifip del <if name> <ip>\r\n"
-#define NVTHELP_IFIP_USAGE_SET "ifip set mac <if name> <ethernet mac addr>\r\n" \
-                               "ifip set ip <if name> <ip> <subnet mask> <gateway>\r\n" \
-                               "ifip set dns <if name> <primary dns addr> [second dns addr, if exists]\r\n"
+#define NVTHELP_IFIP_USAGE_ADD "Add an IP address, for example: \033[01;37mifip add <if name, like eth0, etc> <ip> <subnet mask>\033[0m\r\n"
+#define NVTHELP_IFIP_USAGE_DEL "Delete an IP address, for example: \033[01;37mifip del <if name> <ip>\033[0m\r\n"
+#define NVTHELP_IFIP_USAGE_SET "Modify Ethernet MAC address, for example: \033[01;37mifip set mac <if name> <mac, like 4E-65-6F-XX-XX-XX, etc>\033[0m\r\n" \
+                               "Modify IP address, note that if it is currently a dynamic address, this command will change it to a static address, for example: \033[01;37mifip set ip <if name> <ip> <subnet mask> <gateway>\033[0m\r\n" \
+                               "Modify DNS address, for example: \033[01;37mifip set dns <if name> <primary dns addr> [second dns addr, if exists]\033[0m\r\n" \
+                               "Modify to dhcp, for example: \033[01;37mifip set dhcp <if name>\033[0m\r\n"
 
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
@@ -1343,17 +1344,75 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         }
         else if (!strcmp("set", argv[1]))
         {
+            if (argc > 3)
+            {
+                if (!strcmp("ip", argv[2]))
+                {
+                    if (argc != 7)
+                    {
+                        in_addr_t unIp = inet_addr_small(argv[4]); 
+                        in_addr_t unSubnetMask = inet_addr_small(argv[5]); 
+                        in_addr_t unGateway = inet_addr_small(argv[6]); 
+                        CHAR bIsStaticAddr; 
+                        if (netif_eth_set_ip_by_if_name(argv[3], unIp, unSubnetMask, unGateway, &bIsStaticAddr, &enErr))
+                        {
+                            if (os_nvt_set_ip(argv[3], unIp, unSubnetMask, unGateway))
+                            {
+                                nvt_printf(pstTelnetClt->hClient, 256, "Successfully updated IP address. %s\r\n", bIsStaticAddr ? "" : "Due to the change from dynamic address to static address, the system will be restarted immediately..."); 
+                                os_sleep_secs(3);  
+                                close(pstTelnetClt->hClient); 
+                                nvt_cmd_system_reset(); 
+                                goto __lblEnd;
+                            }
+                            else
+                                enErr = ERRIPUPDATED; 
+                        }
+
+                        goto __lblErr; 
+                    }
+                    else
+                    {
+                        tcp_send(pstTelnetClt->hClient, "Parameter error, usage is as follows: \033[01;37mifip set ip <if name> <ip> <subnet mask> <gateway>\033[0m\r\n", 
+                                    sizeof("Parameter error, usage is as follows: \033[01;37mifip set ip <if name> <ip> <subnet mask> <gateway>\033[0m\r\n") - 1); 
+                        goto __lblEnd;
+                    }
+                }
+                else if (!strcmp("mac", argv[2]))
+                {
+
+                }
+                else if (!strcmp("dns", argv[2]))
+                {
+                }
+                else if (!strcmp("dhcp", argv[2]))
+                {
+                }
+                else
+                {
+                    nvt_printf(pstTelnetClt->hClient, 256, "Unsupported set option: \033[01;37m%s\033[0m, Please choose from \033[01;37mip\033[0m, \033[01;37mmac\033[0m, \033[01;37mdns\033[0m, \033[01;37mdhcp\033[0m.\r\n", argv[2]);
+                    goto __lblEnd;
+                }
+            }
+            else
+            {
+                nvt_printf(pstTelnetClt->hClient, 1024, "Parameter error, usage is as follows: \r\n%s", NVTHELP_IFIP_USAGE_SET, sizeof(NVTHELP_IFIP_USAGE_SET) - 1);
+                goto __lblEnd;
+            }
         }
-        else;
+        else
+        {
+            nvt_printf(pstTelnetClt->hClient, 256, "Unsupported operation option: \033[01;37m%s\033[0m, Please choose from \033[01;37madd\033[0m, \033[01;37mdel\033[0m, \033[01;37mset\033[0m.\r\n", argv[1]); 
+            goto __lblEnd;
+        }
     }
     else
     {
-        nvt_printf(pstTelnetClt->hClient, 256, "%s%s%s", NVTHELP_IFIP_USAGE_ADD, NVTHELP_IFIP_USAGE_DEL, NVTHELP_IFIP_USAGE_SET); 
-        goto __lblErr;
+        nvt_printf(pstTelnetClt->hClient, 1024, "%s%s%s", NVTHELP_IFIP_USAGE_ADD, NVTHELP_IFIP_USAGE_DEL, NVTHELP_IFIP_USAGE_SET); 
+        goto __lblEnd;
     }
 
 __lblErr: 
-    nvt_printf(pstTelnetClt->hClient, 256, "The \033[01;33mifip\033[0m command failed, %s\r\n", onps_error(enErr));
+    nvt_printf(pstTelnetClt->hClient, 256, "The \033[01;37mifip\033[0m command failed, %s.\r\n", onps_error(enErr));
 
 __lblEnd: 
 #else
