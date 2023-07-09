@@ -42,8 +42,9 @@
 
 #define SUPPORT_ETHERNET    1   //* 是否支持ethernet：1，支持；0，不支持
 #if SUPPORT_ETHERNET
-    #define ETHERNET_NUM    1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
-    #define ARPENTRY_NUM    32  //* arp条目缓存表的大小（不要超过127），只要不小于局域网内目标通讯节点的个数即可确保arp寻址次数为1，否则就会出现频繁寻址的可能，当然这也不会妨碍正常通讯逻辑，只不过这会降低通讯效率    
+    #define ETH_MAC_ADDR_LEN    6   //* ethernet网卡mac地址长度
+    #define ETHERNET_NUM        1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
+    #define ARPENTRY_NUM        32  //* arp条目缓存表的大小（不要超过127），只要不小于局域网内目标通讯节点的个数即可确保arp寻址次数为1，否则就会出现频繁寻址的可能，当然这也不会妨碍正常通讯逻辑，只不过这会降低通讯效率    
 	#if SUPPORT_IPV6
 		#define IPV6TOMAC_ENTRY_NUM	8	//* Ipv6到以太网mac地址映射缓存表的大小（不要超过127），这个配置项指定缓存条目的数量，同样确保其不小于Ipv6通讯节点数量即可避免重复寻址的问题
 		#define IPV6_CFG_ADDR_NUM	8	//* 指定所有以太网卡能够自动/手动配置的最大地址数量（不要超过128），超过这个数量将无法为网卡配置新的地址，如果目标网络环境地址数量确定建议将该值调整到合适的值以节省内存

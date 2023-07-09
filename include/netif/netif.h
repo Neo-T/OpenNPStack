@@ -28,7 +28,6 @@ typedef struct _ST_NETIF_ ST_NETIF, *PST_NETIF;
 typedef INT(* PFUN_NETIF_SEND)(PST_NETIF pstIf, UCHAR ubProtocol, SHORT sBufListHead, void *pvExtraParam, EN_ONPSERR *penErr); 
 
 #if SUPPORT_ETHERNET
-#define ETH_MAC_ADDR_LEN    6   //* ethernet网卡mac地址长度
 typedef INT(* PFUN_EMAC_SEND)(SHORT sBufListHead, UCHAR *pubErr); 
 #endif
 

@@ -23,6 +23,7 @@
 #define htonl(n)    ENDIAN_CONVERTER_UINT(n)
 #define htons(n)    ENDIAN_CONVERTER_USHORT(n)
 #define ip_addressing(unDestIP, unIfIP, unGenmask) ((UINT)(unIfIP & unGenmask) == (UINT)(unDestIP & unGenmask))
+#define broadcast_addr(unIpAddr, unSubnetMask) (unIpAddr | (~unSubnetMask))
 
 //* 判断某个无符号整型数是否在指定范围内
 #define uint_is_within_range(num, left, right) ((INT)((num - left) | (right - num)) >= 0)

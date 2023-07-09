@@ -961,7 +961,7 @@ BOOL dhcp_req_addr(PST_NETIF pstNetif, EN_ONPSERR *penErr)
         //* 确定ip地址可用，采用arp探测的方式
         if (!dhcp_ip_conflict_detect(pstNetif, stIPv4.unAddr))
         {            
-            stIPv4.unBroadcast = stIPv4.unAddr | (~stIPv4.unSubnetMask);
+            stIPv4.unBroadcast = broadcast_addr(stIPv4.unAddr, stIPv4.unSubnetMask); 
             pstNetif->stIPv4 = stIPv4;        
             if (route_add(pstNetif, 0, stIPv4.unGateway, stIPv4.unSubnetMask, &enErr))
             {
