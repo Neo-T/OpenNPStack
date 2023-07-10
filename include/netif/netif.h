@@ -229,7 +229,11 @@ NETIF_EXT BOOL is_local_ip(in_addr_t unAddr);
 NETIF_EXT const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif); 
 #if SUPPORT_ETHERNET
 NETIF_EXT CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac); 
+NETIF_EXT UCHAR *netif_eth_ascii_to_mac(const CHAR *pszMac, UCHAR *pubMac);
 NETIF_EXT BOOL netif_eth_set_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway, CHAR *pbIsStaticAddr, EN_ONPSERR *penErr);
+NETIF_EXT BOOL netif_eth_set_mac_by_if_name(const CHAR *pszIfName, const CHAR *pszMac, EN_ONPSERR *penErr); //* 参数pszMac指向类似4E-65-XX-XX-XX-XX格式的可读字符串
+NETIF_EXT BOOL netif_eth_set_dns_by_if_name(const CHAR *pszIfName, in_addr_t unPrimaryDns, in_addr_t unSecondaryDns, EN_ONPSERR *penErr); 
+NETIF_EXT BOOL netif_eth_is_static_addr(const CHAR *pszIfName, EN_ONPSERR *penErr);
 #if ETH_EXTRA_IP_EN
 NETIF_EXT UINT netif_eth_get_next_ip(const ST_NETIF *pstNetif, UINT *punSubnetMask, UINT unNextIp); 
 #endif //* #if ETH_EXTRA_IP_EN

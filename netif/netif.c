@@ -465,8 +465,9 @@ void netif_eth_del_ip(PST_NETIF pstNetif, in_addr_t unIp)
     {
         if (pstExtra->staExtraIp[i].unAddr)
         {
-            if (unIp == pstExtra->staExtraIp[i].unAddr)
-                bTargetIdx = i; 
+            //* 相等，则找到了要删除的ip地址
+            if (unIp == pstExtra->staExtraIp[i].unAddr)            
+                bTargetIdx = i;            
         }
         else
             break;
@@ -1044,6 +1045,21 @@ CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac)
     return pszMac;
 }
 
+UCHAR *netif_eth_ascii_to_mac(const CHAR *pszMac, UCHAR *pubMac)
+{
+    CHAR i, j;
+    UCHAR ubVal;
+    for (i = 0, j = 0; i < strlen(pszMac);)
+    {
+        ubVal = ascii_to_hex_4(pszMac[i++]);
+        ubVal = (ubVal << 4) | ascii_to_hex_4(pszMac[i++]);
+        pubMac[j++] = ubVal;
+        i++;
+    }
+
+    return pubMac;
+}
+
 BOOL netif_eth_set_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway, CHAR *pbIsStaticAddr, EN_ONPSERR *penErr)
 {
     PST_NETIF pstNetif = netif_get_by_name(pszIfName); 
@@ -1060,6 +1076,77 @@ BOOL netif_eth_set_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_
         }
         netif_eth_set_ip(pstNetif, unIp, unSubnetMask, unGateway); 
         return TRUE;
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRNETIFNOTFOUND;
+    }
+
+    return FALSE;
+}
+
+BOOL netif_eth_set_mac_by_if_name(const CHAR *pszIfName, const CHAR *pszMac, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_name(pszIfName);
+    if (pstNetif)
+    {
+        os_thread_mutex_lock(l_hMtxNetif);
+        {
+            PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+            netif_eth_ascii_to_mac(pszMac, pstExtra->ubaMacAddr); 
+        }
+        os_thread_mutex_unlock(l_hMtxNetif);
+
+        return TRUE; 
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRNETIFNOTFOUND;
+    }
+
+    return FALSE;
+}
+
+BOOL netif_eth_set_dns_by_if_name(const CHAR *pszIfName, in_addr_t unPrimaryDns, in_addr_t unSecondaryDns, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_name(pszIfName);
+    if (pstNetif)
+    {
+        os_thread_mutex_lock(l_hMtxNetif);
+        {            
+            pstNetif->stIPv4.unPrimaryDNS = unPrimaryDns; 
+            if(unSecondaryDns)
+                pstNetif->stIPv4.unSecondaryDNS = unSecondaryDns; 
+        }
+        os_thread_mutex_unlock(l_hMtxNetif);
+
+        return TRUE;
+    }
+    else
+    {
+        if (penErr)
+            *penErr = ERRNETIFNOTFOUND;
+    }
+
+    return FALSE;
+}
+
+BOOL netif_eth_is_static_addr(const CHAR *pszIfName, EN_ONPSERR *penErr)
+{
+    PST_NETIF pstNetif = netif_get_by_name(pszIfName);
+    if (pstNetif)
+    {
+        CHAR bIsStaticAddr; 
+        os_thread_mutex_lock(l_hMtxNetif);
+        {
+            PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra;
+            bIsStaticAddr = pstExtra->bIsStaticAddr; 
+        }
+        os_thread_mutex_unlock(l_hMtxNetif); 
+
+        return bIsStaticAddr; 
     }
     else
     {

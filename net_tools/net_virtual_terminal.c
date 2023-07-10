@@ -1280,7 +1280,7 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 #define NVTHELP_IFIP_USAGE_DEL "Delete an IP address, for example: \033[01;37mifip del <if name> <ip>\033[0m\r\n"
 #define NVTHELP_IFIP_USAGE_SET "Modify Ethernet MAC address, for example: \033[01;37mifip set mac <if name> <mac, like 4E-65-6F-XX-XX-XX, etc>\033[0m\r\n" \
                                "Modify IP address, note that if it is currently a dynamic address, this command will change it to a static address, for example: \033[01;37mifip set ip <if name> <ip> <subnet mask> <gateway>\033[0m\r\n" \
-                               "Modify DNS address, for example: \033[01;37mifip set dns <if name> <primary dns addr> [second dns addr, if exists]\033[0m\r\n" \
+                               "Modify DNS address, for example: \033[01;37mifip set dns <if name> <primary dns addr> [secondary dns addr, if exists]\033[0m\r\n" \
                                "Modify to dhcp, for example: \033[01;37mifip set dhcp <if name>\033[0m\r\n"
 
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
@@ -1348,7 +1348,7 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
             {
                 if (!strcmp("ip", argv[2]))
                 {
-                    if (argc != 7)
+                    if (argc == 7)
                     {
                         in_addr_t unIp = inet_addr_small(argv[4]); 
                         in_addr_t unSubnetMask = inet_addr_small(argv[5]); 
@@ -1359,9 +1359,13 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                             if (os_nvt_set_ip(argv[3], unIp, unSubnetMask, unGateway))
                             {
                                 nvt_printf(pstTelnetClt->hClient, 256, "Successfully updated IP address. %s\r\n", bIsStaticAddr ? "" : "Due to the change from dynamic address to static address, the system will be restarted immediately..."); 
-                                os_sleep_secs(3);  
-                                close(pstTelnetClt->hClient); 
-                                nvt_cmd_system_reset(); 
+                                if (!bIsStaticAddr)
+                                {
+                                    os_sleep_secs(3);
+                                    close(pstTelnetClt->hClient); 
+                                    nvt_cmd_system_reset(); 
+                                }
+
                                 goto __lblEnd;
                             }
                             else
@@ -1379,13 +1383,92 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                 }
                 else if (!strcmp("mac", argv[2]))
                 {
-
+                    if (argc == 5)
+                    {
+                        if (netif_eth_set_mac_by_if_name(argv[3], argv[4], &enErr))
+                        {
+                            if (os_nvt_set_mac(argv[3], argv[4]))
+                            {
+                                tcp_send(pstTelnetClt->hClient, "MAC address updated successfully.\r\n", sizeof("MAC address updated successfully.\r\n") - 1); 
+                                goto __lblEnd;
+                            }
+                            else
+                                enErr = ERRIPUPDATED; 
+                        }
+                        
+                        goto __lblErr;
+                    }
+                    else
+                    {
+                        tcp_send(pstTelnetClt->hClient, "Parameter error, usage is as follows: \033[01;37mifip set mac <if name> <mac, like 4E-65-6F-XX-XX-XX, etc>\033[0m\r\n",
+                            sizeof("Parameter error, usage is as follows: \033[01;37mifip set mac <if name> <mac, like 4E-65-6F-XX-XX-XX, etc>\033[0m\r\n") - 1);
+                        goto __lblEnd;
+                    }
                 }
                 else if (!strcmp("dns", argv[2]))
                 {
+                    if (argc == 5 || argc == 6)
+                    {
+                        in_addr_t unPrimaryDns = inet_addr_small(argv[4]);
+                        in_addr_t unSecondaryDns = (argc == 6) ? inet_addr_small(argv[5]) : 0; 
+                        if (netif_eth_set_dns_by_if_name(argv[3], unPrimaryDns, unSecondaryDns, &enErr)) 
+                        {
+                            if (os_nvt_set_dns(argv[3], unPrimaryDns, unSecondaryDns)) 
+                            {
+                                tcp_send(pstTelnetClt->hClient, "Dns address updated successfully.\r\n", sizeof("Dns address updated successfully.\r\n") - 1);
+                                goto __lblEnd;
+                            }
+                            else
+                                enErr = ERRIPUPDATED;
+                        }
+
+                        goto __lblErr; 
+                    }
+                    else
+                    {
+                        tcp_send(pstTelnetClt->hClient, "Parameter error, usage is as follows: \033[01;37mifip set dns <if name> <primary dns addr> [secondary dns addr, if exists]\033[0m\r\n",
+                            sizeof("Parameter error, usage is as follows: \033[01;37mifip set dns <if name> <primary dns addr> [secondary dns addr, if exists]\033[0m\r\n") - 1);
+                        goto __lblEnd;
+                    }
                 }
                 else if (!strcmp("dhcp", argv[2]))
                 {
+                    if (argc == 4)
+                    {
+                        enErr = ERRNO; 
+                        BOOL blRtnVal = netif_eth_is_static_addr(argv[3], &enErr);
+                        if (ERRNO == enErr)
+                        {
+                            if (blRtnVal)
+                            {     
+                                if (os_nvt_set_dhcp(argv[3]))
+                                {
+                                    tcp_send(pstTelnetClt->hClient, "Successfully modified to dynamic address mode. System will immediately boot to reconfigure IP address ...\r\n", sizeof("Successfully modified to dynamic address mode. System will immediately boot to reconfigure IP address ...\r\n") - 1);
+
+                                    os_sleep_secs(3);
+                                    close(pstTelnetClt->hClient);
+                                    nvt_cmd_system_reset(); 
+
+                                    goto __lblEnd; 
+                                }
+                                else
+                                    enErr = ERRIPUPDATED;
+                            }
+                            else
+                            {
+                                tcp_send(pstTelnetClt->hClient, "DHCP client is already enabled, no need to set it again.\r\n", sizeof("DHCP client is already enabled, no need to set it again.\r\n") - 1);
+                                goto __lblEnd; 
+                            }
+                        }
+
+                        goto __lblErr; 
+                    }
+                    else
+                    {
+                        tcp_send(pstTelnetClt->hClient, "Parameter error, usage is as follows: \033[01;37mifip set dhcp <if name>\033[0m\r\n",
+                            sizeof("Parameter error, usage is as follows: \033[01;37mifip set dhcp <if name>\033[0m\r\n") - 1);
+                        goto __lblEnd;
+                    }
                 }
                 else
                 {

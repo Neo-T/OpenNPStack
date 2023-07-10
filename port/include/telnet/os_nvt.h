@@ -26,6 +26,9 @@ OS_NVT_EXT BOOL os_nvt_add_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t u
 OS_NVT_EXT BOOL os_nvt_del_ip(const CHAR *pszIfName, in_addr_t unIp);                          //* 从目标系统的非易失性存储器中删除之前添加的ip地址
 #endif //* #if ETH_EXTRA_IP_EN 
 OS_NVT_EXT BOOL os_nvt_set_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway); 
+OS_NVT_EXT BOOL os_nvt_set_mac(const CHAR *pszIfName, const CHAR *pszMac);
+OS_NVT_EXT BOOL os_nvt_set_dns(const CHAR *pszIfName, in_addr_t unPrimaryDns, in_addr_t unSecondaryDns); 
+OS_NVT_EXT BOOL os_nvt_set_dhcp(const CHAR *pszIfName);
 #endif //* #if SUPPORT_ETHERNET
 #endif
 

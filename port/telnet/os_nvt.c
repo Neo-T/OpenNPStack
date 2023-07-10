@@ -50,5 +50,20 @@ BOOL os_nvt_set_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask
 {
     return TRUE; 
 }
+
+BOOL os_nvt_set_mac(const CHAR *pszIfName, const CHAR *pszMac)
+{
+    return TRUE; 
+}
+
+BOOL os_nvt_set_dns(const CHAR *pszIfName, in_addr_t unPrimaryDns, in_addr_t unSecondaryDns)
+{
+    return TRUE; 
+}
+
+BOOL os_nvt_set_dhcp(const CHAR *pszIfName)
+{
+    return TRUE; 
+}
 #endif //* #if SUPPORT_ETHERNET
 #endif //* #if NETTOOLS_TELNETSRV
