@@ -65,5 +65,20 @@ BOOL os_nvt_set_dhcp(const CHAR *pszIfName)
 {
     return TRUE; 
 }
+
+void os_nvt_system_reset(void)
+{
+
+}
 #endif //* #if SUPPORT_ETHERNET
+
+BOOL os_nvt_add_route_entry(const CHAR *pszIfName, in_addr_t unDestination, in_addr_t unGenmask, in_addr_t unGateway)
+{
+    return TRUE; 
+}
+
+BOOL os_nvt_del_route_entry(in_addr_t unDestination)
+{
+    return TRUE; 
+}
 #endif //* #if NETTOOLS_TELNETSRV

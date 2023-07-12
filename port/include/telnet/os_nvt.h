@@ -18,7 +18,7 @@
 OS_NVT_EXT void os_nvt_init(void);
 OS_NVT_EXT void os_nvt_uninit(void);
 OS_NVT_EXT BOOL os_nvt_start(void *pvParam);
-OS_NVT_EXT void os_nvt_stop(void *pvParam);
+OS_NVT_EXT void os_nvt_stop(void *pvParam); 
 
 #if SUPPORT_ETHERNET
 #if ETH_EXTRA_IP_EN
@@ -28,8 +28,12 @@ OS_NVT_EXT BOOL os_nvt_del_ip(const CHAR *pszIfName, in_addr_t unIp);           
 OS_NVT_EXT BOOL os_nvt_set_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, in_addr_t unGateway); 
 OS_NVT_EXT BOOL os_nvt_set_mac(const CHAR *pszIfName, const CHAR *pszMac);
 OS_NVT_EXT BOOL os_nvt_set_dns(const CHAR *pszIfName, in_addr_t unPrimaryDns, in_addr_t unSecondaryDns); 
-OS_NVT_EXT BOOL os_nvt_set_dhcp(const CHAR *pszIfName);
+OS_NVT_EXT BOOL os_nvt_set_dhcp(const CHAR *pszIfName);   
+OS_NVT_EXT void os_nvt_system_reset(void);  
 #endif //* #if SUPPORT_ETHERNET
-#endif
+
+OS_NVT_EXT BOOL os_nvt_add_route_entry(const CHAR *pszIfName, in_addr_t unDestination, in_addr_t unGenmask, in_addr_t unGateway); 
+OS_NVT_EXT BOOL os_nvt_del_route_entry(in_addr_t unDestination); 
+#endif //* #if NETTOOLS_TELNETSRV
 
 #endif

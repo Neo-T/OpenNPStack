@@ -39,13 +39,15 @@ static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
-#define NVTCMD_BUILTIN_NUM 5 //* NVT自带指令的数量
+static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#define NVTCMD_BUILTIN_NUM 6 //* NVT自带指令的数量
 static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
     { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }, 
     { netif, "netif", "print all network interface card information registered to the protocol stack.\r\n"}, 
-    { ifip, "ifip", "To \033[01;37madd\033[0m, \033[01;37mdel\033[0m, \033[01;37mset\033[0m IP addresses for a network interface other than a ppp network interface.\r\n" },
+    { ifip, "ifip", "To \033[01;37madd\033[0m, \033[01;37mdel\033[0m, \033[01;37mset\033[0m IP addresses for a network interface other than a ppp network interface.\r\n" }, 
+    { route, "route", "Print, add, delete system routing table entries.\r\n" },
 };
 
 #define NVTCMD_EXIT     0 //* "exit"指令在l_staNvtCmd数组中的存储索引
@@ -53,12 +55,14 @@ static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
 #define NVTCMD_MEMUSAGE 2 //* "memusage"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_NETIF    3 //* "netif"指令在l_staNvtCmd数组中的存储索引
 #define NVTCMD_IFIP     4 //* "ifip"指令在l_staNvtCmd数组中的存储索引
+#define NVTCMD_ROUTE    5 //* "route"指令在l_staNvtCmd数组中的存储索引
 static ST_NVTCMD_NODE l_staNvtCmdNode[NVTCMD_BUILTIN_NUM] = {
     { &l_staNvtCmd[NVTCMD_EXIT],  &l_staNvtCmdNode[NVTCMD_LOGOUT] },
     { &l_staNvtCmd[NVTCMD_LOGOUT],  &l_staNvtCmdNode[NVTCMD_MEMUSAGE] },
     { &l_staNvtCmd[NVTCMD_MEMUSAGE],   &l_staNvtCmdNode[NVTCMD_NETIF] }, 
     { &l_staNvtCmd[NVTCMD_NETIF],  &l_staNvtCmdNode[NVTCMD_IFIP] },
-    { &l_staNvtCmd[NVTCMD_IFIP],  NULL },
+    { &l_staNvtCmd[NVTCMD_IFIP],  &l_staNvtCmdNode[NVTCMD_ROUTE] }, 
+    { &l_staNvtCmd[NVTCMD_ROUTE],  NULL }, 
 };
 static PST_NVTCMD_NODE l_pstNvtCmdList = &l_staNvtCmdNode[0];
 
@@ -1078,23 +1082,12 @@ BOOL nvt_cmd_exec_enable(ULONGLONG ullNvtHandle)
 }
 
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
-{
-    CHAR szSpace[24];
+{    
     SOCKET hRmtTelnetClt = atoi(argv[1]);
     PST_NVTCMD_NODE pstNextNvtCmd = l_pstNvtCmdList;
     while (pstNextNvtCmd)
-    {
-        CHAR bCmdLen = strlen(pstNextNvtCmd->pstNvtCmd->pszCmdName);
-        CHAR bMemsetBytes = l_bNvtCmdLenMax - bCmdLen;
-        if (bCmdLen < l_bNvtCmdLenMax)
-        {            
-            bMemsetBytes = bMemsetBytes < sizeof(szSpace) - 1 ? bMemsetBytes : sizeof(szSpace) - 1;
-
-            memset(szSpace, ' ', bMemsetBytes);            
-        }
-        szSpace[bMemsetBytes] = 0; 
-        nvt_printf(hRmtTelnetClt, 256, "%s\033[01;33m%s\033[0m %s", szSpace, pstNextNvtCmd->pstNvtCmd->pszCmdName, pstNextNvtCmd->pstNvtCmd->pszReadme);
-
+    {        
+        nvt_printf(hRmtTelnetClt, 256, "\033[01;33m%*s\033[0m %s", l_bNvtCmdLenMax, pstNextNvtCmd->pstNvtCmd->pszCmdName, pstNextNvtCmd->pstNvtCmd->pszReadme);
         pstNextNvtCmd = pstNextNvtCmd->pstNextCmd;
     }
 
@@ -1199,7 +1192,7 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                             if (0 != (unNextIp = netif_eth_get_next_ip(pstNetif, &unSubnetMask, unNextIp)))
                             {
                                 pubAddr = (UCHAR *)&unNextIp; 
-                                sprintf(pszFormatBuf + strlen(pszFormatBuf), "       : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
+                                sprintf(pszFormatBuf + strlen(pszFormatBuf), "         : %d.%d.%d.%d", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
                                 pubAddr = (UCHAR *)&unSubnetMask;
                                 sprintf(pszFormatBuf + strlen(pszFormatBuf), " netmask %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]); 
                             }
@@ -1217,7 +1210,7 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                         if (pstNetif->stIPv4.unSecondaryDNS)
                         {
                             pubAddr = (UCHAR *)&pstNetif->stIPv4.unSecondaryDNS; 
-                            sprintf(pszFormatBuf + strlen(pszFormatBuf), "       : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
+                            sprintf(pszFormatBuf + strlen(pszFormatBuf), "         : %d.%d.%d.%d\r\n", pubAddr[0], pubAddr[1], pubAddr[2], pubAddr[3]);
                         }
                     }    
 
@@ -1285,13 +1278,14 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
-#if SUPPORT_ETHERNET && ETH_EXTRA_IP_EN
+#if SUPPORT_ETHERNET
     EN_ONPSERR enErr; 
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt)); 
     if (argc > 1)
     {        
         if (!strcmp("add", argv[1]))
         {
+        #if ETH_EXTRA_IP_EN
             if (argc == 5)
             {
                 in_addr_t unIp = inet_addr_small(argv[3]); 
@@ -1317,22 +1311,27 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                 tcp_send(pstTelnetClt->hClient, NVTHELP_IFIP_USAGE_ADD, sizeof(NVTHELP_IFIP_USAGE_ADD) - 1); 
                 goto __lblEnd; 
             }
+        #else
+            tcp_send(pstTelnetClt->hClient, "The protocol stack does not support adding multiple IP addresses.\r\n", sizeof("The protocol stack does not support adding multiple IP addresses.\r\n") - 1);
+        #endif //* #if ETH_EXTRA_IP_EN
         }
         else if (!strcmp("del", argv[1]))
         {
+        #if ETH_EXTRA_IP_EN
             if (argc == 4)
             {
                 in_addr_t unIp = inet_addr_small(argv[3]); 
-                if (netif_eth_del_ip_by_if_name(argv[2], unIp, &enErr))
+                if (os_nvt_del_ip(argv[2], unIp))
                 {
-                    if (os_nvt_del_ip(argv[2], unIp))
-                    {
-                        nvt_printf(pstTelnetClt->hClient, 256, "Successfully deleted IP address %s.\r\n", argv[3]);
-                        goto __lblEnd;
-                    }
-                    else
-                        enErr = ERREXTRAIPDEL; 
+                    nvt_printf(pstTelnetClt->hClient, 256, "Successfully deleted IP address %s. the system will be restarted immediately...\r\n", argv[3]); 
+
+                    os_sleep_secs(3);
+                    close(pstTelnetClt->hClient);
+                    os_nvt_system_reset();
+                    goto __lblEnd;
                 }
+                else
+                    enErr = ERREXTRAIPDEL;                
 
                 goto __lblErr;
             }
@@ -1341,6 +1340,9 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                 tcp_send(pstTelnetClt->hClient, NVTHELP_IFIP_USAGE_DEL, sizeof(NVTHELP_IFIP_USAGE_DEL) - 1);
                 goto __lblEnd; 
             }
+        #else
+            tcp_send(pstTelnetClt->hClient, "The protocol stack does not support an IP address deletion command.\r\n", sizeof("The protocol stack does not support an IP address deletion command.\r\n") - 1);
+        #endif
         }
         else if (!strcmp("set", argv[1]))
         {
@@ -1352,25 +1354,19 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                     {
                         in_addr_t unIp = inet_addr_small(argv[4]); 
                         in_addr_t unSubnetMask = inet_addr_small(argv[5]); 
-                        in_addr_t unGateway = inet_addr_small(argv[6]); 
-                        CHAR bIsStaticAddr; 
-                        if (netif_eth_set_ip_by_if_name(argv[3], unIp, unSubnetMask, unGateway, &bIsStaticAddr, &enErr))
+                        in_addr_t unGateway = inet_addr_small(argv[6]);                         
+                        if (os_nvt_set_ip(argv[3], unIp, unSubnetMask, unGateway))
                         {
-                            if (os_nvt_set_ip(argv[3], unIp, unSubnetMask, unGateway))
-                            {
-                                nvt_printf(pstTelnetClt->hClient, 256, "Successfully updated IP address. %s\r\n", bIsStaticAddr ? "" : "Due to the change from dynamic address to static address, the system will be restarted immediately..."); 
-                                if (!bIsStaticAddr)
-                                {
-                                    os_sleep_secs(3);
-                                    close(pstTelnetClt->hClient); 
-                                    nvt_cmd_system_reset(); 
-                                }
+                            nvt_printf(pstTelnetClt->hClient, 256, "Successfully updated IP address, the system will be restarted immediately...\r\n");
 
-                                goto __lblEnd;
-                            }
-                            else
-                                enErr = ERRIPUPDATED; 
+                            os_sleep_secs(3);
+                            close(pstTelnetClt->hClient);
+                            os_nvt_system_reset();
+
+                            goto __lblEnd;
                         }
+                        else
+                            enErr = ERRIPUPDATED;                        
 
                         goto __lblErr; 
                     }
@@ -1447,7 +1443,7 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
                                     os_sleep_secs(3);
                                     close(pstTelnetClt->hClient);
-                                    nvt_cmd_system_reset(); 
+                                    os_nvt_system_reset();
 
                                     goto __lblEnd; 
                                 }
@@ -1502,6 +1498,93 @@ __lblEnd:
     tcp_send(pstTelnetClt->hClient, "The protocol stack does not support this nvt command.\r\n", sizeof("The protocol stack does not support this nvt command.\r\n") - 1); 
 #endif
 
+    nvt_cmd_exec_end(ullNvtHandle);
+
+    return 0; 
+}
+
+#define NVTHELP_ROUTE_USAGE_PRINT "Print routing table information, for example: \033[01;37mroute print\033[0m\r\n"
+#define NVTHELP_ROUTE_USAGE_ADD   "Add a new routing entry, for example: \033[01;37mroute add <if name> <destination addr\033[0m, \033[01;37m0.0.0.0\033[0m is the default route> \033[01;37m<genmask> <gateway>\033[0m\r\n" 
+#define NVTHELP_ROUTE_USAGE_DEL   "Delete routing table entry, default route cannot be deleted, for example: \033[01;37mroute del <destination addr>\033[0m\r\n"
+#define ROUTE_TBL_TITLE "Destination addr      Genmask          Gateway      Interface name\r\n"
+static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+    EN_ONPSERR enErr; 
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt)); 
+
+    if (argc == 2 && !strcmp("print", argv[1]))
+    {
+        tcp_send(pstTelnetClt->hClient, ROUTE_TBL_TITLE, sizeof(ROUTE_TBL_TITLE) - 1); 
+
+        const ST_ROUTE *pstRoute = NULL;
+        do {
+            CHAR szAddr0[16], szAddr1[16], szAddr2[16]; 
+            if (NULL != (pstRoute = route_get_next(pstRoute)))                            
+                nvt_printf(pstTelnetClt->hClient, 128, "%*s  %*s  %*s   %s\r\n", 15, pstRoute->unDestination ? inet_ntoa_safe_ext(pstRoute->unDestination, szAddr0) : "*", 15,
+                            inet_ntoa_safe_ext(pstRoute->unGenmask, szAddr1), 15, inet_ntoa_safe_ext(pstRoute->unGateway, szAddr2), pstRoute->pstNetif->szName);
+        } while (pstRoute);        
+
+        goto __lblEnd;
+    }
+    else if (argc == 6 && !strcmp("add", argv[1]))
+    {
+        PST_NETIF pstNetif = netif_get_by_name(argv[2]); 
+        if (pstNetif)
+        {
+            in_addr_t unDestination = inet_addr_small(argv[3]);
+            in_addr_t unGenmask = inet_addr_small(argv[4]);            
+            in_addr_t unGateway = inet_addr_small(argv[5]); 
+            if (route_add(pstNetif, unDestination, unGateway, unGenmask, &enErr))
+            {
+                if (os_nvt_add_route_entry(argv[2], unDestination, unGenmask, unGateway))
+                {
+                    tcp_send(pstTelnetClt->hClient, "New routing entry added successfully.\r\n", sizeof("New routing entry added successfully.\r\n") - 1); 
+                    goto __lblEnd;
+                }
+                else
+                    enErr = ERRROUTEENTRYNOR;
+            }
+        }
+        else
+            enErr = ERRNETIFNOTFOUND; 
+
+        goto __lblErr; 
+    }
+    else if (argc == 3 && !strcmp("del", argv[1]))
+    {
+        in_addr_t unDestination = inet_addr_small(argv[2]); 
+        if (unDestination)
+        {
+            if (route_del(unDestination, &enErr))
+            {
+                if (os_nvt_del_route_entry(unDestination))
+                {
+                    nvt_printf(pstTelnetClt->hClient, 128, "Routing entry with destination address of %s deleted successfully.\r\n", argv[2]);
+                    goto __lblEnd;
+                }
+                else
+                    enErr = ERRROUTEENTRYNOR;
+            }            
+        }
+        else
+        {
+            tcp_send(pstTelnetClt->hClient, "The default route cannot be deleted, but you can modify it by adding a routing entry with a destination address of 0.0.0.0.\r\n", 
+                        sizeof("The default route cannot be deleted, but you can modify it by adding a routing entry with a destination address of 0.0.0.0.\r\n") - 1); 
+            goto __lblEnd;
+        }
+
+        goto __lblErr;
+    }
+    else
+    {
+        nvt_printf(pstTelnetClt->hClient, 512, "%s%s%s", NVTHELP_ROUTE_USAGE_PRINT, NVTHELP_ROUTE_USAGE_ADD, NVTHELP_ROUTE_USAGE_DEL);
+        goto __lblEnd; 
+    }
+
+__lblErr:
+    nvt_printf(pstTelnetClt->hClient, 256, "The \033[01;37mifip\033[0m command failed, %s.\r\n", onps_error(enErr));
+
+__lblEnd: 
     nvt_cmd_exec_end(ullNvtHandle);
 
     return 0; 

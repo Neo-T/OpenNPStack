@@ -54,7 +54,7 @@
     #define ETH_EXTRA_IP_EN  1 //* 是否允许添加多个ip地址
     #if ETH_EXTRA_IP_EN
         #define ETH_EXTRA_IP_NUM 2 //* 允许添加的ip地址数量
-    #endif
+    #endif    
 #else
     #define ETHERNET_NUM    0
 #endif

@@ -156,9 +156,17 @@ __lblEnd:
     return TRUE;
 }
 
-void route_del(UINT unDestination)
+BOOL route_del(UINT unDestination, EN_ONPSERR *penErr)
 {
     PST_ROUTE_NODE pstNode = NULL;
+
+    //* 缺省路由不能删除，只能更新
+    if (!unDestination)
+    {
+        if (penErr)
+            *penErr = ERRROUTEDEFAULTDEL;
+        return FALSE; 
+    }
 
     //* 从路由表删除
     os_thread_mutex_lock(l_hMtxRoute);
@@ -182,8 +190,15 @@ void route_del(UINT unDestination)
     }
     os_thread_mutex_unlock(l_hMtxRoute);
 
-    if(pstNode)
+    if (pstNode)
+    {
         put_free_node(pstNode);
+        return TRUE; 
+    }
+
+    if (penErr)
+        *penErr = ERRROUTEENTRYNOTEXIST; 
+    return FALSE; 
 }
 
 void route_del_ext(PST_NETIF pstNetif)
@@ -381,3 +396,39 @@ UCHAR *route_ipv6_get_source_ip(const UCHAR ubaDestination[16], UCHAR *pubSource
 	return NULL; 
 }
 #endif
+
+#if NETTOOLS_TELNETSRV
+const ST_ROUTE *route_get_next(const ST_ROUTE *pstNextRoute)
+{    
+    PST_ROUTE pstRoute = NULL; 
+
+    os_thread_mutex_lock(l_hMtxRoute);
+    {
+        PST_ROUTE_NODE pstNextNode = l_pstRouteLink; 
+        if (pstNextRoute)
+        {
+            while (pstNextNode)
+            {
+                if (pstNextRoute == &pstNextNode->stRoute)
+                {
+                    if (pstNextNode->pstNext)
+                    {
+                        pstRoute = &pstNextNode->pstNext->stRoute;
+                        break;
+                    }
+                }                
+
+                pstNextNode = pstNextNode->pstNext;
+            }
+        }
+        else
+        {
+            if (pstNextNode)
+                pstRoute = &pstNextNode->stRoute; 
+        }
+    }
+    os_thread_mutex_unlock(l_hMtxRoute); 
+
+    return pstRoute; 
+}
+#endif //* #if NETTOOLS_TELNETSRV

@@ -96,12 +96,15 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRNOTELNETCLTCBNODE, "Telnet client control block list is empty" }, 
     { ERRNVTSTART, "Network virtual terminal startup failed" }, 
 #endif
-    { ERRNETIFNOTFOUND, "No network interface found" }, 
-    { ERREXTRAIPLIMIT, "Exceeded maximum number of IP addresses" }, 
-    { ERREXTRAIPSAVE, "Failed to write the IP address to the system memory" }, 
-    { ERREXTRAIPDEL, "Failed to remove IP address from system memory" }, 
-    { ERRIPUPDATED, "unable to overwrite the original value in the system memory." }, 
+    { ERRNETIFNOTFOUND, "no network interface found" }, 
+    { ERREXTRAIPLIMIT, "exceeded maximum number of IP addresses" }, 
+    { ERREXTRAIPSAVE, "failed to write the IP address to the system memory" }, 
+    { ERREXTRAIPDEL, "failed to remove IP address from system memory" }, 
+    { ERRIPUPDATED, "unable to overwrite the original value in the system memory" }, 
     { ERRIPNOSTATIC, "adding, deleting, or updating IP addresses is not allowed in DHCP mode" }, 
+    { ERRROUTEENTRYNOR, "failed to write to system memory when adding or deleting routing entries" }, 
+    { ERRROUTEDEFAULTDEL, "the default route cannot be deleted" }, 
+    { ERRROUTEENTRYNOTEXIST, "the routing entry does not exist" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

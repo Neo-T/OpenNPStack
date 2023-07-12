@@ -107,6 +107,9 @@ typedef enum {
     ERREXTRAIPDEL,          //* 附加ip地址从系统存储器删除失败
     ERRIPUPDATED,           //* 无法覆盖系统存储器的原值
     ERRIPNOSTATIC,          //* 动态地址（dhcp）模式下不允许增加、删除、修改ip地址
+    ERRROUTEENTRYNOR,       //* 增加或删除路由条目时系统存储器写入失败
+    ERRROUTEDEFAULTDEL,     //* 缺省路由不能被删除
+    ERRROUTEENTRYNOTEXIST,  //* 路由条目不存在
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 
