@@ -119,6 +119,7 @@ typedef struct _STCB_TELNETCLT_ {
 } STCB_TELNETCLT, *PSTCB_TELNETCLT; 
 
 NVT_EXT void thread_nvt_handler(void *pvParam); 
+NVT_EXT void nvt_embedded_cmd_loader(void); 
 NVT_EXT void nvt_cmd_add(PST_NVTCMD_NODE pstCmdNode, const ST_NVTCMD *pstCmd); 
 NVT_EXT void nvt_cmd_exec_end(ULONGLONG ullNvtHandle);
 NVT_EXT BOOL nvt_cmd_exec_enable(ULONGLONG ullNvtHandle);

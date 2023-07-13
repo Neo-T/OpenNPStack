@@ -47,5 +47,19 @@ PING_EXT INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCH
 //* 参数pfunGetCurMSecs指定一个计时函数，其用于记录ping开始时地毫秒数以及结束时的毫秒数，以计算ping目标地址的时长
 //* 参数pfunRcvHandler指向用户自定义的接收处理函数，当收到正确的ping应答报文后调用，用户可根据自己需求实现特定处理逻辑
 PING_EXT INT ping(INT nPing, const CHAR *pszDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfunGetCurMSecs)(void), PFUN_PINGRCVHANDLER pfunRcvHandler, PFUN_PINGERRHANDLER pfunErrHandler, UCHAR ubWaitSecs, EN_ONPSERR *penErr);
+
+#if NETTOOLS_TELNETSRV && NVTCMD_PING_EN
+typedef struct _ST_PING_STARTARGS_ { //* ping启动参数
+    CHAR bIsCpyEnd;
+    ULONGLONG ullNvtHandle;
+    INT nFamily; 
+    union
+    {
+        UINT unVal;
+        UCHAR ubaVal[16];
+    } uniIp; 
+} ST_PING_STARTARGS, *PST_PING_STARTARGS; 
+PING_EXT void nvt_cmd_ping_entry(void *pvParam); 
+#endif //* #if NETTOOLS_TELNETSRV && NVTCMD_PING_EN
 #endif
 #endif

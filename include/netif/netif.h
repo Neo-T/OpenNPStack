@@ -223,9 +223,9 @@ NETIF_EXT UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR 
 #endif
 
 #if NETTOOLS_TELNETSRV
-#if NETTOOLS_TELNETCLT
+#if NVTCMD_TELNET_EN
 NETIF_EXT BOOL is_local_ip(in_addr_t unAddr); 
-#endif //* #if NETTOOLS_TELNETCLT
+#endif //* #if NVTCMD_TELNET_EN
 NETIF_EXT const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif); 
 #if SUPPORT_ETHERNET
 NETIF_EXT CHAR *netif_eth_mac_to_ascii(const UCHAR *pubMac, CHAR *pszMac); 

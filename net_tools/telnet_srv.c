@@ -183,6 +183,9 @@ void telnet_srv_entry(void *pvParam)
         //* 注册用户自定义的nvt指令
         nvt_cmd_register(); 
 
+        //* 加载nvt内嵌指令
+        nvt_embedded_cmd_loader(); 
+
         CHAR bClientCnt = 0; 
         while (l_bTelnetSrvState)
         {

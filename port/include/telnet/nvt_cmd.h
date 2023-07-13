@@ -16,6 +16,6 @@
 
 NVT_CMD_EXT void nvt_cmd_register(void);  
 NVT_CMD_EXT void nvt_cmd_kill(void); 
-NVT_CMD_EXT void nvt_cmd_system_reset(void);
+NVT_CMD_EXT void nvt_cmd_thread_end(void); 
 
 #endif

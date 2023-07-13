@@ -15,7 +15,7 @@
 	#define TELNET_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#if NETTOOLS_TELNETCLT
+#if NVTCMD_TELNET_EN
 
  //* 以下为Telnet命令（Telnet Commands）定义
  //* 这之下的命令由[RFC1184]定义，详见：https://www.rfc-editor.org/rfc/rfc1184

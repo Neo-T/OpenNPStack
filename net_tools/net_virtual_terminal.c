@@ -36,35 +36,45 @@ typedef struct _ST_NVTNEGOOPT_ {
 //* ===================================================================================
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
+
+#if NVTCMD_MEMUSAGE_EN
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
+#endif //* #if NVTCMD_MEMUSAGE_EN
+
+#if NVTCMD_NETIF_EN
 static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#endif //* #if NVTCMD_NETIF_EN
+
+#if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#endif //* #if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
+
+#if NVTCMD_ROUTE_EN
 static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
-#define NVTCMD_BUILTIN_NUM 6 //* NVT自带指令的数量
-static const ST_NVTCMD l_staNvtCmd[NVTCMD_BUILTIN_NUM] = {
+#endif //* #if NVTCMD_ROUTE_EN
+
+static const ST_NVTCMD l_staNvtCmd[] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
+#if NVTCMD_MEMUSAGE_EN
     { mem_usage, "memusage", "print the usage of dynamic memory in the protocol stack.\r\n" }, 
+#endif //* #if NVTCMD_MEMUSAGE_EN
+
+#if NVTCMD_NETIF_EN
     { netif, "netif", "print all network interface card information registered to the protocol stack.\r\n"}, 
+#endif //* #if NVTCMD_NETIF_EN
+
+#if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
     { ifip, "ifip", "To \033[01;37madd\033[0m, \033[01;37mdel\033[0m, \033[01;37mset\033[0m IP addresses for a network interface other than a ppp network interface.\r\n" }, 
+#endif //* #if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
+
+#if NVTCMD_ROUTE_EN
     { route, "route", "Print, add, delete system routing table entries.\r\n" },
+#endif //* #if NVTCMD_ROUTE_EN
 };
 
-#define NVTCMD_EXIT     0 //* "exit"指令在l_staNvtCmd数组中的存储索引
-#define NVTCMD_LOGOUT   1 //* "logout"指令在l_staNvtCmd数组中的存储索引
-#define NVTCMD_MEMUSAGE 2 //* "memusage"指令在l_staNvtCmd数组中的存储索引
-#define NVTCMD_NETIF    3 //* "netif"指令在l_staNvtCmd数组中的存储索引
-#define NVTCMD_IFIP     4 //* "ifip"指令在l_staNvtCmd数组中的存储索引
-#define NVTCMD_ROUTE    5 //* "route"指令在l_staNvtCmd数组中的存储索引
-static ST_NVTCMD_NODE l_staNvtCmdNode[NVTCMD_BUILTIN_NUM] = {
-    { &l_staNvtCmd[NVTCMD_EXIT],  &l_staNvtCmdNode[NVTCMD_LOGOUT] },
-    { &l_staNvtCmd[NVTCMD_LOGOUT],  &l_staNvtCmdNode[NVTCMD_MEMUSAGE] },
-    { &l_staNvtCmd[NVTCMD_MEMUSAGE],   &l_staNvtCmdNode[NVTCMD_NETIF] }, 
-    { &l_staNvtCmd[NVTCMD_NETIF],  &l_staNvtCmdNode[NVTCMD_IFIP] },
-    { &l_staNvtCmd[NVTCMD_IFIP],  &l_staNvtCmdNode[NVTCMD_ROUTE] }, 
-    { &l_staNvtCmd[NVTCMD_ROUTE],  NULL }, 
-};
-static PST_NVTCMD_NODE l_pstNvtCmdList = &l_staNvtCmdNode[0];
+static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)];
+static PST_NVTCMD_NODE l_pstNvtCmdList = NULL; 
 
 //* l_staNvtCmd中内嵌指令最长的那条的字节数
 static CHAR l_bNvtCmdLenMax = 8; 
@@ -83,6 +93,15 @@ const static ST_NVTNEGOOPT l_staNvtNegoOpts[NVTNEGOOPT_NUM] = {
     { TELNETOPT_SGA, nego_put_suppress_go_ahead, nego_get_suppress_go_ahead },
     { TELNETOPT_ECHO, nego_put_echo, nego_get_echo }
 };
+
+void nvt_embedded_cmd_loader(void)
+{
+    UCHAR i;
+    for (i = 0; i < sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD); i++)
+    {
+        nvt_cmd_add(&l_staNvtCmdNode[i], &l_staNvtCmd[i]);
+    }
+}
 
 //* 发送协商选项
 static void nvt_nego_opt_send(PSTCB_NVT pstcbNvt)
@@ -1107,6 +1126,7 @@ static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     return 0;
 }
 
+#if NVTCMD_MEMUSAGE_EN
 static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
@@ -1123,7 +1143,9 @@ static INT mem_usage(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
     return 0;
 }
+#endif //* #if NVTCMD_MEMUSAGE_EN
 
+#if NVTCMD_NETIF_EN
 static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
@@ -1268,7 +1290,9 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
     return 0; 
 }
+#endif //* #if NVTCMD_NETIF_EN
 
+#if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
 #define NVTHELP_IFIP_USAGE_ADD "Add an IP address, for example: \033[01;37mifip add <if name, like eth0, etc> <ip> <subnet mask>\033[0m\r\n"
 #define NVTHELP_IFIP_USAGE_DEL "Delete an IP address, for example: \033[01;37mifip del <if name> <ip>\033[0m\r\n"
 #define NVTHELP_IFIP_USAGE_SET "Modify Ethernet MAC address, for example: \033[01;37mifip set mac <if name> <mac, like 4E-65-6F-XX-XX-XX, etc>\033[0m\r\n" \
@@ -1278,7 +1302,6 @@ static INT netif(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
 static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
-#if SUPPORT_ETHERNET
     EN_ONPSERR enErr; 
     PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt)); 
     if (argc > 1)
@@ -1494,15 +1517,13 @@ __lblErr:
     nvt_printf(pstTelnetClt->hClient, 256, "The \033[01;37mifip\033[0m command failed, %s.\r\n", onps_error(enErr));
 
 __lblEnd: 
-#else
-    tcp_send(pstTelnetClt->hClient, "The protocol stack does not support this nvt command.\r\n", sizeof("The protocol stack does not support this nvt command.\r\n") - 1); 
-#endif
-
     nvt_cmd_exec_end(ullNvtHandle);
 
     return 0; 
 }
+#endif //* #if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
 
+#if NVTCMD_ROUTE_EN
 #define NVTHELP_ROUTE_USAGE_PRINT "Print routing table information, for example: \033[01;37mroute print\033[0m\r\n"
 #define NVTHELP_ROUTE_USAGE_ADD   "Add a new routing entry, for example: \033[01;37mroute add <if name> <destination addr\033[0m, \033[01;37m0.0.0.0\033[0m is the default route> \033[01;37m<genmask> <gateway>\033[0m\r\n" 
 #define NVTHELP_ROUTE_USAGE_DEL   "Delete routing table entry, default route cannot be deleted, for example: \033[01;37mroute del <destination addr>\033[0m\r\n"
@@ -1589,6 +1610,7 @@ __lblEnd:
 
     return 0; 
 }
+#endif //* #if NVTCMD_ROUTE_EN
 
 void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {

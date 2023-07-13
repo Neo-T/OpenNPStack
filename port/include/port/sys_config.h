@@ -111,15 +111,26 @@
 #define NETTOOLS_TELNETSRV  1 //* 使能或禁止telnet服务端
 
 #if NETTOOLS_TELNETSRV
-#define NETTOOLS_TELNETCLT  1   //* 使能或禁止telnet客户端
-#if NETTOOLS_TELNETCLT
-#define TELNETCLT_RCVBUF_SIZE 1024 //* telnet客户端接收缓冲区大小
-#endif
+#define NVTCMD_MEMUSAGE_EN 1 //* 使能nvt命令：memusage
+#define NVTCMD_NETIF_EN    1 //* 使能nvt命令：netif
+#define NVTCMD_IFIP_EN     1 //* 使能nvt命令：ifip
+#define NVTCMD_ROUTE_EN    1 //* 使能nvt命令：route
+#define NVTCMD_TELNET_EN   1 //* 使能nvt命令：telnet
+#if NETTOOLS_PING
+#define NVTCMD_PING_EN     1 //* 使能nvt命令：ping，使能ping命令时应同时使能NETTOOLS_PING
+#endif //* #if NETTOOLS_PING
+#define NVTCMD_RESET_EN    1 //* 使能nvt命令：reset
+
+#if NVTCMD_TELNET_EN
+//* telnet客户端接收缓冲区大小，注意关闭TCP SACK选项时，设置的发送缓冲区大小一旦超过过tcp mtu（一般
+//* 为1460字节），就必须是在用户层限定单个发包的大小不能超过tcp mtu，否则会丢失数据
+#define TELNETCLT_RCVBUF_SIZE 1024
+#endif //* #if NVTCMD_TELNET_EN
 
 #define NVTNUM_MAX          2   //* 指定nvt并发工作的数量，其实就是指定telnet服务器在同一时刻并发连接的数量，超过这个数值服务器拒绝连接
 #define NVTCMDCACHE_EN      1   //* 是否支持命令缓存，也就是通过“↑↓”切换曾经输入的指令
 #define NVTCMDCACHE_SIZE    256 //* 指定指令缓存区的大小
-#endif
+#endif //* #if NETTOOLS_TELNETSRV
 //* ===============================================================================================
 
 #endif

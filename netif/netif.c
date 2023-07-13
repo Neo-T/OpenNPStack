@@ -937,7 +937,7 @@ UCHAR *netif_eth_get_next_ipv6_router(const ST_NETIF *pstNetif, UCHAR ubaNextRou
 #endif
 
 #if NETTOOLS_TELNETSRV
-#if NETTOOLS_TELNETCLT
+#if NVTCMD_TELNET_EN
 BOOL is_local_ip(in_addr_t unAddr)
 {
     if (0x0100007F == unAddr)
@@ -983,7 +983,7 @@ BOOL is_local_ip(in_addr_t unAddr)
 
     return FALSE; 
 }
-#endif //* #if NETTOOLS_TELNETCLT
+#endif //* #if NVTCMD_TELNET_EN
 
 const ST_NETIF *netif_get_next(const ST_NETIF *pstNextNetif)
 {

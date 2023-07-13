@@ -15,9 +15,9 @@
 
 #if NETTOOLS_TELNETSRV
 #include "net_tools/net_virtual_terminal.h"
-#if NETTOOLS_TELNETCLT
+#if NVTCMD_TELNET_EN
 #include "net_tools/telnet_client.h"
-#endif
+#endif //* #if NVTCMD_TELNET_EN
 #include "net_tools/telnet.h"
 #define SYMBOL_GLOBALS
 #include "telnet/nvt_cmd.h"
@@ -25,14 +25,32 @@
 
 //* 在这里定义你自己要添加的nvt指令
 //* ===================================================================================
-#if NETTOOLS_TELNETCLT
-static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
-#endif
+#if NVTCMD_TELNET_EN
+static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#endif //* #if NVTCMD_TELNET_EN
 
+#if NETTOOLS_PING && NVTCMD_PING_EN
+#include "net_tools/ping.h"
+static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#endif //* #if NETTOOLS_PING && NVTCMD_PING_EN
+
+#if NVTCMD_RESET_EN
+static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
+#endif //* #if NVTCMD_RESET_EN
+
+//* 如果自定义nvt命令的名称长度超过net_virtual_terminal.c文件头部l_bNvtCmdLenMax变量定义的值，请用自定义命令的名称长度取代l_bNvtCmdLenMax变量的原值，以确保“help”命令输出格式的整齐美观
 static const ST_NVTCMD l_staNvtCmd[] = {
-#if NETTOOLS_TELNETCLT
-    { telnet, "telnet", "used to log in to remote telnet host.\r\n" },
-#endif
+#if NVTCMD_TELNET_EN
+    { telnet, "telnet", "used to log in to remote telnet host.\r\n" },     
+#endif //* #if NVTCMD_TELNET_EN
+
+#if NETTOOLS_PING && NVTCMD_PING_EN
+    { nvt_cmd_ping, "ping", "A lightweight ping testing tool that supports IPv4 and IPv6 address probing.\r\n" },
+#endif //* #if NETTOOLS_PING && NVTCMD_PING_EN
+
+#if NVTCMD_RESET_EN
+    { reset, "reset", "system reset.\r\n" }, 
+#endif //* #if NVTCMD_RESET_EN
 };
 
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)]; 
@@ -55,23 +73,30 @@ void nvt_cmd_kill(void)
     
 }
 
-#if NETTOOLS_TELNETCLT
+//* 以线程方式运行地命令在线程结束时应显式地告知其已结束运行，因为协议栈运行的目标系统属于资源受限系统，凡是以线程运行的nvt命令在
+//* 同一时刻只允许运行一个实例，这个函数确保nvt能够安全运行下一个线程实例
+void nvt_cmd_thread_end(void)
+{
+
+}
+
+#if NVTCMD_TELNET_EN
+#define NVTHELP_TELNET_USAGE       "Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n"
+#define NVTHELP_TELNET_LOGIN_LOCAL "Due to resource constraints, the telnet command is prohibited from logging in to its own server.\r\n"
 static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
     ST_TELCLT_STARTARGS stArgs;
 
     if (argc != 2 && argc != 3)
     {
-        nvt_output(ullNvtHandle, "Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n",
-            sizeof("Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n") - 1);
+        nvt_output(ullNvtHandle, NVTHELP_TELNET_USAGE, sizeof(NVTHELP_TELNET_USAGE) - 1);
         nvt_cmd_exec_end(ullNvtHandle);
         return -1;
     }
 
     if (is_local_ip(inet_addr_small(argv[1])))
     {
-        nvt_output(ullNvtHandle, "Due to resource constraints, the telnet command is prohibited from logging in to its own server.\r\n",
-            sizeof("Due to resource constraints, the telnet command is prohibited from logging in to its own server.\r\n") - 1); 
+        nvt_output(ullNvtHandle, NVTHELP_TELNET_LOGIN_LOCAL, sizeof(NVTHELP_TELNET_LOGIN_LOCAL) - 1);
         nvt_cmd_exec_end(ullNvtHandle);
         return -1;
     }
@@ -94,10 +119,64 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
     return 0;
 }
-#endif //* #if NETTOOLS_TELNETCLT
+#endif //* #if NVTCMD_TELNET_EN
 
-void nvt_cmd_system_reset(void)
+#if NVTCMD_RESET_EN
+static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
-
+    return 0; 
 }
+#endif //* #if NVTCMD_RESET_EN
+
+#if NETTOOLS_PING && NVTCMD_PING_EN
+#define NVTHELP_PING_USAGE "Usage as follows:\r\n  ping [4] xxx.xxx.xxx.xxx\r\n  ping 6 xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx\r\n"
+static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+    ST_PING_STARTARGS stArgs; 
+
+    if (argc != 2 && argc != 3)
+        goto __lblHelp; 
+    else
+    {             
+        if (argc == 3)
+        {
+            if (strlen(argv[1]) == 1)
+            {
+                if('4' == argv[1][0])
+                    stArgs.nFamily = AF_INET; 
+                else if('6' == argv[1][0])
+                    stArgs.nFamily = AF_INET6;
+                else
+                    goto __lblHelp; 
+            }
+            else            
+                goto __lblHelp; 
+        }   
+        else
+            stArgs.nFamily = AF_INET;
+    }
+
+    stArgs.bIsCpyEnd = FALSE;
+    stArgs.ullNvtHandle = ullNvtHandle;
+    if (AF_INET == stArgs.nFamily)
+        stArgs.saddr_ipv4 = inet_addr(argv[1]);
+    else
+        inet6_aton(argv[2], stArgs.saddr_ipv6); 
+
+
+    /* 在这里添加线程/任务启动ping探测代码
+    线程/任务入口函数为nvt_cmd_ping_entry()
+    */
+
+    while (!stArgs.bIsCpyEnd)
+        os_sleep_ms(10);
+
+    return 0; 
+
+__lblHelp: 
+    nvt_output(ullNvtHandle, NVTHELP_PING_USAGE, sizeof(NVTHELP_PING_USAGE) - 1);
+    nvt_cmd_exec_end(ullNvtHandle);
+    return -1;
+}
+#endif //* #if NETTOOLS_PING && NVTCMD_PING_EN
 #endif //* #if NETTOOLS_TELNETSRV

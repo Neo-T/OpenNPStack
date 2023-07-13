@@ -13,9 +13,10 @@
 #include "netif/netif.h"
 #include "netif/route.h"
 
-#if NETTOOLS_TELNETCLT
+#if NVTCMD_TELNET_EN
 #include "net_tools/net_virtual_terminal.h"
 #include "net_tools/telnet.h"
+#include "telnet/nvt_cmd.h"
 
 #define SYMBOL_GLOBALS
 #include "net_tools/telnet_client.h"
@@ -189,7 +190,8 @@ void telnet_clt_entry(void *pvParam)
     else    
         nvt_outputf(stArgs.ullNvtHandle, 128, "connect failed, %s\r\n", onps_error(enErr));     
     
-    nvt_cmd_exec_end(stArgs.ullNvtHandle);
+    nvt_cmd_exec_end(stArgs.ullNvtHandle); 
+    nvt_cmd_thread_end(); 
 }
 
 #endif

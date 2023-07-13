@@ -166,4 +166,11 @@ INT ping(INT nPing, const CHAR *pszDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*
 
     return nRcvedBytes; 
 }
-#endif
+
+#if NETTOOLS_TELNETSRV && NVTCMD_PING_EN
+void nvt_cmd_ping_entry(void *pvParam)
+{
+
+}
+#endif //* #if NETTOOLS_TELNETSRV && NVTCMD_PING_EN
+#endif //* #if NETTOOLS_PING
