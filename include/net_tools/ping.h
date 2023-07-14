@@ -17,8 +17,8 @@
 
 #if NETTOOLS_PING
 
-typedef void(*PFUN_PINGRCVHANDLER)(USHORT usIdentifier, void *pvFromAddr, USHORT usSeqNum, UCHAR *pubEchoData, UCHAR ubEchoDataLen, UCHAR ubTTL, UCHAR ubElapsedMSecs); 
-typedef void(*PFUN_PINGERRHANDLER)(USHORT usIdentifier, const CHAR *pszDstAddr, UCHAR ubIcmpErrType, UCHAR ubIcmpErrCode);
+typedef void(*PFUN_PINGRCVHANDLER)(USHORT usIdentifier, void *pvFromAddr, USHORT usSeqNum, UCHAR *pubEchoData, UCHAR ubEchoDataLen, UCHAR ubTTL, UCHAR ubElapsedMSecs, void *pvParam); 
+typedef void(*PFUN_PINGERRHANDLER)(USHORT usIdentifier, const CHAR *pszDstAddr, UCHAR ubIcmpErrType, UCHAR ubIcmpErrCode, void *pvParam);
 
 //* 开始ping探测，返回值唯一的标识当前开始的ping探测链路，其用于ping_send()、ping_recv()、ping()、ping_end()函数的调用
 PING_EXT INT ping_start(INT family, EN_ONPSERR *penErr);
@@ -43,21 +43,17 @@ PING_EXT INT ping_send(INT family, INT nPing, const void *pvDstAddr, USHORT usSe
 PING_EXT INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDataBuf, UCHAR ubDataBufSize, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, UCHAR ubWaitSecs, EN_ONPSERR *penErr);
 
 //* 发送并等待接收应答报文，返回值大于0意味着收到正确的应答报文，等于0则接收超时，小于0意味着出错，具体原因通过参数penErr获取：
-//* 参数unDstAddr指定ping目标地址；
+//* 参数pszDstAddr指定ping目标地址，可读字符串形式；
 //* 参数pfunGetCurMSecs指定一个计时函数，其用于记录ping开始时地毫秒数以及结束时的毫秒数，以计算ping目标地址的时长
 //* 参数pfunRcvHandler指向用户自定义的接收处理函数，当收到正确的ping应答报文后调用，用户可根据自己需求实现特定处理逻辑
-PING_EXT INT ping(INT nPing, const CHAR *pszDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfunGetCurMSecs)(void), PFUN_PINGRCVHANDLER pfunRcvHandler, PFUN_PINGERRHANDLER pfunErrHandler, UCHAR ubWaitSecs, EN_ONPSERR *penErr);
+PING_EXT INT ping(INT nPing, const CHAR *pszDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*pfunGetCurMSecs)(void), PFUN_PINGRCVHANDLER pfunRcvHandler, PFUN_PINGERRHANDLER pfunErrHandler, UCHAR ubWaitSecs, void *pvParam, EN_ONPSERR *penErr);
 
 #if NETTOOLS_TELNETSRV && NVTCMD_PING_EN
 typedef struct _ST_PING_STARTARGS_ { //* ping启动参数
     CHAR bIsCpyEnd;
     ULONGLONG ullNvtHandle;
     INT nFamily; 
-    union
-    {
-        UINT unVal;
-        UCHAR ubaVal[16];
-    } uniIp; 
+    CHAR szDstIp[40]; 
 } ST_PING_STARTARGS, *PST_PING_STARTARGS; 
 PING_EXT void nvt_cmd_ping_entry(void *pvParam); 
 #endif //* #if NETTOOLS_TELNETSRV && NVTCMD_PING_EN

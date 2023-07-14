@@ -357,7 +357,7 @@ static void icmp_rcv_handler_err(UCHAR *pubPacket, INT nPacketLen)
 		return; 
 	}
 
-#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 2
     struct in_addr stSrcAddr, stDstAddr;
     stSrcAddr.s_addr = pstErrIpHdr->unSrcIP;
     stDstAddr.s_addr = pstErrIpHdr->unDstIP;

@@ -34,7 +34,7 @@ void os_nvt_stop(void *pvParam)
 
 }
 
-#if SUPPORT_ETHERNET
+#if SUPPORT_ETHERNET && NVTCMD_IFIP_EN
 #if ETH_EXTRA_IP_EN
 BOOL os_nvt_add_ip(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask)
 {
@@ -70,8 +70,9 @@ void os_nvt_system_reset(void)
 {
 
 }
-#endif //* #if SUPPORT_ETHERNET
+#endif //* #if SUPPORT_ETHERNET && NVTCMD_IFIP_EN
 
+#if NVTCMD_ROUTE_EN
 BOOL os_nvt_add_route_entry(const CHAR *pszIfName, in_addr_t unDestination, in_addr_t unGenmask, in_addr_t unGateway)
 {
     return TRUE; 
@@ -81,4 +82,12 @@ BOOL os_nvt_del_route_entry(in_addr_t unDestination)
 {
     return TRUE; 
 }
+#endif //* #if NVTCMD_ROUTE_EN
+
+#if NETTOOLS_PING && NVTCMD_PING_EN
+UINT os_get_elapsed_millisecs(void)
+{
+    return 0; 
+}
+#endif //* #if NETTOOLS_PING && NVTCMD_PING_EN
 #endif //* #if NETTOOLS_TELNETSRV

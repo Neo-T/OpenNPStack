@@ -1614,13 +1614,14 @@ __lblEnd:
 
 void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {
-    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
-    tcp_send(pstTelnetClt->hClient, pubData, nDataLen);
+    PSTCB_TELNETCLT pstcbTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
+    if(tcp_send(pstcbTelnetClt->hClient, pubData, nDataLen))
+        pstcbTelnetClt->unLastOperateTime = os_get_system_secs();
 }
 
 void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo, ...)
 {
-    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
+    PSTCB_TELNETCLT pstcbTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
 
     EN_ONPSERR enErr; 
     CHAR *pszFormatBuf = (CHAR *)buddy_alloc(nFormatBufSize, &enErr);
@@ -1631,12 +1632,13 @@ void nvt_outputf(ULONGLONG ullNvtHandle, INT nFormatBufSize, const CHAR *pszInfo
         vsnprintf(pszFormatBuf, nFormatBufSize, pszInfo, pvaArgList);
         va_end(pvaArgList); 
 
-        tcp_send(pstTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf));
+        if(tcp_send(pstcbTelnetClt->hClient, (UCHAR *)pszFormatBuf, strlen(pszFormatBuf)))
+            pstcbTelnetClt->unLastOperateTime = os_get_system_secs(); 
 
         buddy_free(pszFormatBuf); 
     }
     else
-        tcp_send(pstTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.\r\n", sizeof("nvt_printf() failed, dynamic memory is empty.\r\n") - 1);
+        tcp_send(pstcbTelnetClt->hClient, "nvt_outputf() failed, dynamic memory is empty.\r\n", sizeof("nvt_printf() failed, dynamic memory is empty.\r\n") - 1);
 }
 
 INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen)

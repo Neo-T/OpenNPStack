@@ -129,40 +129,52 @@ static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 #endif //* #if NVTCMD_RESET_EN
 
 #if NETTOOLS_PING && NVTCMD_PING_EN
+#if SUPPORT_IPV6
 #define NVTHELP_PING_USAGE "Usage as follows:\r\n  ping [4] xxx.xxx.xxx.xxx\r\n  ping 6 xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx\r\n"
+#else //* #if SUPPORT_IPV6
+#define NVTHELP_PING_USAGE "Usage as follows:\r\n  ping xxx.xxx.xxx.xxx\r\n"
+#endif //* #if SUPPORT_IPV6
 static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
     ST_PING_STARTARGS stArgs; 
-
+#if SUPPORT_IPV6
     if (argc != 2 && argc != 3)
+#else
+    if (argc != 2)
+#endif
         goto __lblHelp; 
     else
-    {             
+    {         
+#if SUPPORT_IPV6
         if (argc == 3)
         {
             if (strlen(argv[1]) == 1)
             {
-                if('4' == argv[1][0])
-                    stArgs.nFamily = AF_INET; 
+                if ('4' == argv[1][0])                
+                    stArgs.nFamily = AF_INET;                                  
                 else if('6' == argv[1][0])
                     stArgs.nFamily = AF_INET6;
                 else
                     goto __lblHelp; 
+
+                snprintf(stArgs.szDstIp, sizeof(stArgs.szDstIp), "%s", argv[2]); 
             }
             else            
                 goto __lblHelp; 
         }   
         else
+        {
             stArgs.nFamily = AF_INET;
+            snprintf(stArgs.szDstIp, sizeof(stArgs.szDstIp), "%s", argv[1]);
+        }
+#else
+        stArgs.nFamily = AF_INET; 
+        snprintf(stArgs.szDstIp, sizeof(stArgs.szDstIp), "%s", argv[1]); 
+#endif
     }
 
     stArgs.bIsCpyEnd = FALSE;
-    stArgs.ullNvtHandle = ullNvtHandle;
-    if (AF_INET == stArgs.nFamily)
-        stArgs.saddr_ipv4 = inet_addr(argv[1]);
-    else
-        inet6_aton(argv[2], stArgs.saddr_ipv6); 
-
+    stArgs.ullNvtHandle = ullNvtHandle; 
 
     /* 在这里添加线程/任务启动ping探测代码
     线程/任务入口函数为nvt_cmd_ping_entry()
