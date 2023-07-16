@@ -81,7 +81,7 @@ void nvt_cmd_thread_end(void)
 }
 
 #if NVTCMD_TELNET_EN
-#define NVTHELP_TELNET_USAGE       "Please enter the telnet server address, usage as follows:\r\n telnet xxx.xxx.xxx.xxx [port]\r\n"
+#define NVTHELP_TELNET_USAGE       "Please enter the telnet server address, usage as follows:\r\n \033[01;37mtelnet xxx.xxx.xxx.xxx [port]\033[0m\r\n"
 #define NVTHELP_TELNET_LOGIN_LOCAL "Due to resource constraints, the telnet command is prohibited from logging in to its own server.\r\n"
 static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
@@ -136,9 +136,9 @@ static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
 #if NETTOOLS_PING && NVTCMD_PING_EN
 #if SUPPORT_IPV6
-#define NVTHELP_PING_USAGE "Usage as follows:\r\n  ping [4] xxx.xxx.xxx.xxx\r\n  ping 6 xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx\r\n"
+#define NVTHELP_PING_USAGE "Usage as follows:\r\n  \033[01;37mping [4] xxx.xxx.xxx.xxx\033[0m\r\n  \033[01;37mping 6 xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx\033[0m\r\n"
 #else //* #if SUPPORT_IPV6
-#define NVTHELP_PING_USAGE "Usage as follows:\r\n  ping xxx.xxx.xxx.xxx\r\n"
+#define NVTHELP_PING_USAGE "Usage as follows:\r\n  \033[01;37mping xxx.xxx.xxx.xxx\033[0m\r\n"
 #endif //* #if SUPPORT_IPV6
 static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {

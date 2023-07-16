@@ -27,6 +27,10 @@
 #include "net_tools/sntp.h" 
 #endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
 
+#if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
+#include "net_tools/dns.h" 
+#endif //* #if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
+
 #include "net_tools/telnet.h"
 #include "telnet/nvt_cmd.h" 
 
@@ -61,6 +65,10 @@ static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT ntpdate(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
 #endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
 
+#if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
+static INT nslookup(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#endif
+
 static const ST_NVTCMD l_staNvtCmd[] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
@@ -83,6 +91,10 @@ static const ST_NVTCMD l_staNvtCmd[] = {
 #if NETTOOLS_SNTP && NVTCMD_NTP_EN
     { ntpdate, "ntpdate", "Request NTP server to synchronize system time and achieve network time synchronization function.\r\n" }, 
 #endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
+#if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
+    { nslookup, "nslookup", "A lightweight domain lookup tool that we can use to obtain the IP address corresponding to a domain name.\r\n" }, 
+#endif //* #if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
 };
 
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)];
@@ -1625,7 +1637,7 @@ __lblEnd:
 #endif //* #if NVTCMD_ROUTE_EN
 
 #if NETTOOLS_SNTP && NVTCMD_NTP_EN
-#define NVTHELP_NTPDATE_USAGE   "Usage as follows:\r\n  ntpdate <ntp server ip addr> [time zone, such as GMT+8, enter 8 (default)]\r\n  ntpdate <ntp server domain name> [time zone]\r\n" 
+#define NVTHELP_NTPDATE_USAGE   "Usage as follows:\r\n  \033[01;37mntpdate <ntp server ip addr> [time zone\033[0m, such as GMT+8, enter \033[01;37m8\033[0m (\033[01;37mdefault\033[0m)\033[01;37m]\033[0m\r\n  \033[01;37mntpdate <ntp server domain name> [time zone]\033[0m\r\n" 
 #define NVTHELP_NTPDATE_DISDNS  "Due to the fact that the protocol stack configuration item NETTOOLS_DNS_CLIENT is not set, DNS query functionality is not supported. Please use the IP address directly.\r\n"
 static INT ntpdate(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
@@ -1677,6 +1689,41 @@ static INT ntpdate(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     return 0;
 }
 #endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
+#if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
+#define NVTHELP_NSLOOKUP_USAGE   "Usage as follows:\r\n  \033[01;37mnslookup <domain name>\033[0m\r\n" 
+static INT nslookup(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt)); 
+    if (argc == 2)
+    {
+        EN_ONPSERR enErr; 
+        in_addr_t unPrimaryDNS, unSecondaryDNS;
+        INT nDnsClient = dns_client_start(&unPrimaryDNS, &unSecondaryDNS, 3, &enErr); 
+        if (nDnsClient >= 0)
+        {
+            in_addr_t unIp = dns_client_query(nDnsClient, unPrimaryDNS, unSecondaryDNS, argv[1], &enErr);
+            if (unIp)
+            {
+                CHAR szAddr[20];                
+                nvt_printf(pstTelnetClt->hClient, 256, "Domain name: \033[01;37m%s\033[0m\r\n    Ip addr: \033[01;37m%s\033[0m\r\n", argv[1], inet_ntoa_safe_ext(unIp, szAddr)); 
+            }
+            else
+                nvt_printf(pstTelnetClt->hClient, 128, "Domain name lookup failed, %s.\r\n", onps_error(enErr)); 
+
+            dns_client_end(nDnsClient);
+        }
+        else
+            nvt_printf(pstTelnetClt->hClient, 128, "Domain name lookup failed, %s.\r\n", onps_error(enErr)); 
+    }
+    else
+        tcp_send(pstTelnetClt->hClient, NVTHELP_NSLOOKUP_USAGE, sizeof(NVTHELP_NSLOOKUP_USAGE) - 1);
+
+    nvt_cmd_exec_end(ullNvtHandle);
+
+    return 0;
+}
+#endif //* #if NETTOOLS_DNS_CLIENT && NVTCMD_NSLOOKUP_EN
 
 void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {
