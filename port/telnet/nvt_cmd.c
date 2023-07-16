@@ -124,6 +124,12 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 #if NVTCMD_RESET_EN
 static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 {
+    nvt_output(ullNvtHandle, "The system will be reset ...", sizeof("The system will be reset ...") - 1); 
+    os_sleep_secs(3); 
+    nvt_close(ullNvtHandle); 
+
+    //* 在这里添加目标系统的复位指令
+
     return 0; 
 }
 #endif //* #if NVTCMD_RESET_EN

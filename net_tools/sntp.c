@@ -19,13 +19,13 @@
 #undef SYMBOL_GLOBALS
 
 #if NETTOOLS_SNTP
-BOOL sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr)
+time_t sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr)
 {
     UNI_SNTP_FLAG uniFlag;
     ST_SNTP_DATA stData;
     UCHAR ubRetryNum = 0;
     INT nSndBytes, nRcvBytes;
-    BOOL blRtnVal = FALSE;
+    time_t tTimestamp = 0; 
     LONGLONG llTransTimestatmp;
 
     //* 新建一个udp客户端
@@ -35,7 +35,7 @@ BOOL sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSys
     INT nClient = onps_input_new(IPPROTO_UDP, penErr);
 #endif
     if (nClient < 0)
-        return FALSE;
+        return 0;
 
     CHAR bRcvTimeout = 3;
     if (!onps_input_set(nClient, IOPT_SETRCVTIMEOUT, &bRcvTimeout, penErr))
@@ -82,10 +82,9 @@ __lblSend:
         //* 非常简单的处理逻辑，就是本身单片机系统的时钟就不够精确，同时，现代网络已经足够快，所以这里直接用服务器端的应答报文离开时间作为校准时间
         LONGLONG llSrvTime = htonll(stData.llTransTimestatmp);
         PUNI_LONG_LONG puniSrvTime = (PUNI_LONG_LONG)&llSrvTime;
-        time_t tTimestamp = puniSrvTime->stInt64.h - DIFF_SEC_1900_1970 + (((INT)bTimeZone) * 3600);
+        tTimestamp = puniSrvTime->stInt64.h - DIFF_SEC_1900_1970 + (((INT)bTimeZone) * 3600);
         pfunSetSysTime(tTimestamp);
-
-        blRtnVal = TRUE;
+        
         goto __lblEnd;
     }
     else
@@ -98,22 +97,22 @@ __lblSend:
 
 __lblEnd:
     onps_input_free(nClient);
-    return blRtnVal;
+    return tTimestamp;
 }
 
-BOOL sntp_update_by_ip(const CHAR *pszNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr)
+time_t sntp_update_by_ip(const CHAR *pszNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr)
 {
     return sntp_update(inet_addr(pszNtpSrvIp), pfunTime, pfunSetSysTime, bTimeZone, penErr);
 }
 
 #if NETTOOLS_DNS_CLIENT
-BOOL sntp_update_by_dns(const CHAR *pszDomainName, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr)
+time_t sntp_update_by_dns(const CHAR *pszDomainName, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr)
 {
-    BOOL blRtnVal = FALSE; 
+    time_t tRtnVal = 0; 
     in_addr_t unPrimaryDNS, unSecondaryDNS;
     INT nDnsClient = dns_client_start(&unPrimaryDNS, &unSecondaryDNS, 3, penErr); 
     if (nDnsClient < 0)
-        return FALSE; 
+        return 0; 
 
     //* 查询ntp服务器地址
     in_addr_t unNtpSrvIp = dns_client_query(nDnsClient, unPrimaryDNS, unSecondaryDNS, pszDomainName, penErr); 
@@ -121,9 +120,9 @@ BOOL sntp_update_by_dns(const CHAR *pszDomainName, time_t(*pfunTime)(void), void
 
     //* 获得服务器地址则同步时间
     if (unNtpSrvIp)    
-        blRtnVal = sntp_update(htonl(unNtpSrvIp), pfunTime, pfunSetSysTime, bTimeZone, penErr);
+        tRtnVal = sntp_update(htonl(unNtpSrvIp), pfunTime, pfunSetSysTime, bTimeZone, penErr);
     
-    return blRtnVal;
+    return tRtnVal;
 }
 #endif
 #endif

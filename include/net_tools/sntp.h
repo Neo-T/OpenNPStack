@@ -49,10 +49,10 @@ PACKED_END
 
 //* 参数pszIp指定ntp服务器地址，函数指针pfunTime实现读取本地时间（unxi时间戳）可以为空，pfunSetSysTime同样是一个函数指针，用于时间同步成功后设置本地时间，
 //* 参数bTimeZone用于指定时区（比如东八区则指定8，西八区则指定-8），参数penErr用于接收错误码（如果函数执行失败的话），同步成功则返回TRUE，反之FALSE
-SNTP_EXT BOOL sntp_update_by_ip(const CHAR *pszNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr); 
-SNTP_EXT BOOL sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr);
+SNTP_EXT time_t sntp_update_by_ip(const CHAR *pszNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr); 
+SNTP_EXT time_t sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr);
 #if NETTOOLS_DNS_CLIENT
-SNTP_EXT BOOL sntp_update_by_dns(const CHAR *pszDomainName, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr);
+SNTP_EXT time_t sntp_update_by_dns(const CHAR *pszDomainName, time_t(*pfunTime)(void), void(*pfunSetSysTime)(time_t), CHAR bTimeZone, EN_ONPSERR *penErr);
 #endif
 #endif
 #endif

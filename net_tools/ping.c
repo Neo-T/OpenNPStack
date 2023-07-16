@@ -266,7 +266,7 @@ void nvt_cmd_ping_entry(void *pvParam)
     } 
 
     unRecvedPackets = unSeqNum - unErrCount;
-    nvt_outputf(stcbPing.stArgs.ullNvtHandle, 256, "%s ping statistics:\r\n%d packets transimitted, %d received, %0.2f%% packet loss, time %d ms\r\nett min/avg/max = %d/%0.2f/%d ms\r\n", 
+    nvt_outputf(stcbPing.stArgs.ullNvtHandle, 256, "%s ping statistics:\r\n%d packets transimitted, %d received, %0.2f%% packet loss, time %d ms\r\nrtt min/avg/max = %d/%0.2f/%d ms\r\n", 
                     stcbPing.stArgs.szDstIp, unSeqNum, unRecvedPackets, ((FLOAT)unErrCount / (FLOAT)unSeqNum) * 100, stcbPing.stStatistics.unRttTotal,
                     stcbPing.stStatistics.unRttMin, unRecvedPackets ? (FLOAT)stcbPing.stStatistics.unRttTotal / unRecvedPackets : 0, stcbPing.stStatistics.unRttMax);
 

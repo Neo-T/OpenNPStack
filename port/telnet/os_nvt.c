@@ -90,4 +90,12 @@ UINT os_get_elapsed_millisecs(void)
     return 0; 
 }
 #endif //* #if NETTOOLS_PING && NVTCMD_PING_EN
+
+#if NETTOOLS_SNTP && NVTCMD_NTP_EN
+void os_nvt_set_system_time(time_t tNtpTime)
+{
+
+}
+#endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
 #endif //* #if NETTOOLS_TELNETSRV

@@ -23,6 +23,10 @@
 #include "net_tools/net_virtual_terminal.h"
 #undef SYMBOL_GLOBALS
 
+#if NETTOOLS_SNTP && NVTCMD_NTP_EN
+#include "net_tools/sntp.h" 
+#endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
 #include "net_tools/telnet.h"
 #include "telnet/nvt_cmd.h" 
 
@@ -53,6 +57,10 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
 #endif //* #if NVTCMD_ROUTE_EN
 
+#if NETTOOLS_SNTP && NVTCMD_NTP_EN
+static INT ntpdate(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
+#endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
 static const ST_NVTCMD l_staNvtCmd[] = {
     { logout, "exit", "logout and return to the terminal.\r\n" },
     { logout, "logout", "same as the <exit> command, logout and return to the terminal.\r\n" },
@@ -69,8 +77,12 @@ static const ST_NVTCMD l_staNvtCmd[] = {
 #endif //* #if NVTCMD_IFIP_EN && SUPPORT_ETHERNET
 
 #if NVTCMD_ROUTE_EN
-    { route, "route", "Print, add, delete system routing table entries.\r\n" },
+    { route, "route", "Print, add, delete system routing table entries.\r\n" }, 
 #endif //* #if NVTCMD_ROUTE_EN
+
+#if NETTOOLS_SNTP && NVTCMD_NTP_EN
+    { ntpdate, "ntpdate", "Request NTP server to synchronize system time and achieve network time synchronization function.\r\n" }, 
+#endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
 };
 
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)];
@@ -1612,6 +1624,60 @@ __lblEnd:
 }
 #endif //* #if NVTCMD_ROUTE_EN
 
+#if NETTOOLS_SNTP && NVTCMD_NTP_EN
+#define NVTHELP_NTPDATE_USAGE   "Usage as follows:\r\n  ntpdate <ntp server ip addr> [time zone, such as GMT+8, enter 8 (default)]\r\n  ntpdate <ntp server domain name> [time zone]\r\n" 
+#define NVTHELP_NTPDATE_DISDNS  "Due to the fact that the protocol stack configuration item NETTOOLS_DNS_CLIENT is not set, DNS query functionality is not supported. Please use the IP address directly.\r\n"
+static INT ntpdate(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
+{
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt)); 
+    if (argc == 2 || argc == 3)
+    {
+        EN_ONPSERR enErr = ERRNO; 
+        CHAR bTimeZone;
+        if (argc == 3)
+        {
+            bTimeZone = atoi(argv[2]);
+            if (!(bTimeZone && bTimeZone > -13 && bTimeZone < 13))
+                bTimeZone = 8;
+        }
+        else
+            bTimeZone = 8;
+
+        //* 同步时间
+        time_t tNtpTime; 
+        if (argv[1][0] > 0x29 && argv[1][0] < 0x40) //* ip地址方式        
+            tNtpTime = sntp_update_by_ip(argv[1], NULL, os_nvt_set_system_time, bTimeZone, &enErr);                     
+        else
+        {
+    #if NETTOOLS_DNS_CLIENT
+            tNtpTime = sntp_update_by_dns(argv[1], NULL, os_nvt_set_system_time, bTimeZone, &enErr);
+    #else
+            tNtpTime = 0; 
+            tcp_send(pstTelnetClt->hClient, NVTHELP_NTPDATE_DISDNS, sizeof(NVTHELP_NTPDATE_DISDNS) - 1);
+    #endif
+        }
+
+        if (tNtpTime)
+        {
+            struct tm stTime;
+            memcpy(&stTime, localtime((time_t*)&tNtpTime), sizeof(struct tm));
+            nvt_printf(pstTelnetClt->hClient, 64, "The time is %d-%02d-%02d %02d:%02d:%02d.\r\n", stTime.tm_year + 1900, stTime.tm_mon + 1, stTime.tm_mday, stTime.tm_hour, stTime.tm_min, stTime.tm_sec);
+        }
+        else
+        {
+            if(ERRNO != enErr)
+                nvt_printf(pstTelnetClt->hClient, 256, "Network time synchronization failed, %s.\r\n", onps_error(enErr)); 
+        }
+    }
+    else
+        tcp_send(pstTelnetClt->hClient, NVTHELP_NTPDATE_USAGE, sizeof(NVTHELP_NTPDATE_USAGE) - 1);
+
+    nvt_cmd_exec_end(ullNvtHandle);
+
+    return 0;
+}
+#endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
 void nvt_output(ULONGLONG ullNvtHandle, UCHAR *pubData, INT nDataLen)
 {
     PSTCB_TELNETCLT pstcbTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));
@@ -1665,6 +1731,12 @@ INT nvt_input(ULONGLONG ullNvtHandle, UCHAR *pubInputBuf, INT nInputBufLen)
     os_exit_critical();
 
     return (INT)bCpyBytes;
+}
+
+void nvt_close(ULONGLONG ullNvtHandle)
+{
+    PSTCB_TELNETCLT pstTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)ullNvtHandle - offsetof(STCB_TELNETCLT, stcbNvt));     
+    close(pstTelnetClt->hClient);
 }
 
 const CHAR *nvt_get_term_type(ULONGLONG ullNvtHandle)

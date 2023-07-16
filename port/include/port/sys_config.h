@@ -116,6 +116,9 @@
 #define NVTCMD_IFIP_EN     1 //* 使能nvt命令：ifip
 #define NVTCMD_ROUTE_EN    1 //* 使能nvt命令：route
 #define NVTCMD_TELNET_EN   1 //* 使能nvt命令：telnet
+#if NETTOOLS_SNTP
+#define NVTCMD_NTP_EN      1 //* 使能nvt命令：ntp，其必须先使能NETTOOLS_SNTP
+#endif //* #if NETTOOLS_SNTP
 #if NETTOOLS_PING
 #define NVTCMD_PING_EN     1 //* 使能nvt命令：ping，使能ping命令时应同时使能NETTOOLS_PING
 #endif //* #if NETTOOLS_PING

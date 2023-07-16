@@ -40,6 +40,11 @@ OS_NVT_EXT BOOL os_nvt_del_route_entry(in_addr_t unDestination);
 #if NETTOOLS_PING && NVTCMD_PING_EN
 OS_NVT_EXT UINT os_get_elapsed_millisecs(void); 
 #endif //* #if NETTOOLS_PING && NVTCMD_PING_EN
+
+#if NETTOOLS_SNTP && NVTCMD_NTP_EN
+OS_NVT_EXT void os_nvt_set_system_time(time_t tNtpTime); 
+#endif //* #if NETTOOLS_SNTP && NVTCMD_NTP_EN
+
 #endif //* #if NETTOOLS_TELNETSRV
 
 #endif
