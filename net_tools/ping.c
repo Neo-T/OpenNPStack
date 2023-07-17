@@ -241,6 +241,8 @@ void nvt_cmd_ping_entry(void *pvParam)
         goto __lblEnd; 
     }
 
+    nvt_output(stcbPing.stArgs.ullNvtHandle, "You can press \033[01;37mctrl+c\033[0m to abort the ping.\r\n", sizeof("You can press \033[01;37mctrl+c\033[0m to abort the ping.\r\n") - 1);
+
     //* 连续ping
     stcbPing.stStatistics.unRttTotal = stcbPing.stStatistics.unRttMin = stcbPing.stStatistics.unRttMax = 0; 
     while (nvt_cmd_exec_enable(stcbPing.stArgs.ullNvtHandle))

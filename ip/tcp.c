@@ -1167,7 +1167,7 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
     USHORT usCltPort = htons(pstHdr->usSrcPort);
     PST_TCPLINK pstLink;     
 #if SUPPORT_IPV6
-    INT nInput = onps_input_get_handle(IPPROTO_TCP, punDstAddr, usDstPort, &pstLink);
+    INT nInput = onps_input_get_handle((IPV4 == enProtocol) ? AF_INET : AF_INET6, IPPROTO_TCP, punDstAddr, usDstPort, &pstLink);
 #else
 	INT nInput = onps_input_get_handle(IPPROTO_TCP, *punDstAddr, usDstPort, &pstLink);
 #endif

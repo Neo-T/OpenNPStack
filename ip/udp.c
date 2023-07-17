@@ -364,7 +364,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     USHORT usDstPort = htons(pstHdr->usDstPort);
     PST_UDPLINK pstLink;
 #if SUPPORT_IPV6
-	INT nInput = onps_input_get_handle(IPPROTO_UDP, &unDstAddr, usDstPort, &pstLink);
+	INT nInput = onps_input_get_handle(AF_INET, IPPROTO_UDP, &unDstAddr, usDstPort, &pstLink);
 #else
     INT nInput = onps_input_get_handle(IPPROTO_UDP, unDstAddr, usDstPort, &pstLink);
 #endif
@@ -633,7 +633,7 @@ void ipv6_udp_recv(PST_NETIF pstNetif, UCHAR ubaSrcAddr[16], UCHAR ubaDstAddr[16
 	USHORT usSrcPort = htons(pstHdr->usSrcPort);
 	USHORT usDstPort = htons(pstHdr->usDstPort);
 	PST_UDPLINK pstLink;
-	INT nInput = onps_input_get_handle(IPPROTO_UDP, ubaDstAddr, usDstPort, &pstLink);
+	INT nInput = onps_input_get_handle(AF_INET6, IPPROTO_UDP, ubaDstAddr, usDstPort, &pstLink);
 	if (nInput < 0)
 	{
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 3

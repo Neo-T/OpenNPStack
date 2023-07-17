@@ -186,7 +186,7 @@ ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, in_addr_t *punCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
 #endif
 #if SUPPORT_IPV6
-ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach);
+ONPSINPUT_EXT INT onps_input_get_handle(INT family, EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach);
 #else
 ONPSINPUT_EXT INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach);
 #endif

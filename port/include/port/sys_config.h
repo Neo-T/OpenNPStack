@@ -105,31 +105,31 @@
 
 //* 网络工具配置项
 //* ===============================================================================================
-#define NETTOOLS_PING       1 //* 使能或禁止ping
+#define NETTOOLS_PING       1 //* 使能或禁止ping，置位使能，复位禁止，下同
 #define NETTOOLS_DNS_CLIENT 1 //* 使能或禁止dns查询客户端
 #define NETTOOLS_SNTP       1 //* 使能或禁止sntp客户端
 #define NETTOOLS_TELNETSRV  1 //* 使能或禁止telnet服务端
 
 #if NETTOOLS_TELNETSRV
-#define NVTCMD_MEMUSAGE_EN 1 //* 使能nvt命令：memusage
-#define NVTCMD_NETIF_EN    1 //* 使能nvt命令：netif
-#define NVTCMD_IFIP_EN     1 //* 使能nvt命令：ifip
-#define NVTCMD_ROUTE_EN    1 //* 使能nvt命令：route
-#define NVTCMD_TELNET_EN   1 //* 使能nvt命令：telnet
+#define NVTCMD_MEMUSAGE_EN 1 //* 使能或禁止nvt命令：memusage
+#define NVTCMD_NETIF_EN    1 //* 使能或禁止nvt命令：netif
+#define NVTCMD_IFIP_EN     1 //* 使能或禁止nvt命令：ifip
+#define NVTCMD_ROUTE_EN    1 //* 使能或禁止nvt命令：route
+#define NVTCMD_TELNET_EN   1 //* 使能或禁止nvt命令：telnet
 
 #if NETTOOLS_SNTP
-#define NVTCMD_NTP_EN      1 //* 使能nvt命令：ntp，其必须先使能NETTOOLS_SNTP
+#define NVTCMD_NTP_EN      1 //* 使能或禁止nvt命令：ntp，其必须先使能NETTOOLS_SNTP
 #endif //* #if NETTOOLS_SNTP
 
 #if NETTOOLS_DNS_CLIENT
-#define NVTCMD_NSLOOKUP_EN      1 //* 使能nvt命令：ntp，其必须先使能NETTOOLS_SNTP
+#define NVTCMD_NSLOOKUP_EN      1 //* 使能或禁止nvt命令：ntp，其必须先使能NETTOOLS_SNTP
 #endif //* #if NETTOOLS_DNS_CLIENT
 
 #if NETTOOLS_PING
-#define NVTCMD_PING_EN     1 //* 使能nvt命令：ping，使能ping命令时应同时使能NETTOOLS_PING
+#define NVTCMD_PING_EN     1 //* 使能或禁止nvt命令：ping，使能ping命令时应同时使能NETTOOLS_PING
 #endif //* #if NETTOOLS_PING
 
-#define NVTCMD_RESET_EN    1 //* 使能nvt命令：reset
+#define NVTCMD_RESET_EN    1 //* 使能或禁止nvt命令：reset
 
 #if NVTCMD_TELNET_EN
 //* telnet客户端接收缓冲区大小，注意关闭TCP SACK选项时，设置的发送缓冲区大小一旦超过过tcp mtu（一般
@@ -140,6 +140,10 @@
 #define NVTNUM_MAX          2   //* 指定nvt并发工作的数量，其实就是指定telnet服务器在同一时刻并发连接的数量，超过这个数值服务器拒绝连接
 #define NVTCMDCACHE_EN      1   //* 是否支持命令缓存，也就是通过“↑↓”切换曾经输入的指令
 #define NVTCMDCACHE_SIZE    256 //* 指定指令缓存区的大小
+
+#if SUPPORT_IPV6
+#define TELNETSRV_SUPPORT_IPv6 1 //* telnet服务器使能或禁止ipv6支持
+#endif //* #if SUPPORT_IPV6
 #endif //* #if NETTOOLS_TELNETSRV
 //* ===============================================================================================
 

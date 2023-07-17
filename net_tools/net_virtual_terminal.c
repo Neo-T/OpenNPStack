@@ -554,9 +554,17 @@ static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen
                             }
                         }
                         else
-                        {
-                            nvt_char_handler(pstcbNvt, hRmtTelnetClt, pubNextData[i + 2], TRUE);
-                            i += 3;
+                        {         
+                            if ('[' == pubNextData[i + 1])
+                            {
+                                nvt_char_handler(pstcbNvt, hRmtTelnetClt, pubNextData[i + 2], TRUE);
+                                i += 3;
+                            }
+                            else
+                            {
+                                nvt_char_handler(pstcbNvt, hRmtTelnetClt, pubNextData[i + 1], TRUE);
+                                i += 2;
+                            }
                         }
                     }
 

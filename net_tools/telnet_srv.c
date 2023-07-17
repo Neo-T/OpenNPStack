@@ -174,8 +174,42 @@ static void telnet_client_clean(void)
 void telnet_srv_entry(void *pvParam)
 {
     EN_ONPSERR enErr;     
-    SOCKET hSrvSocket = tcpsrv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, TCPSRVRCVMODE_ACTIVE, &enErr);
+    SOCKET hSrvSocket = tcpsrv_start(AF_INET, TELNETSRV_PORT, NVTNUM_MAX, TCPSRVRCVMODE_ACTIVE, &enErr); 
+
+#if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6
+    if (INVALID_SOCKET == hSrvSocket)
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif	
+        printf("[4] telnet_srv_start() failed, %s\r\n", onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+
+    SOCKET hSrvSocket6 = tcpsrv_start(AF_INET6, TELNETSRV_PORT, NVTNUM_MAX, TCPSRVRCVMODE_ACTIVE, &enErr); 
+    if (INVALID_SOCKET == hSrvSocket6)
+    {
+#if SUPPORT_PRINTF && DEBUG_LEVEL > 1
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_lock(o_hMtxPrintf);
+    #endif	
+        printf("[6] telnet_srv_start() failed, %s\r\n", onps_error(enErr));
+    #if PRINTF_THREAD_MUTEX
+        os_thread_mutex_unlock(o_hMtxPrintf);
+    #endif
+#endif
+    }
+#endif //* #if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6 
+
+#if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6
+    if (INVALID_SOCKET != hSrvSocket || INVALID_SOCKET != hSrvSocket6)
+#else
     if (INVALID_SOCKET != hSrvSocket)
+#endif //* #if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6
     {
         //* 与操作系统相关的nvt初始化，其实就是完成nvt作为线程/任务启动前的准备工作
         os_nvt_init();
@@ -187,9 +221,17 @@ void telnet_srv_entry(void *pvParam)
         nvt_embedded_cmd_loader(); 
 
         CHAR bClientCnt = 0; 
+        SOCKET hClient = INVALID_SOCKET;
         while (l_bTelnetSrvState)
-        {
-            SOCKET hClient = accept(hSrvSocket, NULL, NULL, 1, &enErr);
+        {            
+    #if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6
+            if(INVALID_SOCKET != hSrvSocket)
+                hClient = accept(hSrvSocket, NULL, NULL, 1, &enErr); 
+            if (INVALID_SOCKET == hClient && INVALID_SOCKET != hSrvSocket6)
+                hClient = accept(hSrvSocket6, NULL, NULL, 1, &enErr); 
+    #else
+            hClient = accept(hSrvSocket, NULL, NULL, 1, &enErr);
+    #endif
             if (INVALID_SOCKET != hClient)
             {
                 if (bClientCnt < NVTNUM_MAX)
@@ -219,7 +261,14 @@ void telnet_srv_entry(void *pvParam)
 #endif
 
         telnet_client_clean();
+    #if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6
+        if (INVALID_SOCKET != hSrvSocket)
+            close(hSrvSocket); 
+        if (INVALID_SOCKET != hSrvSocket6)
+            close(hSrvSocket6);
+    #else
         close(hSrvSocket);
+    #endif
         os_nvt_uninit(); 
     }
     else

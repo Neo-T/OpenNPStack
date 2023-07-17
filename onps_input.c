@@ -300,12 +300,15 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstcbInput->unRcvBufSize = unSize;
         pstcbInput->unRcvedBytes = 0;
         pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_RCLIENT;        
-	#if SUPPORT_IPV6
+	#if SUPPORT_IPV6         
         pstcbInput->uniHandle.stTcpUdp.bFamily = l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily;
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)        
 			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
-		else
-			memcpy(pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, (UCHAR *)punSrvIp, 16); 
+        else 
+        {             
+            UCHAR *pubSrvIp = (UCHAR *)punSrvIp;            
+            memcpy(pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, pubSrvIp, 16);
+        }			
 	#else
 		pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
 	#endif
@@ -319,10 +322,14 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstLink->stLocal.pstHandle = &pstcbInput->uniHandle.stTcpUdp;
                 
 	#if SUPPORT_IPV6
+        UCHAR *pubCltIp; 
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
 			pstLink->stPeer.stSockAddr.saddr_ipv4 = *punCltIp;
-		else
-			memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, (UCHAR *)punCltIp, 16); 
+        else
+        {
+            pubCltIp = (UCHAR *)punCltIp;
+            memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, pubCltIp, 16);
+        }
 	#else
         pstLink->stPeer.stSockAddr.saddr_ipv4 = *punCltIp; 
 	#endif
@@ -335,8 +342,8 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
 	#if SUPPORT_IPV6
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
 			pstBacklog->stAddr.saddr_ipv4 = *punCltIp;
-		else
-			memcpy(pstBacklog->stAddr.saddr_ipv6, (UCHAR *)punCltIp, 16); 
+        else        
+            memcpy(pstBacklog->stAddr.saddr_ipv6, pubCltIp, 16);        
 	#else
         pstBacklog->stAddr.unIp = *punCltIp; 
 	#endif
@@ -1468,7 +1475,7 @@ INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, 
 #endif
 
 #if SUPPORT_IPV6
-INT onps_input_get_handle(EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach)
+INT onps_input_get_handle(INT family, EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach)
 #else
 INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, void *pvAttach)
 #endif
@@ -1481,7 +1488,7 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, v
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
-            if (enIpProto == pstcbInput->ubIPProto)
+            if (family == pstcbInput->uniHandle.stTcpUdp.bFamily && enIpProto == pstcbInput->ubIPProto)
             {                
 			#if SUPPORT_IPV6
 				BOOL blIsMatched; 
