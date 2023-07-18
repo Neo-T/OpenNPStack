@@ -15,7 +15,7 @@
 	#define TELNET_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#if NVTCMD_TELNET_EN
+#if NETTOOLS_TELNETSRV
 
  //* 以下为Telnet命令（Telnet Commands）定义
  //* 这之下的命令由[RFC1184]定义，详见：https://www.rfc-editor.org/rfc/rfc1184
@@ -103,6 +103,5 @@ TELNET_EXT void telnet_cmd_send(SOCKET hSocket, UCHAR ubCmd, UCHAR ubOption);
 TELNET_EXT void telnet_cmd_ack_default(SOCKET hSocket, UCHAR ubCmd, UCHAR ubOption);
 TELNET_EXT void telnet_req_term_type(SOCKET hSocket);
 TELNET_EXT void telnet_report_term_type(SOCKET hSocket, const CHAR *pszTermType, INT nTremTypeLen);
-
-#endif
+#endif //* #if NETTOOLS_TELNETSRV
 #endif

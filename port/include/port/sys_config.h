@@ -96,7 +96,7 @@
 
 #if SUPPORT_ETHERNET
     #define TCPSRV_BACKLOG_NUM_MAX  10      //* tcp服务器支持的最大请求队列数量，任意时刻所有已开启的tcp服务器的请求连接队列数量之和应小于该值，否则将会出现拒绝连接的情况
-    #define TCPSRV_NUM_MAX          2       //* 系统能够同时建立的tcp服务器数量
+    #define TCPSRV_NUM_MAX          0       //* 系统能够同时建立的tcp服务器数量
     #define TCPSRV_RECV_QUEUE_NUM   64      //* tcp服务器接收队列大小，所有已开启的tcp服务器共享该队列资源，如果单位时间内到达所有已开启tcp服务器的报文数量较大，应将该值调大
 #endif
 
@@ -108,7 +108,7 @@
 #define NETTOOLS_PING       1 //* 使能或禁止ping，置位使能，复位禁止，下同
 #define NETTOOLS_DNS_CLIENT 1 //* 使能或禁止dns查询客户端
 #define NETTOOLS_SNTP       1 //* 使能或禁止sntp客户端
-#define NETTOOLS_TELNETSRV  1 //* 使能或禁止telnet服务端
+#define NETTOOLS_TELNETSRV  1 //* 使能或禁止telnet服务端，其值必须为0或1（禁止/使能），因为其还被用于tcp服务器资源分配统计（TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV）
 
 #if NETTOOLS_TELNETSRV
 #define NVTCMD_MEMUSAGE_EN 1 //* 使能或禁止nvt命令：memusage
@@ -142,7 +142,7 @@
 #define NVTCMDCACHE_SIZE    256 //* 指定指令缓存区的大小
 
 #if SUPPORT_IPV6
-#define TELNETSRV_SUPPORT_IPv6 1 //* telnet服务器使能或禁止ipv6支持
+#define TELNETSRV_SUPPORT_IPv6 1 //* telnet服务器使能或禁止ipv6支持，与NETTOOLS_TELNETSRV同，其值必须为0或1（禁止/使能）
 #endif //* #if SUPPORT_IPV6
 #endif //* #if NETTOOLS_TELNETSRV
 //* ===============================================================================================

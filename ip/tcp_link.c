@@ -21,10 +21,14 @@ static PST_TCPLINK l_pstFreeTcpLinkList = NULL;
 static HMUTEX l_hMtxTcpLinkList = INVALID_HMUTEX; 
 static PST_TCPLINK l_pstUsedTcpLinkList = NULL; 
 
-#if SUPPORT_ETHERNET
+#if SUPPORT_ETHERNET && (TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV)
 //* 与tcp服务器业务逻辑相关的静态存储时期的变量
 //* =========================================================================
-static ST_INPUTATTACH_TCPSRV l_staIAttachSrv[TCPSRV_NUM_MAX]; 
+#ifdef TELNETSRV_SUPPORT_IPv6
+static ST_INPUTATTACH_TCPSRV l_staIAttachSrv[TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV + TELNETSRV_SUPPORT_IPv6];
+#else
+static ST_INPUTATTACH_TCPSRV l_staIAttachSrv[TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV];
+#endif //* #ifdef TELNETSRV_SUPPORT_IPv6
 
 //* 连接请求队列
 static ST_TCPBACKLOG l_staBacklog[TCPSRV_BACKLOG_NUM_MAX]; 
@@ -33,9 +37,9 @@ static PST_SLINKEDLIST l_pstSListBacklogFreed;
 
 //* 数据接收队列
 static ST_SLINKEDLIST_NODE l_staSListRcvQueue[TCPSRV_RECV_QUEUE_NUM]; 
-static PST_SLINKEDLIST l_pstSListRcvQueueFreed; 
+static PST_SLINKEDLIST l_pstSListRcvQueueFreed;
 //* =========================================================================
-#endif
+#endif //* #if SUPPORT_ETHERNET && (TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV)
 
 #if SUPPORT_SACK
 static STCB_TCPSENDTIMER l_stcbaSndTimer[TCP_LINK_NUM_MAX * TCPSENDTIMER_NUM]; //* 每一路tcp链路允许开启TCPSENDTIMER_NUM个定时器
@@ -61,7 +65,7 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
     l_staTcpLinkNode[i].bNext = -1; 
     l_pstFreeTcpLinkList = &l_staTcpLinkNode[0]; 
 
-#if SUPPORT_ETHERNET
+#if SUPPORT_ETHERNET && (TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV)
     //* 组成backlog资源链（用于tcp服务器）    
     for (i = 0; i < TCPSRV_BACKLOG_NUM_MAX - 1; i++)
     {
@@ -80,7 +84,7 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
         l_staSListRcvQueue[i].pstNext = &l_staSListRcvQueue[i + 1]; 
     l_staSListRcvQueue[i].pstNext = NULL; 
     l_pstSListRcvQueueFreed = &l_staSListRcvQueue[0]; 
-#endif
+#endif //* #if SUPPORT_ETHERNET && (TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV)
 
 #if SUPPORT_SACK
     for (i = 0; i < sizeof(l_stcbaSndTimer) / sizeof(STCB_TCPSENDTIMER) - 1; i++)    
@@ -557,12 +561,16 @@ PST_TCPLINK tcp_link_for_send_data_get_next(PST_TCPLINK pstTcpLink)
 PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
 {
     PST_INPUTATTACH_TCPSRV pstAttach = NULL;     
-    
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV    
     os_critical_init();
     os_enter_critical();
     {
         INT i;
-        for (i = 0; i < TCPSRV_NUM_MAX; i++)
+    #ifdef TELNETSRV_SUPPORT_IPv6
+        for (i = 0; i < TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV + TELNETSRV_SUPPORT_IPv6; i++)
+    #else
+        for (i = 0; i < TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV; i++)
+    #endif //* #ifdef TELNETSRV_SUPPORT_IPv6
         {
             if (!l_staIAttachSrv[i].bIsUsed)
             {
@@ -592,19 +600,24 @@ PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
         if (penErr)
             *penErr = ERRTCPSRVEMPTY;
     }
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 
     return pstAttach; 
 }
 
 void tcpsrv_input_attach_free(PST_INPUTATTACH_TCPSRV pstAttach)
 {
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_thread_sem_uninit(pstAttach->hSemAccept); 
     pstAttach->bIsUsed = FALSE; 
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 }
 
 PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
 {
     PST_TCPBACKLOG pstBacklog = NULL;
+
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     PST_SLINKEDLIST_NODE pstNode; 
 
     os_critical_init();
@@ -632,6 +645,7 @@ PST_TCPBACKLOG tcp_backlog_freed_get(EN_ONPSERR *penErr)
         if (penErr)
             *penErr = ERRTCPBACKLOGEMPTY; 
     }
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 
     return pstBacklog; 
 }
@@ -640,6 +654,7 @@ PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog, USHORT *pusBac
 {
     PST_TCPBACKLOG pstBacklog = NULL; 
 
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init(); 
     os_enter_critical();
     {
@@ -651,12 +666,14 @@ PST_TCPBACKLOG tcp_backlog_get(PST_SLINKEDLIST *ppstSListBacklog, USHORT *pusBac
         }
     }
     os_exit_critical(); 
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 
     return pstBacklog; 
 }
 
 void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklog, USHORT *pusBacklogCnt)
 {
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init();
     os_enter_critical(); 
     {
@@ -664,22 +681,26 @@ void tcp_backlog_put(PST_SLINKEDLIST *ppstSListBacklog, PST_TCPBACKLOG pstBacklo
         sllist_put_tail_node(ppstSListBacklog, pstBacklog->pstNode);
     }
     os_exit_critical();
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 }
 
 void tcp_backlog_free(PST_TCPBACKLOG pstBacklog)
 {
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init();
     os_enter_critical();
     {
         sllist_put_node(&l_pstSListBacklogFreed, pstBacklog->pstNode);
     }
-    os_exit_critical();
+    os_exit_critical(); 
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 }
 
 PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr)
 {
     PST_TCPSRV_RCVQUEUE_NODE pstNode = NULL; 
 
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init();
     os_enter_critical();
     {
@@ -700,6 +721,7 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_freed_get(EN_ONPSERR *penErr)
         if (penErr)
             *penErr = ERRTCPRCVQUEUEEMPTY;
     }
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 
     return pstNode; 
 }
@@ -708,6 +730,7 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueu
 {
     PST_TCPSRV_RCVQUEUE_NODE pstNode = NULL;
 
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init();
     os_enter_critical();
     {
@@ -723,12 +746,14 @@ PST_TCPSRV_RCVQUEUE_NODE tcpsrv_recv_queue_get(PST_SLINKEDLIST *ppstSListRcvQueu
 	}
 	os_thread_mutex_unlock(o_hMtxPrintf);
 #endif
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 
     return pstNode; 
 }
 
 void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUEUE_NODE pstNode, INT nInput)
 {
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init(); 
     os_enter_critical(); 
     {
@@ -736,10 +761,12 @@ void tcpsrv_recv_queue_put(PST_SLINKEDLIST *ppstSListRcvQueue, PST_TCPSRV_RCVQUE
         sllist_put_tail_node(ppstSListRcvQueue, pstNode); 
     }
     os_exit_critical();
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 }
 
 void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode)
 {
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
     os_critical_init();
     os_enter_critical();
     {
@@ -756,12 +783,14 @@ void tcpsrv_recv_queue_free(PST_TCPSRV_RCVQUEUE_NODE pstNode)
 	}
 	os_thread_mutex_unlock(o_hMtxPrintf);
 #endif
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 }
 
 INT tcpsrv_recv_queue_count(PST_SLINKEDLIST *ppstSListRcvQueue)
 {
 	INT nCount = 0; 	
 
+#if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 	os_critical_init(); 
 	os_enter_critical();
 	{
@@ -773,6 +802,7 @@ INT tcpsrv_recv_queue_count(PST_SLINKEDLIST *ppstSListRcvQueue)
 		}
 	}
 	os_exit_critical();
+#endif //* #if TCPSRV_NUM_MAX || NETTOOLS_TELNETSRV
 
 	return nCount; 
 }
