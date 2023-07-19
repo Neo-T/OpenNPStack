@@ -304,12 +304,14 @@ void thread_one_shot_timer_count(void *pvParam)
                 {
                     if (--pstNextTimer->nTimeoutCount <= 0)
                     {
+
                         //* 先从计时器队列摘除
                         if (pstPrevTimer)
                             pstPrevTimer->pstNext = NULL;
                         else
-                            l_pstOneShotTimerLink = NULL;
-                        pstTimer = pstNextTimer;
+                            l_pstOneShotTimerLink = NULL;                        
+
+                        pstTimer = pstNextTimer;                         
                         break;
                     }
                     else //* 计时尚未结束，检查下一个节点
@@ -325,17 +327,17 @@ void thread_one_shot_timer_count(void *pvParam)
             //* 如果存在溢出节点则开始执行溢出操作
             if (pstTimer)
             {
-                pstNextTimer = pstTimer;
+                pstNextTimer = pstTimer;                
                 while (pstNextTimer)
                 {
                     //* 保存当前要操作的定时器并在操作之前推进到下一个溢出定时器
                     pstTimer = pstNextTimer;
                     pstNextTimer = pstNextTimer->pstNext;
 
-                    //* 执行溢出函数并归还给系统
-                    pstTimer->pfunTimeoutHandler(pstTimer->pvParam);
+                    //* 执行溢出函数并归还给系统                    
+                    pstTimer->pfunTimeoutHandler(pstTimer->pvParam);                    
                     one_shot_timer_free(pstTimer);
-                }
+                }                
             }
 
     #if 0
@@ -391,7 +393,7 @@ PST_ONESHOTTIMER one_shot_timer_new(PFUN_ONESHOTTIMEOUT_HANDLER pfunTimeoutHandl
 	//* 存在空闲节点则赋值并挂接到计时队列中
 	if (pstTimer)
 	{
-		//* 先赋值再挂载，否则可能导致计数线程出现错误
+		//* 先赋值再挂载，否则可能导致计数线程出现错误        
 		pstTimer->pfunTimeoutHandler = pfunTimeoutHandler;
 		pstTimer->pvParam = pvParam;
         nTimeoutCount = (nTimeoutCount == 1 ? 2 : nTimeoutCount);
@@ -560,7 +562,7 @@ void one_shot_timer_free(PST_ONESHOTTIMER pstTimer)
 
 	os_thread_mutex_lock(l_hMtxFreeOneShotTimer);
     //os_enter_critical();
-	{				
+	{		        
 		pstTimer->pstNext = l_pstFreeOneShotTimerLink; 					
 		l_pstFreeOneShotTimerLink = pstTimer;
 	}

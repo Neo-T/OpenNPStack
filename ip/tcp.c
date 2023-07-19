@@ -501,7 +501,7 @@ INT tcp_send_syn(INT nInput, in_addr_t unSrvAddr, USHORT usSrvPort, int nConnTim
     else
     {
         pstLink->bState = TLSINIT; 
-        one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+        one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
 
         if(nRtnVal < 0)
             onps_set_last_error(nInput, enErr);
@@ -616,7 +616,7 @@ INT tcp_send_data(INT nInput, UCHAR *pubData, INT nDataLen, int nWaitAckTimeout)
         pstLink->stLocal.bDataSendState = TDSSENDRDY;
 
     #if !SUPPORT_SACK
-		one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+		one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
     #endif
 
         if (nRtnVal < 0)
@@ -863,7 +863,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, in_addr_t 
         if (tcpsrv_send_syn_ack(pstLink, punSrcAddr, usSrcPort, punDstAddr, usDstPort, &enErr) < 0)
         {
             pstLink->bState = TLSRCVEDSYN;
-            one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+            one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
             onps_input_free(pstLink->stcbWaitAck.nInput); 
 
     #if SUPPORT_PRINTF && DEBUG_LEVEL > 1            
@@ -1911,7 +1911,7 @@ INT tcpv6_send_syn(INT nInput, UCHAR ubaSrvAddr[16], USHORT usSrvPort, int nConn
 	if (nRtnVal <= 0)
 	{
 		pstLink->bState = TLSINIT;
-		one_shot_timer_free(pstLink->stcbWaitAck.pstTimer);
+		one_shot_timer_safe_free(pstLink->stcbWaitAck.pstTimer);
 
 		if (nRtnVal < 0)
 			onps_set_last_error(nInput, enErr);

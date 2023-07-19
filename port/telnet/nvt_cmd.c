@@ -39,7 +39,7 @@ static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 #endif //* #if NVTCMD_RESET_EN
 
 //* 如果自定义nvt命令的名称长度超过net_virtual_terminal.c文件头部l_bNvtCmdLenMax变量定义的值，请用自定义命令的名称长度取代l_bNvtCmdLenMax变量的原值，以确保“help”命令输出格式的整齐美观
-static const ST_NVTCMD l_staNvtCmd[] = {
+static const ST_NVTCMD l_staNvtCmd[] = {    
 #if NVTCMD_TELNET_EN
     { telnet, "telnet", "used to log in to remote telnet host.\r\n" },     
 #endif //* #if NVTCMD_TELNET_EN
@@ -51,6 +51,8 @@ static const ST_NVTCMD l_staNvtCmd[] = {
 #if NVTCMD_RESET_EN
     { reset, "reset", "system reset.\r\n" }, 
 #endif //* #if NVTCMD_RESET_EN
+
+    {NULL, "", ""} //* 注意这个不要删除，当所有nvt命令被用户禁止时其被用于避免编译器报错
 };
 
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)]; 
@@ -61,7 +63,8 @@ void nvt_cmd_register(void)
     UCHAR i;
     for (i = 0; i < sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD); i++)
     {
-        nvt_cmd_add(&l_staNvtCmdNode[i], &l_staNvtCmd[i]);
+        if(l_staNvtCmd[i].pfun_cmd_entry)
+            nvt_cmd_add(&l_staNvtCmdNode[i], &l_staNvtCmd[i]); 
     }
 }
 
@@ -103,7 +106,7 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
     stArgs.bIsCpyEnd = FALSE;
     stArgs.ullNvtHandle = ullNvtHandle;
-    stArgs.stSrvAddr.saddr_ipv4 = inet_addr(argv[1]);
+    stArgs.stSrvAddr.saddr_ipv4 = inet_addr_small(argv[1]);
     if (argc == 3)
         stArgs.stSrvAddr.usPort = atoi(argv[2]);
     else

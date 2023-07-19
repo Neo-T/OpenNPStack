@@ -550,7 +550,7 @@ INT ipv6_mac_get_ext(PST_NETIF pstNetif, UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[
 		//* 发送一条邻居节点地址请求报文问问谁拥有这个ipv6地址
 		if (icmpv6_send_ns(pstNetif, ubaSrcIpv6, ubaDstIpv6, penErr) < 0)
 		{
-			one_shot_timer_free(pstcbIpv6MacWait->pstTimer);
+			one_shot_timer_safe_free(pstcbIpv6MacWait->pstTimer);
 			return -1;
 		}
 

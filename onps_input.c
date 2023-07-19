@@ -1488,7 +1488,12 @@ INT onps_input_get_handle(EN_IPPROTO enIpProto, UINT unNetifIp, USHORT usPort, v
         while (pstNextNode)
         {
             pstcbInput = &l_stcbaInput[pstNextNode->uniData.nVal];
-            if (family == pstcbInput->uniHandle.stTcpUdp.bFamily && enIpProto == pstcbInput->ubIPProto)
+    
+            if (enIpProto == pstcbInput->ubIPProto 
+        #if SUPPORT_IPV6
+                && family == pstcbInput->uniHandle.stTcpUdp.bFamily
+        #endif
+                )
             {                
 			#if SUPPORT_IPV6
 				BOOL blIsMatched; 
