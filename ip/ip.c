@@ -78,7 +78,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
     stHdr.ubProto = (UCHAR)lr_enaIPProto[enProtocol];
     stHdr.usChecksum = 0;
     stHdr.unSrcIP = unSrcAddr/*pstNetif->stIPv4.unAddr*/;
-    stHdr.unDstIP = htonl(unDstAddr);
+    stHdr.unDstIP = unDstAddr;
 
     //* 挂载到buf list头部
     SHORT sHdrNode;
@@ -141,7 +141,7 @@ static INT netif_ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unS
 
 INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-	in_addr_t unSrcAddrUsed = unSrcAddr, unArpDstAddr = htonl(unDstAddr);
+	in_addr_t unSrcAddrUsed = unSrcAddr, unArpDstAddr = unDstAddr;
 
 	//* 如果未指定netif则通过路由表选择一个适合的netif
 	PST_NETIF pstNetifUsed = pstNetif; 
@@ -149,7 +149,7 @@ INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_ad
 		netif_used(pstNetifUsed);
 	else
     {
-        pstNetifUsed = route_get_netif(unArpDstAddr/*unDstAddr*/, TRUE, &unSrcAddrUsed, &unArpDstAddr);
+        pstNetifUsed = route_get_netif(unDstAddr, TRUE, &unSrcAddrUsed, &unArpDstAddr);
         if (NULL == pstNetifUsed)
         {
             if (penErr)
@@ -164,9 +164,9 @@ INT ip_send(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, in_addr_t unSrcAddr, in_ad
 
 INT ip_send_ext(in_addr_t unSrcAddr, in_addr_t unDstAddr, EN_NPSPROTOCOL enProtocol, UCHAR ubTTL, SHORT sBufListHead, EN_ONPSERR *penErr)
 {
-    in_addr_t unRouteSrcAddr, unArpDstAddr = htonl(unDstAddr);
+    in_addr_t unRouteSrcAddr, unArpDstAddr = unDstAddr;
 
-    PST_NETIF pstNetif = route_get_netif(unArpDstAddr/*unDstAddr*/, TRUE, &unRouteSrcAddr, &unArpDstAddr);
+    PST_NETIF pstNetif = route_get_netif(unDstAddr, TRUE, &unRouteSrcAddr, &unArpDstAddr);
     if (NULL == pstNetif)
     {
         if (penErr)

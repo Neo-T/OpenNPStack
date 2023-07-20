@@ -113,8 +113,8 @@ USHORT tcpip_checksum_ipv4(in_addr_t unSrcAddr, in_addr_t unDstAddr, USHORT usPa
 {
 	//* 填充用于校验和计算的ip伪报头
 	ST_IP_PSEUDOHDR stPseudoHdr;
-	stPseudoHdr.unSrcAddr = htonl(unSrcAddr);
-	stPseudoHdr.unDstAddr = htonl(unDstAddr);
+	stPseudoHdr.unSrcAddr = unSrcAddr;
+	stPseudoHdr.unDstAddr = unDstAddr;
 	stPseudoHdr.ubMustBeZero = 0;
 	stPseudoHdr.ubProto = ubProto;
 	stPseudoHdr.usPacketLen = htons(usPayloadLen); 	
@@ -841,7 +841,7 @@ USHORT ascii_to_hex_16(const CHAR *pszAscii)
 	return usValue;
 }
 
-in_addr_t inet_addr(const char *pszIP)
+in_addr_t inet_addr_small(const char *pszIP)
 {    
     in_addr_t unAddr;
     CHAR *pszStart = (CHAR *)pszIP, *pszDot;
@@ -860,7 +860,7 @@ in_addr_t inet_addr(const char *pszIP)
     return unAddr;
 }
 
-in_addr_t inet_addr_small(const char *pszIP)
+in_addr_t inet_addr(const char *pszIP)
 {
     in_addr_t unAddr;
     CHAR *pszStart = (CHAR *)pszIP, *pszDot;

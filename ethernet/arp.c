@@ -49,7 +49,7 @@ static void arp_wait_timeout_handler(void *pvParam)
 		pstcbArpWait->ubCount++;
 		if (pstcbArpWait->ubCount > 5)
 		{
-			icmp_send_dst_unreachable(pstNetif, htonl(pstIpHdr->unSrcIP), pubIpPacket, pstcbArpWait->usIpPacketLen);
+			icmp_send_dst_unreachable(pstNetif, pstIpHdr->unSrcIP, pubIpPacket, pstcbArpWait->usIpPacketLen);
 			goto __lblEnd;
 		}
 	}
@@ -410,7 +410,7 @@ static INT ipv4_to_mac(PST_NETIF pstNetif, UINT unDstArpIPAddr, UCHAR ubaMacAddr
 	PSTCB_ETHARP pstcbArp = ((PST_NETIFEXTRA_ETH)pstNetif->pvExtra)->pstcbArp; 
 
 	//* 如果ip地址为广播地址则填充目标mac地址也为广播地址
-	if (unDstArpIPAddr == 0xFFFFFFFF || (unDstArpIPAddr & 0x000000FF) == 0x000000FF)
+	if (unDstArpIPAddr == 0xFFFFFFFF || (unDstArpIPAddr & 0xFF000000) == 0xFF000000)
 	{
 		memset(ubaMacAddr, 0xFF, ETH_MAC_ADDR_LEN);
 		return 0;

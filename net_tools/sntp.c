@@ -120,7 +120,7 @@ time_t sntp_update_by_dns(const CHAR *pszDomainName, time_t(*pfunTime)(void), vo
 
     //* 获得服务器地址则同步时间
     if (unNtpSrvIp)    
-        tRtnVal = sntp_update(htonl(unNtpSrvIp), pfunTime, pfunSetSysTime, bTimeZone, penErr);
+        tRtnVal = sntp_update(unNtpSrvIp, pfunTime, pfunSetSysTime, bTimeZone, penErr);
     
     return tRtnVal;
 }

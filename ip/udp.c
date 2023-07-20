@@ -75,11 +75,11 @@ static INT udp_send_packet(in_addr_t unSrcAddr, USHORT usSrcPort, in_addr_t unDs
 	EN_ONPSERR enErr = ERRNO; 
 #if SUPPORT_IPV6
 	if (AF_INET == bFamily)
-		stHdr.usChecksum = tcpip_checksum_ipv4(htonl(*(in_addr_t *)pvSrcAddr), *(in_addr_t *)pvDstAddr, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
+		stHdr.usChecksum = tcpip_checksum_ipv4(*(in_addr_t *)pvSrcAddr, *(in_addr_t *)pvDstAddr, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
 	else
 		stHdr.usChecksum = tcpip_checksum_ipv6((UCHAR *)pvSrcAddr, (UCHAR *)pvDstAddr, (UINT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
 #else
-	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(unSrcAddr), unDstAddr, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
+	stHdr.usChecksum = tcpip_checksum_ipv4(unSrcAddr, unDstAddr, (USHORT)(sizeof(ST_UDP_HDR) + nDataLen), IPPROTO_UDP, sBufListHead, &enErr);
 #endif	
     if (ERRNO != enErr)
     {
@@ -243,7 +243,7 @@ INT udp_send_ext(INT nInput, SHORT sBufListHead, in_addr_t unDstIp, USHORT usDst
 
 	//* 计算校验和
 	EN_ONPSERR enErr = ERRNO;
-	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(unSrcIp), unDstIp, (USHORT)(sizeof(ST_UDP_HDR) + usDataLen), IPPROTO_UDP, sBufListHead, &enErr); 
+	stHdr.usChecksum = tcpip_checksum_ipv4(unSrcIp, unDstIp, (USHORT)(sizeof(ST_UDP_HDR) + usDataLen), IPPROTO_UDP, sBufListHead, &enErr); 
     if (ERRNO != enErr)
     {        
         buf_list_free(sHdrNode);
@@ -323,7 +323,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         //* 计算校验和
         USHORT usPktChecksum = pstHdr->usChecksum;
         pstHdr->usChecksum = 0;		
-		USHORT usChecksum = tcpip_checksum_ipv4_ext(htonl(unSrcAddr), htonl(unDstAddr), IPPROTO_UDP, pubPacket, (USHORT)nPacketLen, &enErr);
+		USHORT usChecksum = tcpip_checksum_ipv4_ext(unSrcAddr, unDstAddr, IPPROTO_UDP, pubPacket, (USHORT)nPacketLen, &enErr);
 		if (ERRNO != enErr)
 		{
 	#if SUPPORT_PRINTF && DEBUG_LEVEL
@@ -384,7 +384,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }
 
     //* 如果当前链路存在附加信息，意味着这是一个已经与udp服务器绑定的链路，需要判断源地址是否也匹配，不匹配的直接丢弃
-    in_addr_t unFromIP = htonl(unSrcAddr); 
+    in_addr_t unFromIP = unSrcAddr; 
     if (pstLink)
     {
         if (pstLink->stPeerAddr.saddr_ipv4 != unFromIP || pstLink->stPeerAddr.usPort != usSrcPort)
@@ -395,7 +395,7 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_lock(o_hMtxPrintf);
         #endif        
-            printf("udp packet from address %d.%d.%d.%d:%d are not allowed (connected to udp server %d.%d.%d.%d:%d), the packet will be dropped\r\n", pubFromAddr[0], pubFromAddr[1], pubFromAddr[2], pubFromAddr[3], usSrcPort, pubSrvAddr[3], pubSrvAddr[2], pubSrvAddr[1], pubSrvAddr[0], pstLink->stPeerAddr.usPort);
+            printf("udp packet from address %d.%d.%d.%d:%d are not allowed (connected to udp server %d.%d.%d.%d:%d), the packet will be dropped\r\n", pubFromAddr[0], pubFromAddr[1], pubFromAddr[2], pubFromAddr[3], usSrcPort, pubSrvAddr[0], pubSrvAddr[1], pubSrvAddr[2], pubSrvAddr[3], pstLink->stPeerAddr.usPort);
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
         #endif

@@ -97,7 +97,7 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         return -1;
     }
 
-    if (is_local_ip(inet_addr_small(argv[1])))
+    if (is_local_ip(inet_addr(argv[1])))
     {
         nvt_output(ullNvtHandle, NVTHELP_TELNET_LOGIN_LOCAL, sizeof(NVTHELP_TELNET_LOGIN_LOCAL) - 1);
         nvt_cmd_exec_end(ullNvtHandle);
@@ -106,7 +106,7 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
 
     stArgs.bIsCpyEnd = FALSE;
     stArgs.ullNvtHandle = ullNvtHandle;
-    stArgs.stSrvAddr.saddr_ipv4 = inet_addr_small(argv[1]);
+    stArgs.stSrvAddr.saddr_ipv4 = inet_addr(argv[1]);
     if (argc == 3)
         stArgs.stSrvAddr.usPort = atoi(argv[2]);
     else

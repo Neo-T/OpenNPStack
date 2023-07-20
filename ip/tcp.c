@@ -226,7 +226,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
 
 	//* 计算校验和
 	EN_ONPSERR enErr = ERRNO; 
-	stHdr.usChecksum = tcpip_checksum_ipv4(htonl(unSrcAddr), unDstAddr, sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes, IPPROTO_TCP, sBufListHead, &enErr);
+	stHdr.usChecksum = tcpip_checksum_ipv4(unSrcAddr, unDstAddr, sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes, IPPROTO_TCP, sBufListHead, &enErr);
 	if (ERRNO != enErr)
 	{
 		if (sDataNode >= 0)
@@ -1113,11 +1113,11 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
 #if SUPPORT_IPV6
 	USHORT usChecksum; 
 	if (IPV4 == enProtocol)	
-		usChecksum = tcpip_checksum_ipv4_ext(htonl(*punSrcAddr), htonl(*punDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr); 
+		usChecksum = tcpip_checksum_ipv4_ext(*punSrcAddr, *punDstAddr, IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr); 
 	else
 		usChecksum = tcpip_checksum_ipv6_ext((UCHAR *)punSrcAddr, (UCHAR *)punDstAddr, IPPROTO_TCP, pubPacket, (UINT)nPacketLen, &enErr);
 #else
-    USHORT usChecksum = tcpip_checksum_ipv4_ext(htonl(*punSrcAddr), htonl(*punDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);     
+    USHORT usChecksum = tcpip_checksum_ipv4_ext(*punSrcAddr, *punDstAddr, IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);     
 #endif
 	if (ERRNO != enErr)
 	{
@@ -1158,11 +1158,11 @@ void tcp_recv(in_addr_t *punSrcAddr, in_addr_t *punDstAddr, UCHAR *pubPacket, IN
 		UCHAR *pubVal; 
 	} uniCltIp;
 	if (IPV4 == enProtocol)
-		uniCltIp.unVal = htonl(*punSrcAddr);
+		uniCltIp.unVal = *punSrcAddr;
 	else
 		uniCltIp.pubVal = (UCHAR *)punSrcAddr; 
 #else
-    UINT unCltIp = htonl(*punSrcAddr);
+    UINT unCltIp = *punSrcAddr;
 #endif
     USHORT usCltPort = htons(pstHdr->usSrcPort);
     PST_TCPLINK pstLink;     

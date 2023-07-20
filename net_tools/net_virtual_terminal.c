@@ -1343,8 +1343,8 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         #if ETH_EXTRA_IP_EN
             if (argc == 5)
             {
-                in_addr_t unIp = inet_addr_small(argv[3]); 
-                in_addr_t unSubnetMask = inet_addr_small(argv[4]); 
+                in_addr_t unIp = inet_addr(argv[3]); 
+                in_addr_t unSubnetMask = inet_addr(argv[4]); 
                 if (netif_eth_add_ip_by_if_name(argv[2], unIp, unSubnetMask, &enErr)) 
                 {
                     if (os_nvt_add_ip(argv[2], unIp, unSubnetMask))
@@ -1375,7 +1375,7 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         #if ETH_EXTRA_IP_EN
             if (argc == 4)
             {
-                in_addr_t unIp = inet_addr_small(argv[3]); 
+                in_addr_t unIp = inet_addr(argv[3]); 
                 if (os_nvt_del_ip(argv[2], unIp))
                 {
                     nvt_printf(pstTelnetClt->hClient, 256, "Successfully deleted IP address %s. the system will be restarted immediately...\r\n", argv[3]); 
@@ -1407,9 +1407,9 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                 {
                     if (argc == 7)
                     {
-                        in_addr_t unIp = inet_addr_small(argv[4]); 
-                        in_addr_t unSubnetMask = inet_addr_small(argv[5]); 
-                        in_addr_t unGateway = inet_addr_small(argv[6]);                         
+                        in_addr_t unIp = inet_addr(argv[4]); 
+                        in_addr_t unSubnetMask = inet_addr(argv[5]); 
+                        in_addr_t unGateway = inet_addr(argv[6]);                         
                         if (os_nvt_set_ip(argv[3], unIp, unSubnetMask, unGateway))
                         {
                             nvt_printf(pstTelnetClt->hClient, 256, "Successfully updated IP address, the system will be restarted immediately...\r\n");
@@ -1460,8 +1460,8 @@ static INT ifip(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                 {
                     if (argc == 5 || argc == 6)
                     {
-                        in_addr_t unPrimaryDns = inet_addr_small(argv[4]);
-                        in_addr_t unSecondaryDns = (argc == 6) ? inet_addr_small(argv[5]) : 0; 
+                        in_addr_t unPrimaryDns = inet_addr(argv[4]);
+                        in_addr_t unSecondaryDns = (argc == 6) ? inet_addr(argv[5]) : 0; 
                         if (netif_eth_set_dns_by_if_name(argv[3], unPrimaryDns, unSecondaryDns, &enErr)) 
                         {
                             if (os_nvt_set_dns(argv[3], unPrimaryDns, unSecondaryDns)) 
@@ -1584,9 +1584,9 @@ static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         PST_NETIF pstNetif = netif_get_by_name(argv[2]); 
         if (pstNetif)
         {
-            in_addr_t unDestination = inet_addr_small(argv[3]);
-            in_addr_t unGenmask = inet_addr_small(argv[4]);            
-            in_addr_t unGateway = inet_addr_small(argv[5]); 
+            in_addr_t unDestination = inet_addr(argv[3]);
+            in_addr_t unGenmask = inet_addr(argv[4]);            
+            in_addr_t unGateway = inet_addr(argv[5]); 
             if (route_add(pstNetif, unDestination, unGateway, unGenmask, &enErr))
             {
                 if (os_nvt_add_route_entry(argv[2], unDestination, unGenmask, unGateway))
@@ -1605,7 +1605,7 @@ static INT route(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     }
     else if (argc == 3 && !strcmp("del", argv[1]))
     {
-        in_addr_t unDestination = inet_addr_small(argv[2]); 
+        in_addr_t unDestination = inet_addr(argv[2]); 
         if (unDestination)
         {
             if (route_del(unDestination, &enErr))
