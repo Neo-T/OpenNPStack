@@ -95,7 +95,7 @@ void close(SOCKET socket)
 
 static int socket_tcp_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, HSEM hSem, void *srv_ip, unsigned short srv_port, int nConnTimeout)
 {     
-	EN_ONPSERR enErr; 	
+	EN_ONPSERR enErr = ERRNO; 
 
 #if SUPPORT_IPV6
 	INT nRtnVal;
@@ -105,21 +105,21 @@ static int socket_tcp_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandle, HSEM h
 		nRtnVal = tcpv6_send_syn((INT)socket, (UCHAR *)srv_ip, srv_port, nConnTimeout);	
 #else
 	INT nRtnVal = tcp_send_syn((INT)socket, *((in_addr_t *)srv_ip), srv_port, nConnTimeout);
-#endif
+#endif    
 
     if (nRtnVal > 0)
     {            
 __lblWait: 
         //* 等待信号到达：超时或者收到syn ack同时本地回馈的syn ack的ack发送成功
         if (os_thread_sem_pend(hSem, 0) < 0)
-        {
+        {         
             onps_set_last_error((INT)socket, ERRINVALIDSEM);
             return -1;
         }        
         
         EN_TCPLINKSTATE enLinkState;
         if (!onps_input_get((INT)socket, IOPT_GETTCPLINKSTATE, &enLinkState, &enErr))
-        {
+        {         
             onps_set_last_error((INT)socket, enErr);
             return -1;
         }        
@@ -140,7 +140,7 @@ __lblWait:
             onps_set_last_error((INT)socket, ERRTCPCONNRESET);
             return -1;
 
-        case TLSSYNACKACKSENTFAILED:
+        case TLSSYNACKACKSENTFAILED:            
             return -1;
 
         default:            

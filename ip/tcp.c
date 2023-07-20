@@ -166,8 +166,8 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     if (pubData)
     {        
         sDataNode = buf_list_get_ext(pubData, (UINT)usDataBytes, penErr); 
-        if (sDataNode < 0)
-            return -1;
+        if (sDataNode < 0)                    
+            return -1;        
         buf_list_put_head(&sBufListHead, sDataNode);
     }
 
@@ -177,7 +177,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     {
         sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
         if (sOptionsNode < 0)
-        {
+        {            
             if (sDataNode >= 0)
                 buf_list_free(sDataNode);
             return -1;
@@ -212,7 +212,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
     SHORT sHdrNode;
     sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
     if (sHdrNode < 0)
-    {
+    {        
         if (sDataNode >= 0)
             buf_list_free(sDataNode);
         if (sOptionsNode >= 0)
@@ -228,7 +228,7 @@ static INT tcp_send_packet(PST_TCPLINK pstLink, in_addr_t unSrcAddr, USHORT usSr
 	EN_ONPSERR enErr = ERRNO; 
 	stHdr.usChecksum = tcpip_checksum_ipv4(unSrcAddr, unDstAddr, sizeof(ST_TCP_HDR) + usOptionsBytes + usDataBytes, IPPROTO_TCP, sBufListHead, &enErr);
 	if (ERRNO != enErr)
-	{
+	{        
 		if (sDataNode >= 0)
 			buf_list_free(sDataNode);
 		if (sOptionsNode >= 0)
@@ -271,7 +271,7 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 	SHORT sBufListHead = -1;
 	SHORT sDataNode = -1;
 	if (pubData)
-	{
+	{       
 		sDataNode = buf_list_get_ext(pubData, (UINT)usDataBytes, penErr);
 		if (sDataNode < 0)
 			return -1;
@@ -284,7 +284,7 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 	{
 		sOptionsNode = buf_list_get_ext(pubOptions, (UINT)usOptionsBytes, penErr);
 		if (sOptionsNode < 0)
-		{
+		{            
 			if (sDataNode >= 0)
 				buf_list_free(sDataNode);
 			return -1;
@@ -297,7 +297,7 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 	SHORT sHdrNode;
 	sHdrNode = buf_list_get_ext((UCHAR *)&stHdr, (UINT)sizeof(ST_TCP_HDR), penErr);
 	if (sHdrNode < 0)
-	{
+	{        
 		if (sDataNode >= 0)
 			buf_list_free(sDataNode);
 		if (sOptionsNode >= 0)
@@ -343,7 +343,7 @@ static INT tcpv6_send_packet(PST_TCPLINK pstLink, UCHAR ubaSrcAddr[16], USHORT u
 		#endif
 		}
 		else
-		{
+		{            
 			if (penErr)
 				*penErr = enErr;
 
@@ -382,24 +382,24 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, void *pvNet
 	if (AF_INET == pstLink->stLocal.pstHandle->bFamily)
 	{
 	#if SUPPORT_SACK
-		INT nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)pvNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr);
-	#else
-		INT nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)punNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
+		nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)pvNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr);
+	#else        
+		nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)pvNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);        
 	#endif
 	}
 	else
 	{
 	#if SUPPORT_SACK
-		INT nRtnVal = tcpv6_send_packet(pstLink, (UCHAR *)pvNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr);
+		nRtnVal = tcpv6_send_packet(pstLink, (UCHAR *)pvNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr);
 	#else
-		INT nRtnVal = tcpv6_send_packet(pstLink, (UCHAR *)pvNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
+		nRtnVal = tcpv6_send_packet(pstLink, (UCHAR *)pvNetifIp, usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv6, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
 	#endif
 	}
 #else
 #if SUPPORT_SACK
-    INT nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)punNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr); 
+    INT nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)pvNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, TRUE, pstLink->stLocal.unSeqNum, &enErr); 
 #else
-	INT nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)punNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
+	INT nRtnVal = tcp_send_packet(pstLink, *((in_addr_t *)pvNetifIp), usSrcPort, pstLink->stPeer.stSockAddr.saddr_ipv4, pstLink->stPeer.stSockAddr.usPort, uniFlag, NULL, 0, NULL, 0, &enErr);
 #endif
 #endif
     if (nRtnVal > 0)
@@ -408,7 +408,7 @@ static void tcp_send_ack_of_syn_ack(INT nInput, PST_TCPLINK pstLink, void *pvNet
         pstLink->bState = (CHAR)TLSCONNECTED; 
     }
     else 
-    {
+    {        
         pstLink->bState = (CHAR)TLSSYNACKACKSENTFAILED;
 
         if (nRtnVal < 0)

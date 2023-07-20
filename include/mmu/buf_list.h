@@ -15,8 +15,6 @@
 	#define BUF_LIST_EXT extern
 #endif //* SYMBOL_GLOBALS
 
-#define BUF_LIST_NUM	80		//* 缓冲区链表的节点数，最大不能超过2的15次方（32768）
-
 BUF_LIST_EXT BOOL buf_list_init(EN_ONPSERR *penErr);
 BUF_LIST_EXT void buf_list_uninit(void); 
 BUF_LIST_EXT SHORT buf_list_get(EN_ONPSERR *penErr);

@@ -106,7 +106,8 @@ void ClearClient(PST_TCPCLIENT pstClient, fd_set *pfdsRead, fd_set *pfdsExceptio
 {                
     SOCKET hClient = pstClient->hClient;
     FD_CLR(pstClient->hClient, pfdsRead);
-    FD_CLR(pstClient->hClient, pfdsException);            
+    if(pfdsException)
+        FD_CLR(pstClient->hClient, pfdsException); 
 
     (*pIter)->second.blTHIsRunning = FALSE;
 #if !FOR_TCP_SACK_TEST
@@ -336,13 +337,15 @@ __lblRead:
                                 pstAck->bTail = (CHAR)PKT_FLAG; 
                                 pstAck->stHdr.usChechsum = crc16(&ubaSndBuf[sizeof(ST_COMMUPKT_HDR::bFlag)], sizeof(ST_COMMUPKT_ACK) - 2 * sizeof(ST_COMMUPKT_HDR::bFlag), 0xFFFF);
                                 pstClient->bClientIdx = pstHdr->bLinkIdx; 
-                                if(0 == pstHdr->unSeqNum % 10000)
+                                if(0 == pstHdr->unSeqNum % 1000)
                                     printf("%d#%s#>Uploaded packet, cmd = 0x%02X, ClientID = %d, SeqNum = %u, %d bytes\r\n", pstClient->bLinkIdx, szPktTime, pstHdr->bCmd, pstHdr->bLinkIdx, pstHdr->unSeqNum, pstHdr->usDataLen);                            
                                 if (pstHdr->unSeqNum == pstClient->unExpectNextSeqNum)
                                     pstClient->unExpectNextSeqNum++;
                                 else
                                 {
-                                    printf("%d#%s#>-->Uploaded packet, but it is not the expected sequence number: %u %u<--\r\n", pstClient->bLinkIdx, szPktTime, pstClient->unExpectNextSeqNum, pstHdr->unSeqNum);                                
+                                    printf("%d#%s#>-->Uploaded packet, but it is not the expected sequence number: %u %u<--\r\n", pstClient->bLinkIdx, szPktTime, pstClient->unExpectNextSeqNum, pstHdr->unSeqNum);                                    
+                                    pstClient->tPrevActiveTime = 0; 
+                                    return; 
                                 }                            
                                 send(pstClient->hClient, (const char *)ubaSndBuf, sizeof(ST_COMMUPKT_ACK), 0);
                             }
@@ -390,6 +393,8 @@ __lblRead:
 
         goto __lblRead; 
     }
+
+    return; 
 }
 
 static BOOL HandleAccept(fd_set *pfdsRead, fd_set *pfdsException)
@@ -480,13 +485,15 @@ int main()
                 //* 首先处理监听端口的相关连接请求和异常事件			
                 if (FD_ISSET(l_hSocketSrv, &fdsTstRead))
                 {                    
-                    if (!HandleAccept(&fdsRead, &fdsException))                    
-                        l_blIsRunning = FALSE;
+                    if (!HandleAccept(&fdsRead, &fdsException))
+                    {
+                        l_blIsRunning = FALSE;                        
+                    }
                 }
                 //* 捕捉到异常
                 else if (FD_ISSET(l_hSocketSrv, &fdsTstException))
                 {                    
-                    printf("The process catch a select exception at listen port, the process will be exit!\r\n"); 
+                    printf("The process catch a select exception at listen port, the process will be exit!\r\n");                     
                     l_blIsRunning = FALSE;
                 }
                 else
@@ -514,7 +521,7 @@ int main()
             {                
                 if (nRtnVal < 0)
                 {
-                    printf("The process catch a select error (%d), the process will be exit!\r\n", WSAGetLastError());
+                    printf("The process catch a select error (%d), the process will be exit!\r\n", WSAGetLastError());                    
                     l_blIsRunning = FALSE;
                 }
             }
