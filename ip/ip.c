@@ -511,7 +511,7 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 		break;
 
 	case IPPROTO_TCP:
-		tcp_recv((in_addr_t *)pstHdr->ubaSrcIpv6, (in_addr_t *)pstHdr->ubaDstIpv6, pubUpperProtoPkt, (INT)usPayloadLen, IPV6); 
+		tcp_recv(pstHdr->ubaSrcIpv6, pstHdr->ubaDstIpv6, pubUpperProtoPkt, (INT)usPayloadLen, IPV6); 
 		break;
 
 	case IPPROTO_UDP:

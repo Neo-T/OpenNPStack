@@ -428,13 +428,13 @@ void udp_recv(in_addr_t unSrcAddr, in_addr_t unDstAddr, UCHAR *pubPacket, INT nP
     }    
 }
 
-INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, CHAR bRcvTimeout)
+INT udp_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, void *pvFromIP, USHORT *pusFromPort, CHAR bRcvTimeout)
 {
     EN_ONPSERR enErr;
     INT nRcvedBytes;
 
     //* 读取数据
-    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, punFromIP, pusFromPort, &enErr);
+    nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, pvFromIP, pusFromPort, &enErr);
     if (nRcvedBytes > 0)
     {
         if (bRcvTimeout > 0)
@@ -467,7 +467,7 @@ __lblWaitRecv:
         }
 
         //* 读取数据
-        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, punFromIP, pusFromPort, &enErr);
+        nRcvedBytes = onps_input_recv_upper(nInput, pubDataBuf, unDataBufSize, pvFromIP, pusFromPort, &enErr);
         if (nRcvedBytes > 0)
             return nRcvedBytes;
         else

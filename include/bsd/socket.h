@@ -35,13 +35,13 @@ SOCKET_EXT INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT n
 
 //* 功能同上，入口参数与之稍微有些区别，connect()函数的srv_ip参数指向可读的ip地址字符串，connect_ext()函数的srv_ip参数指向的则是
 //* inet_addr()/inet6_aton()函数转换后的16进制的实际地址
-SOCKET_EXT INT connect_ext(SOCKET socket, in_addr_t *srv_ip, USHORT srv_port, INT nConnTimeout); 
+SOCKET_EXT INT connect_ext(SOCKET socket, void *srv_ip, USHORT srv_port, INT nConnTimeout); 
 
 //* 非阻塞连接函数，连接成功返回0，连接中会一直返回1，返回-1则意味着连接失败，具体的错误信息通过onps_get_last_error()函数获得
 SOCKET_EXT INT connect_nb(SOCKET socket, const CHAR *srv_ip, USHORT srv_port); 
 
 //* 功能同上，入口参数与connect_nb()函数的区别同同connect_ext()函数
-SOCKET_EXT INT connect_nb_ext(SOCKET socket, in_addr_t *srv_ip, USHORT srv_port);
+SOCKET_EXT INT connect_nb_ext(SOCKET socket, void *srv_ip, USHORT srv_port);
 
 
 //* 发送函数(tcp链路下阻塞型)，直至收到tcp层的ack报文或者超时才会返回，返回值大于0为实际发送的字节数，小于0则发送失败，具体错误信息通过onps_get_last_error()函数获得
@@ -73,7 +73,7 @@ SOCKET_EXT BOOL socket_set_tcp_link_flags_safe(SOCKET socket, USHORT usNewFlags,
 SOCKET_EXT INT recv(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize); 
 
 //* 接收函数，仅用于udp协议接收
-SOCKET_EXT INT recvfrom(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort);
+SOCKET_EXT INT recvfrom(SOCKET socket, UCHAR *pubDataBuf, INT nDataBufSize, void *pvFromIP, USHORT *pusFromPort);
 
 //* 获取当前tcp连接状态，0：未连接；1：已连接；-1：读取状态失败，具体错误信息由参数penErr返回
 SOCKET_EXT INT is_tcp_connected(SOCKET socket, EN_ONPSERR *penErr); 
@@ -89,7 +89,7 @@ SOCKET_EXT INT listen(SOCKET socket, USHORT backlog);
 //*     0: 不等待，立即返回
 //* 大于0: 等待指定时间直至超时或收到一个到达的连接请求
 //* 小于0: 一直等待，直至收到一个到达的连接请求
-SOCKET_EXT SOCKET accept(SOCKET socket, in_addr_t *punCltIP, USHORT *pusCltPort, INT nWaitSecs, EN_ONPSERR *penErr);
+SOCKET_EXT SOCKET accept(SOCKET socket, void *pvCltIP, USHORT *pusCltPort, INT nWaitSecs, EN_ONPSERR *penErr);
 
 //* 轮询等待tcp服务器数据到达，入口参数hSocketSrv为tcp服务器的socket，不是客户端的socket，nWaitSecs指定等待的秒数：
 //*     0: 不等待，立即返回
@@ -108,7 +108,7 @@ SOCKET_EXT SOCKET tcpsrv_start(INT family, USHORT usSrvPort, USHORT usBacklog, C
 #endif
 
 //* 连接tcp服务器
-SOCKET_EXT SOCKET tcp_srv_connect(INT family, in_addr_t *srv_ip, USHORT srv_port, INT nRcvTimeout, INT nConnTimeout, EN_ONPSERR *penErr);
+SOCKET_EXT SOCKET tcp_srv_connect(INT family, void *srv_ip, USHORT srv_port, INT nRcvTimeout, INT nConnTimeout, EN_ONPSERR *penErr);
 
 //* tcp数据发送函数，相对于传统send()函数该函数增加了容错处理逻辑
 SOCKET_EXT BOOL tcp_send(SOCKET hSocket, UCHAR *pubData, INT nDataLen); 

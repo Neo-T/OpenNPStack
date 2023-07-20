@@ -152,9 +152,7 @@ static void telnet_client_clean_zombie(CHAR *pbClientCnt)
         {
             telnet_client_close(pstcbNextClt);
             *pbClientCnt -= 1; 
-        }
-        else
-            break;
+        }        
     } while (pstcbNextNode);
 }
 
@@ -225,8 +223,8 @@ void telnet_srv_entry(void *pvParam)
         while (l_bTelnetSrvState)
         {            
     #if SUPPORT_IPV6 && TELNETSRV_SUPPORT_IPv6
-            if(INVALID_SOCKET != hSrvSocket)
-                hClient = accept(hSrvSocket, NULL, NULL, 1, &enErr); 
+            if (INVALID_SOCKET != hSrvSocket)                           
+                hClient = accept(hSrvSocket, NULL, NULL, 1, &enErr);            
             if (INVALID_SOCKET == hClient && INVALID_SOCKET != hSrvSocket6)
                 hClient = accept(hSrvSocket6, NULL, NULL, 1, &enErr); 
     #else

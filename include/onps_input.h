@@ -119,7 +119,7 @@ ONPSINPUT_EXT INT onps_input_new(EN_IPPROTO enProtocol, EN_ONPSERR *penErr);
 ONPSINPUT_EXT INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr);
 #endif
 #if SUPPORT_ETHERNET
-ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t *punSrvIp, USHORT usCltPort, in_addr_t *punCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, void *pvSrvIp, USHORT usCltPort, void *pvCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr);
 #endif
 
 //* 释放一个输入控制块
@@ -162,10 +162,10 @@ ONPSINPUT_EXT BOOL onps_input_recv(INT nInput, const UCHAR *pubData, INT nDataBy
 ONPSINPUT_EXT INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONPSERR *penErr);
 
 //* 将收到的数据推送给用户层
-ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, void *pvFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr);
 
 //* 等待接收icmp层对端发送的数据
-ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, INT nWaitSecs, EN_ONPSERR *penErr);
+ONPSINPUT_EXT INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, void *pvSrcAddr, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, INT nWaitSecs, EN_ONPSERR *penErr);
 
 //* 检查要某个端口是否已被使用   
 #if SUPPORT_IPV6
@@ -183,7 +183,7 @@ ONPSINPUT_EXT USHORT onps_input_port_new(EN_IPPROTO enProtocol);
 
 //* 根据ip地址和端口号获取input句柄
 #if SUPPORT_ETHERNET
-ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, in_addr_t *punCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
+ONPSINPUT_EXT INT onps_input_get_handle_of_tcp_rclient(void *pvSrvIp, USHORT usSrvPort, void *pvCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink); 
 #endif
 #if SUPPORT_IPV6
 ONPSINPUT_EXT INT onps_input_get_handle(INT family, EN_IPPROTO enIpProto, void *pvNetifIp, USHORT usPort, void *pvAttach);

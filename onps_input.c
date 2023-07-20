@@ -229,7 +229,7 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
 }
 
 #if SUPPORT_ETHERNET
-INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t *punSrvIp, USHORT usCltPort, in_addr_t *punCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
+INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, void *pvSrvIp, USHORT usCltPort, void *pvCltIp, PST_TCPLINK *ppstTcpLink, EN_ONPSERR *penErr)
 {
     if (nInputSrv < 0 || nInputSrv > SOCKET_NUM_MAX - 1)
     {
@@ -303,14 +303,11 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
 	#if SUPPORT_IPV6         
         pstcbInput->uniHandle.stTcpUdp.bFamily = l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily;
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)        
-			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
-        else 
-        {             
-            UCHAR *pubSrvIp = (UCHAR *)punSrvIp;            
-            memcpy(pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, pubSrvIp, 16);
-        }			
+			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *((in_addr_t *)pvSrvIp);
+        else                               
+            memcpy(pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, (UCHAR *)pvSrvIp, 16);        		
 	#else
-		pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *punSrvIp;
+		pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = *((in_addr_t *)pvSrvIp);
 	#endif
         pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = usSrvPort;
         pstcbInput->pvAttach = pstLink;
@@ -321,17 +318,13 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstLink->stLocal.bIsZeroWnd = FALSE;
         pstLink->stLocal.pstHandle = &pstcbInput->uniHandle.stTcpUdp;
                 
-	#if SUPPORT_IPV6
-        UCHAR *pubCltIp; 
+	#if SUPPORT_IPV6        
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
-			pstLink->stPeer.stSockAddr.saddr_ipv4 = *punCltIp;
-        else
-        {
-            pubCltIp = (UCHAR *)punCltIp;
-            memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, pubCltIp, 16);
-        }
+			pstLink->stPeer.stSockAddr.saddr_ipv4 = *((in_addr_t *)pvCltIp);
+        else                    
+            memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, (UCHAR *)pvCltIp, 16);        
 	#else
-        pstLink->stPeer.stSockAddr.saddr_ipv4 = *punCltIp; 
+        pstLink->stPeer.stSockAddr.saddr_ipv4 = *((in_addr_t *)pvCltIp);
 	#endif
         pstLink->stPeer.stSockAddr.usPort = usCltPort;      
 
@@ -341,11 +334,11 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, in_addr_t 
         pstBacklog->nInput = pstNode->uniData.nVal; 
 	#if SUPPORT_IPV6
 		if (AF_INET == l_stcbaInput[nInputSrv].uniHandle.stTcpUdp.bFamily)
-			pstBacklog->stAddr.saddr_ipv4 = *punCltIp;
+			pstBacklog->stAddr.saddr_ipv4 = *(in_addr_t *)pvCltIp;
         else        
-            memcpy(pstBacklog->stAddr.saddr_ipv6, pubCltIp, 16);        
+            memcpy(pstBacklog->stAddr.saddr_ipv6, (UCHAR *)pvCltIp, 16);
 	#else
-        pstBacklog->stAddr.unIp = *punCltIp; 
+        pstBacklog->stAddr.unIp = *((in_addr_t *)pvCltIp);
 	#endif
         pstBacklog->stAddr.usPort = usCltPort; 
         pstLink->pstBacklog = pstBacklog;
@@ -1121,7 +1114,7 @@ INT onps_input_tcp_recv(INT nInput, const UCHAR *pubData, INT nDataBytes, EN_ONP
         return -1; 
 }
 
-INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_addr_t *punFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr)
+INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, void *pvFromIP, USHORT *pusFromPort, EN_ONPSERR *penErr)
 {
     if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
@@ -1185,13 +1178,13 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
                 unCpyBytes = unDataBufSize > (UINT)pstRcvedPacket->usLen ? (UINT)pstRcvedPacket->usLen : unDataBufSize;
                 memcpy(pubDataBuf, l_stcbaInput[nInput].pubRcvBuf + sizeof(ST_RCVED_UDP_PACKET), unCpyBytes);
 
-				if (punFromIP)
+				if (pvFromIP)
 				{
 				#if SUPPORT_IPV6
 					if (AF_INET6 == pstHandle->bFamily)
-						memcpy((UCHAR *)punFromIP, pstRcvedPacket->stSockAddr.saddr_ipv6, 16); 
+						memcpy((UCHAR *)pvFromIP, pstRcvedPacket->stSockAddr.saddr_ipv6, 16); 
 					else
-						*punFromIP = pstRcvedPacket->stSockAddr.saddr_ipv4; 
+						*((in_addr_t *)pvFromIP) = pstRcvedPacket->stSockAddr.saddr_ipv4;
 				#else
 					*punFromIP = pstRcvedPacket->stSockAddr.saddr_ipv4; 
 				#endif
@@ -1219,7 +1212,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, in_
     return nRtnVal;
 }
 
-INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, INT nWaitSecs, EN_ONPSERR *penErr)
+INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, void *pvSrcAddr, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, INT nWaitSecs, EN_ONPSERR *penErr)
 {
     if (nInput < 0 || nInput > SOCKET_NUM_MAX - 1)
     {
@@ -1252,8 +1245,8 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, 
 		PST_ICMP_HDR pstIcmpHdr = (PST_ICMP_HDR)(l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen);
 		if (ICMP_ECHOREPLY == pstIcmpHdr->ubType || ICMP_ROUTEADVERT == pstIcmpHdr->ubType)
 		{
-			if (punSrcAddr)
-				*punSrcAddr = pstHdr->unSrcIP;
+			if (pvSrcAddr)
+				*((in_addr_t *)pvSrcAddr) = pstHdr->unSrcIP;
 			if (pubTTL)
 				*pubTTL = pstHdr->ubTTL;
 		}
@@ -1275,8 +1268,8 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, in_addr_t *punSrcAddr, 
 		PST_ICMPv6_HDR pstIcmpHdr = (PST_ICMPv6_HDR)(l_stcbaInput[nInput].pubRcvBuf + usIpHdrLen);
 		if (pstIcmpHdr->ubType > ICMPv6_ERRPP)
 		{
-			if (punSrcAddr)
-				memcpy((UCHAR *)punSrcAddr, pstHdr->ubaSrcIpv6, 16);
+			if (pvSrcAddr)
+				memcpy((UCHAR *)pvSrcAddr, pstHdr->ubaSrcIpv6, 16);
 		}		
 		else
 		{
@@ -1422,7 +1415,7 @@ __lblPortNew:
 }
 
 #if SUPPORT_ETHERNET
-INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, in_addr_t *punCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink)
+INT onps_input_get_handle_of_tcp_rclient(void *pvSrvIp, USHORT usSrvPort, void *pvCltIp, USHORT usCltPort, PST_TCPLINK *ppstTcpLink)
 {
     INT nInput = -1;
     os_thread_mutex_lock(l_hMtxInput);
@@ -1439,13 +1432,13 @@ INT onps_input_get_handle_of_tcp_rclient(in_addr_t *punSrvIp, USHORT usSrvPort, 
 				BOOL blIsSrvIpMatched, blIsCltIpMatched; 
 				if (AF_INET == pstcbInput->uniHandle.stTcpUdp.bFamily)
 				{
-					blIsSrvIpMatched = (BOOL)(*punSrvIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4); 
-					blIsCltIpMatched = (BOOL)(*punCltIp == pstLink->stPeer.stSockAddr.saddr_ipv4); 
+					blIsSrvIpMatched = (BOOL)(*((in_addr_t *)pvSrvIp) == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4);
+					blIsCltIpMatched = (BOOL)(*((in_addr_t *)pvCltIp) == pstLink->stPeer.stSockAddr.saddr_ipv4);
 				}
 				else
 				{
-					blIsSrvIpMatched = (BOOL)(!memcmp((UCHAR *)punSrvIp, pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, 16));
-					blIsCltIpMatched = (BOOL)(!memcmp((UCHAR *)punCltIp, pstLink->stPeer.stSockAddr.saddr_ipv6, 16));
+					blIsSrvIpMatched = (BOOL)(!memcmp((UCHAR *)pvSrvIp, pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv6, 16));
+					blIsCltIpMatched = (BOOL)(!memcmp((UCHAR *)pvCltIp, pstLink->stPeer.stSockAddr.saddr_ipv6, 16));
 				}
 
 				if (blIsSrvIpMatched

@@ -55,11 +55,11 @@ INT ping_send(INT family, INT nPing, const void *pvDstAddr, USHORT usSeqNum, UCH
 #endif
 }
 
-INT ping_recv(INT nPing, in_addr_t *punFromAddr, USHORT *pusSeqNum, UCHAR *pubDataBuf, UCHAR ubDataBufSize, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, UCHAR ubWaitSecs, EN_ONPSERR *penErr)
+INT ping_recv(INT nPing, void *pvFromAddr, USHORT *pusSeqNum, UCHAR *pubDataBuf, UCHAR ubDataBufSize, UCHAR *pubTTL, UCHAR *pubType, UCHAR *pubCode, UCHAR ubWaitSecs, EN_ONPSERR *penErr)
 {
     UCHAR *pubPacket; 
  	
-    INT nRcvedBytes = onps_input_recv_icmp(nPing, &pubPacket, punFromAddr, pubTTL, pubType, pubCode, ubWaitSecs, penErr);
+    INT nRcvedBytes = onps_input_recv_icmp(nPing, &pubPacket, pvFromAddr, pubTTL, pubType, pubCode, ubWaitSecs, penErr);
     if (nRcvedBytes > 0)
     {
         PST_ICMP_ECHO_HDR pstEchoHdr = (PST_ICMP_ECHO_HDR)(pubPacket + sizeof(ST_ICMP_HDR));        
@@ -123,7 +123,7 @@ INT ping(INT nPing, const CHAR *pszDstAddr, USHORT usSeqNum, UCHAR ubTTL, UINT(*
 		UCHAR ubaFromAddr[16];
 		USHORT usReplySeqNum;		
 		UCHAR ubaEchoData[48];
-		nRcvedBytes = ping_recv(nPing, (in_addr_t *)ubaFromAddr, &usReplySeqNum, ubaEchoData, sizeof(ubaEchoData) - 1, NULL, &ubType, &ubCode, ubWaitSecs, &enErr);
+		nRcvedBytes = ping_recv(nPing, ubaFromAddr, &usReplySeqNum, ubaEchoData, sizeof(ubaEchoData) - 1, NULL, &ubType, &ubCode, ubWaitSecs, &enErr);
 		if (nRcvedBytes > 0)
 		{
 			ubaEchoData[nRcvedBytes] = 0;
