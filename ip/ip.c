@@ -430,20 +430,20 @@ INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader
 			*penErr = ERRADDRESSING;
 
 		return -1;
-	}
+	}    
 
 	//* 路由寻址结果与上层调用函数给出的源地址不一致，则直接报错并抛弃该报文
-	if (memcmp(ubaSrcIpv6, ubaSrcIpv6Used, 16))
-	{
-		netif_freed(pstNetif);
+	//if (memcmp(ubaSrcIpv6, ubaSrcIpv6Used, 16))
+	//{
+	//	netif_freed(pstNetif);
 
-		if (penErr)
-			*penErr = ERRROUTEADDRMATCH;
+	//	if (penErr)
+	//		*penErr = ERRROUTEADDRMATCH;
 
-		return -1;
-	}
+	//	return -1;
+	//}
 	     
-	return netif_ipv6_send(pstNetif, NULL, ubaSrcIpv6, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
+	return netif_ipv6_send(pstNetif, NULL, ubaSrcIpv6 && ubaSrcIpv6[0] ? ubaSrcIpv6 : ubaSrcIpv6Used, ubaDstIpv6, ubaDstIpv6ToMac, ubNextHeader, sBufListHead, unFlowLabel, ubHopLimit, penErr);
 }
 
 void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)

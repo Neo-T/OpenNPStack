@@ -1002,8 +1002,13 @@ static void dhcpv6_reply_handler(PST_IPv6_ROUTER pstRouter, PSTCB_DHCPv6_CLIENT 
 						EN_ONPSERR enErr;
 						pstDynAddr = ipv6_dyn_addr_node_get(&pstClient->bDynAddr, &enErr);
 						if (pstDynAddr)
-						{							
-							memcpy(pstDynAddr->ubaVal, pstIAAHdr->ubaIpv6Addr, 16);
+						{					
+                            //* 解决dhcp分配的地址可能存在的冲突问题
+                            srand(os_get_system_msecs() + pstIAAHdr->ubaIpv6Addr[15]); 
+                            UINT unNewTailAddr = rand_big(); 
+							memcpy(pstDynAddr->ubaVal, pstIAAHdr->ubaIpv6Addr, 14); 
+                            pstDynAddr->ubaVal[14] = ((UCHAR *)&unNewTailAddr)[rand() % 4];
+                            pstDynAddr->ubaVal[15] = ((UCHAR *)&unNewTailAddr)[rand() % 4]; 
 							pstDynAddr->bitRouter = pstClient->bRouter;
 							pstDynAddr->bitPrefixBitLen = Dv6CFGADDR_PREFIX_LEN;
 							pstDynAddr->unValidLifetime = unValidLifetime ? unValidLifetime + IPv6ADDR_INVALID_TIME : IPv6ADDR_INVALID_TIME + 1; 
