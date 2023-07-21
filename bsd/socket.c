@@ -265,7 +265,7 @@ static int socket_connect(SOCKET socket, PST_TCPUDP_HANDLE pstHandleInput, void 
 			else
 				memcpy(pstLink->stPeerAddr.saddr_ipv6, srv_ip, 16);
 		#else
-			pstLink->stPeerAddr.saddr_ipv4 = (UINT)(*srv_ip);			
+			pstLink->stPeerAddr.saddr_ipv4 = (UINT)(*((in_addr_t *)srv_ip));
 		#endif
 			pstLink->stPeerAddr.usPort = srv_port;
 

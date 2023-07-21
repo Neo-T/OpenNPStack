@@ -1186,7 +1186,7 @@ INT onps_input_recv_upper(INT nInput, UCHAR *pubDataBuf, UINT unDataBufSize, voi
 					else
 						*((in_addr_t *)pvFromIP) = pstRcvedPacket->stSockAddr.saddr_ipv4;
 				#else
-					*punFromIP = pstRcvedPacket->stSockAddr.saddr_ipv4; 
+                    *((in_addr_t *)pvFromIP) = pstRcvedPacket->stSockAddr.saddr_ipv4;
 				#endif
 				}
                 if (pusFromPort)
@@ -1285,8 +1285,8 @@ INT onps_input_recv_icmp(INT nInput, UCHAR **ppubPacket, void *pvSrcAddr, UCHAR 
 #else    
     PST_IP_HDR pstHdr = (PST_IP_HDR)l_stcbaInput[nInput].pubRcvBuf; 
     usIpHdrLen = pstHdr->bitHdrLen * 4;
-	if (punSrcAddr)	
-		*punSrcAddr = pstHdr->unSrcIP; 	
+	if (pvSrcAddr)	
+        *((in_addr_t *)pvSrcAddr) = pstHdr->unSrcIP;
     if(pubTTL)
         *pubTTL = pstHdr->ubTTL; 
 #endif
@@ -1446,9 +1446,9 @@ INT onps_input_get_handle_of_tcp_rclient(void *pvSrvIp, USHORT usSrvPort, void *
 					&& blIsCltIpMatched
 					&& usCltPort == pstLink->stPeer.stSockAddr.usPort)
 #else
-                if (*punSrvIp == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4
+                if (*((in_addr_t *)pvSrvIp) == pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4
                     && usSrvPort == pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort
-                    && *punCltIp == pstLink->stPeer.stSockAddr.saddr_ipv4
+                    && *((in_addr_t *)pvCltIp) == pstLink->stPeer.stSockAddr.saddr_ipv4
                     && usCltPort == pstLink->stPeer.stSockAddr.usPort)
 #endif
                 {

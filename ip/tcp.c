@@ -802,9 +802,9 @@ static INT tcpsrv_send_syn_ack(PST_TCPLINK pstLink, void *pvSrcAddr, USHORT usSr
 	}
 #else
 #if SUPPORT_SACK
-    return tcp_send_packet(pstLink, *((in_addr_t *)punSrcAddr), usSrcPort, *((in_addr_t *)pvDstAddr), usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, TRUE, 0, penErr);
+    return tcp_send_packet(pstLink, *((in_addr_t *)pvSrcAddr), usSrcPort, *((in_addr_t *)pvDstAddr), usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, TRUE, 0, penErr);
 #else
-	return tcp_send_packet(pstLink, *((in_addr_t *)punSrcAddr), usSrcPort, *((in_addr_t *)pvDstAddr), usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
+	return tcp_send_packet(pstLink, *((in_addr_t *)pvSrcAddr), usSrcPort, *((in_addr_t *)pvDstAddr), usDstPort, uniFlag, ubaOptions, (USHORT)nOptionsSize, NULL, 0, penErr);
 #endif
 #endif
 }
@@ -885,7 +885,7 @@ static void tcpsrv_send_syn_ack_with_start_timer(PST_TCPLINK pstLink, void *pvSr
 			}			
 		#else
 			CHAR szAddr[20], szAddrClt[20];
-            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*punSrcAddr, szAddr), usSrcPort, inet_ntoa_safe_ext(htonl(*punDstAddr), szAddrClt), usDstPort, onps_error(enErr));
+            printf("tcpsrv_send_syn_ack() failed (server %s:%d, client %s:%d), %s\r\n", inet_ntoa_safe_ext(*((in_addr_t *)pvSrcAddr), szAddr), usSrcPort, inet_ntoa_safe_ext(*((in_addr_t *)pvDstAddr), szAddrClt), usDstPort, onps_error(enErr));
 		#endif
         #if PRINTF_THREAD_MUTEX
             os_thread_mutex_unlock(o_hMtxPrintf);
@@ -1117,7 +1117,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 	else
 		usChecksum = tcpip_checksum_ipv6_ext((UCHAR *)pvSrcAddr, (UCHAR *)pvDstAddr, IPPROTO_TCP, pubPacket, (UINT)nPacketLen, &enErr);
 #else
-    USHORT usChecksum = tcpip_checksum_ipv4_ext(*punSrcAddr, *punDstAddr, IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);     
+    USHORT usChecksum = tcpip_checksum_ipv4_ext(*((in_addr_t *)pvSrcAddr), *((in_addr_t *)pvDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);
 #endif
 	if (ERRNO != enErr)
 	{
@@ -1162,14 +1162,14 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 	else
 		uniCltIp.pubVal = (UCHAR *)pvSrcAddr; 
 #else
-    UINT unCltIp = *punSrcAddr;
+    UINT unCltIp = *((in_addr_t *)pvSrcAddr);
 #endif
     USHORT usCltPort = htons(pstHdr->usSrcPort);
     PST_TCPLINK pstLink;     
 #if SUPPORT_IPV6
     INT nInput = onps_input_get_handle((IPV4 == enProtocol) ? AF_INET : AF_INET6, IPPROTO_TCP, pvDstAddr, usDstPort, &pstLink);
 #else
-	INT nInput = onps_input_get_handle(IPPROTO_TCP, *punDstAddr, usDstPort, &pstLink);
+	INT nInput = onps_input_get_handle(IPPROTO_TCP, *((in_addr_t *)pvDstAddr), usDstPort, &pstLink);
 #endif
     if (nInput < 0)
     {
@@ -1211,7 +1211,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 		#if SUPPORT_IPV6
 			INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &pstLink);
 		#else
-            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(punDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
+            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
 		#endif
             if (nRmtCltInput < 0) //* 尚未收到任何syn连接请求报文，这里就直接丢弃该报文
                 return; 
@@ -1306,7 +1306,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 			else
 				tcpv6_send_ack(pstLink, (UCHAR *)pvDstAddr, usDstPort, uniCltIp.pubVal, usCltPort); 
 		#else
-            tcp_send_ack(pstLink, *punDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+            tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
 		#endif
             //* 迁移到相关状态
             if (TLSCONNECTED == (EN_TCPLINKSTATE)pstLink->bState)
@@ -1470,7 +1470,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 						else
 							tcpv6_send_ack(pstLink, (UCHAR *)pvDstAddr, usDstPort, uniCltIp.pubVal, usCltPort); 
 					#else
-                        tcp_send_ack(pstLink, *punDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+                        tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
 					#endif
 
                         return; 
@@ -1491,7 +1491,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 					else
 						tcpv6_send_ack(pstLink, (UCHAR *)pvDstAddr, usDstPort, uniCltIp.pubVal, usCltPort);
 				#else
-					tcp_send_ack(pstLink, *punDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+					tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
 				#endif
 				}
                 else
