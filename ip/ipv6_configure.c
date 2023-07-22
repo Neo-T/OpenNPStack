@@ -824,13 +824,13 @@ BOOL ipv6_cfg_dad(PST_NETIF pstNetif, void *pstTentAddr, EN_ONPSERR *penErr)
 	pstDynAddr->bitConflict = FALSE;
 	pstDynAddr->bitOptCnt = 0;
 
-	//* 开启DAD检测定时器，步长：1秒	
-	if (!one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pstTentAddr, 1))
-	{
-		if (penErr)
-			*penErr = ERRNOIDLETIMER;
-		return FALSE;
-	}
+    //* 开启DAD检测定时器，步长：1秒	
+    if (!one_shot_timer_new(ipv6_cfg_dad_timeout_handler, pstTentAddr, 1))
+    {
+        if (penErr)
+            *penErr = ERRNOIDLETIMER;
+        return FALSE;
+    }
 
 	//* 发送邻居节点请求报文开启重复地址检测DAD（Duplicate Address Detect）以确定这个试探地址没有被其它节点使用
 	if (icmpv6_send_ns(pstNetif, NULL, pstDynAddr->ubaVal, penErr) > 0)

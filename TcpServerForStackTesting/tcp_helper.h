@@ -17,7 +17,7 @@
 typedef CRITICAL_SECTION THMUTEX;
 #define WSALIB_VER MAKEWORD(2, 2)  //* 要加载的WSA库的版本
 
-#define SUPPORT_IPv6 0	//* 如果选择ipv6协议，则置位，否则使用ipv4
+#define SUPPORT_IPv6 1	//* 如果选择ipv6协议，则置位，否则使用ipv4
 
 #pragma pack(push)
 #pragma pack(1)		//* 设置为1字节对齐

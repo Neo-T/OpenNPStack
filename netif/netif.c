@@ -632,7 +632,8 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 			pstMatchedNetif = l_pstDefaultNetif;
 			if (pstMatchedNetif)
 			{
-				memcpy(pubSource, pstMatchedNetif->nif_lla_ipv6, 16);
+                if(pubSource)
+				    memcpy(pubSource, pstMatchedNetif->nif_lla_ipv6, 16);
 
 				if (pubNSAddr && pubNSAddr != ubaDestination)
 					memcpy(pubNSAddr, ubaDestination, 16); //* 下一跳地址为目标地址
@@ -670,7 +671,8 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 					ubMatchedBits = ipv6_prefix_matched_bits(ubaDestination, pstNetif->nif_lla_ipv6, 64);
 					if (ubMatchedBits == 64)
 					{
-						memcpy(pubSource, pstNetif->nif_lla_ipv6, 16);
+                        if (pubSource)
+						    memcpy(pubSource, pstNetif->nif_lla_ipv6, 16);
 
 						if (pubNSAddr && pubNSAddr != ubaDestination)
 							memcpy(pubNSAddr, ubaDestination, 16); //* 下一跳地址为目标地址
@@ -697,8 +699,9 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 					{
 						ubMatchedBits = ipv6_prefix_matched_bits(ubaDestination, pstNextAddr->ubaVal, pstNextAddr->bitPrefixBitLen);
 						if (ubMatchedBits == pstNextAddr->bitPrefixBitLen) //* 前缀完全匹配则直接返回即可
-						{												
-							memcpy(pubSource, pstNextAddr->ubaVal, 16);
+						{			
+                            if (pubSource)
+							    memcpy(pubSource, pstNextAddr->ubaVal, 16);
 							
 							if (pubNSAddr && pubNSAddr != ubaDestination)
 								memcpy(pubNSAddr, ubaDestination, 16); //* 下一跳地址为目标地址
@@ -840,7 +843,8 @@ PST_NETIF netif_eth_get_by_ipv6_prefix(const UCHAR ubaDestination[16], UCHAR *pu
 	}
 
 	//* 保存源地址及下一跳地址
-	memcpy(pubSource, pubNetifIpv6, 16);	
+    if (pubSource)
+	    memcpy(pubSource, pubNetifIpv6, 16);	
 	if(pubNSAddr)
 		memcpy(pubNSAddr, pubDstIpv6ToMac, 16);	
 
