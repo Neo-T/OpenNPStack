@@ -451,9 +451,13 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 	if (pstNetif->stIPv6.bitCfgState < IPv6CFG_LNKADDR)
 		return; 
 
+    PST_IPv6_HDR pstHdr; 
+    USHORT usPayloadLen; 
+    UCHAR ubNextHdr, *pubUpperProtoPkt; 
 
-	PST_IPv6_HDR pstHdr = (PST_IPv6_HDR)pubPacket;	
-	USHORT usPayloadLen = htons(pstHdr->usPayloadLen); 
+__lblReparse: 
+	pstHdr = (PST_IPv6_HDR)pubPacket;	
+	usPayloadLen = htons(pstHdr->usPayloadLen); 
 	if (nPacketLen < (INT)usPayloadLen) //* 指定的报文长度与实际收到的字节数不匹配，直接丢弃该报文
 		return; 
 
@@ -477,8 +481,7 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 	}
 #endif
 
-	//* 在这里目前仅处理逐跳选项头其它扩展头暂时不予理会，当需要时再分别做针对性处理
-	UCHAR ubNextHdr, *pubUpperProtoPkt; 
+	//* 在这里目前仅处理逐跳选项头其它扩展头暂时不予理会，当需要时再分别做针对性处理	
 	if (pstHdr->ubNextHdr)
 	{
 		ubNextHdr = pstHdr->ubNextHdr;
@@ -507,7 +510,13 @@ void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT n
 	switch (ubNextHdr)
 	{
 	case IPPROTO_ICMPv6:
-		icmpv6_recv(pstNetif, pubDstMacAddr, pubPacket, nPacketLen, pubUpperProtoPkt);
+        pubUpperProtoPkt = icmpv6_recv(pstNetif, pubDstMacAddr, pubPacket, nPacketLen, pubUpperProtoPkt); 
+        if (pubUpperProtoPkt)
+        {
+            nPacketLen = pubUpperProtoPkt - pubPacket; 
+            pubPacket = pubUpperProtoPkt; 
+            goto __lblReparse; 
+        }
 		break;
 
 	case IPPROTO_TCP:

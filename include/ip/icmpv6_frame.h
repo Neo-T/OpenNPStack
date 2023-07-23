@@ -145,6 +145,15 @@ PACKED_END
 #define icmpv6_ra_flag_m   uniFlag.stb8.bitManaged
 #define icmpv6_ra_flag     uniFlag.ubVal
 
+//* Router Redirect Message，路由器重定向消息头部结构体，详见[RFC4861] 4.5节：https://www.rfc-editor.org/rfc/rfc4861#section-4.5
+PACKED_BEGIN
+typedef struct _ST_ICMPv6_RR_HDR_ {
+    UINT unReserved;		 //* 保留字段
+    UCHAR ubaTargetAddr[16]; 
+    UCHAR ubaDstAddr[16]; 
+} PACKED ST_ICMPv6_RR_HDR, *PST_ICMPv6_RR_HDR;
+PACKED_END
+
 //* 邻居发现（Neighbor Discovery for IP version 6）相关选项类型，详细的类型定义参见（IPv6 Neighbor Discovery Option Formats）：
 //* https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-5
 #define ICMPv6NDOPT_SRCLNKADDR	1  //* Source Link-layer Address
@@ -259,7 +268,14 @@ typedef struct _ST_ICMPv6NDOPT_DNSSL_HDR_ {
 } ST_ICMPv6NDOPT_DNSSL_HDR, *PST_ICMPv6NDOPT_DNSSL_HDR; 
 PACKED_END
 
-
+//* Redirected Header, 路由器重定向头
+PACKED_BEGIN
+typedef struct _ST_ICMPv6NDOPT_RR_HDR_ {
+    ST_ICMPv6NDOPT_HDR stHdr; 
+    USHORT usReserved; 
+    UINT unReserved; 
+} PACKED ST_ICMPv6NDOPT_RR_HDR, *PST_ICMPv6NDOPT_RR_HDR;
+PACKED_END
 #endif
 
 #endif

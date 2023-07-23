@@ -266,7 +266,8 @@ static void dhcpv6_client_timeout_handler(void *pvParam)
         pstClient->bitOptCnt++;
         if (pstClient->bitRcvReply || pstClient->bitOptCnt > 5)
         {            
-            //* 重新开始申请            
+            //* 等一小段事件后重新开始申请            
+            unIntervalSecs = 6;
             pstClient->stSrvId.ubSrvIdLen = 0;
             pstClient->ubaIAAddr[0] = 0;
             pstClient->bitUnicast = 0; //* 客户端发送的报文均缺省组播发送
@@ -666,14 +667,14 @@ INT dhcpv6_send_request(PSTCB_DHCPv6_CLIENT pstClient, PST_IPv6_ROUTER pstRouter
         pstRAO->usCode = htons(DHCPv6OPT_RECONF_ACCEPT);
         pstRAO->usDataLen = 0;
         unOptionsLen += sizeof(ST_DHCPv6OPT_HDR);
-    }	
 
-	//* 填充Option Request Option for Request
-	PST_DHCPv6OPT_OROREQ pstOROReq = (PST_DHCPv6OPT_OROREQ)&ubaOptions[unOptionsLen]; 	
-	pstOROReq->stHdr.usCode = htons(DHCPv6OPT_ORO);
-	pstOROReq->stHdr.usDataLen = htons(sizeof(ST_DHCPv6OPT_OROSOL) - sizeof(ST_DHCPv6OPT_HDR));
-	pstOROReq->usaOptions[0] = htons(DHCPv6OPT_RDNSSRV);
-	unOptionsLen += (UINT)sizeof(ST_DHCPv6OPT_OROREQ);
+        //* 填充Option Request Option for Request
+        PST_DHCPv6OPT_OROREQ pstOROReq = (PST_DHCPv6OPT_OROREQ)&ubaOptions[unOptionsLen];
+        pstOROReq->stHdr.usCode = htons(DHCPv6OPT_ORO);
+        pstOROReq->stHdr.usDataLen = htons(sizeof(ST_DHCPv6OPT_OROSOL) - sizeof(ST_DHCPv6OPT_HDR));
+        pstOROReq->usaOptions[0] = htons(DHCPv6OPT_RDNSSRV);
+        unOptionsLen += (UINT)sizeof(ST_DHCPv6OPT_OROREQ);
+    }		
 
 	EN_ONPSERR enErr; 
 	INT nRtnVal; 

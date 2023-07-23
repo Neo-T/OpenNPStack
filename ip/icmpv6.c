@@ -1495,7 +1495,21 @@ static void icmpv6_ra_handler(PST_NETIF pstNetif, UCHAR ubaRouterIpv6[16], UCHAR
 		pstRouter->bitDv6CfgState = Dv6CFG_END;
 }
 
-void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)
+static UCHAR *icmpv6_rr_handler(PST_NETIF pstNetif, UCHAR *pubIcmpv6)
+{
+    PST_ICMPv6_RR_HDR pstRR = (PST_ICMPv6_RR_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR)); 
+
+    //* 只有邻居节点，也就是目标地址与目的地址一致才处理，协议站不支持ipv6转发
+    if (!memcmp(pstRR->ubaTargetAddr, pstRR->ubaDstAddr, 16))
+    {
+        PST_ICMPv6NDOPT_RR_HDR pstOptHdr = (PST_ICMPv6NDOPT_RR_HDR)(pubIcmpv6 + sizeof(ST_ICMPv6_HDR) + sizeof(ST_ICMPv6_RR_HDR)); 
+        if (ICMPv6NDOPT_REDIRECTHDR == pstOptHdr->stHdr.ubType)
+            return ((UCHAR *)pstOptHdr) + sizeof(ST_ICMPv6NDOPT_RR_HDR); 
+    }
+    return NULL; 
+}
+
+UCHAR *icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen, UCHAR *pubIcmpv6)
 {
 	ST_IPv6_PSEUDOHDR stPseudoHdr; //* 用于校验和计算
 	PST_IPv6_HDR pstIpv6Hdr = (PST_IPv6_HDR)pubPacket;
@@ -1519,7 +1533,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		os_thread_mutex_unlock(o_hMtxPrintf);
 	#endif
 #endif
-		return; 
+		return NULL; 
 	}
 	buf_list_put_head(&sBufListHead, sIpv6PayloadNode);
 
@@ -1539,7 +1553,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		os_thread_mutex_unlock(o_hMtxPrintf);
 	#endif
 #endif
-		return;
+		return NULL;
 	}
 	buf_list_put_head(&sBufListHead, sPseudoHdrNode);
 
@@ -1571,7 +1585,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 		os_thread_mutex_unlock(o_hMtxPrintf);
 	#endif
 #endif
-		return;
+		return NULL;
 	}
 	//* =================================================================================
 
@@ -1596,6 +1610,8 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 	case ICMPv6_RA:
 		icmpv6_ra_handler(pstNetif, pstIpv6Hdr->ubaSrcIpv6, pubIcmpv6, usIpv6PayloadLen);
 		break; 
+    case ICMPv6_RR:
+        return icmpv6_rr_handler(pstNetif, pubIcmpv6);
 
 	case ICMPv6_ERRDST:		
 		icmpv6_dest_unreachable_handler(pstNetif, pubPacket, nPacketLen, pubIcmpv6);
@@ -1605,7 +1621,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 	case ICMPv6_ERRTE: 
 	case ICMPv6_ERRPP:
 		icmpv6_err_handler(pstNetif, pubPacket, nPacketLen, pubIcmpv6); 
-		break; 
+		break;     
 
 	default: 
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1		
@@ -1619,5 +1635,7 @@ void icmpv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT
 #endif		
 		break; 
 	}
+
+    return NULL; 
 }
 #endif
