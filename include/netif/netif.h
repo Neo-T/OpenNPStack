@@ -156,6 +156,8 @@ typedef struct _ST_NETIF_NODE_ {
 } ST_NETIF_NODE, *PST_NETIF_NODE;
 
 #if SUPPORT_ETHERNET
+#define ETH_MAC_ADDR_LEN  6   //* ethernet网卡mac地址长度
+
 #if ETH_EXTRA_IP_EN
 //* ethernet网卡接口附加IP地址
 typedef struct _ST_ETH_EXTRA_IP_ { 

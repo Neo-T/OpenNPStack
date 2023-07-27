@@ -17,7 +17,7 @@
 #include "ip/ip.h"
 
 #define ONPS_OFFICIAL_WEB   "http://www.onps.org.cn/"
-#define ONPS_VER            "1.1.0.230621"
+#define ONPS_VER            "1.1.0.230726"
 
 #define INVALID_INPUT -1 //* 无效的输入控制块
 

@@ -38,7 +38,7 @@ static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 #endif //* #if NVTCMD_RESET_EN
 
-//* 如果自定义nvt命令的名称长度超过net_virtual_terminal.c文件头部l_bNvtCmdLenMax变量定义的值，请用自定义命令的名称长度取代l_bNvtCmdLenMax变量的原值，以确保“help”命令输出格式的整齐美观
+//* NVT自定义命令数组
 static const ST_NVTCMD l_staNvtCmd[] = {    
 #if NVTCMD_TELNET_EN
     { telnet, "telnet", "used to log in to remote telnet host.\r\n" },     
@@ -52,7 +52,7 @@ static const ST_NVTCMD l_staNvtCmd[] = {
     { reset, "reset", "system reset.\r\n" }, 
 #endif //* #if NVTCMD_RESET_EN
 
-    {NULL, "", ""} //* 注意这个不要删除，当所有nvt命令被用户禁止时其被用于避免编译器报错
+    { NULL, "", "" } //* 注意这个不要删除，当所有nvt命令被用户禁止时其被用于避免编译器报错
 };
 
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)]; 

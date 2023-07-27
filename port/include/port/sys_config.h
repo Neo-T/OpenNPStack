@@ -41,8 +41,7 @@
 #endif
 
 #define SUPPORT_ETHERNET    1   //* 是否支持ethernet：1，支持；0，不支持
-#if SUPPORT_ETHERNET
-    #define ETH_MAC_ADDR_LEN    6   //* ethernet网卡mac地址长度
+#if SUPPORT_ETHERNET    
     #define ETHERNET_NUM        1   //* 要添加几个ethernet网卡（实际存在几个就添加几个）    
     #define ARPENTRY_NUM        32  //* arp条目缓存表的大小（不要超过127），只要不小于局域网内目标通讯节点的个数即可确保arp寻址次数为1，否则就会出现频繁寻址的可能，当然这也不会妨碍正常通讯逻辑，只不过这会降低通讯效率    
 	#if SUPPORT_IPV6
@@ -65,7 +64,7 @@
 
 //* ip支持的上层协议相关配置项
 //* ===============================================================================================
-#define SUPPORT_SACK    0		//* 系统是否支持sack项，sack项需要协议栈建立发送队列，这个非常消耗内存，通用版本不支持该项
+#define SUPPORT_SACK    1		//* 系统是否支持sack项
 
 #define ICMPRCVBUF_SIZE 128     //* icmp发送echo请求报文时指定的接收缓冲区的大小，注意，如果要发送较大的ping包就必须指定较大的接收缓冲区
 
@@ -79,7 +78,6 @@
 #define TCP_WINDOW_SCALE        0       //* 窗口扩大因子缺省值
 #define TCP_CONN_TIMEOUT        30      //* 缺省TCP连接超时时间
 #define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
-#define TCP_MSL                 15      //* 指定TCP链路TIMEWAIT态的最大关闭时长：2 * TCP_MSL，单位：秒
 #define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（涵盖所有TCP客户端 + TCP服务器的并发连接数），超过这个数量将无法建立新的tcp链路，另外这个值最大为127，超过则系统无法正常运行
 #define TCP_ACK_DELAY_MSECS     100     //* 延迟多少毫秒发送ack报文，这个值最小40毫秒，最大200毫秒
 
@@ -111,7 +109,7 @@
 #endif //* #if NETTOOLS_SNTP
 
 #if NETTOOLS_DNS_CLIENT
-#define NVTCMD_NSLOOKUP_EN      1 //* 使能或禁止nvt命令：ntp，其必须先使能NETTOOLS_SNTP
+#define NVTCMD_NSLOOKUP_EN      1 //* 使能或禁止nvt命令：nslookup，其必须先使能NETTOOLS_DNS_CLIENT
 #endif //* #if NETTOOLS_DNS_CLIENT
 
 #if NETTOOLS_PING
@@ -121,8 +119,8 @@
 #define NVTCMD_RESET_EN    1 //* 使能或禁止nvt命令：reset
 
 #if NVTCMD_TELNET_EN
-//* telnet客户端接收缓冲区大小，注意关闭TCP SACK选项时，设置的发送缓冲区大小一旦超过过tcp mtu（一般
-//* 为1460字节），就必须是在用户层限定单个发包的大小不能超过tcp mtu，否则会丢失数据
+//* telnet客户端接收缓冲区大小，注意关闭TCP SACK选项时，设置的接收缓冲区大小一旦超过过tcp mtu（一般
+//* 为1460字节），就必须在用户层限定单个发包的大小不能超过tcp mtu，否则会丢失数据
 #define TELNETCLT_RCVBUF_SIZE 1024
 #endif //* #if NVTCMD_TELNET_EN
 
@@ -138,14 +136,14 @@
 
 //* 内存管理单元(mmu)相关配置项，其直接影响协议栈能分配多少个socket给用户使用
 //* ===============================================================================================
-#define BUF_LIST_NUM	 80     //* 缓冲区链表的节点数，最大不能超过2的15次方（32768）
+#define BUF_LIST_NUM	 80     //* 缓存链表的节点数，最大不能超过2的15次方（32768）
 #define BUDDY_PAGE_SIZE  32     //* 系统能够分配的最小页面大小，其值必须是2的整数次幂
 #define BUDDY_ARER_COUNT 9      //* 指定buddy算法管理的内存块数组单元数量
 
 #define BUDDY_MEM_SIZE   8192   //* buddy算法管理的内存总大小，其值由BUDDY_PAGE_SIZE、BUDDY_ARER_COUNT两个宏计算得到：
-//* 32 * (2 ^ (9 - 1))，即BUDDY_MEM_SIZE = BUDDY_PAGE_SIZE * (2 ^ (BUDDY_ARER_COUNT - 1))
-//* 之所以在此定义好要管理的内存大小，原因是buddy管理的内存其实就是一块提前分配好的静态存储
-//* 时期的字节型一维数组，以确保协议栈不占用宝贵的堆空间
+                                //* 32 * (2 ^ (9 - 1))，即BUDDY_MEM_SIZE = BUDDY_PAGE_SIZE * (2 ^ (BUDDY_ARER_COUNT - 1))
+                                //* 之所以在此定义好要管理的内存大小，原因是buddy管理的内存其实就是一块提前分配好的静态存储
+                                //* 时期的字节型一维数组，以确保协议栈不占用宝贵的堆空间
 //* ===============================================================================================
 
 #endif
