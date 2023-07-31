@@ -323,6 +323,9 @@ INT connect(SOCKET socket, const CHAR *srv_ip, USHORT srv_port, INT nConnTimeout
 
 INT connect_ext(SOCKET socket, void *srv_ip, USHORT srv_port, INT nConnTimeout)
 {
+    if (nConnTimeout <= 0)
+        nConnTimeout = TCP_CONN_TIMEOUT;
+
     return socket_connect(socket, NULL, srv_ip, srv_port, nConnTimeout);
 }
 
