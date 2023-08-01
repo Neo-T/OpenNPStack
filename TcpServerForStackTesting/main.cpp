@@ -23,6 +23,8 @@
 
 using namespace std;
 
+#define SUPPORT_IPv6 0	//* 如果选择ipv6协议，则置位，否则使用ipv4
+
 #define FOR_TCP_SACK_TEST   0       //* 是否用于测试tcp sack，一旦打开这个选项，服务器将被动等待客户端上发的报文，而不会主动清理不活跃的客户端
 #define SEND_CTL_DATA_EN    1       //* 下发控制指令使能宏
 #define SRV_PORT            6410    //* 服务器端口
