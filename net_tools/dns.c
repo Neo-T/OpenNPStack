@@ -45,8 +45,8 @@ INT dns_client_start(in_addr_t *punPrimaryDNS, in_addr_t *punSecondaryDNS, CHAR 
         return -1; 
     }
 
-    *punPrimaryDNS = htonl(pstNetif->stIPv4.unPrimaryDNS); 
-    *punSecondaryDNS = htonl(pstNetif->stIPv4.unSecondaryDNS); 
+    *punPrimaryDNS = pstNetif->stIPv4.unPrimaryDNS; 
+    *punSecondaryDNS = pstNetif->stIPv4.unSecondaryDNS; 
 
     return nClient; 
 }
@@ -274,7 +274,7 @@ __lblSend:
             goto __lblEnd; 
     }
 
-    if (unDnsSrvIp == unPrimaryDNS)
+    if (unDnsSrvIp == unPrimaryDNS && unSecondaryDNS)
         unDnsSrvIp = unSecondaryDNS;
     else
         unDnsSrvIp = unPrimaryDNS;
