@@ -18,7 +18,6 @@
 #include "net_virtual_terminal.h"
 
 #define TELNETSRV_PORT 23 //* telnet服务器端口
-#define TELNETCLT_NUM  6  //* 指定系统允许的telnet客户端数量
 
 #define TELNETCLT_INACTIVE_TIMEOUT  300 //* 定义telnet客户端最长多少秒可以无任何操作，超过这个时间服务器会主动断开当前连接
 
