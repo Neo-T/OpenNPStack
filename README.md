@@ -52,7 +52,7 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 | include  | 协议栈的头文件  |
 | ip  | ip及其上层icmp/tcp/udp协议族的相关实现源文件  |
 | mmu  | 协议栈内存管理模块的相关实现源文件  |
-| net_tools  | 网络工具实现源文件，如dns查询、网络校时、ping等  |
+| net_tools  | 网络工具实现源文件，如dns查询、网络校时、ping、telnet等  |
 | netif  | 网卡及路由管理等相关接口实现源文件  |
 | port  | 协议栈移植相关的源文件  |
 | ppp  | ppp链路层相关实现源文件，包括lcp/ipcp/chap/pap等协议族的实现源文件  |
@@ -81,10 +81,9 @@ Apache License 2.0开源许可协议
 [![Security Status](https://www.murphysec.com/platform3/v3/badge/1615596818625232896.svg?t=1)](https://www.murphysec.com/accept?code=64bea0edfe145ac454cc464b23659406&type=1&from=2&t=2)
 
 #### 后续计划
-- tcp增加sack选项支持
-- 支持ipv6
+- 更多目标平台的适配工作， 提供相应移植样例
+- 重构部分代码， 进一步降低代码尺寸及内存消耗
 - 支持ftp客户端/服务器
-- 支持telnet客户端/服务器
 - 支持http客户端/服务器
 
 #### 捐赠
