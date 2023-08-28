@@ -68,6 +68,13 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
 
 协议栈开发的一般性指导文件请参考[《onps栈API接口手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88API%E6%8E%A5%E5%8F%A3%E6%89%8B%E5%86%8C.pdf)及[《onps栈用户使用手册》](https://gitee.com/Neo-T/open-npstack/raw/master/onps%E6%A0%88%E7%94%A8%E6%88%B7%E4%BD%BF%E7%94%A8%E6%89%8B%E5%86%8C.pdf)。
 
+#### 移植样例
+ **STM32F407VET6平台** ：
+    [RT-Thread移植样例](https://gitee.com/Neo-T/onps-rtthread) [ucos-ii移植样例](https://gitee.com/Neo-T/onps-ucosii)
+
+ **[沁恒CH32V307平台](https://gitee.com/Neo-T/Onps-WCH-CH32V307)** ：
+    [鸿蒙LiteOS-M移植样例](https://gitee.com/Neo-T/Onps-WCH-CH32V307/tree/master/HarmonyOS/LiteOS_m)
+
 #### 社区支持
 
 您可以随时访问[ **onps栈官方网站** ](http://www.onps.org.cn)，获取协议栈研发进度、后续计划、最新版本等相关信息。<br>如您在使用过程中遇到任何问题或建议，您可以到 **[onps栈交流社区](http://neo.onps.org.cn)** 提出您的建议或问题，新版本发布也会在交流社区第一时间通知。<br>您也可以加入QQ群进行在线技术交流：<br>
