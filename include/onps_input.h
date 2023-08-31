@@ -56,6 +56,16 @@ typedef enum {
 } ONPSIOPT;
 
 #if SUPPORT_IPV6
+#if defined(__riscv)
+typedef struct _STP_SOCKADDR_ {
+    USHORT usPort;
+    union
+    {
+        UINT unVal;
+        UCHAR ubaVal[16];
+    } uniIp;
+} STP_SOCKADDR, *PSTP_SOCKADDR;
+#else
 PACKED_BEGIN
 typedef struct _STP_SOCKADDR_ {	
 	USHORT usPort; 
@@ -66,6 +76,7 @@ typedef struct _STP_SOCKADDR_ {
 	} PACKED uniIp;
 } PACKED STP_SOCKADDR, *PSTP_SOCKADDR;
 PACKED_END
+#endif //* #if defined(__riscv)
 
 typedef struct _ST_SOCKADDR_ {
 	USHORT usPort;

@@ -32,7 +32,7 @@
 #define uint_before(seq1, seq2) (((INT)((seq1) - (seq2))) < 0)
 #define uint_after(seq2, seq1) uint_before(seq1, seq2)
 
-#if !(defined(__linux__) || defined(__linux)) && !(defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)) && !(defined(WIN64) || defined(_WIN64) || defined(__WIN64__))
+#ifndef offsetof
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #else
 #include <stddef.h>
@@ -78,6 +78,16 @@ typedef union _UNI_LONG_LONG_ {
     LONGLONG llVal; 
 } UNI_LONG_LONG, *PUNI_LONG_LONG;
 
+//* 64位无符号长整型
+typedef union _UNI_ULONG_LONG_ {
+    struct {
+        UINT l;
+        UINT h;
+    } stUInt64;
+
+    ULONGLONG ullVal;
+} UNI_ULONG_LONG, *PUNI_ULONG_LONG;
+
 //* 单向链表节点
 typedef struct _ST_SLINKEDLIST_NODE_ ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE, *PST_SLINKEDLIST;
 typedef struct _ST_SLINKEDLIST_NODE_ {
@@ -90,7 +100,7 @@ typedef struct _ST_SLINKEDLIST_NODE_ {
 } ST_SLINKEDLIST_NODE, *PST_SLINKEDLIST_NODE;
 
 typedef enum {
-    AND,    //* 与  
+    AND,    //* 与
     OR,     //* 或
     LT,     //* 小于
     LE,     //* 小于等于

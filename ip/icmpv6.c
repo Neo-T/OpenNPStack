@@ -1247,7 +1247,14 @@ static void icmpv6_ra_opt_rdnssrv_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER ps
 	os_critical_init(); 
 
 	//* 只有生存期比现有生存期还大才会更新
-	if (pstOption->unLifetime > pstRouter->staDNSSrv[0].unLifetime)
+#if defined(__riscv)
+    UINT unLifetime, unDnsLifetime; 
+    memcpy(&unLifetime, &pstOption->unLifetime, 4);
+    memcpy(&unDnsLifetime, &pstRouter->staDNSSrv[0].unLifetime, 4);
+    if (unLifetime > unDnsLifetime)
+#else
+    if (pstOption->unLifetime > pstRouter->staDNSSrv[0].unLifetime)
+#endif	
 	{	
 		//* 已经得到dns服务器地址
 		if (pstRouter->staDNSSrv[0].ubaAddr[0])
@@ -1258,7 +1265,11 @@ static void icmpv6_ra_opt_rdnssrv_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER ps
 				if (!memcmp(pubIpv6 + i * 16, pstRouter->staDNSSrv[0].ubaAddr, 16))
 				{
 					os_enter_critical();
+                #if defined(__riscv)
+                    unDnsLifetime = unLifetime;
+                #else
 					pstRouter->staDNSSrv[0].unLifetime = pstOption->unLifetime;
+                #endif
 					os_exit_critical();
 					goto __lblSlave;
 				}
@@ -1270,14 +1281,23 @@ static void icmpv6_ra_opt_rdnssrv_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER ps
 			//* 直接用第一个地址更新主dns服务器地址，同时更新生存时间
 			i = 0; 
 			memcpy(pstRouter->staDNSSrv[0].ubaAddr, pubIpv6, 16);
+        #if defined(__riscv)
+            unDnsLifetime = unLifetime;
+        #else
 			pstRouter->staDNSSrv[0].unLifetime = pstOption->unLifetime;
+        #endif
 		}
 		os_exit_critical(); 
 	}
 
 __lblSlave: 
 	//* 存在两个地址，则判断从服务器地址是否需要更新，依然是生存期比较
+#if defined(__riscv)
+    memcpy(&unDnsLifetime, &pstRouter->staDNSSrv[1].unLifetime, 4); 
+    if (bSrvNum == 2 && unLifetime > unDnsLifetime)
+#else
 	if (bSrvNum == 2 && pstOption->unLifetime > pstRouter->staDNSSrv[1].unLifetime)
+#endif //* #if defined(__riscv)
 	{
 		CHAR bAddrIdx = i;
 
@@ -1293,7 +1313,11 @@ __lblSlave:
 						os_enter_critical();
 						{
 							pstRouter->staDNSSrv[1].ubaAddr[0] = 0; 
+                        #if defined(__riscv)
+                            memset(&pstRouter->staDNSSrv[1].unLifetime, 0, 4);
+                        #else
 							pstRouter->staDNSSrv[1].unLifetime = 0;
+                        #endif
 						}
 						os_exit_critical();
 						return;
@@ -1301,7 +1325,11 @@ __lblSlave:
 
 					//* 匹配，则只更新生存时间
 					os_enter_critical();
+                #if defined(__riscv)
+                    unDnsLifetime = unLifetime; 
+                #else
 					pstRouter->staDNSSrv[1].unLifetime = pstOption->unLifetime;
+                #endif
 					os_exit_critical();
 
 					return;
@@ -1319,7 +1347,11 @@ __lblSlave:
 		{
 			//* 直接用第一个地址更新主dns服务器地址，同时更新生存时间				
 			memcpy(pstRouter->staDNSSrv[1].ubaAddr, pubIpv6 + bAddrIdx * 16, 16); 
+        #if defined(__riscv)
+            memcpy(&pstRouter->staDNSSrv[1].unLifetime, &pstOption->unLifetime, 4);
+        #else
 			pstRouter->staDNSSrv[1].unLifetime = pstOption->unLifetime;
+        #endif
 		}
 		os_exit_critical();
 	}
@@ -1328,7 +1360,11 @@ __lblSlave:
 static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRouter, UCHAR *pubOpt, SHORT sOptLen)
 {
 	PST_ICMPv6NDOPT_HDR pstOptHdr = (PST_ICMPv6NDOPT_HDR)pubOpt; 
+#if defined(__riscv)
+    UINT unMtu;
+#else
 	USHORT usMtu; 
+#endif
 		
 	while (sOptLen)
 	{
@@ -1347,9 +1383,16 @@ static void icmpv6_ra_option_handler(PST_NETIF pstNetif, PST_IPv6_ROUTER pstRout
 			break; 
 
 		case ICMPv6NDOPT_MTU:
+        #if defined(__riscv)
+            memcpy(&unMtu, &((PST_ICMPv6NDOPT_MTU)pstOptHdr)->unMtu, 4);
+            unMtu = htonl(unMtu);
+            if (unMtu > 1200 && unMtu < 1500)
+                pstRouter->usMtu = (USHORT)unMtu;
+        #else
 			usMtu = (USHORT)htonl(((PST_ICMPv6NDOPT_MTU)pstOptHdr)->unMtu);
 			if(usMtu > 1200 && usMtu < 1500)
 				pstRouter->usMtu = usMtu; 
+        #endif
 			break; 
 
 		case ICMPv6NDOPT_RDNSSRV: 

@@ -220,11 +220,21 @@ CHAR tcp_options_get_sack(PST_TCPLINK pstLink, UCHAR *pubOptions, INT nOptionsLe
             #endif
                     return 0;
                 }
-                CHAR bWriteIdx = 0; 
+                CHAR bWriteIdx = 0;
+            #if defined(__riscv)
+                UINT unLeft, unRight;
+            #endif
                 while (nInfoLen > 0)
                 {
+                #if defined(__riscv)  
+                    memcpy(&unLeft, (UCHAR *)&pstItem->unLeft, 4);
+                    memcpy(&unRight, (UCHAR *)&pstItem->unRight, 4);  
+                    pstLink->stcbSend.staSack[bWriteIdx].unLeft = htonl(unLeft);
+                    pstLink->stcbSend.staSack[bWriteIdx].unRight = htonl(unRight);
+                #else
                     pstLink->stcbSend.staSack[bWriteIdx].unLeft = htonl(pstItem->unLeft);
-                    pstLink->stcbSend.staSack[bWriteIdx].unRight = htonl(pstItem->unRight);
+                    pstLink->stcbSend.staSack[bWriteIdx].unRight = htonl(pstItem->unRight);                
+                #endif
                     pstItem++; 
                     bWriteIdx++;
                     nInfoLen -= (INT)sizeof(ST_TCPOPT_SACKINFO_ITEM);                     

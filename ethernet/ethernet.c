@@ -352,6 +352,8 @@ void ethernet_ii_recv(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
 
     default: 
 #if SUPPORT_PRINTF && DEBUG_LEVEL
+        if (usProtocolType < 0x0800) //* 仅处理IP以上协议，其它不作任何处理（参见IEEE 802.3帧格式定义）
+            break; 
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif

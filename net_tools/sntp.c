@@ -26,7 +26,7 @@ time_t sntp_update(in_addr_t unNtpSrvIp, time_t(*pfunTime)(void), void(*pfunSetS
     UCHAR ubRetryNum = 0;
     INT nSndBytes, nRcvBytes;
     time_t tTimestamp = 0; 
-    LONGLONG llTransTimestatmp;
+    ULONGLONG ullTransTimestatmp;
 
     //* 新建一个udp客户端
 #if SUPPORT_IPV6
@@ -61,11 +61,11 @@ __lblSend:
     stData.unRootDelay = 0;
     stData.unRootDispersion = 0;
     stData.unRefId = 0;
-    stData.llRefTimestamp = 0;
-    stData.llOrigiTimestamp = 0;
-    stData.llRcvTimestamp = 0;
-    llTransTimestatmp = pfunTime ? (LONGLONG)pfunTime() : 0;
-    stData.llTransTimestatmp = htonll(((LONGLONG)DIFF_SEC_1900_1970 + llTransTimestatmp) << 32);
+    stData.ullRefTimestamp = 0;
+    stData.ullOrigiTimestamp = 0;
+    stData.ullRcvTimestamp = 0;
+    ullTransTimestatmp = pfunTime ? (ULONGLONG)pfunTime() : 0;
+    stData.ullTransTimestatmp = htonll(((ULONGLONG)DIFF_SEC_1900_1970 + ullTransTimestatmp) << 32);
 
     //* 发送对时报文    
     nSndBytes = udp_sendto(nClient, unNtpSrvIp, SNTP_SRV_PORT, (UCHAR *)&stData, sizeof(ST_SNTP_DATA));
@@ -80,9 +80,9 @@ __lblSend:
     if (nRcvBytes > 0)
     {
         //* 非常简单的处理逻辑，就是本身单片机系统的时钟就不够精确，同时，现代网络已经足够快，所以这里直接用服务器端的应答报文离开时间作为校准时间
-        LONGLONG llSrvTime = htonll(stData.llTransTimestatmp);
-        PUNI_LONG_LONG puniSrvTime = (PUNI_LONG_LONG)&llSrvTime;
-        tTimestamp = puniSrvTime->stInt64.h - DIFF_SEC_1900_1970 + (((INT)bTimeZone) * 3600);
+        ULONGLONG ullSrvTime = htonll(stData.ullTransTimestatmp);
+        PUNI_ULONG_LONG puniSrvTime = (PUNI_ULONG_LONG)&ullSrvTime;
+        tTimestamp = puniSrvTime->stUInt64.h - DIFF_SEC_1900_1970 + (((INT)bTimeZone) * 3600);
         pfunSetSysTime(tTimestamp);
         
         goto __lblEnd;

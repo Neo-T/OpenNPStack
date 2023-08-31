@@ -105,6 +105,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRROUTEENTRYNOR, "failed to write to system memory when adding or deleting routing entries" }, 
     { ERRROUTEDEFAULTDEL, "the default route cannot be deleted" }, 
     { ERRROUTEENTRYNOTEXIST, "the routing entry does not exist" }, 
+    { ERRNETIFSEND, "The network card returns a sending failure" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

@@ -1108,16 +1108,33 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
     os_critical_init();            
 
     //* 计算校验和
+#if defined(__riscv)
+    in_addr_t unSrcAddr, unDstAddr; 
+#endif
     USHORT usPktChecksum = pstHdr->usChecksum;
     pstHdr->usChecksum = 0; 
 #if SUPPORT_IPV6
 	USHORT usChecksum; 
-	if (IPV4 == enProtocol)	
-		usChecksum = tcpip_checksum_ipv4_ext(*((in_addr_t *)pvSrcAddr), *((in_addr_t *)pvDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);
+    if (IPV4 == enProtocol)
+    {
+    #if defined(__riscv)
+        memcpy(&unSrcAddr, (CHAR *)pvSrcAddr, 4);
+        memcpy(&unDstAddr, (CHAR *)pvDstAddr, 4);
+        usChecksum = tcpip_checksum_ipv4_ext(unSrcAddr, unDstAddr, IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);
+    #else
+        usChecksum = tcpip_checksum_ipv4_ext(*((in_addr_t *)pvSrcAddr), *((in_addr_t *)pvDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);
+    #endif
+    }
 	else
 		usChecksum = tcpip_checksum_ipv6_ext((UCHAR *)pvSrcAddr, (UCHAR *)pvDstAddr, IPPROTO_TCP, pubPacket, (UINT)nPacketLen, &enErr);
 #else
+#if defined(__riscv)
+    memcpy(&unSrcAddr, (CHAR *)pvSrcAddr, 4);
+    memcpy(&unDstAddr, (CHAR *)pvDstAddr, 4);
+    USHORT usChecksum = tcpip_checksum_ipv4_ext(unSrcAddr, unDstAddr, IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);
+#else
     USHORT usChecksum = tcpip_checksum_ipv4_ext(*((in_addr_t *)pvSrcAddr), *((in_addr_t *)pvDstAddr), IPPROTO_TCP, pubPacket, (USHORT)nPacketLen, &enErr);
+#endif
 #endif
 	if (ERRNO != enErr)
 	{
@@ -1157,19 +1174,37 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 		UINT unVal; 
 		UCHAR *pubVal; 
 	} uniCltIp;
-	if (IPV4 == enProtocol)
-		uniCltIp.unVal = *((in_addr_t *)pvSrcAddr);
+    if (IPV4 == enProtocol)
+    {
+    #if defined(__riscv)
+        uniCltIp.unVal = unSrcAddr;
+    #else
+        uniCltIp.unVal = *((in_addr_t *)pvSrcAddr);
+    #endif
+    }
 	else
 		uniCltIp.pubVal = (UCHAR *)pvSrcAddr; 
 #else
+#if defined(__riscv)
+    UINT unCltIp = unSrcAddr; 
+#else
     UINT unCltIp = *((in_addr_t *)pvSrcAddr);
+#endif
 #endif
     USHORT usCltPort = htons(pstHdr->usSrcPort);
     PST_TCPLINK pstLink;     
 #if SUPPORT_IPV6
+#if defined(__riscv)
+    INT nInput = onps_input_get_handle((IPV4 == enProtocol) ? AF_INET : AF_INET6, IPPROTO_TCP, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, &pstLink); 
+#else
     INT nInput = onps_input_get_handle((IPV4 == enProtocol) ? AF_INET : AF_INET6, IPPROTO_TCP, pvDstAddr, usDstPort, &pstLink);
+#endif
+#else
+#if defined(__riscv)
+    INT nInput = onps_input_get_handle(IPPROTO_TCP, unDstAddr, usDstPort, &pstLink);
 #else
 	INT nInput = onps_input_get_handle(IPPROTO_TCP, *((in_addr_t *)pvDstAddr), usDstPort, &pstLink);
+#endif
 #endif
     if (nInput < 0)
     {
@@ -1204,15 +1239,23 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 	INT nTcpHdrLen = uniFlag.stb16.hdr_len * 4;
     if (uniFlag.stb16.ack || uniFlag.stb16.reset || uniFlag.stb16.reset)
     {              
-    #if SUPPORT_ETHERNET
+#if SUPPORT_ETHERNET
         //* 如果为NULL则说明是tcp服务器，需要再次遍历input链表找出其先前分配的链路信息及input句柄
         if(!pstLink) 
         { 
-		#if SUPPORT_IPV6
+    #if SUPPORT_IPV6
+        #if defined(__riscv)
+            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient((IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &pstLink);
+        #else
 			INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &pstLink);
-		#else
+        #endif
+    #else
+        #if defined(__riscv)
+            INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient((IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink);
+        #else
             INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
-		#endif
+        #endif
+    #endif
             if (nRmtCltInput < 0) //* 尚未收到任何syn连接请求报文，这里就直接丢弃该报文
                 return; 
 
@@ -1229,7 +1272,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 
             nInput = nRmtCltInput; 
         }
-    #endif
+#endif
 
         //* 更新对端的窗口信息                                                    
         os_enter_critical();
@@ -1258,7 +1301,6 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 					pstLink->stPeer.stSockAddr.saddr_ipv4 = uniCltIp.unVal;
 				else
 					memcpy(pstLink->stPeer.stSockAddr.saddr_ipv6, uniCltIp.pubVal, 16);
-
 			#else
                 pstLink->stPeer.stSockAddr.saddr_ipv4 = unCltIp/*htonl(unSrcAddr)*/;
 			#endif
@@ -1271,7 +1313,11 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
                 pstLink->bState = TLSRCVEDSYNACK;
 
                 //* 发送syn ack的ack报文
+            #if defined(__riscv)
+                tcp_send_ack_of_syn_ack(nInput, pstLink, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, unSrcAckNum); 
+            #else
                 tcp_send_ack_of_syn_ack(nInput, pstLink, pvDstAddr, usDstPort, unSrcAckNum);
+            #endif
             }
         }
         else if (uniFlag.stb16.reset)
@@ -1300,14 +1346,24 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 
             //* 发送ack
             pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum + 1;
-		#if SUPPORT_IPV6
-			if (IPV4 == enProtocol)
-				tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, uniCltIp.unVal, usCltPort);
+    #if SUPPORT_IPV6
+            if (IPV4 == enProtocol)
+            {
+            #if defined(__riscv)
+                tcp_send_ack(pstLink, unDstAddr, usDstPort, uniCltIp.unVal, usCltPort); 
+            #else
+                tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, uniCltIp.unVal, usCltPort);
+            #endif
+            }
 			else
 				tcpv6_send_ack(pstLink, (UCHAR *)pvDstAddr, usDstPort, uniCltIp.pubVal, usCltPort); 
-		#else
+    #else
+        #if defined(__riscv)
+            tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+        #else
             tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
-		#endif
+        #endif
+    #endif
             //* 迁移到相关状态
             if (TLSCONNECTED == (EN_TCPLINKSTATE)pstLink->bState)
             {                       
@@ -1464,14 +1520,24 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
                         if (usWndSize)
                             pstLink->stLocal.bIsZeroWnd = FALSE;
                         //pstLink->stPeer.unSeqNum = /*pstLink->stPeer.unNextSeqNum = */unPeerSeqNum;
-					#if SUPPORT_IPV6
-						if (IPV4 == enProtocol)
-							tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, uniCltIp.unVal, usCltPort);
+				#if SUPPORT_IPV6
+                        if (IPV4 == enProtocol)
+                        {
+                        #if defined(__riscv)
+                            tcp_send_ack(pstLink, unDstAddr, usDstPort, uniCltIp.unVal, usCltPort); 
+                        #else
+                            tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, uniCltIp.unVal, usCltPort);
+                        #endif
+                        }
 						else
 							tcpv6_send_ack(pstLink, (UCHAR *)pvDstAddr, usDstPort, uniCltIp.pubVal, usCltPort); 
-					#else
+				#else
+                    #if defined(__riscv)
+                        tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort);
+                    #else
                         tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
-					#endif
+                    #endif
+				#endif
 
                         return; 
                     }
@@ -1486,12 +1552,22 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 				if (pstLink->uniFlags.stb16.no_delay_ack || (EN_TCPLINKSTATE)pstLink->bState != TLSCONNECTED || (nDataLen > 0 && pstLink->stPeer.bIsNotAcked)/* 最后一个条件为当连续收到两个对端的数据报文后立即发送ack */)
 				{
 				#if SUPPORT_IPV6
-					if (IPV4 == enProtocol)
-						tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, uniCltIp.unVal, usCltPort);
+                    if (IPV4 == enProtocol)
+                    {
+                    #if defined(__riscv)
+                        tcp_send_ack(pstLink, unDstAddr, usDstPort, uniCltIp.unVal, usCltPort);
+                    #else
+                        tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, uniCltIp.unVal, usCltPort);
+                    #endif
+                    }
 					else
 						tcpv6_send_ack(pstLink, (UCHAR *)pvDstAddr, usDstPort, uniCltIp.pubVal, usCltPort);
 				#else
-					tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+                    #if defined(__riscv)
+                        tcp_send_ack(pstLink, unDstAddr, usDstPort, unCltIp, usCltPort);
+                    #else
+					    tcp_send_ack(pstLink, *((in_addr_t *)pvDstAddr), usDstPort, unCltIp/*htonl(unSrcAddr)*/, usCltPort/*htons(pstHdr->usSrcPort)*/);
+                    #endif
 				#endif
 				}
                 else
@@ -1507,27 +1583,51 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
     else
     {       
         //* 首先看看是否已针对当前请求申请了input
-	#if SUPPORT_IPV6
+#if SUPPORT_IPV6
+    #if defined(__riscv)
+        INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient((IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &pstLink);
+    #else
 		INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &pstLink);
-	#else
+    #endif
+#else
+    #if defined(__riscv)
+        INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient((IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink);
+    #else
         INT nRmtCltInput = onps_input_get_handle_of_tcp_rclient(pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &pstLink); 
-	#endif
+    #endif
+#endif
         if (nRmtCltInput < 0) //* 尚未申请input节点，这里需要先申请一个
         {                            
-		#if SUPPORT_IPV6
+    #if SUPPORT_IPV6
+        #if defined(__riscv)
+            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usCltPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, &pstLink, &enErr);
+        #else
 			nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, pvDstAddr, usCltPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, &pstLink, &enErr);
-		#else
+        #endif
+    #else
+        #if defined(__riscv)
+            nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usCltPort, (in_addr_t *)&unCltIp, &pstLink, &enErr);
+        #else
             nRmtCltInput = onps_input_new_tcp_remote_client(nInput, usDstPort, pvDstAddr, usCltPort, (in_addr_t *)&unCltIp, &pstLink, &enErr); 
-		#endif
+        #endif
+    #endif
             if (nRmtCltInput < 0)
             {
                 if (ERRNOFREEMEM == enErr)
                 {                    
-                #if SUPPORT_IPV6
+            #if SUPPORT_IPV6
+                #if defined(__riscv)
+                    tcpsrv_send_reset((IPV4 == enProtocol) ? AF_INET : AF_INET6, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, unPeerSeqNum + 1, &enErr);
+                #else
                     tcpsrv_send_reset((IPV4 == enProtocol) ? AF_INET : AF_INET6, pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, unPeerSeqNum + 1, &enErr);
+                #endif
+            #else
+                #if defined(__riscv)
+                    tcpsrv_send_reset(AF_INET, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, unPeerSeqNum + 1, &enErr);
                 #else
                     tcpsrv_send_reset(AF_INET, pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, unPeerSeqNum + 1, &enErr);
                 #endif
+            #endif
                     return; 
                 }
 
@@ -1548,11 +1648,19 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 
             //* 发送syn ack报文给对端
             pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
-		#if SUPPORT_IPV6
+    #if SUPPORT_IPV6
+        #if defined(__riscv)
+            tcpsrv_send_syn_ack_with_start_timer(pstLink, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort);
+        #else
 			tcpsrv_send_syn_ack_with_start_timer(pstLink, pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort);
-		#else
+        #endif
+    #else
+        #if defined(__riscv)
+            tcpsrv_send_syn_ack_with_start_timer(pstLink, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort);
+        #else
             tcpsrv_send_syn_ack_with_start_timer(pstLink, pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort);
-		#endif
+        #endif
+    #endif
         }
         else //* 已经申请，说明对端没收到syn ack，我们已经通过定时器在重复发送syn ack报文，所以这里直接发送一个应答但不开启定时器
         {
@@ -1561,11 +1669,19 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 
             //* 发送syn ack报文给对端
             pstLink->stPeer.unSeqNum = unPeerSeqNum + 1;
-        #if SUPPORT_IPV6
+    #if SUPPORT_IPV6
+        #if defined(__riscv)
+            tcpsrv_send_syn_ack(pstLink, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &enErr); 
+        #else
             tcpsrv_send_syn_ack(pstLink, pvDstAddr, usDstPort, (IPV4 == enProtocol) ? (void *)&uniCltIp.unVal : (void *)uniCltIp.pubVal, usCltPort, &enErr);
+        #endif
+    #else
+        #if defined(__riscv)
+            tcpsrv_send_syn_ack(pstLink, (IPV4 == enProtocol) ? &unDstAddr : pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &enErr);
         #else
             tcpsrv_send_syn_ack(pstLink, pvDstAddr, usDstPort, (in_addr_t *)&unCltIp, usCltPort, &enErr); 
         #endif
+    #endif
         }                
     }
 #endif

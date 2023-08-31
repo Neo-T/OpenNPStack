@@ -644,7 +644,7 @@ static BOOL is_arp_broadcast_addr(const UCHAR *pubaMacAddr)
     INT i;
     for (i = 0; i < ETH_MAC_ADDR_LEN; i++)
     {
-        if (pubaMacAddr[i] != 0x00)
+        if (pubaMacAddr[i] != 0x00 && pubaMacAddr[i] != 0xFF) //* 广播地址存在00-00-00-00-00-00及FF-FF-FF-FF-FF-FF两种情形
             return FALSE;
     }
 
@@ -697,7 +697,7 @@ void arp_recv_from_ethii(PST_NETIF pstNetif, UCHAR *pubPacket, INT nPacketLen)
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_lock(o_hMtxPrintf);
     #endif
-        printf("error: The arp target mac address (%02X:%02X:%02X:%02X:%02X:%02X:) does not match, the packet will be dropped\r\n"
+        printf("error: The arp target mac address (%02X:%02X:%02X:%02X:%02X:%02X) does not match, the packet will be dropped\r\n"
 				, pstArpIPv4->ubaDstMacAddr[0], pstArpIPv4->ubaDstMacAddr[1], pstArpIPv4->ubaDstMacAddr[2], pstArpIPv4->ubaDstMacAddr[3], pstArpIPv4->ubaDstMacAddr[4], pstArpIPv4->ubaDstMacAddr[5]);
     #if PRINTF_THREAD_MUTEX
         os_thread_mutex_unlock(o_hMtxPrintf);

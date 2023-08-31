@@ -110,6 +110,7 @@ typedef enum {
     ERRROUTEENTRYNOR,       //* 增加或删除路由条目时系统存储器写入失败
     ERRROUTEDEFAULTDEL,     //* 缺省路由不能被删除
     ERRROUTEENTRYNOTEXIST,  //* 路由条目不存在
+    ERRNETIFSEND,           //* 网卡返回发送故障
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

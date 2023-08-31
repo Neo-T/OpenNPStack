@@ -599,7 +599,7 @@ static void ipv6_svv_timeout_handler(void *pvParam)
 static void ipv6_cfg_timeout_handler(void *pvParam)
 {	
 	PST_NETIF pstNetif = (PST_NETIF)pvParam; 
-	switch (pstNetif->stIPv6.bitCfgState)
+    switch ((UCHAR)(0x07 & pstNetif->stIPv6.bitCfgState))
 	{
 	case IPv6CFG_LNKADDR: 
 		if (pstNetif->stIPv6.stLnkAddr.bitState != IPv6ADDR_TENTATIVE) //* 配置完成？

@@ -83,6 +83,112 @@ typedef struct _ST_ONESHOTTIMER_ ST_ONESHOTTIMER, *PST_ONESHOTTIMER;
 typedef struct _ST_TCPUDP_HANDLE_ ST_TCPUDP_HANDLE, *PST_TCPUDP_HANDLE;
 typedef struct _STCB_TCPSENDTIMER_ STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER; 
 
+#if defined(__riscv)
+#if SUPPORT_SACK
+typedef struct _ST_TCPSACK_ {
+    UINT unLeft;
+    UINT unRight;
+} ST_TCPSACK, *PST_TCPSACK;
+#endif //* #if SUPPORT_SACK
+typedef struct _ST_TCPLINK_ {
+    struct {
+        UINT unSeqNum;
+#if SUPPORT_SACK
+        UINT unAckedSeqNum;
+        UINT unHasSndBytes;
+#endif //* #if SUPPORT_SACK
+        USHORT usWndSize;
+
+#if SUPPORT_SACK
+        CHAR bIsZeroWnd : 1;
+        CHAR bDataSendState : 3;
+        //CHAR bIsSeqNumUpdated : 1; 
+#else //* #if SUPPORT_SACK
+        CHAR bIsZeroWnd;
+        CHAR bDataSendState;
+#endif //* #if SUPPORT_SACK
+        PST_TCPUDP_HANDLE pstHandle;
+    } stLocal;
+
+    struct {
+        PST_ONESHOTTIMER pstTimer;
+        INT nInput;
+        CHAR bRcvTimeout;
+        CHAR bIsAcked;
+        USHORT usSendDataBytes;
+    } stcbWaitAck;
+
+    struct {
+        CHAR bSackEn;       //* SACK选项使能
+        CHAR bWndScale;     //* 窗口放大因子
+        USHORT usMSS;       //* MSS值
+        USHORT usWndSize;   //* 当前窗口大小        
+#if SUPPORT_IPV6
+        STP_SOCKADDR stSockAddr;
+        //UINT unIpv6FlowLbl; //* ipv6流标签（Flow Label），其与源地址/端口、目的地址/端口一起唯一的标识一个通讯数据流
+#else
+        struct {
+            USHORT usPort;  //* 端口
+            in_addr_t unIp; //* 地址            
+        } stSockAddr;
+#endif
+        UINT unSeqNum;      //* 当前序号
+                            //UINT unNextSeqNum;  //* 期望得到的下一组序号
+        UINT unStartMSecs;  //* 延时计数
+        CHAR bIsNotAcked;   //* 是否已经应答
+    } stPeer;
+
+    union {
+        struct {
+            USHORT no_delay_ack : 1; //* tcp ack是否延迟一小段时间后再发送（延迟的目的是等待是否有数据一同发送到对端）
+            USHORT resrved1 : 15;
+        } stb16;
+        USHORT usVal;
+    } uniFlags;  //* tcp标志
+
+#if SUPPORT_SACK
+    struct {
+        CHAR bNext; //* 链接下一个要发送数据的tcp link
+        CHAR bSendPacketNum;
+        CHAR bIsPutted : 1;
+        CHAR bIsWndSizeUpdated : 1;
+        CHAR bIsZeroWnd : 1;
+        CHAR bDupAckNum;
+        UINT unWriteBytes;
+        UINT unPrevSeqNum;
+        //UINT unRetransSeqNum; 
+        ST_TCPSACK staSack[TCPSENDTIMER_NUM];
+        UCHAR *pubSndBuf;
+        STCB_TCPSENDTIMER *pstcbSndTimer;
+        UINT unLastSndZeroWndPktMSecs;
+        UINT unWndSize;
+    } stcbSend; //* 发送控制块
+#endif
+
+    //* 用于TCP_TYPE_RCLIENT类型的tcp链路
+    PST_TCPBACKLOG pstBacklog;
+    INT nInputSrv;
+
+    CHAR bState;        //* 当前链路状态
+    CHAR bIsPassiveFin; //* 是被动FIN操作
+
+    CHAR bIdx;
+    CHAR bNext;
+} ST_TCPLINK, *PST_TCPLINK;
+
+#if SUPPORT_SACK
+typedef struct _STCB_TCPSENDTIMER_ {
+    UINT unSendMSecs;
+    UINT unLeft;
+    UINT unRight;
+    struct _STCB_TCPSENDTIMER_ *pstcbNextForLink;
+    struct _STCB_TCPSENDTIMER_ *pstcbNext;
+    PST_TCPLINK pstLink;
+    USHORT usRto;
+    CHAR bIsNotSacked;
+} STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
+#endif //* #if SUPPORT_SACK
+#else //* #if defined(__riscv)
 PACKED_BEGIN
 #if SUPPORT_SACK
 typedef struct _ST_TCPSACK_ {
@@ -191,6 +297,7 @@ typedef struct _STCB_TCPSENDTIMER_ {
 } PACKED STCB_TCPSENDTIMER, *PSTCB_TCPSENDTIMER;
 PACKED_END
 #endif
+#endif //* #if defined(__riscv)
 
 //* 用于tcp服务器的input附加数据
 typedef struct _ST_INPUTATTACH_TCPSRV_ {

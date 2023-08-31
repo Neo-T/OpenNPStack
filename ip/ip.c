@@ -448,7 +448,7 @@ INT ipv6_send_ext(UCHAR ubaSrcIpv6[16], UCHAR ubaDstIpv6[16], UCHAR ubNextHeader
 
 void ipv6_recv(PST_NETIF pstNetif, UCHAR *pubDstMacAddr, UCHAR *pubPacket, INT nPacketLen)
 {
-	if (pstNetif->stIPv6.bitCfgState < IPv6CFG_LNKADDR)
+    if ((UCHAR)(0x07 & pstNetif->stIPv6.bitCfgState) < (UCHAR)IPv6CFG_LNKADDR)
 		return; 
 
     PST_IPv6_HDR pstHdr; 

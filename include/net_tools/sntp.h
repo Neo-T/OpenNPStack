@@ -33,17 +33,17 @@ typedef union _UNI_SNTP_FLAG_ {
 //* ntp数据报文格式
 PACKED_BEGIN
 typedef struct _ST_SNTP_DATA_ {
-    UCHAR ubFlag;               //* 标志
-    UCHAR ubStratum;            //* 时钟层数
-    UCHAR ubPoll;               //* 轮询时间，即两个连续ntp报文之间的时间间隔，用2的幂来表示，比如值为6表示最小间隔为2^6 = 64s
-    UCHAR ubPrecision;          //* 时钟精度
-    UINT unRootDelay;           //* 到主参考时钟的总往返延迟时间
-    UINT unRootDispersion;      //* 本地时钟相对于主参考时钟的最大误差
-    UINT unRefId;               //* 特定参考时钟标识
-    LONGLONG llRefTimestamp;    //* 本地时钟最后一次被设定或更新的时间，如果值为0表示本地时钟从未被同步
-    LONGLONG llOrigiTimestamp;  //* NTP报文离开源端时的本地时间
-    LONGLONG llRcvTimestamp;    //* NTP报文到达目的端的本地时间
-    LONGLONG llTransTimestatmp; //* 目的端应答报文离开服务器端的本地时间
+    UCHAR ubFlag;                   //* 标志
+    UCHAR ubStratum;                //* 时钟层数
+    UCHAR ubPoll;                   //* 轮询时间，即两个连续ntp报文之间的时间间隔，用2的幂来表示，比如值为6表示最小间隔为2^6 = 64s
+    UCHAR ubPrecision;              //* 时钟精度
+    UINT unRootDelay;               //* 到主参考时钟的总往返延迟时间
+    UINT unRootDispersion;          //* 本地时钟相对于主参考时钟的最大误差
+    UINT unRefId;                   //* 特定参考时钟标识
+    ULONGLONG ullRefTimestamp;      //* 本地时钟最后一次被设定或更新的时间，如果值为0表示本地时钟从未被同步
+    ULONGLONG ullOrigiTimestamp;    //* NTP报文离开源端时的本地时间
+    ULONGLONG ullRcvTimestamp;      //* NTP报文到达目的端的本地时间
+    ULONGLONG ullTransTimestatmp;   //* 目的端应答报文离开服务器端的本地时间
 } PACKED ST_SNTP_DATA, *PST_SNTP_DATA; 
 PACKED_END
 
