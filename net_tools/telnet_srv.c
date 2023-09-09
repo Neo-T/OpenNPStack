@@ -40,8 +40,9 @@ void nvt_stop(PSTCB_TELNETCLT pstcbTelnetClt)
     while (!pstcbTelnetClt->bitTHIsEnd && unTimeCounts++ < (3 * 100)) 
         os_sleep_ms(10); 
     
-    //* 强制当前nvt结束    
-    os_nvt_stop(&pstcbTelnetClt->stcbNvt);
+    //* 如果还未结束则强制当前nvt结束   
+    if(!pstcbTelnetClt->bitTHIsEnd)
+        os_nvt_stop(&pstcbTelnetClt->stcbNvt);
 }
 
 static void telnet_client_add(PSTCB_TELNETCLT pstcbTelnetClt)
