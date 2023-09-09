@@ -73,7 +73,7 @@ onps栈设计实现了一套完整的tcp/ip协议模型。从数据链路层到i
     [RT-Thread移植样例](https://gitee.com/Neo-T/onps-rtthread) [ucos-ii移植样例](https://gitee.com/Neo-T/onps-ucosii)
 
  **[沁恒CH32V307平台](https://gitee.com/Neo-T/Onps-WCH-CH32V307)** ：
-    [鸿蒙LiteOS-M移植样例](https://gitee.com/Neo-T/Onps-WCH-CH32V307/tree/master/HarmonyOS/LiteOS_m)
+    [鸿蒙LiteOS-M移植样例](https://gitee.com/Neo-T/Onps-WCH-CH32V307/tree/master/HarmonyOS/LiteOS_m) [FreeRTOS移植样例](https://gitee.com/Neo-T/Onps-WCH-CH32V307/tree/master/FreeRTOS)
 
 #### 社区支持
 
