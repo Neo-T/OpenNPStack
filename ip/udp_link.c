@@ -21,7 +21,7 @@ BOOL udp_link_init(EN_ONPSERR *penErr)
 {
     //* 链接	
     INT i;
-    for (i = 0; i < TCP_LINK_NUM_MAX - 1; i++)
+    for (i = 0; i < UDP_LINK_NUM_MAX - 1; i++)
     {
         l_staUdpLinkNode[i].bIdx = i; 
         l_staUdpLinkNode[i].bNext = i + 1;
