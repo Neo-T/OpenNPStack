@@ -18,7 +18,7 @@
 OS_NVT_EXT void os_nvt_init(void);
 OS_NVT_EXT void os_nvt_uninit(void);
 OS_NVT_EXT BOOL os_nvt_start(void *pvParam);
-OS_NVT_EXT void os_nvt_stop(void *pvParam); 
+OS_NVT_EXT void os_nvt_stop(void *pvParam, BOOL blIsNvtEnd);
 
 #if SUPPORT_ETHERNET && NVTCMD_IFIP_EN
 #if ETH_EXTRA_IP_EN

@@ -106,6 +106,7 @@ static const ST_ONPSERR lr_staErrorList[] = {
     { ERRROUTEDEFAULTDEL, "the default route cannot be deleted" }, 
     { ERRROUTEENTRYNOTEXIST, "the routing entry does not exist" }, 
     { ERRNETIFSEND, "The network card returns a sending failure" }, 
+    { ERRNOSOCKET, "No socket available" }, 
     { ERRUNKNOWN, "unknown error" }
 }; 
 

@@ -111,6 +111,7 @@ typedef enum {
     ERRROUTEDEFAULTDEL,     //* 缺省路由不能被删除
     ERRROUTEENTRYNOTEXIST,  //* 路由条目不存在
     ERRNETIFSEND,           //* 网卡返回发送故障
+    ERRNOSOCKET,            //* 无可用套接字
     ERRUNKNOWN,             //* 未知错误
 } EN_ONPSERR;
 

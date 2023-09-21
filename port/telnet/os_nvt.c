@@ -29,7 +29,7 @@ BOOL os_nvt_start(void *pvParam)
 
 }
 
-void os_nvt_stop(void *pvParam)
+void os_nvt_stop(void *pvParam, BOOL blIsNvtEnd)
 {
 
 }

@@ -187,41 +187,54 @@ INT onps_input_new(INT family, EN_IPPROTO enProtocol, EN_ONPSERR *penErr)
     PSTCB_ONPS_INPUT pstcbInput; 
     os_thread_mutex_lock(l_hMtxInput); 
     {
-        pstNode = sllist_get_node(&l_pstFreedSLList);
-        pstcbInput = &l_stcbaInput[pstNode->uniData.nVal];
-        pstcbInput->hSem = hSem; 
-        pstcbInput->bRcvTimeout = -1; 
-        pstcbInput->ubIPProto = (UCHAR)enProtocol; 
-        pstcbInput->pubRcvBuf = pubRcvBuf; 
-        pstcbInput->unRcvBufSize = unSize;
-        pstcbInput->unRcvedBytes = 0; 
-        pstcbInput->ubLastErr = ERRNO; 
+        if (NULL != (pstNode = sllist_get_node(&l_pstFreedSLList)))
+        {
+            pstcbInput = &l_stcbaInput[pstNode->uniData.nVal];
+            pstcbInput->hSem = hSem;
+            pstcbInput->bRcvTimeout = -1;
+            pstcbInput->ubIPProto = (UCHAR)enProtocol;
+            pstcbInput->pubRcvBuf = pubRcvBuf;
+            pstcbInput->unRcvBufSize = unSize;
+            pstcbInput->unRcvedBytes = 0;
+            pstcbInput->ubLastErr = ERRNO;
 
-		if (IPPROTO_ICMP == enProtocol
-		#if SUPPORT_IPV6
-			|| IPPROTO_ICMPv6 == enProtocol
-		#endif
-			)
-		{
-		#if SUPPORT_IPV6
-			pstcbInput->uniHandle.stIcmp.bFamily = family;
-		#endif
-			pstcbInput->uniHandle.stIcmp.usIdentifier = 0;
-		}
+            if (IPPROTO_ICMP == enProtocol
+        #if SUPPORT_IPV6
+                || IPPROTO_ICMPv6 == enProtocol
+        #endif
+                )
+            {
+        #if SUPPORT_IPV6
+                pstcbInput->uniHandle.stIcmp.bFamily = family;
+        #endif
+                pstcbInput->uniHandle.stIcmp.usIdentifier = 0;
+            }
+            else
+            {
+                pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
+        #if SUPPORT_IPV6
+                pstcbInput->uniHandle.stTcpUdp.bFamily = (CHAR)family;
+                memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
+        #else
+                pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = 0;
+        #endif
+                pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = 0;
+                pstcbInput->pvAttach = NULL;
+            }
+
+            sllist_put_node(&l_pstInputSLList, pstNode);
+        } 
         else
         {
-            pstcbInput->uniHandle.stTcpUdp.bType = TCP_TYPE_LCLIENT;
-	#if SUPPORT_IPV6
-			pstcbInput->uniHandle.stTcpUdp.bFamily = (CHAR)family;			
-			memset(&pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp, 0, sizeof(pstcbInput->uniHandle.stTcpUdp.stSockAddr.uniIp));
-	#else
-			pstcbInput->uniHandle.stTcpUdp.stSockAddr.saddr_ipv4 = 0;
-	#endif
-            pstcbInput->uniHandle.stTcpUdp.stSockAddr.usPort = 0;
-            pstcbInput->pvAttach = NULL;
-        }
+            os_thread_sem_uninit(hSem);
+            buddy_free(pubRcvBuf); 
+            os_thread_mutex_unlock(l_hMtxInput); 
 
-        sllist_put_node(&l_pstInputSLList, pstNode); 
+            if (penErr)
+                *penErr = ERRNOSOCKET;
+
+            return -1; 
+        }
     }
     os_thread_mutex_unlock(l_hMtxInput);
 
