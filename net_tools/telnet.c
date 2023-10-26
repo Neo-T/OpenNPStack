@@ -1,5 +1,5 @@
 /*
-* 遵循Apache License 2.0开源许可协议
+* 作者：Neo-T，遵循Apache License 2.0开源许可协议
 *
 */
 #include "port/datatype.h"
