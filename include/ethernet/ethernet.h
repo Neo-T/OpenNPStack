@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  * 完成ethernet模块相关宏定义、接口函数、结构体定义等工作
  *

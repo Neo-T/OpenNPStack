@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  * 协议栈使用的one-shot类型的定时器，时间粒度为1秒
  *

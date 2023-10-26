@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  * DHCPv6帧结构定义，DHCPv6协议说明参见[RFC3315]以及18年的更新版[RFC8415]
  * 2003版：https://www.rfc-editor.org/rfc/rfc3315

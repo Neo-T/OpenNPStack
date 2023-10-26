@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  */
 #include "port/datatype.h"
@@ -1940,7 +1940,7 @@ __lblSend:
             tcp_link_ack_handler(pstSndDataLink);
             
             //* 发送数据
-            if (pstSndDataLink->stcbSend.bSendPacketNum < 4)
+            if (pstSndDataLink->stcbSend.bSendPacketNum < TCPSENDTIMER_NUM)
             {
                 if(tcp_link_send_data(pstSndDataLink))
                     blIsExistData = TRUE;

@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  * 系统配置头文件，用户可根据实际情况对协议栈进行裁剪、参数配置等工作
  *
@@ -80,6 +80,12 @@
 #define TCP_ACK_TIMEOUT         3       //* 缺省TCP应答超时时间
 #define TCP_LINK_NUM_MAX        16      //* 系统支持最多建立多少路TCP链路（涵盖所有TCP客户端 + TCP服务器的并发连接数），超过这个数量将无法建立新的tcp链路，另外这个值最大为127，超过则系统无法正常运行
 #define TCP_ACK_DELAY_MSECS     100     //* 延迟多少毫秒发送ack报文，这个值最小40毫秒，最大200毫秒
+//#define TCP_ENABLE_JUMBO_FRAME
+#ifdef TCP_ENABLE_JUMBO_FRAME
+#define ONPS_TCP_MSS (8 * 1024)
+#endif
+#define ONPS_TCP_MSS 1460
+#endif
 
 #if SUPPORT_ETHERNET
     #define TCPSRV_BACKLOG_NUM_MAX  10      //* tcp服务器支持的最大请求队列数量，任意时刻所有已开启的tcp服务器的请求连接队列数量之和应小于该值，否则将会出现拒绝连接的情况

@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  * 完成ipv6地址自动配置（stateless/stateful, icmpv6 + dhcpv6）
  *

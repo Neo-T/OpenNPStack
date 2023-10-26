@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  */
 #include "port/datatype.h"
@@ -46,7 +46,7 @@ const static ST_TCPOPT_HANDLER lr_staTcpOptList[] =
 
 static void tcp_options_attach_mss(UCHAR *pubAttachAddr)
 {
-    USHORT usMss = TCPRCVBUF_SIZE - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX;
+    USHORT usMss = ONPS_TCP_MSS/*1500 - sizeof(ST_TCP_HDR) - TCP_OPTIONS_SIZE_MAX*/;
     pubAttachAddr[0] = ((UCHAR *)&usMss)[1]; 
     pubAttachAddr[1] = ((UCHAR *)&usMss)[0];    
 }

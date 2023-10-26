@@ -1,5 +1,5 @@
 /*
- * 版权属于onps栈开发团队，遵循Apache License 2.0开源许可协议
+ * 遵循Apache License 2.0开源许可协议
  *
  * ICMPv6帧结构定义，结构体各字段来源特别是消息类型及选项类型参见：
  * https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml
