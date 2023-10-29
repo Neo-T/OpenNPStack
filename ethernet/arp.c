@@ -175,7 +175,7 @@ void arp_init(void)
     for (k = 0; k < ETHERNET_NUM; k++)
     {
         INT i; 
-        for (i = 0; i < TCPSRV_BACKLOG_NUM_MAX - 1; i++)
+        for (i = 0; i < ARP_WAIT_QUEUE_NUM - 1; i++)
             l_stcbaEthArp[k].staSListWaitQueue[i].pstNext = &l_stcbaEthArp[k].staSListWaitQueue[i + 1]; 
         l_stcbaEthArp[k].staSListWaitQueue[i].pstNext = NULL;
         l_stcbaEthArp[k].pstSListWaitQueueFreed = &l_stcbaEthArp[k].staSListWaitQueue[0]; 

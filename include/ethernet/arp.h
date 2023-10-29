@@ -24,12 +24,13 @@ typedef struct _ST_ENTRY_ETHIIIPV4_ {
 } ST_ENTRY_ETHIIIPV4, *PST_ENTRY_ETHIIIPV4;
 
 //* arp条目控制块
+#define ARP_WAIT_QUEUE_NUM 12
 typedef struct _STCB_ETHARP_ {
     CHAR bIsUsed;
     CHAR bLastReadEntryIdx; //* 最近读取的arp条目索引
     ST_ENTRY_ETHIIIPV4 staEntry[ARPENTRY_NUM]; //* arp条目缓存表（Ipv4地址到以太网mac地址映射表）
 
-    ST_SLINKEDLIST_NODE staSListWaitQueue[12];		//* 等待arp查询结果的待发送报文队列    
+    ST_SLINKEDLIST_NODE staSListWaitQueue[ARP_WAIT_QUEUE_NUM];		//* 等待arp查询结果的待发送报文队列    
 	PST_SLINKEDLIST pstSListWaitQueueFreed; 
     PST_SLINKEDLIST pstSListWaitQueue; 
 } STCB_ETHARP, *PSTCB_ETHARP;

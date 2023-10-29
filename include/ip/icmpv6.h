@@ -41,13 +41,14 @@ typedef struct _ST_ENTRY_ETHIPv6MAC_ {
 } ST_ENTRY_ETHIPv6MAC, *PST_ENTRY_ETHIPv6MAC;
 
 //* Ipv6到以太网Mac地址映射表控制块
+#define IPV6MAC_WAIT_QUEUE_NUM 12
 typedef struct _STCB_ETHIPv6MAC__ {
 	CHAR bIsUsed;	
 	CHAR bLastReadEntryIdx; //* 最近读取的映射条目
 	CHAR bEntriesNum;		//* 已经缓存的条目数量
 	ST_ENTRY_ETHIPv6MAC staEntry[IPV6TOMAC_ENTRY_NUM]; //* IPv6地址到以太网Mac地址映射表
 
-	ST_SLINKEDLIST_NODE staSListWaitQueue[12]; //* 等待icmpv6查询结果的待发送报文队列    
+	ST_SLINKEDLIST_NODE staSListWaitQueue[IPV6MAC_WAIT_QUEUE_NUM]; //* 等待icmpv6查询结果的待发送报文队列    
 	PST_SLINKEDLIST pstSListWaitQueueFreed;
 	PST_SLINKEDLIST pstSListWaitQueue;
 } STCB_ETHIPv6MAC, *PSTCB_ETHIPv6MAC;

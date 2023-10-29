@@ -186,7 +186,7 @@ void ipv6_mac_mapping_tbl_init(void)
 	for (k = 0; k < ETHERNET_NUM; k++)
 	{
 		INT i;
-		for (i = 0; i < TCPSRV_BACKLOG_NUM_MAX - 1; i++)
+		for (i = 0; i < IPV6MAC_WAIT_QUEUE_NUM - 1; i++)
 			l_stcbaEthIpv6Mac[k].staSListWaitQueue[i].pstNext = &l_stcbaEthIpv6Mac[k].staSListWaitQueue[i + 1];
 		l_stcbaEthIpv6Mac[k].staSListWaitQueue[i].pstNext = NULL;
 		l_stcbaEthIpv6Mac[k].pstSListWaitQueueFreed = &l_stcbaEthIpv6Mac[k].staSListWaitQueue[0];
