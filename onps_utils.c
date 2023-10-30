@@ -841,6 +841,36 @@ USHORT ascii_to_hex_16(const CHAR *pszAscii)
 	return usValue;
 }
 
+BOOL is_valid_ip(const CHAR *pszIP)
+{
+    INT nSum = 0; 
+    INT i = 0, j = 0; 
+    while ('\0' != pszIP[i])
+    {
+        if (j > 3)
+            return FALSE; 
+
+        if (pszIP[i] > 0x2F && pszIP[i] < 0x3A)
+            nSum = nSum * 10 + pszIP[i] - '0';
+        else if (pszIP[i] == '.')
+        {
+            j++;
+            if (nSum < 0 || nSum > 255)
+                return FALSE;
+            else
+                nSum = 0; 
+        }
+        else
+            return FALSE; 
+        i++; 
+    }
+
+    if (j != 3 || (nSum < 0 || nSum > 255))
+        return FALSE;
+
+    return TRUE; 
+}
+
 in_addr_t inet_addr_small(const char *pszIP)
 {    
     in_addr_t unAddr;

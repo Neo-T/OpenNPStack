@@ -1421,7 +1421,7 @@ void tcp_recv(void *pvSrcAddr, void *pvDstAddr, UCHAR *pubPacket, INT nPacketLen
 					tcp_link_sack_handler(pstLink, bSackNum);				
             }
            
-            if (unSrcAckNum == pstLink->stcbSend.unPrevSeqNum) //* 记录dup ack数量
+            if (pstLink->stcbSend.pstcbSndTimer && unSrcAckNum == pstLink->stcbSend.unPrevSeqNum) //* 记录dup ack数量
             {
                 pstLink->stcbSend.bDupAckNum++;                
                 if (pstLink->stcbSend.bDupAckNum > 3)

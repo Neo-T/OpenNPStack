@@ -167,6 +167,11 @@ static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
                     goto __lblHelp; 
 
                 snprintf(stArgs.szDstIp, sizeof(stArgs.szDstIp), "%s", argv[2]); 
+                if (AF_INET == stArgs.nFamily)
+                {
+                    if (!is_valid_ip(stArgs.szDstIp))
+                        goto __lblHelp;
+                }
             }
             else            
                 goto __lblHelp; 
@@ -175,10 +180,14 @@ static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         {
             stArgs.nFamily = AF_INET;
             snprintf(stArgs.szDstIp, sizeof(stArgs.szDstIp), "%s", argv[1]);
+            if (!is_valid_ip(stArgs.szDstIp))
+                goto __lblHelp;
         }
 #else
         stArgs.nFamily = AF_INET; 
         snprintf(stArgs.szDstIp, sizeof(stArgs.szDstIp), "%s", argv[1]); 
+        if (!is_valid_ip(stArgs.szDstIp))
+            goto __lblHelp;
 #endif
     }
 

@@ -131,6 +131,7 @@ ONPS_UTILS_EXT void array_linked_list_del_safe(void *pvUnit, CHAR *pbListHead, v
 ONPS_UTILS_EXT void *array_linked_list_next(CHAR *pbNextUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit, CHAR *pbUnitIdx); 
 ONPS_UTILS_EXT void *array_linked_list_next_ext(void *pvUnit, CHAR *pbListHead, void *pvArray, UCHAR ubUnitSize, CHAR bOffsetNextUnit);
 
+ONPS_UTILS_EXT BOOL is_valid_ip(const CHAR *pszIP); 
 ONPS_UTILS_EXT in_addr_t inet_addr(const char *pszIP);   //* 点分十进制IPv4地址转换为4字节无符号整型地址
 ONPS_UTILS_EXT in_addr_t inet_addr_small(const char *pszIP); 
 ONPS_UTILS_EXT char *inet_ntoa(struct in_addr stInAddr);
