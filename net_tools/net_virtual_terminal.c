@@ -426,7 +426,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
                 break;
 
             case '\n':
-            case '\0':
+            //case '\0':
                 tcp_send(hRmtTelnetClt, "\r\n", 2);
                 break;
 

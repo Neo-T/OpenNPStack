@@ -212,3 +212,25 @@ __lblGetNextNode:
 
     goto __lblGetNextNode;
 }
+
+SHORT buf_list_free_nodes_num(void)
+{
+    SHORT sFreeNodesNum = 0; 
+    os_critical_init();
+
+    os_enter_critical();
+    {
+        if (!(l_sFreeBufList < 0))
+        {            
+            SHORT sNextNode = l_sFreeBufList;
+            while (!(sNextNode < 0))
+            {
+                sFreeNodesNum++; 
+                sNextNode = l_saFreeBufNode[sNextNode]; 
+            }
+        }      
+    }
+    os_exit_critical();
+
+    return sFreeNodesNum; 
+}

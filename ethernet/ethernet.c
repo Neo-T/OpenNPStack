@@ -557,7 +557,7 @@ INT ethernet_loopback_put_packet(PST_NETIF pstNetif, SHORT sBufListHead, UINT un
 		PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
 		PST_SLINKEDLIST_NODE pstNode = (PST_SLINKEDLIST_NODE)pubPacket;
 		pstNode->uniData.unVal = unPacketLen;
-		buf_list_merge_packet(sBufListHead, pubPacket + sizeof(ST_SLINKEDLIST_NODE) + +sizeof(ST_LOOPBACK_HDR));
+		buf_list_merge_packet(sBufListHead, pubPacket + sizeof(ST_SLINKEDLIST_NODE) + sizeof(ST_LOOPBACK_HDR));
 
 		PST_LOOPBACK_HDR pstLoopbackHdr = (PST_LOOPBACK_HDR)(pubPacket + sizeof(ST_SLINKEDLIST_NODE)); 
 		pstLoopbackHdr->unProtoType = unLoopProtocol;
