@@ -1239,3 +1239,40 @@ __lblMacthedBits:
 }
 #endif //* #if SUPPORT_IPV6
 
+//* 两个无符号整数相除，得到指定精度的浮点数结果，其中ubFloatPrecision指定精度。最大63，也就是说小数点最多63位
+const CHAR *dividing_unsigned_int(UINT unDividend, UINT unDivisor, UCHAR ubFloatPrecision, CHAR *pszResult, UINT unResultBufLen)
+{
+    UCHAR ubDecimal[64];
+    INT i;
+    UINT unInteger = unDividend / unDivisor;
+    UINT unRemainder = unDividend % unDivisor;
+    ubFloatPrecision = ubFloatPrecision > 63 ? 63 : ubFloatPrecision;
+    for (i = 0; i < sizeof(ubDecimal) && i < ubFloatPrecision + 1; i++)
+    {
+        unRemainder *= 10;
+        ubDecimal[i] = (unRemainder / unDivisor) + '0';
+        unRemainder = unRemainder % unDivisor;
+    }
+
+    //* 四舍五入
+    UCHAR ubCarry = i - 1;
+    if (ubDecimal[ubCarry] > '4')
+    {
+        if (ubCarry)
+            ubDecimal[ubCarry - 1] += 1;
+        else
+            unInteger += 1;
+    }
+    ubDecimal[ubCarry] = 0;
+
+    //* 保存结果到用户指定的缓冲区
+    snprintf(pszResult, unResultBufLen, "%d.", unInteger);
+    UINT unUsedSize = strlen(pszResult);
+    UINT unRemainSize = unResultBufLen - unUsedSize;
+    if (0 != unRemainSize)
+        snprintf(pszResult + unUsedSize, unRemainSize, "%s", ubDecimal);
+
+    return pszResult;
+}
+
+

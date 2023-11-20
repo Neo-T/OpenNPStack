@@ -163,4 +163,7 @@ ONPS_UTILS_EXT INT ipv6_addr_cmp(const UCHAR *pubAddr1, const UCHAR *pubAddr2, U
 ONPS_UTILS_EXT INT ipv6_prefix_matched_bits(const UCHAR ubaAddr1[16], const UCHAR ubaAddr2[16], UCHAR ubPrefixBitsLen); //* 给出两个地址前缀匹配的数据位数，返回值为匹配的位数，0为不匹配
 #endif
 
+//* 两个无符号整数相除，得到指定精度的浮点数结果，其中ubFloatPrecision指定精度。最大63，也就是说小数点最多63位
+const CHAR *dividing_unsigned_int(UINT unDividend, UINT unDivisor, UCHAR ubFloatPrecision, CHAR *pszResult, UINT unResultBufLen); 
+
 #endif
