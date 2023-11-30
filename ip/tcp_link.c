@@ -141,6 +141,17 @@ BOOL tcp_link_init(EN_ONPSERR *penErr)
 
 void tcp_link_uninit(void)
 {
+#if SUPPORT_SACK
+    if (INVALID_HMUTEX != l_hMtxSndTimerLink) 
+        os_thread_mutex_uninit(l_hMtxSndTimerLink); 
+
+    if (INVALID_HMUTEX != l_hMtxSndDataLink)
+        os_thread_mutex_uninit(l_hMtxSndDataLink); 
+
+    if (INVALID_HSEM != l_hSemSndForSack)
+        os_thread_sem_uninit(l_hSemSndForSack);
+#endif
+
     if (INVALID_HMUTEX != l_hMtxTcpLinkList)
         os_thread_mutex_uninit(l_hMtxTcpLinkList);
 }

@@ -83,7 +83,7 @@
 //#define TCP_ENABLE_JUMBO_FRAME
 #ifdef TCP_ENABLE_JUMBO_FRAME
 #define ONPS_TCP_MSS (8 * 1024)
-#endif
+#else
 #define ONPS_TCP_MSS 1460
 #endif
 
