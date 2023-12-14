@@ -61,7 +61,7 @@ typedef enum {
 } EN_TCPDATASNDSTATE; 
 
 //* 记录到达的tcp服务器连接请求信息的结构体
-typedef struct _ST_TCPBACKLOG__ {
+typedef struct _ST_TCPBACKLOG_ {
     struct {
         USHORT usPort;
 #if SUPPORT_IPV6

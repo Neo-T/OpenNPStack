@@ -55,7 +55,7 @@ PST_UDPLINK udp_link_get(EN_ONPSERR *penErr)
             os_thread_mutex_unlock(l_hMtxUdpLinkList);
 
             if (penErr)
-                *penErr = ERRNOTCPLINKNODE;
+                *penErr = ERRNOUDPLINKNODE;
 
             return NULL;
         }
@@ -73,15 +73,15 @@ PST_UDPLINK udp_link_get(EN_ONPSERR *penErr)
     return pstFreeNode;
 }
 
-void udp_link_free(PST_UDPLINK pstTcpLink)
+void udp_link_free(PST_UDPLINK pstUdpLink)
 {    
     os_thread_mutex_lock(l_hMtxUdpLinkList);
     {
         if (l_pstFreeUdpLinkList)        
-            pstTcpLink->bNext = l_pstFreeUdpLinkList->bIdx;         
+            pstUdpLink->bNext = l_pstFreeUdpLinkList->bIdx;
         else        
-            pstTcpLink->bNext = -1; 
-        l_pstFreeUdpLinkList = pstTcpLink;
+            pstUdpLink->bNext = -1;
+        l_pstFreeUdpLinkList = pstUdpLink;
     }
     os_thread_mutex_unlock(l_hMtxUdpLinkList);
 }

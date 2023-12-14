@@ -578,11 +578,7 @@ PST_INPUTATTACH_TCPSRV tcpsrv_input_attach_get(EN_ONPSERR *penErr)
     os_enter_critical();
     {
         INT i;
-    #ifdef TELNETSRV_SUPPORT_IPv6
-        for (i = 0; i < TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV + TELNETSRV_SUPPORT_IPv6; i++)
-    #else
-        for (i = 0; i < TCPSRV_NUM_MAX + NETTOOLS_TELNETSRV; i++)
-    #endif //* #ifdef TELNETSRV_SUPPORT_IPv6
+        for (i = 0; i < sizeof(l_staIAttachSrv) / sizeof(ST_INPUTATTACH_TCPSRV); i++)
         {
             if (!l_staIAttachSrv[i].bIsUsed)
             {

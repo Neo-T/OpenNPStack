@@ -303,8 +303,21 @@ INT onps_input_new_tcp_remote_client(INT nInputSrv, USHORT usSrvPort, void *pvSr
     PST_SLINKEDLIST_NODE pstNode;
     PSTCB_ONPS_INPUT pstcbInput;
     os_thread_mutex_lock(l_hMtxInput);
-    {
-        pstNode = sllist_get_node(&l_pstFreedSLList);
+    {        
+        if (NULL == (pstNode = sllist_get_node(&l_pstFreedSLList)))
+        {
+            os_thread_mutex_unlock(l_hMtxInput);
+
+            tcp_link_free(pstLink);
+            tcp_backlog_free(pstBacklog);
+            buddy_free(pubRcvBuf);
+
+            if (penErr)
+                *penErr = ERRNOSOCKET;
+
+            return -1; 
+        }
+
         pstcbInput = &l_stcbaInput[pstNode->uniData.nVal];
         pstcbInput->hSem = l_stcbaInput[nInputSrv].hSem; 
         pstcbInput->bRcvTimeout = 0; //* 实际的数据读取函数recv()不再等待，因为客户一旦调用recv()函数，说明已经确定收到数据了（由tcp服务器提供的poll函数来通知用户数据已到达）
@@ -1318,13 +1331,7 @@ const CHAR *onps_get_last_error(INT nInput, EN_ONPSERR *penErr)
     }
 
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
-
-    EN_ONPSERR enLastErr;
-    os_critical_init();
-    os_enter_critical();
-    enLastErr = (EN_ONPSERR)pstcbInput->ubLastErr;
-    os_exit_critical();
-
+    EN_ONPSERR enLastErr = (EN_ONPSERR)pstcbInput->ubLastErr;
     if (penErr)
         *penErr = enLastErr;
 
@@ -1337,14 +1344,7 @@ EN_ONPSERR onps_get_last_error_code(INT nInput)
         return ERRINPUTOVERFLOW;
 
     PSTCB_ONPS_INPUT pstcbInput = &l_stcbaInput[nInput];
-
-    EN_ONPSERR enLastErr;
-    os_critical_init();
-    os_enter_critical();
-    {
-        enLastErr = (EN_ONPSERR)pstcbInput->ubLastErr; 
-    }    
-    os_exit_critical(); 
+    EN_ONPSERR enLastErr = (EN_ONPSERR)pstcbInput->ubLastErr;  
 
     return enLastErr; 
 }
