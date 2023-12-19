@@ -66,7 +66,10 @@ static PST_NETIF_NODE get_free_node(void)
             l_pstFreeNode = l_pstFreeNode->pstNext;
     }
     os_thread_mutex_unlock(l_hMtxNetif);
-    
+
+    if (NULL == pstNode)
+        return NULL; 
+
     memset(&pstNode->stIf, 0, sizeof(pstNode->stIf));
     return pstNode;  
 }
@@ -215,42 +218,7 @@ void netif_del(PST_NETIF_NODE pstNode)
 
 void netif_del_ext(PST_NETIF pstNetif)
 {
-    PST_NETIF_NODE pstNode = NULL; 
-
-    //* 从网卡链表删除
-    os_thread_mutex_lock(l_hMtxNetif);
-    {
-        PST_NETIF_NODE pstNextNode = l_pstNetifLink;
-        PST_NETIF_NODE pstPrevNode = NULL;
-        while (pstNextNode)
-        {
-            if (&pstNextNode->stIf == pstNetif)
-            {       
-                pstNode = pstNextNode;
-                if (pstPrevNode)
-                    pstPrevNode->pstNext = pstNode->pstNext;
-                else
-                    l_pstNetifLink = pstNode->pstNext;
-
-				//* 更改缺省网络接口，如果要删除的这个正好是的话
-				if (l_pstDefaultNetif == pstNetif)
-				{
-					if (l_pstNetifLink)
-						l_pstDefaultNetif = &l_pstNetifLink->stIf;
-					else
-						l_pstDefaultNetif = NULL;
-				}
-
-                break;
-            }
-            pstPrevNode = pstNextNode;
-            pstNextNode = pstNextNode->pstNext;
-        }
-    }
-    os_thread_mutex_unlock(l_hMtxNetif);
-
-    if(pstNode)
-        put_free_node(pstNode);
+    netif_del((PST_NETIF_NODE)((UCHAR *)pstNetif - offsetof(ST_NETIF_NODE, stIf))); 
 }
 
 PST_NETIF netif_get_first(BOOL blIsForSending)
@@ -461,26 +429,30 @@ void netif_eth_del_ip(PST_NETIF pstNetif, in_addr_t unIp)
 {
     PST_NETIFEXTRA_ETH pstExtra = (PST_NETIFEXTRA_ETH)pstNetif->pvExtra; 
     CHAR i, bTargetIdx = -1; 
-    for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
+    os_thread_mutex_lock(l_hMtxNetif);
     {
-        if (pstExtra->staExtraIp[i].unAddr)
+        for (i = 0; i < ETH_EXTRA_IP_NUM; i++)
         {
-            //* 相等，则找到了要删除的ip地址
-            if (unIp == pstExtra->staExtraIp[i].unAddr)            
-                bTargetIdx = i;            
+            if (pstExtra->staExtraIp[i].unAddr)
+            {
+                //* 相等，则找到了要删除的ip地址
+                if (unIp == pstExtra->staExtraIp[i].unAddr)
+                    bTargetIdx = i;
+            }
+            else
+                break;
         }
-        else
-            break;
-    }    
 
-    if (bTargetIdx < 0)
-        return; 
-
-    //* 如果并不是最后一个ip地址存储单元，那么就需要把这之后的ip地址存储单元整体前移一个存储单元，达成实际的删除效果
-    CHAR bCpyIpNum = i - (bTargetIdx + 1); 
-    if (bCpyIpNum)
-        memmove(&pstExtra->staExtraIp[bTargetIdx], &pstExtra->staExtraIp[bTargetIdx + 1], sizeof(ST_ETH_EXTRA_IP) * bCpyIpNum);
-    pstExtra->staExtraIp[i - 1].unAddr = 0; 
+        if (!(bTargetIdx < 0))
+        {
+            //* 如果并不是最后一个ip地址存储单元，那么就需要把这之后的ip地址存储单元整体前移一个存储单元，达成实际的删除效果
+            CHAR bCpyIpNum = i - (bTargetIdx + 1);
+            if (bCpyIpNum)
+                memmove(&pstExtra->staExtraIp[bTargetIdx], &pstExtra->staExtraIp[bTargetIdx + 1], sizeof(ST_ETH_EXTRA_IP) * bCpyIpNum);
+            pstExtra->staExtraIp[i - 1].unAddr = 0;
+        }                    
+    }
+    os_thread_mutex_unlock(l_hMtxNetif);    
 }
 
 BOOL netif_eth_add_ip_by_if_name(const CHAR *pszIfName, in_addr_t unIp, in_addr_t unSubnetMask, EN_ONPSERR *penErr)
