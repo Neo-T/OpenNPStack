@@ -53,7 +53,10 @@ void netif_uninit(void)
     l_pstFreeNode = NULL;
 
     if (INVALID_HMUTEX != l_hMtxNetif)
+    {
         os_thread_mutex_uninit(l_hMtxNetif);
+        l_hMtxNetif = INVALID_HMUTEX; 
+    }
 }
 
 static PST_NETIF_NODE get_free_node(void)

@@ -46,7 +46,10 @@ void route_table_uninit(void)
     l_pstFreeNode = NULL;
 
     if (INVALID_HMUTEX != l_hMtxRoute)
-        os_thread_mutex_uninit(l_hMtxRoute);
+    {
+        os_thread_mutex_uninit(l_hMtxRoute); 
+        l_hMtxRoute = INVALID_HMUTEX; 
+    }
 }
 
 static PST_ROUTE_NODE get_free_node(void)
@@ -59,6 +62,9 @@ static PST_ROUTE_NODE get_free_node(void)
             l_pstFreeNode = l_pstFreeNode->pstNext;
     }
     os_thread_mutex_unlock(l_hMtxRoute);
+
+    if (NULL == pstNode)
+        return NULL;
 
     memset(&pstNode->stRoute, 0, sizeof(pstNode->stRoute));
     return pstNode;
@@ -102,34 +108,32 @@ BOOL route_add(PST_NETIF pstNetif, UINT unDestination, UINT unGateway, UINT unGe
 
             pstNextNode = pstNextNode->pstNext;
         }
-    }
-    os_thread_mutex_unlock(l_hMtxRoute);
 
-    //* 执行到这里意味着没找到对应的路由条目，需要新增一个
-    pstNode = get_free_node();
-    if (NULL == pstNode)
-    {
-        if (penErr)
-            *penErr = ERRNOROUTENODE;
+        //* 执行到这里意味着没找到对应的路由条目，需要新增一个
+        pstNode = get_free_node();
+        if (NULL == pstNode)
+        {
+            os_thread_mutex_unlock(l_hMtxRoute); 
 
-        return FALSE;
-    }
+            if (penErr)
+                *penErr = ERRNOROUTENODE;
 
-    //* 保存路由相关信息
-    pstNode->stRoute.unSource = netif_get_source_ip_by_gateway(pstNetif, unGateway); 
-    pstNode->stRoute.unDestination = unDestination; 
-    pstNode->stRoute.unGateway = unGateway; 
-    pstNode->stRoute.unGenmask = unGenmask; 
-    pstNode->stRoute.pstNetif = pstNetif; 
+            return FALSE;
+        }
 
-    //* 加入链表
-    os_thread_mutex_lock(l_hMtxRoute);
-    {
+        //* 保存路由相关信息
+        pstNode->stRoute.unSource = netif_get_source_ip_by_gateway(pstNetif, unGateway);
+        pstNode->stRoute.unDestination = unDestination;
+        pstNode->stRoute.unGateway = unGateway;
+        pstNode->stRoute.unGenmask = unGenmask;
+        pstNode->stRoute.pstNetif = pstNetif;        
+
+        //* 加入链表
         pstNode->pstNext = l_pstRouteLink;
-        l_pstRouteLink = pstNode;        
+        l_pstRouteLink = pstNode;
+        pstNode->stRoute.pstNetif->bUsedCount = 0;
     }
-    os_thread_mutex_unlock(l_hMtxRoute);   
-    pstNode->stRoute.pstNetif->bUsedCount = 0;
+    os_thread_mutex_unlock(l_hMtxRoute);    
 
 __lblEnd: 
 #if SUPPORT_PRINTF && DEBUG_LEVEL > 1
