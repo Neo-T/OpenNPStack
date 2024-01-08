@@ -1,9 +1,14 @@
 /*
- * 遵循Apache License 2.0开源许可协议
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Author：Neo-T, Created in 2023.03.29 09:40
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
  *
  * 完成ipv6地址自动配置（stateless/stateful, icmpv6 + dhcpv6）
- *
- * Neo-T, 创建于2023.03.29 09:40
  *
  */
 #ifndef IPv6CFG_H

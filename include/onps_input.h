@@ -1,9 +1,14 @@
 /*
- * 遵循Apache License 2.0开源许可协议
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Author：Neo-T, Created in 2022.04.13 17:25
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
  *
  * icmp/tcp/udp层接收处理逻辑用到的基础数据结构、辅助宏、相关功能函数等的定义与声明工作
- *
- * Neo-T, 创建于2022.04.13 17:25
  *
  */
 #ifndef ONPSINPUT_H

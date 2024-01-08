@@ -1,9 +1,14 @@
 /*
- * 遵循Apache License 2.0开源许可协议
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Author：Neo-T, Created in 2022.03.21 10:19
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
  *
  * ppp协议解析相关的宏定义：包括支持的上层协议、协议头相关的标志字符串、地址、MRU等定义
- *
- * Neo-T, 创建于2022.03.21 10:19
  *
  */
 #ifndef PPP_PROTOCOLS_H

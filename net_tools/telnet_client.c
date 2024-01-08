@@ -1,7 +1,14 @@
 /*
-* ×÷Õß£ºNeo-T£¬×ñÑ­Apache License 2.0¿ªÔ´Ğí¿ÉĞ­Òé
-*
-*/
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Authorï¼šNeo-T
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
+ *
+ */
 #include "port/datatype.h"
 #include "port/sys_config.h"
 #include "onps_errors.h"
@@ -30,7 +37,7 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
 
     while (nHandleBytes < nSrvDataLen)
     {
-        //* Ö¸Áî£¬·ÇÊı¾İ
+        //* æŒ‡ä»¤ï¼Œéæ•°æ®
         if (TELNETCMD_IAC == pubNextData[0])
         {
             PST_TELNETPKT_CMD pstCmd = (PST_TELNETPKT_CMD)pubNextData;
@@ -41,7 +48,7 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
                     if (TELNETCMD_DO == pstCmd->ubCmd)
                         telnet_cmd_send(hTelSrvSocket, TELNETCMD_WILL, TELNETOPT_TERMTYPE);
                     else if (TELNETCMD_DONT == pstCmd->ubCmd)
-                        telnet_cmd_send(hTelSrvSocket, TELNETCMD_WONT, TELNETOPT_TERMTYPE); //* ¸æÖª¶Ô¶Ë£¬ÒÑÖªÏş½ûÖ¹¼¤»îÖÕ¶ËÀàĞÍÑ¡Ïî
+                        telnet_cmd_send(hTelSrvSocket, TELNETCMD_WONT, TELNETOPT_TERMTYPE); //* å‘ŠçŸ¥å¯¹ç«¯ï¼Œå·²çŸ¥æ™“ç¦æ­¢æ¿€æ´»ç»ˆç«¯ç±»å‹é€‰é¡¹
                     else;
                 }
                 else if (TELNETOPT_SGA == pstCmd->ubNegoOption)
@@ -78,7 +85,7 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
                     PST_TELNETPKT_SOPT_TERMTYPE pstTremType = (PST_TELNETPKT_SOPT_TERMTYPE)pubNextData;
                     if (TELNETOPT_TTCODE_SEND == pstTremType->ubCode)
                     {
-                        //* ·¢ËÍÖÕ¶ËÀàĞÍ¸ø·şÎñÆ÷
+                        //* å‘é€ç»ˆç«¯ç±»å‹ç»™æœåŠ¡å™¨
                         const CHAR *pszTermType = nvt_get_term_type(ullNvtHandle);
                         telnet_report_term_type(hTelSrvSocket, pszTermType, strlen(pszTermType));
 
@@ -86,7 +93,7 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
                     }
                 }
 
-                //* ¼ÆËã×ÓÑ¡Ïî³¤¶È            
+                //* è®¡ç®—å­é€‰é¡¹é•¿åº¦            
                 for (; i + nHandleBytes < nSrvDataLen; i++)
                 {
                     if (pubNextData[i] == TELNETCMD_SE)
@@ -106,7 +113,7 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
                     break;
             }
 
-            //* ·ÇÖ¸Áî
+            //* éæŒ‡ä»¤
             nvt_output(ullNvtHandle, pubNextData, i);
 
             pubNextData += i;
@@ -117,11 +124,11 @@ static void telnet_srv_data_handler(ULONGLONG ullNvtHandle, SOCKET hTelSrvSocket
 
 void telnet_clt_entry(void *pvParam)
 {
-    //* ±ØĞëÒª¸´ÖÆ£¬ÒòÎªÕâ¸öº¯Êı±»Éè¼ÆÎªµ¥¶ÀÒ»¸öÏß³Ì/ÈÎÎñ
+    //* å¿…é¡»è¦å¤åˆ¶ï¼Œå› ä¸ºè¿™ä¸ªå‡½æ•°è¢«è®¾è®¡ä¸ºå•ç‹¬ä¸€ä¸ªçº¿ç¨‹/ä»»åŠ¡
     ST_TELCLT_STARTARGS stArgs = *((PST_TELCLT_STARTARGS)pvParam);
     ((PST_TELCLT_STARTARGS)pvParam)->bIsCpyEnd = TRUE;
 
-    //* Êä³öÁ¬½ÓÌáÊ¾ĞÅÏ¢
+    //* è¾“å‡ºè¿æ¥æç¤ºä¿¡æ¯
     nvt_output(stArgs.ullNvtHandle, "Connecting to telnet server ...\r\n", sizeof("Connecting to telnet server ...\r\n") - 1); 
 
     EN_ONPSERR enErr;                          
@@ -132,10 +139,10 @@ void telnet_clt_entry(void *pvParam)
         UCHAR *pubRcvBuf = (UCHAR *)buddy_alloc(TELNETCLT_RCVBUF_SIZE, &enErr);
         if (pubRcvBuf)
         {
-            //* ·Ç×èÈû
+            //* éé˜»å¡
             socket_set_rcv_timeout(hTelSocket, 0, &enErr);
 
-            //* ½øÈëÑ­»·×´Ì¬
+            //* è¿›å…¥å¾ªç¯çŠ¶æ€
             INT nRcvBytes;
             BOOL blIsNotRcvedData = TRUE;
             USHORT usZeroNum = 0; 

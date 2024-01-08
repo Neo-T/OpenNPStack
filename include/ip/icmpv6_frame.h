@@ -1,10 +1,15 @@
 /*
- * 遵循Apache License 2.0开源许可协议
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Author：Neo-T, Created in 2023.03.12 09:40
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
  *
  * ICMPv6帧结构定义，结构体各字段来源特别是消息类型及选项类型参见：
  * https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml
- * 
- * Neo-T, 创建于2023.03.12 09:40
  *
  */
 #ifndef ICMPv6_FRAME_H

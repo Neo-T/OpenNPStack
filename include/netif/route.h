@@ -1,9 +1,14 @@
 /*
- * 遵循Apache License 2.0开源许可协议
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Author：Neo-T, Created in 2022.04.18 10:03
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
  *
  * 路由功能相关宏定义、接口函数、结构体定义等工作
- *
- * Neo-T, 创建于2022.04.18 10:03
  *
  */
 #ifndef ROUTE_H

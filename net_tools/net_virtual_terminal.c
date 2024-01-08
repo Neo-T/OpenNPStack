@@ -1,7 +1,14 @@
 /*
-* ×÷Õß£ºNeo-T£¬×ñÑ­Apache License 2.0¿ªÔ´Ğí¿ÉĞ­Òé
-*
-*/
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Authorï¼šNeo-T
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
+ *
+ */
 #include "port/datatype.h"
 #include "port/sys_config.h"
 #include "onps_errors.h"
@@ -40,7 +47,7 @@ typedef struct _ST_NVTNEGOOPT_ {
     void(*pfunNegoGet)(PSTCB_NVT pstcbNvt, UCHAR ubCmd);
 } ST_NVTNEGOOPT, *PST_NVTNEGOOPT;
 
-//* ÔÚÕâÀï¶¨Òånvt×Ô´øµÄÖ¸Áî
+//* åœ¨è¿™é‡Œå®šä¹‰nvtè‡ªå¸¦çš„æŒ‡ä»¤
 //* ===================================================================================
 static INT help(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT logout(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
@@ -100,7 +107,7 @@ static const ST_NVTCMD l_staNvtCmd[] = {
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)];
 static PST_NVTCMD_NODE l_pstNvtCmdList = NULL; 
 
-//* l_staNvtCmdÖĞÄÚÇ¶Ö¸Áî×î³¤µÄÄÇÌõµÄ×Ö½ÚÊı
+//* l_staNvtCmdä¸­å†…åµŒæŒ‡ä»¤æœ€é•¿çš„é‚£æ¡çš„å­—èŠ‚æ•°
 static CHAR l_bNvtCmdLenMax = 8; 
 //* ===================================================================================
 
@@ -127,18 +134,18 @@ void nvt_embedded_cmd_loader(void)
     }
 }
 
-//* ·¢ËÍĞ­ÉÌÑ¡Ïî
+//* å‘é€åå•†é€‰é¡¹
 static void nvt_nego_opt_send(PSTCB_NVT pstcbNvt)
 {
     UCHAR ubaSndBuf[32];
     UCHAR *pubFilled = ubaSndBuf;
     UCHAR i, ubFilledBytes = 0;
 
-    //* Ìî³äĞ­ÉÌÑ¡Ïî
+    //* å¡«å……åå•†é€‰é¡¹
     for (i = 0; i < NVTNEGOOPT_NUM; i++)
         ubFilledBytes += l_staNvtNegoOpts[i].pfunNegoPut(pstcbNvt, &pubFilled);
 
-    //* ´æÔÚÒªĞ­ÉÌµÄÑ¡ÏîÔòÏÂ·¢Ğ­ÉÌÑ¡Ïî¸ø¿Í»§¶Ë
+    //* å­˜åœ¨è¦åå•†çš„é€‰é¡¹åˆ™ä¸‹å‘åå•†é€‰é¡¹ç»™å®¢æˆ·ç«¯
     if (ubFilledBytes)
     {
         SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
@@ -155,24 +162,24 @@ static void nvt_cmd_cache_add(PSTCB_NVT pstcbNvt)
     {
         if (pstcbNvt->pszCmdCache[i])
         {
-            //* ÊÇ·ñÊÇÒÑ¾­´æÔÚµÄÖ¸Áî
+            //* æ˜¯å¦æ˜¯å·²ç»å­˜åœ¨çš„æŒ‡ä»¤
             if (nMovedIdx < 0 && nCmdLen == pstcbNvt->pszCmdCache[i] && !memcmp(pstcbNvt->szInputCache, pstcbNvt->pszCmdCache + i + 1, nCmdLen - 1))
                 nMovedIdx = i;
 
             i += pstcbNvt->pszCmdCache[i];
         }
-        else //* ÕÒµ½ÁËÎ²²¿£¬Ôò½áÊøÑ­»·
+        else //* æ‰¾åˆ°äº†å°¾éƒ¨ï¼Œåˆ™ç»“æŸå¾ªç¯
             break;
     }
 
-    //* Èç¹ûÊÇĞÂÖ¸ÁîÔòÌí¼Ó£¬·ñÔòÖ¸ÁîºóÒÆÖÁÎ²²¿
+    //* å¦‚æœæ˜¯æ–°æŒ‡ä»¤åˆ™æ·»åŠ ï¼Œå¦åˆ™æŒ‡ä»¤åç§»è‡³å°¾éƒ¨
     INT nCacheCmdLen = i;
     if (nMovedIdx < 0)
     {
         pstcbNvt->bCmdNum++;
 
         INT nRemainSpaceSize = NVTCMDCACHE_SIZE - nCacheCmdLen;
-        if (nRemainSpaceSize < nCmdLen) //* Èç¹û²»¹»´æ´¢£¬É¾³ı×îÀÏµÄÖ¸Áî
+        if (nRemainSpaceSize < nCmdLen) //* å¦‚æœä¸å¤Ÿå­˜å‚¨ï¼Œåˆ é™¤æœ€è€çš„æŒ‡ä»¤
         {
             CHAR nRemovedCmdNum = 0;
             for (i = 0; i < NVTCMDCACHE_SIZE; )
@@ -189,7 +196,7 @@ static void nvt_cmd_cache_add(PSTCB_NVT pstcbNvt)
                     memcpy(pstcbNvt->pszCmdCache + nCacheCmdLen + 1, pstcbNvt->szInputCache, nCmdLen - 1);
                     nCacheCmdLen += nCmdLen;
                     if (nCacheCmdLen < NVTCMDCACHE_SIZE)
-                        pstcbNvt->pszCmdCache[nCacheCmdLen] = 0; //* ½áÊø±ê¼Ç
+                        pstcbNvt->pszCmdCache[nCacheCmdLen] = 0; //* ç»“æŸæ ‡è®°
                     pstcbNvt->bCmdNum -= nRemovedCmdNum;
                     break;
                 }
@@ -201,12 +208,12 @@ static void nvt_cmd_cache_add(PSTCB_NVT pstcbNvt)
             memcpy(pstcbNvt->pszCmdCache + nCacheCmdLen + 1, pstcbNvt->szInputCache, nCmdLen - 1);
             nCacheCmdLen += nCmdLen;
             if (nCacheCmdLen < NVTCMDCACHE_SIZE)
-                pstcbNvt->pszCmdCache[nCacheCmdLen] = 0; //* ½áÊø±ê¼Ç                        
+                pstcbNvt->pszCmdCache[nCacheCmdLen] = 0; //* ç»“æŸæ ‡è®°                        
         }
     }
     else
     {
-        //* °ÑºóÃæµÄÖ¸ÁîÇ°ÒÆ£¬°Ñµ±Ç°Ö¸ÁîºóÒÆ
+        //* æŠŠåé¢çš„æŒ‡ä»¤å‰ç§»ï¼ŒæŠŠå½“å‰æŒ‡ä»¤åç§»
         memmove(pstcbNvt->pszCmdCache + nMovedIdx, pstcbNvt->pszCmdCache + nMovedIdx + pstcbNvt->pszCmdCache[nMovedIdx], nCacheCmdLen - (nMovedIdx + pstcbNvt->pszCmdCache[nMovedIdx]));
         nCacheCmdLen -= nCmdLen;
         pstcbNvt->pszCmdCache[nCacheCmdLen] = nCmdLen;
@@ -227,7 +234,7 @@ static void nvt_cmd_cache_up(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
         {
             if (pstcbNvt->pszCmdCache[i])
             {
-                if (bCmdNum == pstcbNvt->bCmdIdx) //* Æ¥Åä
+                if (bCmdNum == pstcbNvt->bCmdIdx) //* åŒ¹é…
                 {
                     CHAR *pszSndBuf;
                     EN_ONPSERR enErr;
@@ -253,7 +260,7 @@ static void nvt_cmd_cache_up(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                 i += pstcbNvt->pszCmdCache[i];
                 bCmdNum++;
             }
-            else //* ÕÒµ½ÁËÎ²²¿£¬Ôò½áÊøÑ­»·
+            else //* æ‰¾åˆ°äº†å°¾éƒ¨ï¼Œåˆ™ç»“æŸå¾ªç¯
                 break;
         }
     }
@@ -270,7 +277,7 @@ static void nvt_cmd_cache_down(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
         {
             if (pstcbNvt->pszCmdCache[i])
             {
-                if (bCmdNum == pstcbNvt->bCmdIdx) //* Æ¥Åä
+                if (bCmdNum == pstcbNvt->bCmdIdx) //* åŒ¹é…
                 {
                     CHAR *pszSndBuf;
                     EN_ONPSERR enErr;
@@ -295,7 +302,7 @@ static void nvt_cmd_cache_down(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
                 i += pstcbNvt->pszCmdCache[i];
                 bCmdNum++;
             }
-            else //* ÕÒµ½ÁËÎ²²¿£¬Ôò½áÊøÑ­»·
+            else //* æ‰¾åˆ°äº†å°¾éƒ¨ï¼Œåˆ™ç»“æŸå¾ªç¯
                 break;
         }
     }
@@ -380,14 +387,14 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
             pstcbNvt->stSMach.nvt_entering = 1;
             if (pstcbNvt->bCursorPos < pstcbNvt->bInputBytes)
             {
-                //* Áô³ö¡°¿ÕÑ¨¡±£¬ÒÔ±ãĞÂ×Ö·ûÕ¼Î»
+                //* ç•™å‡ºâ€œç©ºç©´â€ï¼Œä»¥ä¾¿æ–°å­—ç¬¦å ä½
                 CHAR bCpyBytes = pstcbNvt->bInputBytes - pstcbNvt->bCursorPos;
                 memmove(&pstcbNvt->szInputCache[pstcbNvt->bCursorPos + 1], &pstcbNvt->szInputCache[pstcbNvt->bCursorPos], bCpyBytes);
 
-                //* ²åÈëĞÂ×Ö·û
+                //* æ’å…¥æ–°å­—ç¬¦
                 pstcbNvt->szInputCache[pstcbNvt->bCursorPos] = ch;
 
-                //* »ØÏÔ
+                //* å›æ˜¾
                 if (3 == pstcbNvt->stSMach.nvt_srv_echo && SMACHNVT_PASSWD != pstcbNvt->stSMach.nvt_state)
                 {
                     if (NULL != (pszSndBuf = (CHAR *)buddy_alloc(NVT_ECHO_BUF_LEN_MAX, &enErr)))
@@ -431,7 +438,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
                 break;
 
             case '\b':
-            case '\177': //* ASCIIÉ¾³ı·ûdelete     
+            case '\177': //* ASCIIåˆ é™¤ç¬¦delete     
                 if (pstcbNvt->bCursorPos > 0)
                 {
                     CHAR bCpyBytes = pstcbNvt->bInputBytes - pstcbNvt->bCursorPos;
@@ -458,7 +465,7 @@ static void nvt_char_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt, CHAR ch, 
     }
 }
 
-//* ¿Í»§¶ËÉÏ±¨Êı¾İ¡¢Ö¸Áî´¦Àíº¯Êı
+//* å®¢æˆ·ç«¯ä¸ŠæŠ¥æ•°æ®ã€æŒ‡ä»¤å¤„ç†å‡½æ•°
 static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen)
 {
     SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
@@ -468,7 +475,7 @@ static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen
 
     while (nHandleBytes < nPktLen)
     {
-        //* Ö¸Áî£¬·ÇÊı¾İ
+        //* æŒ‡ä»¤ï¼Œéæ•°æ®
         if (TELNETCMD_IAC == pubNextData[0])
         {
             PST_TELNETPKT_CMD pstCmd = (PST_TELNETPKT_CMD)pubNextData;
@@ -483,7 +490,7 @@ static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen
                     }
                 }
 
-                //* ¶Ô¶Ë·¢ËÍÁËÒ»¸öĞ­ÒéÕ»²»Ö§³ÖµÄÑ¡Ïî£¬ÔòÒ»ÂÉ½ûÖ¹
+                //* å¯¹ç«¯å‘é€äº†ä¸€ä¸ªåè®®æ ˆä¸æ”¯æŒçš„é€‰é¡¹ï¼Œåˆ™ä¸€å¾‹ç¦æ­¢
                 if (i == NVTNEGOOPT_NUM)
                 {
                     if (pstCmd->ubNegoOption != pstcbNvt->stSMach.ubLastAckOption)
@@ -512,7 +519,7 @@ static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen
                     }
                 }
 
-                //* ¼ÆËã×ÓÑ¡Ïî³¤¶È            
+                //* è®¡ç®—å­é€‰é¡¹é•¿åº¦            
                 for (; i + nHandleBytes < nPktLen; i++)
                 {
                     if (pubNextData[i] == TELNETCMD_SE)
@@ -527,7 +534,7 @@ static void nvt_rcv_handler(PSTCB_NVT pstcbNvt, UCHAR *pubTelnetPkt, INT nPktLen
         {
             SOCKET hRmtTelnetClt = *(SOCKET *)((UCHAR *)pstcbNvt - offsetof(STCB_TELNETCLT, stcbNvt));
 
-            //* »º´æÓÃ»§ÊäÈëµÄÊı¾İ
+            //* ç¼“å­˜ç”¨æˆ·è¾“å…¥çš„æ•°æ®
             CHAR bRemainBytes = pubTelnetPkt + nPktLen - pubNextData;
             for (i = 0; i < bRemainBytes/* && pstcbNvt->bInputBytes < NVT_INPUT_CACHE_SIZE*/; )
             {
@@ -616,7 +623,7 @@ static void nvt_printf(SOCKET hRmtTelnetClt, INT nFormatBufSize, const CHAR *psz
         tcp_send(hRmtTelnetClt, "nvt_printf() failed, dynamic memory is empty.", sizeof("nvt_printf() failed, dynamic memory is empty.") - 1);
 }
 
-//* Êä³öonps±ê
+//* è¾“å‡ºonpsæ ‡
 static void nvt_print_logo(SOCKET hRmtTelnetClt)
 {
     nvt_printf(hRmtTelnetClt, 512, "\033[01;32m       ______   .__   __. .______     _______.\r\n" \
@@ -636,7 +643,7 @@ static void nvt_print_logo(SOCKET hRmtTelnetClt)
     */
 }
 
-//* Êä³öµÇÂ¼ĞÅÏ¢
+//* è¾“å‡ºç™»å½•ä¿¡æ¯
 static void nvt_print_login_info(SOCKET hRmtTelnetClt)
 {
     nvt_printf(hRmtTelnetClt, 128, "\033[01;32m%s\033[0m#\033[01;31mlogin\033[0m: ", NVT_PS);
@@ -649,7 +656,7 @@ static void nvt_print_login_info(SOCKET hRmtTelnetClt)
     */
 }
 
-//* Êä³öÃÜÂëÂ¼ÈëÌáÊ¾
+//* è¾“å‡ºå¯†ç å½•å…¥æç¤º
 static void nvt_print_passwd_info(SOCKET hRmtTelnetClt)
 {
     nvt_printf(hRmtTelnetClt, 128, "\033[01;32m%s\033[0m#\033[01;31mpassword\033[0m: ", NVT_PS);
@@ -661,7 +668,7 @@ static void nvt_print_passwd_info(SOCKET hRmtTelnetClt)
     */
 }
 
-//* Êä³öÃüÁîĞĞÇ°×º
+//* è¾“å‡ºå‘½ä»¤è¡Œå‰ç¼€
 static void nvt_print_ps(SOCKET hRmtTelnetClt)
 {
     nvt_printf(hRmtTelnetClt, 128, "\033[01;32m%s@%s\033[0m# ", NVT_USER_NAME, NVT_PS);
@@ -683,7 +690,7 @@ static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
             UCHAR ubLen = strlen(pstcbNvt->szInputCache);
             if (ubLen)
             {
-                //* ½âÎöÊäÈëÊı¾İ×ª»»³ÉÖ¸ÁîÖ´ĞĞĞèÒªµÄ¸ñÊ½
+                //* è§£æè¾“å…¥æ•°æ®è½¬æ¢æˆæŒ‡ä»¤æ‰§è¡Œéœ€è¦çš„æ ¼å¼
                 CHAR *pszaArg[NVTCMD_ARGC_MAX];
                 CHAR bArgCnt = 0;
                 CHAR *pszStart = pstcbNvt->szInputCache;
@@ -739,7 +746,7 @@ static void telnet_cmd_handler(PSTCB_NVT pstcbNvt, SOCKET hRmtTelnetClt)
 
             pstcbNvt->bInputBytes -= i + 1;
             pstcbNvt->bCursorPos = 0;
-            if (pstcbNvt->bInputBytes) //* °ÑÊ£ÓàµÄÓÃ»§Êı¾İÇ°ÒÆµ½Í·²¿
+            if (pstcbNvt->bInputBytes) //* æŠŠå‰©ä½™çš„ç”¨æˆ·æ•°æ®å‰ç§»åˆ°å¤´éƒ¨
                 memmove(pstcbNvt->szInputCache, &pstcbNvt->szInputCache[i + 1], pstcbNvt->bInputBytes);
         }
     }
@@ -750,7 +757,7 @@ void thread_nvt_handler(void *pvParam)
     PSTCB_NVT pstcbNvt = (PSTCB_NVT)pvParam;
     PSTCB_TELNETCLT pstcbTelnetClt = (PSTCB_TELNETCLT)((UCHAR *)pvParam - offsetof(STCB_TELNETCLT, stcbNvt));
 
-    //* ×´Ì¬»ú³õÊ¼»¯    
+    //* çŠ¶æ€æœºåˆå§‹åŒ–    
     pstcbNvt->stSMach.uniFlag.unVal = 0;
     pstcbNvt->stSMach.ubLastAckOption = 0;
     pstcbNvt->stSMach.szTermName[0] = 0;
@@ -772,8 +779,8 @@ void thread_nvt_handler(void *pvParam)
 #endif
 
 
-    //* ¼ÆËãÓÃÓÚÅĞ¶ÏĞ­ÉÌÊÇ·ñ½áÊøµÄÑÚÂë¡£Ã¿¸öĞ­ÉÌÑ¡Ïî×Ö¶ÎµÄÎ»0ÓÃÓÚ±ê¼Çµ±Ç°Ğ­ÉÌÊÇ·ñÒÑ½áÊø£¬ÑÚÂëÓëÖ®½øĞĞ¡°Óë¡±²Ù×÷½á¹ûµÈÓÚÑÚÂëÔòÒâÎ¶×ÅĞ­ÉÌ½áÊø
-    //* ÔÚÉè¼ÆÉÏÓĞÒâÈÃST_SMACHNVT::uniFlag::stb32ÖĞµÄ¸÷Ğ­ÉÌÑ¡Ïî×Ö¶ÎµÄÎ»0×é³ÉÁËÒ»¸öµÈ±ÈÊıÁĞ£º2^0 + 2^2 + 2^4 +...+2^2n£¬ÆäºÍSn = (4^n - 1) / 3£¬Sn¼´ÎªÑÚÂëÖµ
+    //* è®¡ç®—ç”¨äºåˆ¤æ–­åå•†æ˜¯å¦ç»“æŸçš„æ©ç ã€‚æ¯ä¸ªåå•†é€‰é¡¹å­—æ®µçš„ä½0ç”¨äºæ ‡è®°å½“å‰åå•†æ˜¯å¦å·²ç»“æŸï¼Œæ©ç ä¸ä¹‹è¿›è¡Œâ€œä¸â€æ“ä½œç»“æœç­‰äºæ©ç åˆ™æ„å‘³ç€åå•†ç»“æŸ
+    //* åœ¨è®¾è®¡ä¸Šæœ‰æ„è®©ST_SMACHNVT::uniFlag::stb32ä¸­çš„å„åå•†é€‰é¡¹å­—æ®µçš„ä½0ç»„æˆäº†ä¸€ä¸ªç­‰æ¯”æ•°åˆ—ï¼š2^0 + 2^2 + 2^4 +...+2^2nï¼Œå…¶å’ŒSn = (4^n - 1) / 3ï¼ŒSnå³ä¸ºæ©ç å€¼
     UINT unNegoEndMask = (pow(4, NVTNEGORESULT_NUM) - 1) / 3;
 
     UCHAR ubaRcvBuf[NVT_RCV_BUF_LEN_MAX];
@@ -795,7 +802,7 @@ void thread_nvt_handler(void *pvParam)
                         pstcbTelnetClt->unLastOperateTime = os_get_system_secs();
                         pstcbNvt->stSMach.nvt_try_cnt++;
                     }
-                    else //* Ò»Ö±Î´Ğ­ÉÌÍ¨¹ı£¬Ôò½áÊøµ±Ç°nvtµÄÔËĞĞ                                 
+                    else //* ä¸€ç›´æœªåå•†é€šè¿‡ï¼Œåˆ™ç»“æŸå½“å‰nvtçš„è¿è¡Œ                                 
                     {
                         pstcbTelnetClt->bitTHRunEn = FALSE;
                         continue;
@@ -810,7 +817,7 @@ void thread_nvt_handler(void *pvParam)
             break;
 
         case SMACHNVT_GETTERMNAME:
-            if (3 == pstcbNvt->stSMach.nvt_term_type) //* ÒÑĞ­ÉÌÍ¨¹ı£¬¶Ô¶ËÍ¬Òâ¼¤»î¸ÃÑ¡Ïî£¬ÔòÔÚÕâÀï¾ÍÒª»ñÈ¡¶Ô¶ËµÄÖÕ¶ËÀàĞÍÁË
+            if (3 == pstcbNvt->stSMach.nvt_term_type) //* å·²åå•†é€šè¿‡ï¼Œå¯¹ç«¯åŒæ„æ¿€æ´»è¯¥é€‰é¡¹ï¼Œåˆ™åœ¨è¿™é‡Œå°±è¦è·å–å¯¹ç«¯çš„ç»ˆç«¯ç±»å‹äº†
             {
                 if (!pstcbNvt->stSMach.szTermName[0])
                 {
@@ -827,7 +834,7 @@ void thread_nvt_handler(void *pvParam)
                 }
             }
 
-            //* Êä³öĞ­ÉÌÅäÖÃ½á¹ûĞÅÏ¢
+            //* è¾“å‡ºåå•†é…ç½®ç»“æœä¿¡æ¯
             nvt_print_logo(pstcbTelnetClt->hClient);
             nvt_printf(pstcbTelnetClt->hClient, 512, "=====================================================\r\n" \
                                                       "| Welcome to Zion, Your terminal type is \033[01;32m%s\033[0m\r\n" \
@@ -846,10 +853,10 @@ void thread_nvt_handler(void *pvParam)
             send(pstcbTelnetClt->hClient, "| * Case sensitive mode\r\n=====================================================\r\n", sizeof("| * Case sensitive mode\r\n=====================================================\r\n") - 1, 1);
             */
 
-            //* Êä³öµÇÂ¼ĞÅÏ¢
+            //* è¾“å‡ºç™»å½•ä¿¡æ¯
             nvt_print_login_info(pstcbTelnetClt->hClient);
 
-            //* Ç¨ÒÆµ½¡°µÇÂ¼¡±½×¶ÎÖ®Ç°³õÊ¼»¯ÓÃ»§ÊäÈëÏà¹ØµÄ±äÁ¿
+            //* è¿ç§»åˆ°â€œç™»å½•â€é˜¶æ®µä¹‹å‰åˆå§‹åŒ–ç”¨æˆ·è¾“å…¥ç›¸å…³çš„å˜é‡
             pstcbNvt->bInputBytes = 0;
             pstcbNvt->stSMach.nvt_try_cnt = 0;
             pstcbNvt->stSMach.nvt_state = SMACHNVT_LOGIN;
@@ -880,7 +887,7 @@ void thread_nvt_handler(void *pvParam)
                         send(pstcbTelnetClt->hClient, ubaRcvBuf, strlen((const char *)ubaRcvBuf), 1);
                         */
 
-                        nvt_print_login_info(pstcbTelnetClt->hClient); //* ÓÃ»§Ãû´íÎó£¬ÔÙ´ÎÊä³öµÇÂ¼ĞÅÏ¢
+                        nvt_print_login_info(pstcbTelnetClt->hClient); //* ç”¨æˆ·åé”™è¯¯ï¼Œå†æ¬¡è¾“å‡ºç™»å½•ä¿¡æ¯
                     }
                     else
                     {
@@ -952,7 +959,7 @@ void thread_nvt_handler(void *pvParam)
             break;
         }
 
-        //* ½ÓÊÕ
+        //* æ¥æ”¶
         nRcvBytes = recv(pstcbTelnetClt->hClient, ubaRcvBuf, sizeof(ubaRcvBuf)); 
         if (nRcvBytes > 0)
         {
@@ -975,7 +982,7 @@ void thread_nvt_handler(void *pvParam)
         }
         else
         {
-            //* Èç¹û·µ»ØÖµĞ¡ÓÚ0£¬±íÃ÷µ±Ç°tcpÁ´Â·³öÏÖÁË¹ÊÕÏ£¬ÔòÁ¢¼´½áÊøµ±Ç°nvtµÄÔËĞĞ
+            //* å¦‚æœè¿”å›å€¼å°äº0ï¼Œè¡¨æ˜å½“å‰tcpé“¾è·¯å‡ºç°äº†æ•…éšœï¼Œåˆ™ç«‹å³ç»“æŸå½“å‰nvtçš„è¿è¡Œ
             if (nRcvBytes < 0)
             {
                 pstcbTelnetClt->bitTHRunEn = FALSE;
@@ -1001,7 +1008,7 @@ void thread_nvt_handler(void *pvParam)
         buddy_free(pstcbNvt->pszCmdCache);
 #endif
 
-    //* ¼ÙÈçµ±Ç°»¹ÓĞÕıÔÚÖ´ĞĞÖĞµÄÖ¸Áî£¬½áÊønvtÖ®Ç°¾ÍĞèÒªÏÈÍ¨ÖªÆäÍ£Ö¹ÔËĞĞ²¢µÈ´ıÒ»Ğ¡¶ÎÊ±¼äÊ¹ÆäÄÜ¹»ÓĞ³ä×ãµÄÊ±¼ä°²È«½áÊø
+    //* å‡å¦‚å½“å‰è¿˜æœ‰æ­£åœ¨æ‰§è¡Œä¸­çš„æŒ‡ä»¤ï¼Œç»“æŸnvtä¹‹å‰å°±éœ€è¦å…ˆé€šçŸ¥å…¶åœæ­¢è¿è¡Œå¹¶ç­‰å¾…ä¸€å°æ®µæ—¶é—´ä½¿å…¶èƒ½å¤Ÿæœ‰å……è¶³çš„æ—¶é—´å®‰å…¨ç»“æŸ
     if (SMACHNVT_CMDEXECING == pstcbNvt->stSMach.nvt_state)
     {
         pstcbNvt->stSMach.nvt_cmd_exec_en = FALSE;
@@ -1013,14 +1020,14 @@ void thread_nvt_handler(void *pvParam)
             nvt_cmd_kill();
     }
 
-    //* µ±Ç°nvtÒÑ½áÊøÔËĞĞ£¬ĞèÒªÏÔÊ½µØÍ¨ÖªTelnet·şÎñÆ÷Çå³ı¸Ã¿Í»§¶ËÒÔÊÍ·ÅÕ¼ÓÃµÄÏà¹Ø×ÊÔ´    
+    //* å½“å‰nvtå·²ç»“æŸè¿è¡Œï¼Œéœ€è¦æ˜¾å¼åœ°é€šçŸ¥TelnetæœåŠ¡å™¨æ¸…é™¤è¯¥å®¢æˆ·ç«¯ä»¥é‡Šæ”¾å ç”¨çš„ç›¸å…³èµ„æº    
     pstcbTelnetClt->unLastOperateTime = 0;
     pstcbTelnetClt->bitTHIsEnd = TRUE;
 }
 
 static UCHAR nego_put_option(UCHAR **ppubFilled, CHAR bNegoEnd, UCHAR ubCmd, UCHAR ubOption)
 {
-    //* Ğ­ÉÌÍê±ÏÔò²»ÔÙÌî³ä
+    //* åå•†å®Œæ¯•åˆ™ä¸å†å¡«å……
     if (bNegoEnd)
         return 0;
 
@@ -1046,7 +1053,7 @@ static UCHAR nego_put_suppress_go_ahead(PSTCB_NVT pstcbNvt, UCHAR **ppubFilled)
 static UCHAR nego_put_echo(PSTCB_NVT pstcbNvt, UCHAR **ppubFilled)
 {
     UCHAR ubFilledBytes = nego_put_option(ppubFilled, pstcbNvt->stSMach.nvt_srv_echo, TELNETCMD_WILL, TELNETOPT_ECHO);
-    ubFilledBytes += nego_put_option(ppubFilled, pstcbNvt->stSMach.nvt_clt_echo, TELNETCMD_DO, TELNETOPT_ECHO); //* Ò»¶¨ÊÇDO£¬È»ºóÓÉ¶Ô¶Ë×ÔĞĞ¾ö¶¨ÊÇ·ñ¼¤»î¿Í»§¶ËµÄ±¾µØ»ØÏÔ£¬×îÖÕÓÉ·şÎñÆ÷¾Ü¾ø¼¤»î²Å¿ÉË³ÀûĞ­ÉÌ
+    ubFilledBytes += nego_put_option(ppubFilled, pstcbNvt->stSMach.nvt_clt_echo, TELNETCMD_DO, TELNETOPT_ECHO); //* ä¸€å®šæ˜¯DOï¼Œç„¶åç”±å¯¹ç«¯è‡ªè¡Œå†³å®šæ˜¯å¦æ¿€æ´»å®¢æˆ·ç«¯çš„æœ¬åœ°å›æ˜¾ï¼Œæœ€ç»ˆç”±æœåŠ¡å™¨æ‹’ç»æ¿€æ´»æ‰å¯é¡ºåˆ©åå•†
     return ubFilledBytes;
 }
 
@@ -1056,13 +1063,13 @@ static void nego_get_term_type(PSTCB_NVT pstcbNvt, UCHAR ubCmd)
 
     if (TELNETCMD_WILL == ubCmd)
     {
-        pstcbNvt->stSMach.nvt_term_type = 3; //* ¶Ô¶ËÍ¬Òâ¼¤»îÖÕ¶ËÀàĞÍÑ¡Ïî 
-        telnet_req_term_type(hRmtTelnetClt); //* ÇëÇó¶Ô¶ËµÄÖÕ¶ËÀàĞÍ
+        pstcbNvt->stSMach.nvt_term_type = 3; //* å¯¹ç«¯åŒæ„æ¿€æ´»ç»ˆç«¯ç±»å‹é€‰é¡¹ 
+        telnet_req_term_type(hRmtTelnetClt); //* è¯·æ±‚å¯¹ç«¯çš„ç»ˆç«¯ç±»å‹
     }
     else if (TELNETCMD_WONT == ubCmd)
     {
-        pstcbNvt->stSMach.nvt_term_type = 1; //* ¶Ô¶Ë²»Í¬Òâ¼¤»îÖÕ¶ËÀàĞÍÑ¡Ïî        
-        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DONT, TELNETOPT_TERMTYPE); //* ¸æÖª¶Ô¶Ë£¬ÒÑÖªÏş½ûÖ¹¼¤»îÖÕ¶ËÀàĞÍÑ¡Ïî 
+        pstcbNvt->stSMach.nvt_term_type = 1; //* å¯¹ç«¯ä¸åŒæ„æ¿€æ´»ç»ˆç«¯ç±»å‹é€‰é¡¹        
+        telnet_cmd_send(hRmtTelnetClt, TELNETCMD_DONT, TELNETOPT_TERMTYPE); //* å‘ŠçŸ¥å¯¹ç«¯ï¼Œå·²çŸ¥æ™“ç¦æ­¢æ¿€æ´»ç»ˆç«¯ç±»å‹é€‰é¡¹ 
     }
 }
 
@@ -1663,9 +1670,9 @@ static INT ntpdate(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         else
             bTimeZone = 8;
 
-        //* Í¬²½Ê±¼ä
+        //* åŒæ­¥æ—¶é—´
         time_t tNtpTime; 
-        if (argv[1][0] > 0x29 && argv[1][0] < 0x40) //* ipµØÖ··½Ê½        
+        if (argv[1][0] > 0x29 && argv[1][0] < 0x40) //* ipåœ°å€æ–¹å¼        
             tNtpTime = sntp_update_by_ip(argv[1], NULL, os_nvt_set_system_time, bTimeZone, &enErr);                     
         else
         {

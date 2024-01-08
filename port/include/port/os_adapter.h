@@ -1,9 +1,14 @@
 /*
- * 遵循Apache License 2.0开源许可协议
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Author：Neo-T, Created in 2022.03.15 13:53
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
  *
  * 操作系统适配层，在此定义与目标操作系统相关的接口函数
- *
- * Neo-T, 创建于2022.03.15 13:53
  *
  */
 #ifndef OS_ADAPTER_H

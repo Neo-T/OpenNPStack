@@ -1,7 +1,14 @@
 /*
-* ×÷Õß£ºNeo-T£¬×ñÑ­Apache License 2.0¿ªÔ´Ğí¿ÉĞ­Òé
-*
-*/
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Authorï¼šNeo-T
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
+ *
+ */
 #include "port/datatype.h"
 #include "port/sys_config.h"
 #include "onps_errors.h"
@@ -23,7 +30,7 @@
 #include "telnet/nvt_cmd.h"
 #undef SYMBOL_GLOBALS
 
-//* ÔÚÕâÀï¶¨ÒåÄã×Ô¼ºÒªÌí¼ÓµÄnvtÖ¸Áî
+//* åœ¨è¿™é‡Œå®šä¹‰ä½ è‡ªå·±è¦æ·»åŠ çš„nvtæŒ‡ä»¤
 //* ===================================================================================
 #if NVTCMD_TELNET_EN
 static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle); 
@@ -38,7 +45,7 @@ static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle);
 #endif //* #if NVTCMD_RESET_EN
 
-//* NVT×Ô¶¨ÒåÃüÁîÊı×é
+//* NVTè‡ªå®šä¹‰å‘½ä»¤æ•°ç»„
 static const ST_NVTCMD l_staNvtCmd[] = {    
 #if NVTCMD_TELNET_EN
     { telnet, "telnet", "used to log in to remote telnet host.\r\n" },     
@@ -52,7 +59,7 @@ static const ST_NVTCMD l_staNvtCmd[] = {
     { reset, "reset", "system reset.\r\n" }, 
 #endif //* #if NVTCMD_RESET_EN
 
-    { NULL, "", "" } //* ×¢ÒâÕâ¸ö²»ÒªÉ¾³ı£¬µ±ËùÓĞnvtÃüÁî±»ÓÃ»§½ûÖ¹Ê±Æä±»ÓÃÓÚ±ÜÃâ±àÒëÆ÷±¨´í
+    { NULL, "", "" } //* æ³¨æ„è¿™ä¸ªä¸è¦åˆ é™¤ï¼Œå½“æ‰€æœ‰nvtå‘½ä»¤è¢«ç”¨æˆ·ç¦æ­¢æ—¶å…¶è¢«ç”¨äºé¿å…ç¼–è¯‘å™¨æŠ¥é”™
 };
 
 static ST_NVTCMD_NODE l_staNvtCmdNode[sizeof(l_staNvtCmd) / sizeof(ST_NVTCMD)]; 
@@ -68,16 +75,16 @@ void nvt_cmd_register(void)
     }
 }
 
-//* É±ËÀµ±Ç°ÕıÔÚÖ´ĞĞµÄÖ¸Áî£¬¸Ãº¯ÊıÓÃÓÚÒÔÏß³Ì/ÈÎÎñ·½Ê½Æô¶¯µÄÖ¸Áî£¬µ±ÓÃ»§ÍË³öµÇÂ¼»òÕß³¤Ê±¼äÃ»ÓĞÈÎºÎ²Ù×÷£¬ĞèÒªÖ÷¶¯½áÊønvt½áÊøÔËĞĞÊ±£¬
-//* ´ËÊ±Èç¹û´æÔÚÕıÔÚÖ´ĞĞµÄÖ¸Áî£¬nvt»áÏÈÖ÷¶¯Í¨ÖªÆä½áÊøÔËĞĞ£¬Èç¹û¹æ¶¨Ê±¼äÄÚÆäÒÀÈ»Î´½áÊøÔËĞĞ£¬nvt»áµ÷ÓÃÕâ¸öº¯ÊıÇ¿ÖÆÆä½áÊøÔËĞĞÊÍ·ÅÕ¼
-//* ÓÃµÄÏß³Ì/ÈÎÎñ×ÊÔ´
+//* æ€æ­»å½“å‰æ­£åœ¨æ‰§è¡Œçš„æŒ‡ä»¤ï¼Œè¯¥å‡½æ•°ç”¨äºä»¥çº¿ç¨‹/ä»»åŠ¡æ–¹å¼å¯åŠ¨çš„æŒ‡ä»¤ï¼Œå½“ç”¨æˆ·é€€å‡ºç™»å½•æˆ–è€…é•¿æ—¶é—´æ²¡æœ‰ä»»ä½•æ“ä½œï¼Œéœ€è¦ä¸»åŠ¨ç»“æŸnvtç»“æŸè¿è¡Œæ—¶ï¼Œ
+//* æ­¤æ—¶å¦‚æœå­˜åœ¨æ­£åœ¨æ‰§è¡Œçš„æŒ‡ä»¤ï¼Œnvtä¼šå…ˆä¸»åŠ¨é€šçŸ¥å…¶ç»“æŸè¿è¡Œï¼Œå¦‚æœè§„å®šæ—¶é—´å†…å…¶ä¾ç„¶æœªç»“æŸè¿è¡Œï¼Œnvtä¼šè°ƒç”¨è¿™ä¸ªå‡½æ•°å¼ºåˆ¶å…¶ç»“æŸè¿è¡Œé‡Šæ”¾å 
+//* ç”¨çš„çº¿ç¨‹/ä»»åŠ¡èµ„æº
 void nvt_cmd_kill(void)
 {
     
 }
 
-//* ÒÔÏß³Ì·½Ê½ÔËĞĞµØÃüÁîÔÚÏß³Ì½áÊøÊ±Ó¦ÏÔÊ½µØ¸æÖªÆäÒÑ½áÊøÔËĞĞ£¬ÒòÎªĞ­ÒéÕ»ÔËĞĞµÄÄ¿±êÏµÍ³ÊôÓÚ×ÊÔ´ÊÜÏŞÏµÍ³£¬·²ÊÇÒÔÏß³ÌÔËĞĞµÄnvtÃüÁîÔÚ
-//* Í¬Ò»Ê±¿ÌÖ»ÔÊĞíÔËĞĞÒ»¸öÊµÀı£¬Õâ¸öº¯ÊıÈ·±£nvtÄÜ¹»°²È«ÔËĞĞÏÂÒ»¸öÏß³ÌÊµÀı
+//* ä»¥çº¿ç¨‹æ–¹å¼è¿è¡Œåœ°å‘½ä»¤åœ¨çº¿ç¨‹ç»“æŸæ—¶åº”æ˜¾å¼åœ°å‘ŠçŸ¥å…¶å·²ç»“æŸè¿è¡Œï¼Œå› ä¸ºåè®®æ ˆè¿è¡Œçš„ç›®æ ‡ç³»ç»Ÿå±äºèµ„æºå—é™ç³»ç»Ÿï¼Œå‡¡æ˜¯ä»¥çº¿ç¨‹è¿è¡Œçš„nvtå‘½ä»¤åœ¨
+//* åŒä¸€æ—¶åˆ»åªå…è®¸è¿è¡Œä¸€ä¸ªå®ä¾‹ï¼Œè¿™ä¸ªå‡½æ•°ç¡®ä¿nvtèƒ½å¤Ÿå®‰å…¨è¿è¡Œä¸‹ä¸€ä¸ªçº¿ç¨‹å®ä¾‹
 void nvt_cmd_thread_end(void)
 {
 
@@ -113,8 +120,8 @@ static INT telnet(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
         stArgs.stSrvAddr.usPort = 23;
 
     
-    /* ÔÚÕâÀïÌí¼ÓÏß³Ì/ÈÎÎñÆô¶¯telnet¿Í»§¶ËµÄ´úÂë
-      Ïß³Ì/ÈÎÎñÈë¿Úº¯ÊıÎªtelnet_clt_entry()
+    /* åœ¨è¿™é‡Œæ·»åŠ çº¿ç¨‹/ä»»åŠ¡å¯åŠ¨telnetå®¢æˆ·ç«¯çš„ä»£ç 
+      çº¿ç¨‹/ä»»åŠ¡å…¥å£å‡½æ•°ä¸ºtelnet_clt_entry()
      */
 
     while (!stArgs.bIsCpyEnd)
@@ -131,7 +138,7 @@ static INT reset(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     os_sleep_secs(3); 
     nvt_close(ullNvtHandle); 
 
-    //* ÔÚÕâÀïÌí¼ÓÄ¿±êÏµÍ³µÄ¸´Î»Ö¸Áî
+    //* åœ¨è¿™é‡Œæ·»åŠ ç›®æ ‡ç³»ç»Ÿçš„å¤ä½æŒ‡ä»¤
 
     return 0; 
 }
@@ -194,8 +201,8 @@ static INT nvt_cmd_ping(CHAR argc, CHAR* argv[], ULONGLONG ullNvtHandle)
     stArgs.bIsCpyEnd = FALSE;
     stArgs.ullNvtHandle = ullNvtHandle; 
 
-    /* ÔÚÕâÀïÌí¼ÓÏß³Ì/ÈÎÎñÆô¶¯pingÌ½²â´úÂë
-    Ïß³Ì/ÈÎÎñÈë¿Úº¯ÊıÎªnvt_cmd_ping_entry()
+    /* åœ¨è¿™é‡Œæ·»åŠ çº¿ç¨‹/ä»»åŠ¡å¯åŠ¨pingæ¢æµ‹ä»£ç 
+    çº¿ç¨‹/ä»»åŠ¡å…¥å£å‡½æ•°ä¸ºnvt_cmd_ping_entry()
     */
 
     while (!stArgs.bIsCpyEnd)

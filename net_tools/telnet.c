@@ -1,7 +1,14 @@
 /*
-* ×÷Õß£ºNeo-T£¬×ñÑ­Apache License 2.0¿ªÔ´Ğí¿ÉĞ­Òé
-*
-*/
+ * Copyright 2022-2024 The Onps Project Author All Rights Reserved.
+ *
+ * Authorï¼šNeo-T
+ *
+ * Licensed under the Apache License 2.0 (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * http://www.onps.org.cn/apache2.0.txt
+ *
+ */
 #include "port/datatype.h"
 #include "port/sys_config.h"
 #include "onps_errors.h"
@@ -28,7 +35,7 @@ void telnet_cmd_send(SOCKET hSocket, UCHAR ubCmd, UCHAR ubOption)
     send(hSocket, (UCHAR *)&stCmd, sizeof(ST_TELNETPKT_CMD), 1);
 }
 
-//* Ğ­ÒéÕ»²»Ö§³ÖµÄĞ­ÉÌÑ¡ÏîÒ»ÂÉ½ûÖ¹¼¤»î£¬¸Ãº¯Êı°´ÕÕÕâ¸öÔ­Ôò»ØÀ¡Ó¦´ğ
+//* åè®®æ ˆä¸æ”¯æŒçš„åå•†é€‰é¡¹ä¸€å¾‹ç¦æ­¢æ¿€æ´»ï¼Œè¯¥å‡½æ•°æŒ‰ç…§è¿™ä¸ªåŸåˆ™å›é¦ˆåº”ç­”
 void telnet_cmd_ack_default(SOCKET hSocket, UCHAR ubCmd, UCHAR ubOption)
 {
     if (TELNETCMD_WILL == ubCmd)
@@ -44,7 +51,7 @@ void telnet_cmd_ack_default(SOCKET hSocket, UCHAR ubCmd, UCHAR ubOption)
 
 void telnet_req_term_type(SOCKET hSocket)
 {
-    //* ·¢ËÍÇëÇó£¬ÒªÇó¶Ô¶ËÉÏ±¨ÖÕ¶ËÀàĞÍ
+    //* å‘é€è¯·æ±‚ï¼Œè¦æ±‚å¯¹ç«¯ä¸ŠæŠ¥ç»ˆç«¯ç±»å‹
     ST_TELNETPKT_SOPT_TERMTYPE stSubOptTermType;
     stSubOptTermType.ubSIAC = TELNETCMD_IAC;
     stSubOptTermType.ubSB = TELNETCMD_SB;
